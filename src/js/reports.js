@@ -133,7 +133,7 @@
   }
 
   /* Deckblatt-Datenblock für alle Reports */
-  function projektKopfBlock(doc, projekt) {
+  function projektKopfBlock(doc, projekt, einstellungen) {
     var x = doc.rand.links, b = doc.inhaltsBreite();
     var spalte = b / 3;
     var felder = [
@@ -146,7 +146,11 @@
       ['Anlagen-Nr.', projekt.anlagenNr],
       ['Kunden-Nr.', projekt.kundenNr],
       ['Aufmaßdatum', datumDe(projekt.aufmassDatum)],
-      ['Bearbeiter', projekt.bearbeiter]
+      ['Bearbeiter', projekt.bearbeiter],
+      ['Art der Anlage', (K.ANLAGENART.filter(function (a) { return a.id === projekt.anlagenart; })[0] || {}).label || ''],
+      ['Mechanisches System', projekt.systemMechanik ? K.systemLabel(projekt.systemMechanik, einstellungen && einstellungen.eigeneSysteme) : ''],
+      ['Elektronisches System', projekt.systemElektronik ? K.systemLabel(projekt.systemElektronik, einstellungen && einstellungen.eigeneSysteme) : ''],
+      ['Detail zur Anlage', projekt.systemDetail]
     ].filter(function (f) { return txt(f[1]); });
 
     if (!felder.length) return;
@@ -300,7 +304,7 @@
     });
     kopfUndFussSetzen(doc, projekt, einstellungen, 'Türliste / Aufmaßprotokoll');
     doc.neueSeite();
-    projektKopfBlock(doc, projekt);
+    projektKopfBlock(doc, projekt, einstellungen);
 
     var gruppen = M.tuerenGruppiert(projekt);
     if (!projekt.tueren.length) {
@@ -344,9 +348,10 @@
           var zusatz = kategorieZusatz(t);
           return txt(t.bezeichnung) + (zusatz ? ('\n' + zusatz) : ''); } },
       { titel: 'Anz.',           breite: 0.032, align: 'center', render: function (t) { return String(t.anzahl || 1); } },
-      { titel: 'System',         breite: 0.115, render: function (t) {
-          var s = t.systemId ? K.systemLabel(t.systemId, einstellungen && einstellungen.eigeneSysteme) : '–';
-          return s + (t.systemDetail ? ('\n' + t.systemDetail) : ''); } },
+      { titel: 'Ausführung',     breite: 0.115, render: function (t) {
+          var sid = M.tuerSystemId(projekt, t);
+          var s = sid ? K.systemLabel(sid, einstellungen && einstellungen.eigeneSysteme) : '–';
+          return s + (t.systemNotiz ? ('\n' + t.systemNotiz) : ''); } },
       { titel: 'Zylinder',       breite: 0.125, render: function (t) {
           return K.zylinderText(t) || '–'; } },
       { titel: 'Maß a/i',        breite: 0.055, align: 'center', render: zylinderMass },
@@ -413,10 +418,16 @@
     var fotos = mitFotos ? (t.fotos || []) : [];
 
     var felder = [
-      ['System', t.systemId ? K.systemLabel(t.systemId, einstellungen && einstellungen.eigeneSysteme) : '–'],
-      ['Technologie', (K.TECHNOLOGIE.filter(function (x2) {
-          return x2.id === K.systemTechnologie(t.systemId, einstellungen && einstellungen.eigeneSysteme);
-        })[0] || {}).label || '–'],
+      ['System', (function () {
+          var sid = M.tuerSystemId(projekt, t);
+          return sid ? K.systemLabel(sid, einstellungen && einstellungen.eigeneSysteme) : '–';
+        })()],
+      ['Ausführung', (function () {
+          var tech = M.tuerTechnologie(projekt, t);
+          return tech === 'elektronik' ? 'Elektronisch'
+               : tech === 'mechanik' ? 'Mechanisch'
+               : tech === 'hybrid' ? 'Hybrid' : '–';
+        })()],
       ['Kategorie', t.kategorie],
       ['Anzahl', String(t.anzahl || 1)],
       ['Zylinder', K.zylinderText(t) || (t.brauchtZylinder ? '' : 'kein Zylinder')],
@@ -437,7 +448,7 @@
       ['Stulpmaß', t.stulpmass],
       ['Bohrbild', t.bohrbild],
       ['Türmaterial', t.tuermaterial],
-      ['Systemdetail', t.systemDetail, true],
+      ['Besonderheit zur Tür', t.systemNotiz, true],
       ['Maß-Bemerkung', t.masseBemerkung, true],
       ['Bestand Fabrikat', t.bestandFabrikat],
       ['Bestand Zylinderart', t.bestandZylinderart],
@@ -637,7 +648,7 @@
     });
     kopfUndFussSetzen(doc, projekt, einstellungen, 'Kreuzschließplan / Zutrittsmatrix');
     doc.neueSeite();
-    projektKopfBlock(doc, projekt);
+    projektKopfBlock(doc, projekt, einstellungen);
 
     var schliessungen = projekt.schliessungen.slice().sort(function (a, b2) {
       return (a.sort - b2.sort) || String(a.kuerzel).localeCompare(String(b2.kuerzel), 'de', { numeric: true });
@@ -825,7 +836,7 @@
     });
     kopfUndFussSetzen(doc, projekt, einstellungen, 'Materialliste / Stückliste');
     doc.neueSeite();
-    projektKopfBlock(doc, projekt);
+    projektKopfBlock(doc, projekt, einstellungen);
 
     var liste = M.materialliste(projekt, einstellungen && einstellungen.eigeneSysteme);
     var b = doc.inhaltsBreite();
@@ -910,7 +921,7 @@
     });
     kopfUndFussSetzen(doc, projekt, einstellungen, 'Prüfprotokoll Aufmaß');
     doc.neueSeite();
-    projektKopfBlock(doc, projekt);
+    projektKopfBlock(doc, projekt, einstellungen);
 
     var probleme = M.pruefeProjekt(projekt);
     var b = doc.inhaltsBreite();

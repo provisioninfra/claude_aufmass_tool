@@ -7,6 +7,19 @@
 (function (global) {
   'use strict';
 
+  /* --- Anlagenart des Projekts -------------------------------------------
+   * Wird einmal je Projekt festgelegt. Bei "hybrid" wird an der einzelnen
+   * Tür nur noch entschieden, ob sie mechanisch oder elektronisch ausgeführt
+   * wird - das System selbst steht bereits fest. */
+  var ANLAGENART = [
+    { id: 'mechanik',    label: 'Mechanische Schließanlage',
+      hinweis: 'Ein mechanisches System für das gesamte Objekt.' },
+    { id: 'elektronik',  label: 'Elektronische Schließanlage',
+      hinweis: 'Ein elektronisches System für das gesamte Objekt.' },
+    { id: 'hybrid',      label: 'Hybrid (Mechanik und Elektronik)',
+      hinweis: 'Zwei Systeme im Objekt. Je Tür wird nur noch gewählt, welches davon zum Einsatz kommt.' }
+  ];
+
   /* --- Technologie-Grundtyp einer Tür ------------------------------------ */
   var TECHNOLOGIE = [
     { id: 'mechanisch',  label: 'Mechanisch' },
@@ -171,12 +184,14 @@
 
   var ZYLINDER_AUSFUEHRUNG = [
     'Not- und Gefahrenfunktion',
-    'Freidreh / Komfort',
+    'Freidreh',
+    'Comfort',
     'Anti-Panik',
     'Wetterschutz',
     'erhöhter Bohrschutz',
     'Ziehschutz',
-    'gleichschließend'
+    'gleichschließend',
+    'Sonderlänge'
   ];
 
   /* Nur bei Knaufzylinder abgefragt */
@@ -363,6 +378,16 @@
     if (s.name.indexOf(s.hersteller) === 0) return s.name;
     return s.hersteller + ' ' + s.name;
   }
+  /* Systeme nach Technologie filtern - für die Auswahl im Projekt. */
+  function systemeNachTyp(typ, extraSysteme) {
+    return SYSTEME.concat(extraSysteme || []).filter(function (s) {
+      if (s.id === 'sonstiges') return true;
+      if (typ === 'elektronisch') return s.typ === 'elektronisch' || s.typ === 'hybrid';
+      if (typ === 'mechanisch') return s.typ === 'mechanisch' || s.typ === 'hybrid';
+      return true;
+    });
+  }
+
   /* Die Technologie ergibt sich aus dem System und wird deshalb nicht
    * mehr getrennt abgefragt. */
   function systemTechnologie(systemId, extraSysteme) {
@@ -384,8 +409,10 @@
   }
 
   global.Katalog = {
+    ANLAGENART: ANLAGENART,
     TECHNOLOGIE: TECHNOLOGIE,
     SYSTEME: SYSTEME,
+    systemeNachTyp: systemeNachTyp,
     /* Zylinder in unabhängigen Angaben */
     ZYLINDER_BAUFORM: ZYLINDER_BAUFORM,
     ZYLINDER_AUSFUEHRUNG: ZYLINDER_AUSFUEHRUNG,

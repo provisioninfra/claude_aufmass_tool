@@ -50,6 +50,20 @@ function pruefe(bedingung, text, info) {
   const felder = await page.$$('main input[type=text]');
   await felder[2].fill('Bürogebäude Königsallee 47');            // Objekt
   await page.fill('input[type=date]', '2026-09-13');
+
+  // Schließanlage einmal für das gesamte Projekt festlegen
+  const anlagenart = page.locator('main select').filter({
+    has: page.locator('option[value="hybrid"]') }).first();
+  await anlagenart.selectOption('elektronik');
+  await page.waitForTimeout(300);
+  const systemWahl = page.locator('main select').filter({
+    has: page.locator('option[value="evva-airkey"]') }).first();
+  await systemWahl.selectOption('evva-airkey');
+  await page.waitForTimeout(400);
+  const mechInElektronik = await page.locator('main select')
+    .filter({ has: page.locator('option[value="evva-4ks"]') }).count();
+  pruefe(mechInElektronik === 0, 'bei Elektronikanlage wird kein Mechaniksystem angeboten');
+
   await page.waitForTimeout(900);                                 // Autosave abwarten
   const statusText = await page.textContent('#speicher-status');
   pruefe(/Gespeichert/.test(statusText), 'Autospeicherung greift', 'Status: ' + statusText);
@@ -78,16 +92,18 @@ function pruefe(bedingung, text, info) {
   await page.fill('.dialog input[type=text] >> nth=0', 'A-EG-01');
   await page.fill('.dialog input[type=text] >> nth=1', 'Haupteingang');
 
-  // System wählen — die Technologie muss sich daraus ergeben, nicht gewählt werden
-  const systemWahl = page.locator('.dialog select').filter({
-    has: page.locator('option[value="evva-airkey"]') }).first();
-  await systemWahl.selectOption('evva-airkey');
-  await page.waitForTimeout(250);
-  const technologie = await page.locator('.dialog .marke-pille').first().textContent();
-  pruefe(/Elektronisch/i.test(technologie), 'Technologie wird aus dem System abgeleitet', technologie);
-  const technologieFelder = await page.locator('.dialog select').filter({
-    has: page.locator('option:text-is("Mechanisch")') }).count();
-  pruefe(technologieFelder === 0, 'Technologie ist nicht mehr getrennt auswählbar');
+  // Das System steht im Projekt und darf hier nicht erneut wählbar sein
+  const systemImDialog = await page.locator('.dialog select')
+    .filter({ has: page.locator('option[value="evva-airkey"]') }).count();
+  pruefe(systemImDialog === 0, 'an der Tür gibt es keine Systemauswahl mehr');
+  const angezeigtesSystem = await page.locator('.dialog .marke-pille').allTextContents();
+  pruefe(angezeigtesSystem.some(x => /AirKey/.test(x)),
+    'das System der Anlage wird an der Tür nur angezeigt', angezeigtesSystem.join(' | '));
+  pruefe(angezeigtesSystem.some(x => /Elektronische Schließanlage/.test(x)),
+    'die Art der Anlage wird an der Tür angezeigt', angezeigtesSystem.join(' | '));
+  const hybridFrage = await page.locator('.dialog select')
+    .filter({ has: page.locator('option[value="mechanik"]') }).count();
+  pruefe(hybridFrage === 0, 'bei reiner Anlage keine Frage nach der Ausführung');
 
   // Zylinder: Bauform ist eine einzige Auswahl ohne Technologieangabe
   const bauformWahl = page.locator('.dialog select').filter({
@@ -98,6 +114,23 @@ function pruefe(bedingung, text, info) {
   pruefe(!bauformen.some(o => /^Kein /i.test(o)), 'keine "Kein Zylinder"-Auswahl neben dem Schalter');
   await bauformWahl.selectOption({ label: 'Doppelknaufzylinder' });
   await page.waitForTimeout(200);
+
+  // Freidreh und Comfort müssen einzeln anklickbar sein
+  const chips = await page.locator('.dialog .chip').allTextContents();
+  pruefe(chips.includes('Freidreh') && chips.includes('Comfort'),
+    'Freidreh und Comfort sind getrennt anklickbar',
+    chips.filter(c => /Freidreh|Comfort/.test(c)).join(' | '));
+
+  // Knaufzylinder: Knaufseite mit Bezug auf den festen Knauf
+  await bauformWahl.selectOption({ label: 'Knaufzylinder' });
+  await page.waitForTimeout(250);
+  const knaufLabel = await page.locator('.dialog label').filter({ hasText: 'Knaufseite' }).first().textContent();
+  pruefe(/vom mech\. festen Knauf/.test(knaufLabel),
+    'Knaufseite nennt den Bezug auf den festen Knauf', knaufLabel.trim());
+  await bauformWahl.selectOption({ label: 'Doppelknaufzylinder' });
+  await page.waitForTimeout(250);
+  const knaufWeg = await page.locator('.dialog label').filter({ hasText: 'Knaufseite' }).count();
+  pruefe(knaufWeg === 0, 'beim Doppelknaufzylinder entfällt die Knaufseite');
 
   await page.click('.dialog button:has-text("Tür speichern")');
   await page.waitForTimeout(400);

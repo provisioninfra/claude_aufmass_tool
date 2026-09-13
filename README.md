@@ -24,12 +24,28 @@ Datenübertragung statt.
 Jede Angabe wird **genau einmal** erfasst. Was sich aus einer anderen Angabe
 ergibt, wird nicht erneut gefragt:
 
+### Die Schließanlage gilt für das ganze Projekt
+
+Unter *Stammdaten → Schließanlage* wird einmal festgelegt:
+
+* **Art der Anlage**: Mechanik, Elektronik oder Hybrid
+* **das System** je Technologie (bei Hybrid beide)
+
+An der einzelnen Tür wird das System **nicht erneut gewählt**. Nur bei einer
+Hybridanlage steht dort noch eine Frage: ob diese Tür mechanisch oder
+elektronisch ausgeführt wird. Das zugehörige System ergibt sich daraus
+(`Model.tuerSystemId`).
+
+Für den Ausnahmefall gibt es je Tür das Feld *Besonderheit zu dieser Tür* —
+etwa für ein Fremdfabrikat im Bestand. Es bleibt leer, solange nichts abweicht.
+
 | Angabe | Wo sie erfasst wird | Was daraus folgt |
 |---|---|---|
-| System | Abschnitt *Schließsystem* | die Technologie (mechanisch/elektronisch) wird abgeleitet und nur angezeigt |
+| Art der Anlage und System | *Stammdaten → Schließanlage* | gilt für alle Türen; die Technologie folgt daraus |
+| Ausführung der Tür | nur bei Hybridanlage im Abschnitt *Anlage* | bestimmt, welches der beiden Systeme für diese Tür gilt |
 | Zylinder-Bauform | Abschnitt *Bauteile* | Doppelzylinder, Halbzylinder, Knaufzylinder … – ohne Technologie im Namen |
-| Zylinder-Ausführung | Abschnitt *Bauteile* | Freidreh, Anti-Panik, Wetterschutz, Not- und Gefahrenfunktion |
-| Knaufseite | nur bei Bauform „Knaufzylinder" | beim Doppelknaufzylinder ist sie bereits bestimmt |
+| Zylinder-Ausführung | Abschnitt *Bauteile* | Freidreh, Comfort, Anti-Panik, Wetterschutz, Not- und Gefahrenfunktion – jede einzeln anklickbar |
+| Knaufseite (vom mech. festen Knauf) | nur bei Bauform „Knaufzylinder" | beim Doppelknaufzylinder ist sie bereits bestimmt |
 | Sicherheitsklasse | nur bei Beschlag-Bauform „Schutzbeschlag" | ES0 bis ES3 |
 | Bauliche Anforderungen | Abschnitt *Zutritt und Anforderungen* | Brandschutz, Rauchschutz, Fluchtweg, RC, VdS |
 
@@ -41,10 +57,12 @@ Widersprüche werden **gemeldet statt doppelt abgefragt**: Ist eine Tür als
 Flucht- und Rettungsweg gekennzeichnet, das Schloss hat aber keine
 Panikfunktion, erscheint ein Hinweis direkt im Formular und im Prüfprotokoll.
 
-Aufmaße aus der früheren Fassung werden beim Öffnen automatisch überführt
-(`Model.tuerUeberfuehren`): „Elektronikzylinder Freidreh / Komfort" wird zu
-Bauform „Doppelknaufzylinder" plus Ausführung „Freidreh / Komfort". Es gehen
-keine Angaben verloren.
+Aufmaße aus der früheren Fassung werden beim Öffnen automatisch überführt:
+„Elektronikzylinder Freidreh / Komfort" wird zu Bauform „Doppelknaufzylinder"
+plus Ausführung „Freidreh". Trug früher jede Tür ihr eigenes System, wird
+daraus die Anlage des Projekts erschlossen (das je Technologie häufigste
+System); weicht eine einzelne Tür davon ab, bleibt der Hinweis als
+*Besonderheit zu dieser Tür* erhalten. Es gehen keine Angaben verloren.
 
 ## Unterstützte Systeme
 

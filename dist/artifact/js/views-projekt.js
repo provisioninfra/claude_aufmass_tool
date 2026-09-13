@@ -209,6 +209,76 @@
       ])
     ]));
 
+    /* --- Schließanlage: gilt für das gesamte Projekt --------------------- */
+    var anlageKarte = el('div', { class: 'karte' });
+    seite.appendChild(anlageKarte);
+    anlageZeichnen();
+
+    function anlageZeichnen() {
+      A.leeren(anlageKarte);
+      var eigene = (Zustand.einstellungen && Zustand.einstellungen.eigeneSysteme) || [];
+      function systemOptionen(typ) {
+        return K.systemeNachTyp(typ, eigene).map(function (sy) {
+          return { id: sy.id, label: K.systemLabel(sy.id, eigene) };
+        });
+      }
+
+      anlageKarte.appendChild(el('h2', { text: 'Schließanlage' }));
+      anlageKarte.appendChild(el('p', { class: 'hinweis',
+        text: 'Diese Angaben gelten für das gesamte Projekt. An der einzelnen Tür muss das System nicht erneut gewählt werden.' }));
+
+      var artFelder = el('div', { class: 'raster' }, [
+        A.auswahlFeld(p, 'anlagenart', 'Art der Anlage', K.ANLAGENART, {
+          leerText: '– bitte wählen –',
+          beiAenderung: function () { anlageZeichnen(); }
+        })
+      ]);
+      anlageKarte.appendChild(artFelder);
+
+      var art = K.ANLAGENART.filter(function (a) { return a.id === p.anlagenart; })[0];
+      if (art) {
+        anlageKarte.appendChild(el('p', { class: 'hinweis', style: { marginTop: '8px' }, text: art.hinweis }));
+      }
+
+      if (!p.anlagenart) {
+        anlageKarte.appendChild(el('div', { class: 'meldung info', style: { marginTop: '12px' } },
+          el('div', { text: 'Bitte zuerst die Art der Anlage festlegen – davon hängt ab, welche Angaben an den Türen überhaupt nötig sind.' })));
+        return;
+      }
+
+      var systemFelder = el('div', { class: 'raster', style: { marginTop: '14px' } });
+      if (p.anlagenart === 'mechanik' || p.anlagenart === 'hybrid') {
+        systemFelder.appendChild(A.auswahlFeld(p, 'systemMechanik',
+          'Mechanisches System', systemOptionen('mechanisch'),
+          { leerText: '– bitte wählen –', beiAenderung: function () { anlageZeichnen(); } }));
+      }
+      if (p.anlagenart === 'elektronik' || p.anlagenart === 'hybrid') {
+        systemFelder.appendChild(A.auswahlFeld(p, 'systemElektronik',
+          'Elektronisches System', systemOptionen('elektronisch'),
+          { leerText: '– bitte wählen –', beiAenderung: function () { anlageZeichnen(); } }));
+      }
+      systemFelder.appendChild(A.textFeld(p, 'systemDetail', 'Detail / Variante zur Anlage',
+        { platzhalter: 'z. B. Profil, Sonderfarbe, Schließfolge' }));
+      anlageKarte.appendChild(systemFelder);
+
+      /* Hinweise der gewählten Systeme anzeigen */
+      [p.systemMechanik, p.systemElektronik].filter(Boolean).forEach(function (sid) {
+        var sys = K.systemById(sid, eigene);
+        if (sys && sys.hinweis) {
+          anlageKarte.appendChild(el('p', { class: 'zart', style: { marginTop: '6px' },
+            text: K.systemLabel(sid, eigene) + ': ' + sys.hinweis }));
+        }
+      });
+
+      if (!M.anlageVollstaendig(p)) {
+        anlageKarte.appendChild(el('div', { class: 'meldung warn', style: { marginTop: '12px' } },
+          el('div', { text: 'Es fehlt noch ein System. Solange es nicht gewählt ist, bleiben die Türangaben unvollständig.' })));
+      } else if (p.anlagenart === 'hybrid') {
+        anlageKarte.appendChild(el('div', { class: 'meldung info', style: { marginTop: '12px' } },
+          el('div', { text: 'Hybridanlage: An jeder Tür wird nur noch angegeben, ob sie mechanisch oder elektronisch ausgeführt wird.' })));
+      }
+    }
+
     seite.appendChild(el('div', { class: 'karte' }, [
       el('h2', { text: 'Ansprechpartner vor Ort' }),
       el('div', { class: 'raster' }, [

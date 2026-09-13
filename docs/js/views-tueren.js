@@ -77,7 +77,10 @@
     });
     systemWahl.appendChild(el('option', { value: '', text: 'Alle Systeme' }));
     var verwendete = {};
-    p.tueren.forEach(function (t) { if (t.systemId) verwendete[t.systemId] = true; });
+    p.tueren.forEach(function (t) {
+      var sid = M.tuerSystemId(p, t);
+      if (sid) verwendete[sid] = true;
+    });
     Object.keys(verwendete).forEach(function (id) {
       systemWahl.appendChild(el('option', { value: id, text: K.systemLabel(id, eigeneListe('eigeneSysteme')) }));
     });
@@ -98,14 +101,14 @@
 
     function passt(t) {
       if (f.status && t.status !== f.status) return false;
-      if (f.system && t.systemId !== f.system) return false;
+      if (f.system && M.tuerSystemId(p, t) !== f.system) return false;
       if (f.struktur === '__ohne__' && t.strukturId) return false;
       if (f.struktur && f.struktur !== '__ohne__' && t.strukturId !== f.struktur) return false;
       if (f.suche) {
         var q = f.suche.toLowerCase();
         var heu = [t.nummer, t.bezeichnung, t.kategorie, t.notiz, t.nacharbeitText,
-                   K.zylinderText(t), K.beschlagText(t), K.schlossText(t), t.systemDetail,
-                   K.systemLabel(t.systemId, eigeneListe('eigeneSysteme')),
+                   K.zylinderText(t), K.beschlagText(t), K.schlossText(t),
+                   K.systemLabel(M.tuerSystemId(p, t), eigeneListe('eigeneSysteme')), t.systemNotiz,
                    t.zutrittsseite, (t.tueranforderungen || []).join(' ')].join(' ').toLowerCase();
         if (heu.indexOf(q) === -1) return false;
       }
@@ -152,9 +155,11 @@
   }
 
   function tuerZeile(t, neuZeichnen) {
+    var p = Zustand.projekt;
     var status = K.statusById(t.status);
     var details = [];
-    if (t.systemId) details.push(K.systemLabel(t.systemId, eigeneListe('eigeneSysteme')));
+    var sid = M.tuerSystemId(p, t);
+    if (sid) details.push(K.systemLabel(sid, eigeneListe('eigeneSysteme')));
     var zyl = K.zylinderText(t);
     if (zyl) details.push(zyl);
     if (t.masseAussen || t.masseInnen) details.push((t.masseAussen || '–') + '/' + (t.masseInnen || '–') + ' mm');
@@ -232,23 +237,51 @@
       ])
     ]));
 
-    /* --- 2. System ---------------------------------------------------------
-     * Die Technologie wird aus dem System abgeleitet und nur angezeigt.
-     * Die Komponentenliste enthält ausschließlich Bauteile, die nicht schon
-     * über Zylinder, Beschlag oder Schloss erfasst werden. */
+    /* --- 2. Anlage --------------------------------------------------------
+     * Das System steht im Projekt. Hier wird nur bei einer Hybridanlage
+     * entschieden, welche Seite für diese Tür gilt. */
     var systemHinweis = el('p', { class: 'hinweis', style: { margin: '8px 0 0' } });
     var komponentenBereich = el('div');
-    var technologieAnzeige = el('span', { class: 'marke-pille' });
+    var anlageAnzeige = el('div', { class: 'zeile-verteilt' });
+    var hybridWahl = el('div');
 
     function systemAbhaengigesZeichnen() {
-      var sys = K.systemById(t.systemId, eigeneListe('eigeneSysteme'));
-      systemHinweis.textContent = sys && sys.hinweis ? sys.hinweis : '';
+      var eigene = eigeneListe('eigeneSysteme');
+      var sid = M.tuerSystemId(p, t);
+      var sys = K.systemById(sid, eigene);
 
-      var techId = K.systemTechnologie(t.systemId, eigeneListe('eigeneSysteme'));
-      var tech = K.TECHNOLOGIE.filter(function (x) { return x.id === techId; })[0];
-      technologieAnzeige.textContent = tech ? tech.label : 'noch offen';
-      technologieAnzeige.className = 'marke-pille ' +
-        (techId === 'elektronisch' ? 'blau' : techId === 'hybrid' ? 'gelb' : '');
+      A.leeren(anlageAnzeige);
+      if (!p.anlagenart) {
+        anlageAnzeige.appendChild(el('div', { class: 'meldung warn', style: { margin: '0', width: '100%' } },
+          el('div', {}, [
+            el('b', { text: 'Für dieses Projekt ist noch keine Schließanlage festgelegt. ' }),
+            'Bitte unter „Stammdaten“ die Art der Anlage und das System wählen.'
+          ])));
+      } else {
+        anlageAnzeige.appendChild(el('span', { class: 'marke-pille blau',
+          text: (K.ANLAGENART.filter(function (a) { return a.id === p.anlagenart; })[0] || {}).label || p.anlagenart }));
+        if (sid) {
+          anlageAnzeige.appendChild(el('span', { class: 'marke-pille', text: K.systemLabel(sid, eigene) }));
+        }
+        if (p.systemDetail) {
+          anlageAnzeige.appendChild(el('span', { class: 'zart', text: p.systemDetail }));
+        }
+      }
+
+      /* Nur bei Hybrid ist an der Tür noch etwas zu entscheiden */
+      A.leeren(hybridWahl);
+      if (p.anlagenart === 'hybrid') {
+        hybridWahl.appendChild(el('div', { class: 'raster', style: { marginTop: '12px' } }, [
+          A.auswahlFeld(t, 'tuerTechnologie', 'Diese Tür wird ausgeführt als', [
+            { id: 'mechanik',   label: 'Mechanisch' + (p.systemMechanik ? '  –  ' + K.systemLabel(p.systemMechanik, eigene) : '') },
+            { id: 'elektronik', label: 'Elektronisch' + (p.systemElektronik ? '  –  ' + K.systemLabel(p.systemElektronik, eigene) : '') }
+          ], { leerText: '– bitte wählen –', beiAenderung: function () { systemAbhaengigesZeichnen(); } })
+        ]));
+      } else if (t.tuerTechnologie) {
+        t.tuerTechnologie = '';   /* bei reiner Anlage gegenstandslos */
+      }
+
+      systemHinweis.textContent = sys && sys.hinweis ? sys.hinweis : '';
 
       A.leeren(komponentenBereich);
       if (sys && sys.komponenten && sys.komponenten.length) {
@@ -260,26 +293,20 @@
       zusammenfassungenAktualisieren();
     }
 
-    var systemOptionen = alleSysteme().map(function (sy) {
-      return { id: sy.id, label: K.systemLabel(sy.id, eigeneListe('eigeneSysteme')) };
-    });
-
-    inhalt.appendChild(abschnitt('Schließsystem', true, [
-      el('div', { class: 'raster' }, [
-        A.auswahlFeld(t, 'systemId', 'System', systemOptionen, {
-          leerText: '– kein System gewählt –',
-          beiAenderung: function () { systemAbhaengigesZeichnen(); }
-        }),
-        A.textFeld(t, 'systemDetail', 'Systemdetail / Variante',
-          { platzhalter: 'z. B. Sonderfarbe, Profil, Zusatz' }),
-        el('div', { class: 'feld' }, [
-          el('label', { text: 'Technologie' }),
-          el('div', { style: { paddingTop: '10px' } }, technologieAnzeige)
-        ])
-      ]),
-      systemHinweis, komponentenBereich
+    inhalt.appendChild(abschnitt('Anlage', true, [
+      anlageAnzeige,
+      hybridWahl,
+      systemHinweis,
+      komponentenBereich,
+      el('div', { class: 'raster', style: { marginTop: '12px' } }, [
+        A.textFeld(t, 'systemNotiz', 'Besonderheit zu dieser Tür <span class="einheit">(nur bei Abweichung)</span>',
+          { platzhalter: 'z. B. Fremdfabrikat im Bestand, Sonderausführung' })
+      ])
     ], function () {
-      return t.systemId ? K.systemLabel(t.systemId, eigeneListe('eigeneSysteme')) : 'kein System gewählt';
+      var sid = M.tuerSystemId(p, t);
+      if (!p.anlagenart) return 'Anlage noch nicht festgelegt';
+      if (p.anlagenart === 'hybrid' && !t.tuerTechnologie) return 'Ausführung noch offen';
+      return sid ? K.systemLabel(sid, eigeneListe('eigeneSysteme')) : '';
     }));
 
     /* --- 3. Bauteile -------------------------------------------------------
@@ -307,7 +334,8 @@
         ]);
         /* Knaufseite ist nur beim einfachen Knaufzylinder eine offene Frage */
         if (t.zylinderBauform === 'Knaufzylinder') {
-          zylRaster.appendChild(A.auswahlFeld(t, 'zylinderKnaufseite', 'Knaufseite', K.KNAUFSEITE));
+          zylRaster.appendChild(A.auswahlFeld(t, 'zylinderKnaufseite',
+            'Knaufseite <span class="einheit">(vom mech. festen Knauf)</span>', K.KNAUFSEITE));
         } else if (t.zylinderKnaufseite) {
           t.zylinderKnaufseite = '';
         }
@@ -485,7 +513,7 @@
 
     function elektronikSichtbarkeit() {
       if (!elektronikAbschnitt) return;   /* wird beim Aufbau noch nicht gebraucht */
-      var zeigen = K.istElektronisch(t.systemId, eigeneListe('eigeneSysteme')) || t.brauchtWandleser;
+      var zeigen = M.istTuerElektronisch(p, t) || t.brauchtWandleser;
       elektronikAbschnitt.style.display = zeigen ? '' : 'none';
     }
 
@@ -659,7 +687,7 @@
   function letzteTuerMerken(t) {
     /* Angaben, die sich beim Abarbeiten einer Etage meist wiederholen */
     letzteTuer = {
-      strukturId: t.strukturId, etage: t.etage, systemId: t.systemId,
+      strukturId: t.strukturId, etage: t.etage, tuerTechnologie: t.tuerTechnologie,
       kategorie: t.kategorie, nummer: t.nummer,
       brauchtZylinder: t.brauchtZylinder, brauchtBeschlag: t.brauchtBeschlag,
       brauchtSchloss: t.brauchtSchloss, brauchtWandleser: t.brauchtWandleser,

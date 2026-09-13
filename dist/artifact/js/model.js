@@ -40,6 +40,15 @@
       email: '',
       anlagenNr: '',
       bearbeiter: '',
+
+      /* --- Schließsystem der Anlage --------------------------------------
+       * Gilt für das gesamte Projekt. Nur bei der Anlagenart "hybrid" wird
+       * je Tür entschieden, welches der beiden Systeme zum Einsatz kommt. */
+      anlagenart: '',             // 'mechanik' | 'elektronik' | 'hybrid'
+      systemMechanik: '',         // bei 'mechanik' und 'hybrid'
+      systemElektronik: '',       // bei 'elektronik' und 'hybrid'
+      systemDetail: '',           // Freitext zur Anlage
+
       aufmassDatum: heute(),
       bemerkung: '',
       erstellt: new Date().toISOString(),
@@ -49,6 +58,45 @@
       schliessungen: [],  // Spalten des Kreuzschließplans
       matrix: {}          // "tuerId|schliessungId" -> BerechtigungsId
     };
+  }
+
+  /* =========================================================================
+   * Welches System gilt für eine bestimmte Tür?
+   * ======================================================================
+   * Bei einer reinen Anlage ergibt es sich unmittelbar aus dem Projekt.
+   * Bei einer Hybridanlage entscheidet die Angabe an der Tür.
+   */
+  function tuerSystemId(projekt, tuer) {
+    if (!projekt) return '';
+    if (projekt.anlagenart === 'mechanik') return projekt.systemMechanik || '';
+    if (projekt.anlagenart === 'elektronik') return projekt.systemElektronik || '';
+    if (projekt.anlagenart === 'hybrid') {
+      if (tuer && tuer.tuerTechnologie === 'mechanik') return projekt.systemMechanik || '';
+      if (tuer && tuer.tuerTechnologie === 'elektronik') return projekt.systemElektronik || '';
+      return '';   /* an dieser Tür noch nicht entschieden */
+    }
+    return '';
+  }
+
+  /* Technologie dieser Tür: bei reinen Anlagen aus der Anlagenart,
+   * bei Hybrid aus der Entscheidung an der Tür. */
+  function tuerTechnologie(projekt, tuer) {
+    if (!projekt) return '';
+    if (projekt.anlagenart === 'hybrid') return (tuer && tuer.tuerTechnologie) || '';
+    return projekt.anlagenart || '';
+  }
+
+  function istTuerElektronisch(projekt, tuer) {
+    return tuerTechnologie(projekt, tuer) === 'elektronik';
+  }
+
+  /* Ist die Anlage überhaupt schon festgelegt? */
+  function anlageVollstaendig(projekt) {
+    if (!projekt || !projekt.anlagenart) return false;
+    if (projekt.anlagenart === 'mechanik') return !!projekt.systemMechanik;
+    if (projekt.anlagenart === 'elektronik') return !!projekt.systemElektronik;
+    if (projekt.anlagenart === 'hybrid') return !!projekt.systemMechanik && !!projekt.systemElektronik;
+    return false;
   }
 
   /* --- Struktur ----------------------------------------------------------
@@ -80,11 +128,11 @@
       status: 'offen',
 
       /* --- System ---
-       * Die Technologie wird aus dem System abgeleitet (Katalog.systemTechnologie)
-       * und deshalb nicht getrennt gespeichert. Identmedien gehören zur
-       * Schließung im Schließplan, nicht zur einzelnen Tür. */
-      systemId: '',
-      systemDetail: '',           // Freitext, z.B. Profil/Variante
+       * Das System steht im Projekt. Hier wird nur bei einer Hybridanlage
+       * entschieden, ob diese Tür mechanisch oder elektronisch ausgeführt
+       * wird; bei reinen Anlagen ergibt sich alles aus dem Projekt. */
+      tuerTechnologie: '',        // nur bei Hybridanlage: 'mechanik' | 'elektronik'
+      systemNotiz: '',            // Abweichung oder Besonderheit zu dieser Tür
 
       /* --- Bauteilbedarf ---
        * Jede Angabe wird genau einmal erfasst. Die Technologie steckt im
@@ -320,7 +368,7 @@
 
     projekt.tueren.forEach(function (t) {
       var anzahl = parseInt(t.anzahl, 10); if (!anzahl || anzahl < 1) anzahl = 1;
-      var sysId = t.systemId || 'nicht-zugeordnet';
+      var sysId = tuerSystemId(projekt, t) || 'nicht-zugeordnet';
       var b = bucket(sysId);
       b.tueren += anzahl;
 
@@ -385,7 +433,7 @@
       s.fotos += (t.fotos || []).length;
       if (t.nacharbeit) s.nacharbeit++;
       s.proStatus[t.status] = (s.proStatus[t.status] || 0) + 1;
-      var tech = kat() ? kat().systemTechnologie(t.systemId) : 'offen';
+      var tech = tuerTechnologie(projekt, t) || 'offen';
       s.proTechnologie[tech] = (s.proTechnologie[tech] || 0) + 1;
     });
     s.schliessungen = projekt.schliessungen.length;
@@ -397,6 +445,13 @@
   function pruefeProjekt(projekt) {
     var probleme = [];
     var nummern = {};
+
+    /* Die Anlage gilt für das gesamte Projekt und wird zuerst geprüft. */
+    if (!projekt.anlagenart) {
+      probleme.push({ schwere: 'warn', text: 'Für das Projekt ist keine Art der Anlage festgelegt (Mechanik, Elektronik oder Hybrid)' });
+    } else if (!anlageVollstaendig(projekt)) {
+      probleme.push({ schwere: 'warn', text: 'Für das Projekt fehlt noch die Auswahl des Schließsystems' });
+    }
 
     projekt.tueren.forEach(function (t) {
       var bez = (t.nummer || t.bezeichnung || 'Tür ohne Bezeichnung');
@@ -412,8 +467,9 @@
       if (!t.strukturId) {
         probleme.push({ schwere: 'info', tuerId: t.id, text: bez + ': keinem Standort/Gebäude zugeordnet' });
       }
-      if (!t.systemId) {
-        probleme.push({ schwere: 'warn', tuerId: t.id, text: bez + ': kein Schließsystem ausgewählt' });
+      if (projekt.anlagenart === 'hybrid' && !t.tuerTechnologie) {
+        probleme.push({ schwere: 'warn', tuerId: t.id,
+          text: bez + ': Hybridanlage – Ausführung (mechanisch oder elektronisch) noch nicht festgelegt' });
       }
       if (t.brauchtZylinder && !t.zylinderBauform) {
         probleme.push({ schwere: 'warn', tuerId: t.id, text: bez + ': Zylinder benötigt, aber keine Bauform gewählt' });
@@ -499,7 +555,8 @@
   ];
   var ZYL_AUSFUEHRUNG_MUSTER = [
     [/not-?\s*und\s*gefahren|n\s*\+\s*g/i, 'Not- und Gefahrenfunktion'],
-    [/freidreh|komfort|comfort/i,             'Freidreh / Komfort'],
+    [/freidreh/i,                             'Freidreh'],
+    [/komfort|comfort/i,                      'Comfort'],
     [/anti-?panik/i,                          'Anti-Panik'],
     [/wetterschutz/i,                         'Wetterschutz'],
     [/bohrschutz/i,                           'erhöhter Bohrschutz'],
@@ -510,6 +567,10 @@
   function zylinderZerlegen(alt, ziel) {
     var text = String(alt || '');
     if (!text) return;
+    /* Die frühere Sammelbezeichnung war ein einziger Eintrag. Sie wird auf
+     * den geläufigeren Fachbegriff abgebildet, statt zwei Eigenschaften zu
+     * erfinden, die so nie erfasst wurden. */
+    text = text.replace(/Freidreh\s*\/\s*Komfort/gi, 'Freidreh');
     if (/^kein zylinder/i.test(text)) { ziel.brauchtZylinder = false; return; }
 
     for (var i = 0; i < ZYL_BAUFORM_MUSTER.length; i++) {
@@ -592,7 +653,8 @@
       if (/^einseitig/i.test(t))                      ziel.zutrittsseite = ziel.zutrittsseite || 'nur außen';
       else if (/^beidseitig/i.test(t))                ziel.zutrittsseite = ziel.zutrittsseite || 'innen und außen';
       else if (/dauerentriegelt|tagesfreischaltung/i.test(t)) ziel.zutrittsseite = ziel.zutrittsseite || 'Durchgangsfunktion / dauerentriegelt';
-      else if (/comfort|freidreh/i.test(t))           ausfuehrung('Freidreh / Komfort');
+      else if (/freidreh/i.test(t))                   ausfuehrung('Freidreh');
+      else if (/comfort|komfort/i.test(t))            ausfuehrung('Comfort');
       else if (/not-?\s*und\s*gefahren/i.test(t))     ausfuehrung('Not- und Gefahrenfunktion');
       else if (/flucht|rettungsweg|panik/i.test(t))   anforderung('Flucht- und Rettungsweg');
       else if (/brand-?\s*und\s*rauch/i.test(t))      { anforderung('Brandschutz'); anforderung('Rauchschutz'); }
@@ -608,6 +670,14 @@
   /* Eine Tür aus einer älteren Fassung überführen. */
   function tuerUeberfuehren(t) {
     if (!t || typeof t !== 'object') return t;
+
+    /* Die frühere Sammelbezeichnung in zwei Ausführungen auflösen */
+    if (Array.isArray(t.zylinderAusfuehrung)) {
+      var i = t.zylinderAusfuehrung.indexOf('Freidreh / Komfort');
+      if (i !== -1) {
+        t.zylinderAusfuehrung.splice(i, 1, 'Freidreh');
+      }
+    }
     var hatAltfelder = ('zylinderArt' in t) || ('beschlagArt' in t) ||
                        ('schlossArt' in t) || ('zutrittsarten' in t);
     if (!hatAltfelder) return t;
@@ -624,6 +694,65 @@
     return t;
   }
 
+  /* Aus den Systemen der einzelnen Türen die Anlage des Projekts erschließen.
+   * Frühere Fassungen hielten das System an jeder Tür; gesucht wird das je
+   * Technologie am häufigsten verwendete. */
+  function anlageAusTuerenErschliessen(projekt) {
+    if (!projekt || projekt.anlagenart) return projekt;
+    var K = kat();
+    if (!K || !Array.isArray(projekt.tueren)) return projekt;
+
+    var haeufigkeit = { mechanisch: {}, elektronisch: {} };
+    projekt.tueren.forEach(function (t) {
+      var sid = t.systemId;
+      if (!sid) return;
+      var typ = K.systemTechnologie(sid);
+      var topf = (typ === 'mechanisch') ? haeufigkeit.mechanisch
+               : (typ === 'elektronisch' || typ === 'hybrid') ? haeufigkeit.elektronisch
+               : null;
+      if (!topf) return;
+      var anzahl = parseInt(t.anzahl, 10) || 1;
+      topf[sid] = (topf[sid] || 0) + anzahl;
+    });
+
+    function haeufigstes(topf) {
+      var beste = '', menge = 0;
+      Object.keys(topf).forEach(function (id) {
+        if (topf[id] > menge) { menge = topf[id]; beste = id; }
+      });
+      return beste;
+    }
+    var mech = haeufigstes(haeufigkeit.mechanisch);
+    var elek = haeufigstes(haeufigkeit.elektronisch);
+
+    if (mech && elek) { projekt.anlagenart = 'hybrid'; }
+    else if (elek)    { projekt.anlagenart = 'elektronik'; }
+    else if (mech)    { projekt.anlagenart = 'mechanik'; }
+    projekt.systemMechanik = projekt.systemMechanik || mech;
+    projekt.systemElektronik = projekt.systemElektronik || elek;
+
+    /* Bei einer Hybridanlage je Tür festhalten, welche Seite gilt; Türen mit
+     * einem abweichenden System behalten den Hinweis als Notiz, damit nichts
+     * unbemerkt verloren geht. */
+    projekt.tueren.forEach(function (t) {
+      if (!t.systemId) { delete t.systemId; delete t.systemDetail; return; }
+      var typ = K.systemTechnologie(t.systemId);
+      var istElek = (typ === 'elektronisch' || typ === 'hybrid');
+      if (projekt.anlagenart === 'hybrid' && !t.tuerTechnologie) {
+        t.tuerTechnologie = istElek ? 'elektronik' : 'mechanik';
+      }
+      var anlagenSystem = istElek ? projekt.systemElektronik : projekt.systemMechanik;
+      if (t.systemId !== anlagenSystem) {
+        var hinweis = 'Abweichendes System laut früherem Aufmaß: ' + K.systemLabel(t.systemId);
+        t.systemNotiz = t.systemNotiz ? (t.systemNotiz + ' · ' + hinweis) : hinweis;
+      }
+      if (t.systemDetail && !t.systemNotiz) t.systemNotiz = t.systemDetail;
+      else if (t.systemDetail) t.systemNotiz += ' · ' + t.systemDetail;
+      delete t.systemId; delete t.systemDetail;
+    });
+    return projekt;
+  }
+
   /* --- Migration / Normalisierung beim Import ------------------------------ */
   function migriere(projekt) {
     var vorlage = neuesProjekt();
@@ -636,6 +765,8 @@
     out.tueren = Array.isArray(out.tueren) ? out.tueren : [];
     out.schliessungen = Array.isArray(out.schliessungen) ? out.schliessungen : [];
     out.matrix = (out.matrix && typeof out.matrix === 'object') ? out.matrix : {};
+
+    anlageAusTuerenErschliessen(out);   /* Anlage aus Alttüren erschließen */
 
     var tuerVorlage = neueTuer();
     out.tueren = out.tueren.map(function (t) {
@@ -684,6 +815,10 @@
     neuerStrukturknoten: neuerStrukturknoten,
     neueTuer: neueTuer,
     neueSchliessung: neueSchliessung,
+    tuerSystemId: tuerSystemId,
+    tuerTechnologie: tuerTechnologie,
+    istTuerElektronisch: istTuerElektronisch,
+    anlageVollstaendig: anlageVollstaendig,
     matrixKey: matrixKey,
     getBerechtigung: getBerechtigung,
     setBerechtigung: setBerechtigung,
@@ -699,6 +834,7 @@
     statistik: statistik,
     pruefeProjekt: pruefeProjekt,
     tuerUeberfuehren: tuerUeberfuehren,
+    anlageAusTuerenErschliessen: anlageAusTuerenErschliessen,
     migriere: migriere
   };
 

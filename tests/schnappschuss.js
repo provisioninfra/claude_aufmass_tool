@@ -23,6 +23,13 @@ const AUS = path.join(__dirname, 'out');
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('.tuer-zeile', { timeout: 8000 });
 
+  // Stammdaten mit der Anlage
+  await page.evaluate(() => window.App.wechseln('stammdaten'));
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: path.join(AUS, 'f-stammdaten.png') });
+  await page.evaluate(() => window.App.wechseln('tueren'));
+  await page.waitForSelector('.tuer-zeile');
+
   // Elektronische Tür mit vielen Angaben öffnen
   await page.locator('.tuer-zeile', { hasText: 'Haupteingang Königsallee' }).click();
   await page.waitForSelector('.dialog');
@@ -61,7 +68,9 @@ const AUS = path.join(__dirname, 'out');
       abschnitte: [...d.querySelectorAll('.abschnitt > summary')].filter(sichtbar)
         .map(s => s.textContent.trim().split('\n')[0]),
       elektronikSichtbar: [...d.querySelectorAll('.abschnitt')]
-        .some(a => sichtbar(a) && /Elektronik/.test(a.textContent))
+        .some(a => sichtbar(a) && /^Elektronik und Vernetzung/.test(
+          (a.querySelector('summary') || {}).textContent || '')),
+      anlageZeile: ((d.querySelector('.abschnitt .marke-pille') || {}).textContent || '')
     };
   });
   console.log('\nMechanische Tür:');
