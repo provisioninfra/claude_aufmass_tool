@@ -1,0 +1,134 @@
+/* =============================================================================
+ * main.js — Navigation und Start der Anwendung
+ * ========================================================================== */
+(function (global) {
+  'use strict';
+  var A = global.AppKern, M = global.Model, Store = global.Store;
+  var el = A.el, Zustand = A.Zustand;
+  var VP = global.ViewsProjekt, VT = global.ViewsTueren, VPL = global.ViewsPlan;
+
+  var REITER = [
+    { id: 'projekte',     label: 'Projekte',     immer: true },
+    { id: 'stammdaten',   label: 'Stammdaten' },
+    { id: 'struktur',     label: 'Struktur' },
+    { id: 'tueren',       label: 'Türen' },
+    { id: 'plan',         label: 'Schließplan' },
+    { id: 'export',       label: 'Export' },
+    { id: 'einstellungen',label: 'Einstellungen', immer: true }
+  ];
+
+  function zeichnen() {
+    var wurzel = A.$('#app');
+    var scrollPos = 0;
+    var altesHaupt = A.$('main.inhalt');
+    if (altesHaupt) scrollPos = altesHaupt.scrollTop;
+    A.leeren(wurzel);
+
+    var p = Zustand.projekt;
+
+    /* --- Kopfzeile --- */
+    wurzel.appendChild(el('header', { class: 'kopf' }, [
+      el('div', { class: 'marke' }, [
+        'Aufmaß-Tool',
+        el('small', { text: 'Schließanlagen & Zutritt' })
+      ]),
+      el('div', { class: 'projekt-titel' }, p ? [
+        (p.kunde || p.name || 'Ohne Namen'),
+        el('span', { text: [p.objekt, p.anlagenNr && ('Anlage ' + p.anlagenNr)].filter(Boolean).join('  ·  ') })
+      ] : [el('span', { class: 'zart', text: 'Kein Projekt geöffnet' })]),
+      el('div', { class: 'speicher-status', id: 'speicher-status' })
+    ]));
+
+    /* --- Reiter --- */
+    var reiterLeiste = el('nav', { class: 'reiter', role: 'tablist' });
+    REITER.forEach(function (r) {
+      var gesperrt = !r.immer && !p;
+      var zahl = null;
+      if (p) {
+        if (r.id === 'tueren') zahl = p.tueren.length;
+        if (r.id === 'plan') zahl = p.schliessungen.length;
+        if (r.id === 'struktur') zahl = p.standorte.length;
+      }
+      reiterLeiste.appendChild(el('button', {
+        role: 'tab', 'aria-selected': Zustand.ansicht === r.id ? 'true' : 'false',
+        disabled: gesperrt,
+        onclick: function () { wechseln(r.id); }
+      }, [
+        r.label,
+        zahl ? el('span', { class: 'zahl', text: String(zahl) }) : null
+      ]));
+    });
+    wurzel.appendChild(reiterLeiste);
+
+    /* --- Inhalt --- */
+    var haupt = el('main', { class: 'inhalt' });
+    wurzel.appendChild(haupt);
+    wurzel.appendChild(el('div', { id: 'toast-bereich' }));
+
+    if (!p && ['projekte', 'einstellungen'].indexOf(Zustand.ansicht) === -1) {
+      Zustand.ansicht = 'projekte';
+    }
+
+    try {
+      switch (Zustand.ansicht) {
+        case 'projekte':      VP.ansichtProjekte(haupt, zeichnen); break;
+        case 'stammdaten':    VP.ansichtStammdaten(haupt); break;
+        case 'struktur':      VP.ansichtStruktur(haupt, zeichnen); break;
+        case 'tueren':        VT.ansichtTueren(haupt, zeichnen); break;
+        case 'plan':          VPL.ansichtPlan(haupt, zeichnen); break;
+        case 'export':        VPL.ansichtExport(haupt, zeichnen); break;
+        case 'einstellungen': VPL.ansichtEinstellungen(haupt, zeichnen); break;
+        default:              VP.ansichtProjekte(haupt, zeichnen);
+      }
+    } catch (fehler) {
+      console.error(fehler);
+      haupt.appendChild(el('div', { class: 'meldung fehler' }, [
+        el('div', {}, [
+          el('b', { text: 'Die Ansicht konnte nicht aufgebaut werden.' }),
+          el('div', { style: { marginTop: '6px', fontSize: '13px' }, text: String(fehler.message || fehler) }),
+          el('button', { class: 'klein', style: { marginTop: '10px' }, text: 'Zur Projektübersicht',
+            onclick: function () { Zustand.ansicht = 'projekte'; zeichnen(); } })
+        ])
+      ]));
+    }
+
+    A.statusAnzeigen(Zustand.ungesichert ? 'ungesichert' : (p ? 'gesichert' : ''));
+    haupt.scrollTop = scrollPos;
+  }
+
+  function wechseln(ansicht) {
+    Zustand.ansicht = ansicht;
+    zeichnen();
+    var haupt = A.$('main.inhalt');
+    if (haupt) haupt.scrollTop = 0;
+  }
+
+  /* --- Start -------------------------------------------------------------- */
+  function starten() {
+    Store.einstellungenLaden().then(function (e) {
+      Zustand.einstellungen = e;
+      if (e.letztesProjekt) {
+        return Store.projektLaden(e.letztesProjekt).then(function (p) {
+          if (p) {
+            Zustand.projekt = M.migriere(p);
+            Zustand.projekt.id = p.id;
+            Zustand.ansicht = 'tueren';
+          }
+        }).catch(function () { /* zuletzt geöffnetes Projekt nicht mehr vorhanden */ });
+      }
+    }).catch(function () {
+      Zustand.einstellungen = Object.assign({}, Store.EINSTELLUNGEN_STANDARD);
+    }).then(function () {
+      zeichnen();
+      if (Store.nutztFallback()) {
+        A.toast('Hinweis: Dieser Browser erlaubt keine Datenbank. Es wird der einfache Speicher genutzt – bitte häufiger exportieren.', 'fehler');
+      }
+    });
+  }
+
+  global.App = { zeichnen: zeichnen, wechseln: wechseln, starten: starten };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', starten);
+  } else { starten(); }
+})(typeof window !== 'undefined' ? window : globalThis);

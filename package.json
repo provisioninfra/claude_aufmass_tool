@@ -1,0 +1,14 @@
+{
+  "name": "schliessanlagen-aufmass-tool",
+  "version": "1.0.0",
+  "description": "Aufmaß-Werkzeug für Schließanlagen und Zutrittslösungen mit PDF-Türliste, Kreuzschließplan und Materialliste. Läuft vollständig im Browser, ohne Server und ohne Internetverbindung.",
+  "private": true,
+  "scripts": {
+    "build": "node tools/build.js",
+    "test": "node tests/run-all.js",
+    "test:pdf": "node tests/test-pdf.js",
+    "test:e2e": "node tests/test-e2e.js",
+    "start": "npx http-server src -p 8080 -c-1"
+  },
+  "license": "UNLICENSED"
+}

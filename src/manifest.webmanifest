@@ -1,0 +1,15 @@
+{
+  "name": "Aufmaß-Tool Schließanlagen",
+  "short_name": "Aufmaß",
+  "description": "Aufmaß für Schließanlagen und Zutrittslösungen mit PDF-Türliste und Kreuzschließplan.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f5f7f9",
+  "theme_color": "#1a4b8c",
+  "lang": "de",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
