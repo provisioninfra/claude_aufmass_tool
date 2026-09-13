@@ -34,6 +34,19 @@ anpassbar.
 
 ## Nutzung
 
+### Die Einzeldatei — der einfachste Weg
+
+`dist/aufmass-tool.html` enthält das gesamte Programm. Sie lässt sich auf
+jedem Weg öffnen und braucht keine Einrichtung:
+
+* per Doppelklick vom Rechner
+* aus einem Ordner heraus auf jedem Gerät
+* auf eine Website gelegt und über deren Adresse aufgerufen
+* per `<iframe>` in eine bestehende Seite eingebettet
+
+In allen vier Fällen geprüft (`tests/test-ueberall.js`): keine Netzanfrage,
+Daten bleiben nach dem Neuladen erhalten, PDF-Erzeugung funktioniert.
+
 ### Auf dem iPad (vor Ort)
 
 Zwei Wege, beide voll offline-fähig:
@@ -118,6 +131,8 @@ Die Testreihen prüfen:
 | `test-reports.js` | Erzeugung aller PDF-Ausgaben inklusive Randfälle |
 | `test-e2e.js` | vollständiger Durchlauf im echten Browser: Projekt anlegen, Struktur, Türen, Matrix, PDF-Download, Neuladen, Import, iPad- und Telefonbreite |
 | `test-standalone.js` | Einzeldatei aus `dist/`: startet per `file://`, stellt nachweislich keine einzige Netzanfrage |
+| `test-ueberall.js` | Einzeldatei per Doppelklick, von einer Website und als Einbettung — je mit Datenerhalt nach dem Neuladen |
+| `test-offline-pwa.js` | Laden über http, Netz trennen, Neustart ohne Verbindung, Erfassen und PDF-Erzeugung im Offline-Zustand |
 | `test-downloads.js` | zweiter Ausgabeweg: Übergabe an eine bereitgestellte Speicherfunktion, Ablehnung durch den Betrachter, Größenfehler |
 
 Die Browser-Tests laufen gegen Chromium über Playwright.

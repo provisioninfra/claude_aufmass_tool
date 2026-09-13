@@ -8,7 +8,8 @@ const reihen = [
   ['Browser (E2E)',   'test-e2e.js'],
   ['Einzeldatei',     'test-standalone.js'],
   ['Ausgabeweg',      'test-downloads.js'],
-  ['Offline-Betrieb', 'test-offline-pwa.js']
+  ['Offline-Betrieb', 'test-offline-pwa.js'],
+  ['Alle Öffnungswege','test-ueberall.js']
 ];
 let fehlgeschlagen = [];
 reihen.forEach(([name, datei]) => {
