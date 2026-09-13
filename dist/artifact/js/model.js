@@ -6,6 +6,11 @@
 
   var SCHEMA_VERSION = 1;
 
+  /* Der Katalog wird an mehreren Stellen gebraucht (Bezeichnungen, abgeleitete
+   * Technologie). Zugriff über eine Funktion, damit die Ladereihenfolge der
+   * Dateien keine Rolle spielt. */
+  function kat() { return global.Katalog || null; }
+
   function uid(prefix) {
     return (prefix || 'id') + '-' +
       Date.now().toString(36) + '-' +
@@ -74,24 +79,37 @@
       anzahl: 1,                  // identische Türen zusammenfassen
       status: 'offen',
 
-      /* --- System --- */
-      technologie: 'offen',
+      /* --- System ---
+       * Die Technologie wird aus dem System abgeleitet (Katalog.systemTechnologie)
+       * und deshalb nicht getrennt gespeichert. Identmedien gehören zur
+       * Schließung im Schließplan, nicht zur einzelnen Tür. */
       systemId: '',
       systemDetail: '',           // Freitext, z.B. Profil/Variante
-      identmedien: [],
 
-      /* --- Bauteilbedarf --- */
+      /* --- Bauteilbedarf ---
+       * Jede Angabe wird genau einmal erfasst. Die Technologie steckt im
+       * System, nicht noch einmal in der Bauform. */
       brauchtZylinder: true,
       brauchtBeschlag: false,
       brauchtSchloss: false,
       brauchtWandleser: false,
-      zylinderArt: '',
-      beschlagArt: '',
-      schlossArt: '',
-      komponenten: [],            // ausgewählte System-Komponenten
 
-      /* --- Zutritts-/Funktionsart --- */
-      zutrittsarten: [],          // Mehrfachauswahl aus Katalog.ZUTRITTSARTEN
+      zylinderBauform: '',        // genau eine Bauform
+      zylinderAusfuehrung: [],    // Zusatzfunktionen, mehrere möglich
+      zylinderKnaufseite: '',     // nur bei Knaufzylinder
+
+      beschlagBauform: '',
+      beschlagBestueckung: '',
+      beschlagSicherheit: '',     // nur bei Schutzbeschlag
+
+      schlossBauform: '',
+      schlossFunktion: '',
+
+      komponenten: [],            // nur Bauteile, die sonst nirgends erfasst sind
+
+      /* --- Zutritt und Anforderungen --- */
+      zutrittsseite: '',          // genau eine Angabe
+      tueranforderungen: [],      // bauliche Anforderungen, mehrere möglich
 
       /* --- Maße --- */
       masseAussen: '',            // Zylinderlänge außen (mm)
@@ -280,7 +298,7 @@
    * Zylinder werden zusätzlich nach Länge zusammengefasst.
    * -------------------------------------------------------------------- */
   function materialliste(projekt, extraSysteme) {
-    var K = global.Katalog;
+    var K = kat();
     var proSystem = {};
 
     function bucket(systemId) {
@@ -306,21 +324,25 @@
       var b = bucket(sysId);
       b.tueren += anzahl;
 
-      if (t.brauchtZylinder && t.zylinderArt && t.zylinderArt !== 'Kein Zylinder') {
+      var zylText = K ? K.zylinderText(t) : '';
+      if (zylText) {
         var laenge = '';
         if (t.masseAussen || t.masseInnen) {
           laenge = (t.masseAussen || '?') + '/' + (t.masseInnen || '?') + ' mm';
         }
-        addPos(b, t.zylinderArt, anzahl, laenge);
+        addPos(b, zylText, anzahl, laenge);
       }
-      if (t.brauchtBeschlag && t.beschlagArt && t.beschlagArt !== 'Kein Beschlag erforderlich') {
-        addPos(b, t.beschlagArt, anzahl, t.vierkant ? ('VK ' + t.vierkant) : '');
-      }
-      if (t.brauchtSchloss && t.schlossArt) {
+      var besText = K ? K.beschlagText(t) : '';
+      if (besText) addPos(b, besText, anzahl, t.vierkant ? ('VK ' + t.vierkant) : '');
+      var schText = K ? K.schlossText(t) : '';
+      if (schText) {
         var sDetail = [];
         if (t.dornmass) sDetail.push('DM ' + t.dornmass);
         if (t.entfernung) sDetail.push('E ' + t.entfernung);
-        addPos(b, t.schlossArt, anzahl, sDetail.join(' / '));
+        addPos(b, schText, anzahl, sDetail.join(' / '));
+      }
+      if (t.brauchtWandleser && !(t.komponenten || []).some(function (k) { return /leser/i.test(k); })) {
+        addPos(b, 'Wandleser / Zutrittsleser', anzahl, '');
       }
       (t.komponenten || []).forEach(function (komp) { addPos(b, komp, anzahl, ''); });
     });
@@ -363,7 +385,8 @@
       s.fotos += (t.fotos || []).length;
       if (t.nacharbeit) s.nacharbeit++;
       s.proStatus[t.status] = (s.proStatus[t.status] || 0) + 1;
-      s.proTechnologie[t.technologie] = (s.proTechnologie[t.technologie] || 0) + 1;
+      var tech = kat() ? kat().systemTechnologie(t.systemId) : 'offen';
+      s.proTechnologie[tech] = (s.proTechnologie[tech] || 0) + 1;
     });
     s.schliessungen = projekt.schliessungen.length;
     s.berechtigungen = Object.keys(projekt.matrix).length;
@@ -392,22 +415,36 @@
       if (!t.systemId) {
         probleme.push({ schwere: 'warn', tuerId: t.id, text: bez + ': kein Schließsystem ausgewählt' });
       }
-      if (t.brauchtZylinder && !t.zylinderArt) {
-        probleme.push({ schwere: 'warn', tuerId: t.id, text: bez + ': Zylinder benötigt, aber keine Zylinderart gewählt' });
+      if (t.brauchtZylinder && !t.zylinderBauform) {
+        probleme.push({ schwere: 'warn', tuerId: t.id, text: bez + ': Zylinder benötigt, aber keine Bauform gewählt' });
       }
-      if (t.brauchtZylinder && t.zylinderArt && t.zylinderArt !== 'Kein Zylinder' &&
-          !t.masseAussen && !t.masseInnen) {
+      if (t.brauchtZylinder && t.zylinderBauform && !t.masseAussen && !t.masseInnen) {
         probleme.push({ schwere: 'warn', tuerId: t.id, text: bez + ': keine Zylinderlänge erfasst' });
       }
-      if (t.brauchtBeschlag && !t.beschlagArt) {
-        probleme.push({ schwere: 'info', tuerId: t.id, text: bez + ': Beschlag benötigt, aber keine Beschlagsart gewählt' });
+      if (t.brauchtBeschlag && !t.beschlagBauform) {
+        probleme.push({ schwere: 'info', tuerId: t.id, text: bez + ': Beschlag benötigt, aber keine Bauform gewählt' });
+      }
+      if (t.brauchtSchloss && !t.schlossBauform) {
+        probleme.push({ schwere: 'info', tuerId: t.id, text: bez + ': Schloss benötigt, aber keine Bauform gewählt' });
+      }
+      if (t.brauchtZylinder && !t.zutrittsseite) {
+        probleme.push({ schwere: 'info', tuerId: t.id, text: bez + ': Zutrittsseite nicht angegeben' });
       }
       if (t.nacharbeit && !t.nacharbeitText) {
         probleme.push({ schwere: 'info', tuerId: t.id, text: bez + ': Nacharbeit markiert, aber nicht beschrieben' });
       }
-      var zuPanik = (t.zutrittsarten || []).some(function (z) { return /Panik|Flucht/.test(z); });
-      if (zuPanik && t.schlossArt && !/Panik/.test(t.schlossArt)) {
-        probleme.push({ schwere: 'warn', tuerId: t.id, text: bez + ': Flucht-/Rettungsweg gewählt, Schlossart ist aber kein Panikschloss' });
+      var istFlucht = (t.tueranforderungen || []).indexOf('Flucht- und Rettungsweg') !== -1;
+      if (istFlucht && t.brauchtSchloss && t.schlossFunktion && !/Panik/.test(t.schlossFunktion)) {
+        probleme.push({ schwere: 'warn', tuerId: t.id,
+          text: bez + ': Flucht- und Rettungsweg gewählt, das Schloss hat aber keine Panikfunktion' });
+      }
+      if (istFlucht && !t.brauchtSchloss) {
+        probleme.push({ schwere: 'warn', tuerId: t.id,
+          text: bez + ': Flucht- und Rettungsweg gewählt, aber kein Schloss erfasst' });
+      }
+      if ((t.zylinderAusfuehrung || []).indexOf('Anti-Panik') !== -1 && !istFlucht) {
+        probleme.push({ schwere: 'info', tuerId: t.id,
+          text: bez + ': Zylinder mit Anti-Panik, Tür ist aber nicht als Flucht- und Rettungsweg gekennzeichnet' });
       }
     });
 
@@ -437,6 +474,156 @@
     return probleme;
   }
 
+  /* =========================================================================
+   * Überführung älterer Aufmaße auf die getrennten Angaben
+   * ======================================================================
+   * Früher steckten Bauform, Ausführung und Technologie in einem einzigen
+   * Textfeld ("Elektronikzylinder Freidreh / Komfort"). Diese Funktion
+   * zerlegt solche Altwerte, damit vorhandene Aufmaße vollständig erhalten
+   * bleiben. Sie ist mehrfach anwendbar, ohne Schaden anzurichten.
+   * -------------------------------------------------------------------- */
+
+  /* Bauform aus einem alten Zylindertext ableiten */
+  var ZYL_BAUFORM_MUSTER = [
+    [/doppelknauf/i,                      'Doppelknaufzylinder'],
+    [/halbzylinder/i,                     'Halbzylinder'],
+    [/knaufzylinder|knauf\s*\//i,         'Knaufzylinder'],
+    [/hebelzylinder/i,                    'Hebelzylinder'],
+    [/möbelzylinder/i,                    'Möbelzylinder'],
+    [/vorhangschloss|bügelschloss/i,      'Vorhangschloss / Bügelschloss'],
+    [/briefkasten/i,                      'Briefkastenzylinder'],
+    [/schaltzylinder|schaltschloss/i,     'Schaltzylinder'],
+    [/rundzylinder/i,                     'Rundzylinder'],
+    [/blindzylinder/i,                    'Blindzylinder'],
+    [/doppelzylinder/i,                   'Doppelzylinder']
+  ];
+  var ZYL_AUSFUEHRUNG_MUSTER = [
+    [/not-?\s*und\s*gefahren|n\s*\+\s*g/i, 'Not- und Gefahrenfunktion'],
+    [/freidreh|komfort|comfort/i,             'Freidreh / Komfort'],
+    [/anti-?panik/i,                          'Anti-Panik'],
+    [/wetterschutz/i,                         'Wetterschutz'],
+    [/bohrschutz/i,                           'erhöhter Bohrschutz'],
+    [/ziehschutz/i,                           'Ziehschutz'],
+    [/gleichschließend/i,                     'gleichschließend']
+  ];
+
+  function zylinderZerlegen(alt, ziel) {
+    var text = String(alt || '');
+    if (!text) return;
+    if (/^kein zylinder/i.test(text)) { ziel.brauchtZylinder = false; return; }
+
+    for (var i = 0; i < ZYL_BAUFORM_MUSTER.length; i++) {
+      if (ZYL_BAUFORM_MUSTER[i][0].test(text)) { ziel.zylinderBauform = ZYL_BAUFORM_MUSTER[i][1]; break; }
+    }
+    /* "Elektronikzylinder" ohne nähere Angabe war faktisch ein Doppelknauf */
+    if (!ziel.zylinderBauform && /elektronikzylinder|digitaler zylinder/i.test(text)) {
+      ziel.zylinderBauform = 'Doppelknaufzylinder';
+    }
+    if (!Array.isArray(ziel.zylinderAusfuehrung)) ziel.zylinderAusfuehrung = [];
+    ZYL_AUSFUEHRUNG_MUSTER.forEach(function (m) {
+      if (m[0].test(text) && ziel.zylinderAusfuehrung.indexOf(m[1]) === -1) {
+        ziel.zylinderAusfuehrung.push(m[1]);
+      }
+    });
+    /* Die Knaufseite ist nur beim einfachen Knaufzylinder eine offene Frage;
+       beim Doppelknaufzylinder steht sie schon in der Bauform. */
+    if (ziel.zylinderBauform === 'Knaufzylinder') {
+      if (/knauf\s*außen/i.test(text)) ziel.zylinderKnaufseite = 'Knauf außen';
+      else if (/knauf\s*innen/i.test(text)) ziel.zylinderKnaufseite = 'Knauf innen';
+    }
+  }
+
+  function beschlagZerlegen(alt, ziel) {
+    var text = String(alt || '');
+    if (!text) return;
+    if (/^kein beschlag/i.test(text)) { ziel.brauchtBeschlag = false; return; }
+
+    if (/schutzbeschlag/i.test(text)) ziel.beschlagBauform = 'Schutzbeschlag';
+    else if (/langschild/i.test(text)) ziel.beschlagBauform = 'Langschildgarnitur';
+    else if (/rosetten/i.test(text)) ziel.beschlagBauform = 'Rosettengarnitur';
+    else if (/wechselgarnitur/i.test(text)) ziel.beschlagBauform = 'Wechselgarnitur';
+    else if (/panik|flucht/i.test(text)) ziel.beschlagBauform = 'Panikbeschlag / Fluchttürbeschlag';
+    else if (/stoßgriff|ziehgriff/i.test(text)) ziel.beschlagBauform = 'Stoßgriff / Ziehgriff';
+    else if (/elektronisch/i.test(text)) ziel.beschlagBauform = 'Elektronischer Türbeschlag';
+
+    var es = /\bES([0-3])\b/i.exec(text);
+    if (es) ziel.beschlagSicherheit = 'ES' + es[1];
+
+    if (/knauf\s*\/\s*drücker/i.test(text)) ziel.beschlagBestueckung = 'Knauf / Drücker';
+    else if (/knauf\s*\/\s*knauf/i.test(text)) ziel.beschlagBestueckung = 'Knauf / Knauf';
+    else if (/drücker\s*\/\s*drücker/i.test(text)) ziel.beschlagBestueckung = 'Drücker / Drücker';
+  }
+
+  function schlossZerlegen(alt, ziel) {
+    var text = String(alt || '');
+    if (!text) return;
+
+    if (/rohrrahmen/i.test(text)) ziel.schlossBauform = 'Rohrrahmenschloss';
+    else if (/mehrfachverriegelung/i.test(text)) ziel.schlossBauform = 'Mehrfachverriegelung';
+    else if (/motorschloss/i.test(text)) ziel.schlossBauform = 'Motorschloss';
+    else if (/möbelschloss/i.test(text)) ziel.schlossBauform = 'Möbelschloss';
+    else if (/türöffner/i.test(text)) ziel.schlossBauform = 'Elektrischer Türöffner';
+    else if (/haftmagnet/i.test(text)) ziel.schlossBauform = 'Haftmagnet';
+    else if (/einsteckschloss|panikschloss/i.test(text)) ziel.schlossBauform = 'Einsteckschloss';
+
+    var panik = /Funktion\s*([BEDC])\b/i.exec(text);
+    if (panik) {
+      var zusatz = { B: 'Panik Funktion B (Umschaltfunktion)', E: 'Panik Funktion E (Wechselfunktion)',
+                     D: 'Panik Funktion D (Durchgangsfunktion)', C: 'Panik Funktion C' };
+      ziel.schlossFunktion = zusatz[panik[1].toUpperCase()] || '';
+    } else if (/automatisch/i.test(text)) ziel.schlossFunktion = 'automatisch verriegelnd';
+    else if (/selbstverriegelnd/i.test(text)) ziel.schlossFunktion = 'selbstverriegelnd';
+    else if (/buntbart/i.test(text)) ziel.schlossFunktion = 'Buntbart';
+    else if (/\bPZ\b|profilzylinder/i.test(text)) ziel.schlossFunktion = 'Profilzylinder (PZ)';
+    else if (/rollfalle/i.test(text)) ziel.schlossFunktion = 'Rollfalle';
+  }
+
+  /* Die alte gemischte Liste auf ihre drei Bedeutungen verteilen */
+  function zutrittsartenVerteilen(alteListe, ziel) {
+    if (!Array.isArray(alteListe) || !alteListe.length) return;
+    if (!Array.isArray(ziel.tueranforderungen)) ziel.tueranforderungen = [];
+    if (!Array.isArray(ziel.zylinderAusfuehrung)) ziel.zylinderAusfuehrung = [];
+
+    function anforderung(w) { if (ziel.tueranforderungen.indexOf(w) === -1) ziel.tueranforderungen.push(w); }
+    function ausfuehrung(w) { if (ziel.zylinderAusfuehrung.indexOf(w) === -1) ziel.zylinderAusfuehrung.push(w); }
+
+    alteListe.forEach(function (eintrag) {
+      var t = String(eintrag);
+      if (/^einseitig/i.test(t))                      ziel.zutrittsseite = ziel.zutrittsseite || 'nur außen';
+      else if (/^beidseitig/i.test(t))                ziel.zutrittsseite = ziel.zutrittsseite || 'innen und außen';
+      else if (/dauerentriegelt|tagesfreischaltung/i.test(t)) ziel.zutrittsseite = ziel.zutrittsseite || 'Durchgangsfunktion / dauerentriegelt';
+      else if (/comfort|freidreh/i.test(t))           ausfuehrung('Freidreh / Komfort');
+      else if (/not-?\s*und\s*gefahren/i.test(t))     ausfuehrung('Not- und Gefahrenfunktion');
+      else if (/flucht|rettungsweg|panik/i.test(t))   anforderung('Flucht- und Rettungsweg');
+      else if (/brand-?\s*und\s*rauch/i.test(t))      { anforderung('Brandschutz'); anforderung('Rauchschutz'); }
+      else if (/brandschutz/i.test(t))                anforderung('Brandschutz');
+      else if (/rauchschutz/i.test(t))                anforderung('Rauchschutz');
+      else if (/einbruchhemmend|\bRC\b/i.test(t))     anforderung('einbruchhemmend (RC)');
+      else if (/vds/i.test(t))                        anforderung('VdS-Anforderung');
+      else if (/zeitgesteuert/i.test(t))              anforderung('Zeitsteuerung vorgesehen');
+      /* "Nur mechanische Verriegelung" steckt bereits im gewählten System */
+    });
+  }
+
+  /* Eine Tür aus einer älteren Fassung überführen. */
+  function tuerUeberfuehren(t) {
+    if (!t || typeof t !== 'object') return t;
+    var hatAltfelder = ('zylinderArt' in t) || ('beschlagArt' in t) ||
+                       ('schlossArt' in t) || ('zutrittsarten' in t);
+    if (!hatAltfelder) return t;
+
+    if (t.zylinderArt && !t.zylinderBauform) zylinderZerlegen(t.zylinderArt, t);
+    if (t.beschlagArt && !t.beschlagBauform) beschlagZerlegen(t.beschlagArt, t);
+    if (t.schlossArt  && !t.schlossBauform)  schlossZerlegen(t.schlossArt, t);
+    if (Array.isArray(t.zutrittsarten) && !t.zutrittsseite && !(t.tueranforderungen || []).length) {
+      zutrittsartenVerteilen(t.zutrittsarten, t);
+    }
+    /* Altfelder entfernen, damit nichts doppelt geführt wird */
+    delete t.zylinderArt; delete t.beschlagArt; delete t.schlossArt;
+    delete t.zutrittsarten; delete t.technologie; delete t.identmedien;
+    return t;
+  }
+
   /* --- Migration / Normalisierung beim Import ------------------------------ */
   function migriere(projekt) {
     var vorlage = neuesProjekt();
@@ -452,12 +639,13 @@
 
     var tuerVorlage = neueTuer();
     out.tueren = out.tueren.map(function (t) {
+      tuerUeberfuehren(t);          /* ältere Fassungen zuerst überführen */
       var neu = {};
       Object.keys(tuerVorlage).forEach(function (k) {
         neu[k] = (t && t[k] !== undefined) ? t[k] : tuerVorlage[k];
       });
       neu.id = t && t.id ? t.id : uid('tur');
-      ['identmedien', 'zutrittsarten', 'komponenten', 'fotos'].forEach(function (k) {
+      ['zylinderAusfuehrung', 'tueranforderungen', 'komponenten', 'fotos'].forEach(function (k) {
         if (!Array.isArray(neu[k])) neu[k] = [];
       });
       return neu;
@@ -510,6 +698,7 @@
     materialliste: materialliste,
     statistik: statistik,
     pruefeProjekt: pruefeProjekt,
+    tuerUeberfuehren: tuerUeberfuehren,
     migriere: migriere
   };
 

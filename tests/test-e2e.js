@@ -77,16 +77,28 @@ function pruefe(bedingung, text, info) {
   await page.waitForSelector('.dialog');
   await page.fill('.dialog input[type=text] >> nth=0', 'A-EG-01');
   await page.fill('.dialog input[type=text] >> nth=1', 'Haupteingang');
-  // System wählen
-  const systemSelect = await page.$('.dialog select >> nth=4');
-  await page.selectOption('.dialog select >> nth=4', 'evva-airkey').catch(async () => {
-    const opts = await page.$$eval('.dialog select', ss => ss.map((s,i) => i + ':' + Array.from(s.options).map(o=>o.value).join('|').slice(0,80)));
-    console.log('        Select-Übersicht:', opts.join('\n           '));
-  });
+
+  // System wählen — die Technologie muss sich daraus ergeben, nicht gewählt werden
+  const systemWahl = page.locator('.dialog select').filter({
+    has: page.locator('option[value="evva-airkey"]') }).first();
+  await systemWahl.selectOption('evva-airkey');
+  await page.waitForTimeout(250);
+  const technologie = await page.locator('.dialog .marke-pille').first().textContent();
+  pruefe(/Elektronisch/i.test(technologie), 'Technologie wird aus dem System abgeleitet', technologie);
+  const technologieFelder = await page.locator('.dialog select').filter({
+    has: page.locator('option:text-is("Mechanisch")') }).count();
+  pruefe(technologieFelder === 0, 'Technologie ist nicht mehr getrennt auswählbar');
+
+  // Zylinder: Bauform ist eine einzige Auswahl ohne Technologieangabe
+  const bauformWahl = page.locator('.dialog select').filter({
+    has: page.locator('option:text-is("Doppelknaufzylinder")') }).first();
+  const bauformen = await bauformWahl.locator('option').allTextContents();
+  pruefe(!bauformen.some(o => /Elektronik/i.test(o)),
+    'Zylinder-Bauformen enthalten keine Technologie', bauformen.filter(o => /Elektronik/i.test(o)).join(','));
+  pruefe(!bauformen.some(o => /^Kein /i.test(o)), 'keine "Kein Zylinder"-Auswahl neben dem Schalter');
+  await bauformWahl.selectOption({ label: 'Doppelknaufzylinder' });
   await page.waitForTimeout(200);
-  // Zylinderart
-  const zylSelect = page.locator('.dialog select').filter({ has: page.locator('option:has-text("Doppelzylinder")') }).first();
-  await zylSelect.selectOption({ label: 'Doppelzylinder' });
+
   await page.click('.dialog button:has-text("Tür speichern")');
   await page.waitForTimeout(400);
   const tuerZahl = await page.$$eval('.tuer-zeile', n => n.length);

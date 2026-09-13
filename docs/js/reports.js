@@ -320,11 +320,14 @@
   }
 
   function zutrittKurz(t) {
-    return (t.zutrittsarten || []).map(function (z) {
-      return z.replace(/\s*\(.*\)\s*/, '').replace('Not- und Gefahrenfunktion', 'N+G')
-              .replace('Flucht- und Rettungsweg', 'Flucht/Panik')
-              .replace('Sicherheitstür / einbruchhemmend', 'RC');
-    }).join(', ');
+    var teile = [];
+    if (t.zutrittsseite) teile.push(t.zutrittsseite);
+    (t.tueranforderungen || []).forEach(function (a) {
+      teile.push(String(a).replace('Flucht- und Rettungsweg', 'Flucht/Panik')
+                          .replace('einbruchhemmend (RC)', 'RC')
+                          .replace('VdS-Anforderung', 'VdS'));
+    });
+    return teile.join(', ');
   }
 
   function zylinderMass(t) {
@@ -344,19 +347,21 @@
       { titel: 'System',         breite: 0.115, render: function (t) {
           var s = t.systemId ? K.systemLabel(t.systemId, einstellungen && einstellungen.eigeneSysteme) : '–';
           return s + (t.systemDetail ? ('\n' + t.systemDetail) : ''); } },
-      { titel: 'Zylinderart',    breite: 0.125, render: function (t) {
-          return t.brauchtZylinder ? txt(t.zylinderArt) : '–'; } },
+      { titel: 'Zylinder',       breite: 0.125, render: function (t) {
+          return K.zylinderText(t) || '–'; } },
       { titel: 'Maß a/i',        breite: 0.055, align: 'center', render: zylinderMass },
       { titel: 'Beschlag / Drücker', breite: 0.115, render: function (t) {
-          if (!t.brauchtBeschlag) return '–';
-          return txt(t.beschlagArt) + (t.vierkant ? ('\nVK ' + t.vierkant) : ''); } },
+          var b = K.beschlagText(t);
+          if (!b) return '–';
+          return b + (t.vierkant ? ('\nVK ' + t.vierkant) : ''); } },
       { titel: 'Schloss',        breite: 0.105, render: function (t) {
-          if (!t.brauchtSchloss) return '–';
+          var sch = K.schlossText(t);
+          if (!sch) return '–';
           var d = [];
           if (t.dornmass) d.push('DM ' + t.dornmass);
           if (t.entfernung) d.push('E ' + t.entfernung);
-          return txt(t.schlossArt) + (d.length ? ('\n' + d.join(' / ')) : ''); } },
-      { titel: 'Zutritts-/Funktionsart', breite: 0.125, render: zutrittKurz },
+          return sch + (d.length ? ('\n' + d.join(' / ')) : ''); } },
+      { titel: 'Zutritt / Anforderungen', breite: 0.125, render: zutrittKurz },
       { titel: 'DIN',            breite: 0.045, align: 'center', render: function (t) {
           return txt(t.dinRichtung).replace('DIN ', ''); } },
       { titel: 'Bemerkung',      breite: 0.086, render: function (t) {
@@ -409,16 +414,19 @@
 
     var felder = [
       ['System', t.systemId ? K.systemLabel(t.systemId, einstellungen && einstellungen.eigeneSysteme) : '–'],
-      ['Technologie', (K.TECHNOLOGIE.filter(function (x2) { return x2.id === t.technologie; })[0] || {}).label || '–'],
+      ['Technologie', (K.TECHNOLOGIE.filter(function (x2) {
+          return x2.id === K.systemTechnologie(t.systemId, einstellungen && einstellungen.eigeneSysteme);
+        })[0] || {}).label || '–'],
       ['Kategorie', t.kategorie],
       ['Anzahl', String(t.anzahl || 1)],
-      ['Zylinderart', t.brauchtZylinder ? t.zylinderArt : 'kein Zylinder'],
+      ['Zylinder', K.zylinderText(t) || (t.brauchtZylinder ? '' : 'kein Zylinder')],
       ['Zylinderlänge außen/innen', zylinderMass(t) ? zylinderMass(t) + ' mm' : ''],
-      ['Beschlag / Drücker', t.brauchtBeschlag ? t.beschlagArt : 'kein Beschlag'],
-      ['Schlossart', t.brauchtSchloss ? t.schlossArt : ''],
-      ['Zutritts-/Funktionsart', (t.zutrittsarten || []).join(', '), true],
-      ['Identmedien', (t.identmedien || []).join(', '), true],
-      ['Komponenten', (t.komponenten || []).join(', '), true],
+      ['Beschlag / Drücker', K.beschlagText(t) || (t.brauchtBeschlag ? '' : 'kein Beschlag')],
+      ['Schloss', K.schlossText(t)],
+      ['Wandleser', t.brauchtWandleser ? 'ja' : ''],
+      ['Zutrittsseite', t.zutrittsseite],
+      ['Bauliche Anforderungen', (t.tueranforderungen || []).join(', '), true],
+      ['Systemkomponenten', (t.komponenten || []).join(', '), true],
       ['DIN-Richtung', t.dinRichtung],
       ['Öffnungsrichtung', t.oeffnungsrichtung],
       ['Türblattstärke', t.tuerblattstaerke ? t.tuerblattstaerke + ' mm' : ''],

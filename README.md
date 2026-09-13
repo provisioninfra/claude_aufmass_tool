@@ -19,6 +19,33 @@ Installation und ohne Internetverbindung.
 Alle Daten verbleiben auf dem jeweiligen Gerät. Es findet keinerlei
 Datenübertragung statt.
 
+## Aufbau der Türangaben
+
+Jede Angabe wird **genau einmal** erfasst. Was sich aus einer anderen Angabe
+ergibt, wird nicht erneut gefragt:
+
+| Angabe | Wo sie erfasst wird | Was daraus folgt |
+|---|---|---|
+| System | Abschnitt *Schließsystem* | die Technologie (mechanisch/elektronisch) wird abgeleitet und nur angezeigt |
+| Zylinder-Bauform | Abschnitt *Bauteile* | Doppelzylinder, Halbzylinder, Knaufzylinder … – ohne Technologie im Namen |
+| Zylinder-Ausführung | Abschnitt *Bauteile* | Freidreh, Anti-Panik, Wetterschutz, Not- und Gefahrenfunktion |
+| Knaufseite | nur bei Bauform „Knaufzylinder" | beim Doppelknaufzylinder ist sie bereits bestimmt |
+| Sicherheitsklasse | nur bei Beschlag-Bauform „Schutzbeschlag" | ES0 bis ES3 |
+| Bauliche Anforderungen | Abschnitt *Zutritt und Anforderungen* | Brandschutz, Rauchschutz, Fluchtweg, RC, VdS |
+
+Die Systemkomponenten enthalten nur noch Bauteile, die es sonst nirgends gibt
+(Wandleser, Netzwerkknoten, Programmiergeräte). Zylinder, Beschlag und Schloss
+werden ausschließlich im Abschnitt *Bauteile* erfasst.
+
+Widersprüche werden **gemeldet statt doppelt abgefragt**: Ist eine Tür als
+Flucht- und Rettungsweg gekennzeichnet, das Schloss hat aber keine
+Panikfunktion, erscheint ein Hinweis direkt im Formular und im Prüfprotokoll.
+
+Aufmaße aus der früheren Fassung werden beim Öffnen automatisch überführt
+(`Model.tuerUeberfuehren`): „Elektronikzylinder Freidreh / Komfort" wird zu
+Bauform „Doppelknaufzylinder" plus Ausführung „Freidreh / Komfort". Es gehen
+keine Angaben verloren.
+
 ## Unterstützte Systeme
 
 **Elektronik:** EVVA AirKey · EVVA Xesar · SimonsVoss MobileKey ·
@@ -126,6 +153,7 @@ Die Testreihen prüfen:
 
 | Reihe | Umfang |
 |---|---|
+| `test-entdoppelung.js` | kein Begriff steht in zwei Auswahllisten, keine Technologie in der Bauform, Überführung älterer Aufmaße |
 | `test-pdf.js` | Textmetrik, WinAnsi-Kodierung, Zeilenumbruch, xref-Offsets, Stream-Längen, JPEG-Parser |
 | `test-robustheit.js` | leere und fehlerhafte Projekte, Grenzwerte, 300 Türen × 40 Schließungen, verwaiste Matrixeinträge, Importfehler |
 | `test-reports.js` | Erzeugung aller PDF-Ausgaben inklusive Randfälle |

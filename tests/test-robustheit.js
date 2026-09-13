@@ -30,20 +30,20 @@ const st = M.neuerStrukturknoten('standort', 'X'.repeat(250));
 p.standorte.push(st);
 p.tueren.push(M.neueTuer({
   nummer: '', bezeichnung: '', strukturId: st.id, anzahl: 'keine Zahl',
-  masseAussen: -5, masseInnen: 'abc', zylinderArt: 'Z'.repeat(200),
+  masseAussen: -5, masseInnen: 'abc', zylinderBauform: 'Z'.repeat(200),
   notiz: 'N'.repeat(3000), systemId: 'gibt-es-nicht',
-  zutrittsarten: 'kein Array', identmedien: null, komponenten: undefined, fotos: 'kaputt'
+  zylinderAusfuehrung: 'kein Array', tueranforderungen: null, komponenten: undefined, fotos: 'kaputt'
 }));
 p.tueren.push(M.neueTuer({ nummer: 'ok-1', bezeichnung: 'Normale Tür', strukturId: st.id,
-  systemId: 'evva-4ks', zylinderArt: 'Doppelzylinder', masseAussen: '30', masseInnen: '35' }));
+  systemId: 'evva-4ks', zylinderBauform: 'Doppelzylinder', masseAussen: '30', masseInnen: '35' }));
 p.schliessungen.push(M.neueSchliessung({ kuerzel: '', bezeichnung: '', anzahlMedien: 'viele' }));
 p.schliessungen.push(M.neueSchliessung({ kuerzel: 'K'.repeat(120), bezeichnung: 'Sehr langes Kürzel', anzahlMedien: -3 }));
 
 const bereinigt = ohneAbsturz('Migration repariert kaputte Felder', () => M.migriere(p));
 if (bereinigt) {
-  pruefe(Array.isArray(bereinigt.tueren[0].zutrittsarten), 'zutrittsarten wird zu einem Array repariert');
+  pruefe(Array.isArray(bereinigt.tueren[0].zylinderAusfuehrung), 'zylinderAusfuehrung wird zu einem Array repariert');
   pruefe(Array.isArray(bereinigt.tueren[0].fotos), 'fotos wird zu einem Array repariert');
-  pruefe(Array.isArray(bereinigt.tueren[0].identmedien), 'identmedien wird zu einem Array repariert');
+  pruefe(Array.isArray(bereinigt.tueren[0].tueranforderungen), 'tueranforderungen wird zu einem Array repariert');
   ohneAbsturz('Türliste mit Grenzwerten', () => Reports.tuerliste(bereinigt, {}, { modus: 'kompakt' }).build());
   ohneAbsturz('Datenblatt mit Grenzwerten', () => Reports.tuerliste(bereinigt, {}, { modus: 'detail' }).build());
   ohneAbsturz('Schließplan mit Grenzwerten', () => Reports.schliessplan(bereinigt, {}).build());
@@ -76,7 +76,7 @@ for (let g = 0; g < 12; g++) {
     gross.tueren.push(M.neueTuer({
       nummer: g + '.' + String(t).padStart(3,'0'), bezeichnung: 'Raum ' + g + '-' + t,
       strukturId: geb.id, systemId: t % 3 === 0 ? 'sv-ax' : 'evva-4ks',
-      zylinderArt: 'Doppelzylinder', masseAussen: '30', masseInnen: '35',
+      zylinderBauform: 'Doppelzylinder', masseAussen: '30', masseInnen: '35',
       status: 'aufgemessen', anzahl: (t % 4) + 1
     }));
   }

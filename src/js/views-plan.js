@@ -537,11 +537,11 @@
     /* --- Eigene Katalogeinträge --- */
     seite.appendChild(el('div', { class: 'karte' }, [
       el('h2', { text: 'Eigene Katalogeinträge' }),
-      el('p', { class: 'hinweis', text: 'Ergänzen Sie hier Einträge, die in den mitgelieferten Listen fehlen. Sie erscheinen zusätzlich in den Auswahlfeldern.' }),
-      listenPflege('eigeneZylinderarten', 'Zylinderarten', e, merken),
-      listenPflege('eigeneZutrittsarten', 'Zutritts-/Funktionsarten', e, merken),
-      listenPflege('eigeneBeschlagarten', 'Beschlagsarten', e, merken),
-      listenPflege('eigeneSchlossarten', 'Schlossarten', e, merken)
+      el('p', { class: 'hinweis', text: 'Ergänzen Sie hier Bauformen, die in den mitgelieferten Listen fehlen. Ausführungen wie Freidreh oder Anti-Panik werden getrennt gewählt und müssen nicht in die Bauform geschrieben werden.' }),
+      listenPflege('eigeneZylinderarten', 'Zylinder-Bauformen', e, merken),
+      listenPflege('eigeneBeschlagarten', 'Beschlag-Bauformen', e, merken),
+      listenPflege('eigeneSchlossarten', 'Schloss-Bauformen', e, merken),
+      listenPflege('eigeneZutrittsarten', 'Bauliche Anforderungen', e, merken)
     ]));
 
     /* --- Über --- */

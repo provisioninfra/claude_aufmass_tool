@@ -25,15 +25,10 @@
       id: 'evva-airkey', hersteller: 'EVVA', name: 'AirKey', typ: 'elektronisch',
       hinweis: 'Cloud-basiert, Smartphone (NFC/BLE) und Karte/Schlüsselanhänger.',
       komponenten: [
-        'AirKey Zylinder Doppelknauf',
-        'AirKey Zylinder Halbzylinder',
-        'AirKey Zylinder Knauf/Knauf-Modul',
-        'AirKey Hebelzylinder',
         'AirKey Wandleser',
+        'AirKey Wandleser mit Tastatur',
         'AirKey Vorhangschloss',
-        'AirKey Zylinder Komfort (Freidreh)',
-        'AirKey Schlüsselanhänger',
-        'AirKey Karte'
+        'AirKey Codierstation / Smartphone-Programmierung'
       ],
       identmedien: ['Smartphone (App)', 'Karte', 'Schlüsselanhänger', 'Kombi-Schlüssel']
     },
@@ -41,16 +36,12 @@
       id: 'evva-xesar', hersteller: 'EVVA', name: 'Xesar', typ: 'elektronisch',
       hinweis: 'Eigenständige Anlage mit Xesar-Software, virtuelles Netzwerk über Wandleser.',
       komponenten: [
-        'Xesar Zylinder Doppelknauf',
-        'Xesar Zylinder Halbzylinder',
-        'Xesar Hebelzylinder',
-        'Xesar Beschlag (Türbeschlag)',
         'Xesar Wandleser',
         'Xesar Wandleser mit Tastatur',
-        'Xesar Schrankschloss',
         'Xesar Online-Wandleser',
+        'Xesar Schrankschloss',
         'Xesar Codierstation',
-        'Xesar Identmedium Karte'
+        'Xesar Verwaltungssoftware'
       ],
       identmedien: ['Karte', 'Schlüsselanhänger', 'Armband', 'Smartphone (sofern freigeschaltet)']
     },
@@ -59,13 +50,9 @@
       id: 'sv-mobilekey', hersteller: 'SimonsVoss', name: 'MobileKey', typ: 'elektronisch',
       hinweis: 'Kleinanlage / Web-App. Für kleinere Objekte ausgelegt.',
       komponenten: [
-        'MobileKey Digitaler Zylinder',
-        'MobileKey Halbzylinder',
-        'MobileKey SmartHandle',
         'MobileKey SmartRelais',
-        'MobileKey WebApp Stick / GatewayNode',
-        'MobileKey Transponder',
-        'MobileKey Karte'
+        'MobileKey WebApp-Stick / GatewayNode',
+        'MobileKey Programmiergerät'
       ],
       identmedien: ['Transponder', 'Karte', 'Smartphone (App)', 'PinCode-Tastatur']
     },
@@ -73,18 +60,11 @@
       id: 'sv-3060', hersteller: 'SimonsVoss', name: 'System 3060', typ: 'elektronisch',
       hinweis: 'Klassisches System 3060 mit LSM-Software.',
       komponenten: [
-        'Digitaler Schließzylinder 3061',
-        'Digitaler Halbzylinder 3061',
-        'SmartHandle 3062',
         'SmartRelais 3063 / 2',
         'SmartLocker / Möbelschloss',
-        'Digitaler Zylinder Freidreh (FD)',
-        'Digitaler Zylinder Anti-Panik (AP)',
-        'Digitaler Zylinder Wetterschutz (WP)',
-        'Transponder 3064',
-        'SmartCard / SmartTag',
         'Programmiergerät / SmartCD',
-        'RouterNode / LockNode (WaveNet)'
+        'RouterNode / LockNode (WaveNet)',
+        'LSM-Software'
       ],
       identmedien: ['Transponder', 'SmartCard', 'SmartTag', 'PinCode-Tastatur']
     },
@@ -92,19 +72,12 @@
       id: 'sv-ax', hersteller: 'SimonsVoss', name: 'System AX (Digital Cylinder AX)', typ: 'elektronisch',
       hinweis: 'AX-Generation, BLE-fähig, AX-Manager / LSM.',
       komponenten: [
-        'Digitaler Schließzylinder AX',
-        'Digitaler Halbzylinder AX',
-        'SmartHandle AX',
         'SmartRelais AX / 3 Advanced',
         'SmartLocker AX',
-        'Zylinder AX Freidreh (FD)',
-        'Zylinder AX Anti-Panik (AP)',
-        'Zylinder AX Wetterschutz (WP)',
-        'Zylinder AX .SmartCore',
-        'Transponder AX',
-        'SmartCard AX / MIFARE',
         'PinCode AX Tastatur',
-        'RouterNode 2 / AccessNode'
+        'RouterNode 2 / AccessNode',
+        'Programmiergerät / SmartCD',
+        'AX-Manager / LSM'
       ],
       identmedien: ['Transponder AX', 'SmartCard (MIFARE)', 'Smartphone (BLE App)', 'PinCode AX']
     },
@@ -113,11 +86,8 @@
       id: 'keyota', hersteller: 'Keyota', name: 'Keyota', typ: 'elektronisch',
       hinweis: 'Komponentenliste im Menü "Einstellungen" an den konkreten Lieferumfang anpassen.',
       komponenten: [
-        'Keyota Zylinder',
-        'Keyota Halbzylinder',
-        'Keyota Beschlag',
         'Keyota Wandleser',
-        'Keyota Identmedium'
+        'Keyota Programmiereinheit'
       ],
       identmedien: ['Smartphone (App)', 'Karte', 'Schlüsselanhänger']
     },
@@ -131,8 +101,7 @@
         'Nuki Opener (Türsprechanlage)',
         'Nuki Keypad',
         'Nuki Fob',
-        'Nuki Bridge',
-        'Nuki Universalzylinder / passender Zylinder'
+        'Nuki Bridge'
       ],
       identmedien: ['Smartphone (App)', 'Keypad-Code', 'Fob', 'Fingerprint (geräteabhängig)']
     },
@@ -179,80 +148,145 @@
     }
   ];
 
-  /* --- Zylinderarten ------------------------------------------------------ */
-  var ZYLINDERARTEN = [
+  /* --- Zylinder ----------------------------------------------------------
+   * Bewusst in drei unabhängige Angaben getrennt, damit nichts doppelt
+   * gewählt werden muss:
+   *   BAUFORM      - was für ein Zylinder (immer genau einer)
+   *   AUSFUEHRUNG  - Zusatzfunktionen (mehrere möglich)
+   *   Technologie  - ergibt sich aus dem gewählten System, wird nicht gefragt
+   * -------------------------------------------------------------------- */
+  var ZYLINDER_BAUFORM = [
     'Doppelzylinder',
-    'Doppelzylinder mit Not- und Gefahrenfunktion',
-    'Knaufzylinder (Knauf außen)',
-    'Knaufzylinder (Knauf innen)',
-    'Doppelknaufzylinder (beidseitig Knauf)',
     'Halbzylinder',
-    'Elektronikzylinder (Doppelknauf)',
-    'Elektronikzylinder (Halbzylinder)',
-    'Elektronikzylinder Freidreh / Komfort',
-    'Elektronikzylinder Anti-Panik',
-    'Elektronikzylinder Wetterschutz',
+    'Knaufzylinder',
+    'Doppelknaufzylinder',
     'Hebelzylinder',
     'Möbelzylinder',
     'Vorhangschloss / Bügelschloss',
     'Briefkastenzylinder',
-    'Schaltzylinder / Schließzylinder für Schaltschloss',
+    'Schaltzylinder',
     'Rundzylinder',
-    'Blindzylinder',
-    'Kein Zylinder'
+    'Blindzylinder'
   ];
 
-  /* --- Zutritts- / Funktionsart ------------------------------------------ */
-  var ZUTRITTSARTEN = [
-    'Einseitig (nur außen)',
-    'Beidseitig (innen + außen)',
-    'Comfort / Freidreh',
-    'Not- und Gefahrenfunktion (beidseitig steckbar)',
+  var ZYLINDER_AUSFUEHRUNG = [
+    'Not- und Gefahrenfunktion',
+    'Freidreh / Komfort',
+    'Anti-Panik',
+    'Wetterschutz',
+    'erhöhter Bohrschutz',
+    'Ziehschutz',
+    'gleichschließend'
+  ];
+
+  /* Nur bei Knaufzylinder abgefragt */
+  var KNAUFSEITE = ['Knauf außen', 'Knauf innen', 'Knauf beidseitig'];
+
+  /* Vollständige Bezeichnung aus den Einzelangaben aufbauen - dieser Text
+   * erscheint in Türliste und Materialliste. */
+  function zylinderText(tuer) {
+    if (!tuer || !tuer.brauchtZylinder) return '';
+    var teile = [];
+    if (tuer.zylinderBauform) teile.push(tuer.zylinderBauform);
+    if (tuer.zylinderKnaufseite && tuer.zylinderBauform === 'Knaufzylinder') {
+      teile.push('(' + tuer.zylinderKnaufseite + ')');
+    }
+    var a = (tuer.zylinderAusfuehrung || []).filter(Boolean);
+    if (a.length) teile.push('· ' + a.join(', '));
+    return teile.join(' ').trim();
+  }
+
+  /* --- Zutrittsseite und Türanforderungen --------------------------------
+   * Früher eine gemischte Liste; jetzt getrennt, weil es zwei verschiedene
+   * Fragen sind. Zylinderfunktionen (Freidreh, Not- und Gefahrenfunktion)
+   * stehen ausschließlich bei der Zylinderausführung.
+   * -------------------------------------------------------------------- */
+  var ZUTRITTSSEITE = [
+    'nur außen',
+    'innen und außen',
+    'nur innen',
+    'Durchgangsfunktion / dauerentriegelt'
+  ];
+
+  var TUERANFORDERUNG = [
+    'Flucht- und Rettungsweg',
+    'Brandschutz',
+    'Rauchschutz',
+    'einbruchhemmend (RC)',
     'VdS-Anforderung',
-    'Flucht- und Rettungsweg (Panik)',
-    'Brandschutztür',
-    'Rauchschutztür',
-    'Brand- und Rauchschutz',
-    'Sicherheitstür / einbruchhemmend (RC)',
-    'Nur mechanische Verriegelung',
-    'Dauerentriegelt / Tagesfreischaltung',
-    'Zeitgesteuert'
+    'Nassbereich / Außenbereich',
+    'barrierefrei',
+    'Zeitsteuerung vorgesehen'
   ];
 
-  /* --- Beschlags-/Drückerarten ------------------------------------------- */
-  var BESCHLAGARTEN = [
-    'Rosettengarnitur Drücker/Drücker',
-    'Rosettengarnitur Knauf/Drücker',
-    'Langschildgarnitur Drücker/Drücker',
-    'Langschildgarnitur Knauf/Drücker',
-    'Schutzbeschlag ES0',
-    'Schutzbeschlag ES1',
-    'Schutzbeschlag ES2',
-    'Schutzbeschlag ES3',
+  /* --- Beschlag ----------------------------------------------------------
+   * Bauform, Bestückung und Sicherheitsklasse sind unabhängig voneinander.
+   * -------------------------------------------------------------------- */
+  var BESCHLAG_BAUFORM = [
+    'Rosettengarnitur',
+    'Langschildgarnitur',
+    'Schutzbeschlag',
     'Wechselgarnitur',
     'Panikbeschlag / Fluchttürbeschlag',
     'Stoßgriff / Ziehgriff',
-    'Elektronischer Türbeschlag',
-    'Kein Beschlag erforderlich'
+    'Elektronischer Türbeschlag'
   ];
 
-  /* --- Schlossarten ------------------------------------------------------- */
-  var SCHLOSSARTEN = [
-    'Einsteckschloss Buntbart',
-    'Einsteckschloss PZ',
-    'Einsteckschloss PZ selbstverriegelnd',
-    'Rohrrahmenschloss PZ',
-    'Panikschloss Funktion B (Umschaltfunktion)',
-    'Panikschloss Funktion E (Wechselfunktion)',
-    'Panikschloss Funktion D (Durchgangsfunktion)',
-    'Mehrfachverriegelung (mechanisch)',
-    'Mehrfachverriegelung (automatisch/selbstverriegelnd)',
-    'Motorschloss',
-    'Elektrischer Türöffner',
-    'Haftmagnet',
-    'Möbelschloss',
-    'Unbekannt / vor Ort prüfen'
+  var BESCHLAG_BESTUECKUNG = [
+    'Drücker / Drücker',
+    'Knauf / Drücker',
+    'Knauf / Knauf',
+    'Drücker / Stoßgriff'
   ];
+
+  /* Nur bei Schutzbeschlag abgefragt */
+  var BESCHLAG_SICHERHEIT = ['ES0', 'ES1', 'ES2', 'ES3'];
+
+  function beschlagText(tuer) {
+    if (!tuer || !tuer.brauchtBeschlag) return '';
+    var teile = [];
+    if (tuer.beschlagBauform) teile.push(tuer.beschlagBauform);
+    if (tuer.beschlagSicherheit && /Schutzbeschlag/.test(tuer.beschlagBauform || '')) {
+      teile.push(tuer.beschlagSicherheit);
+    }
+    if (tuer.beschlagBestueckung) teile.push('· ' + tuer.beschlagBestueckung);
+    return teile.join(' ').trim();
+  }
+
+  /* --- Schloss -----------------------------------------------------------
+   * Bauform und Funktion getrennt: ein Einsteckschloss kann Panikfunktion
+   * haben, ein Panikschloss ist keine eigene Bauform.
+   * -------------------------------------------------------------------- */
+  var SCHLOSS_BAUFORM = [
+    'Einsteckschloss',
+    'Rohrrahmenschloss',
+    'Mehrfachverriegelung',
+    'Motorschloss',
+    'Möbelschloss',
+    'Elektrischer Türöffner',
+    'Haftmagnet'
+  ];
+
+  var SCHLOSS_FUNKTION = [
+    'Profilzylinder (PZ)',
+    'Buntbart',
+    'selbstverriegelnd',
+    'automatisch verriegelnd',
+    'Panik Funktion B (Umschaltfunktion)',
+    'Panik Funktion E (Wechselfunktion)',
+    'Panik Funktion D (Durchgangsfunktion)',
+    'Panik Funktion C',
+    'Rollfalle',
+    'Freilauffunktion'
+  ];
+
+  function schlossText(tuer) {
+    if (!tuer || !tuer.brauchtSchloss) return '';
+    var teile = [];
+    if (tuer.schlossBauform) teile.push(tuer.schlossBauform);
+    if (tuer.schlossFunktion) teile.push('· ' + tuer.schlossFunktion);
+    return teile.join(' ').trim();
+  }
 
   /* --- DIN-Richtung ------------------------------------------------------- */
   var DIN_RICHTUNG = ['DIN links', 'DIN rechts', 'Pendeltür', 'Unbekannt'];
@@ -329,6 +363,17 @@
     if (s.name.indexOf(s.hersteller) === 0) return s.name;
     return s.hersteller + ' ' + s.name;
   }
+  /* Die Technologie ergibt sich aus dem System und wird deshalb nicht
+   * mehr getrennt abgefragt. */
+  function systemTechnologie(systemId, extraSysteme) {
+    var s = systemById(systemId, extraSysteme);
+    return s ? (s.typ || 'offen') : 'offen';
+  }
+  function istElektronisch(systemId, extraSysteme) {
+    var t = systemTechnologie(systemId, extraSysteme);
+    return t === 'elektronisch' || t === 'hybrid';
+  }
+
   function statusById(id) {
     for (var i = 0; i < STATUS.length; i++) { if (STATUS[i].id === id) return STATUS[i]; }
     return STATUS[0];
@@ -341,10 +386,23 @@
   global.Katalog = {
     TECHNOLOGIE: TECHNOLOGIE,
     SYSTEME: SYSTEME,
-    ZYLINDERARTEN: ZYLINDERARTEN,
-    ZUTRITTSARTEN: ZUTRITTSARTEN,
-    BESCHLAGARTEN: BESCHLAGARTEN,
-    SCHLOSSARTEN: SCHLOSSARTEN,
+    /* Zylinder in unabhängigen Angaben */
+    ZYLINDER_BAUFORM: ZYLINDER_BAUFORM,
+    ZYLINDER_AUSFUEHRUNG: ZYLINDER_AUSFUEHRUNG,
+    KNAUFSEITE: KNAUFSEITE,
+    zylinderText: zylinderText,
+    /* Beschlag */
+    BESCHLAG_BAUFORM: BESCHLAG_BAUFORM,
+    BESCHLAG_BESTUECKUNG: BESCHLAG_BESTUECKUNG,
+    BESCHLAG_SICHERHEIT: BESCHLAG_SICHERHEIT,
+    beschlagText: beschlagText,
+    /* Schloss */
+    SCHLOSS_BAUFORM: SCHLOSS_BAUFORM,
+    SCHLOSS_FUNKTION: SCHLOSS_FUNKTION,
+    schlossText: schlossText,
+    /* Tür */
+    ZUTRITTSSEITE: ZUTRITTSSEITE,
+    TUERANFORDERUNG: TUERANFORDERUNG,
     DIN_RICHTUNG: DIN_RICHTUNG,
     TUER_OEFFNUNG: TUER_OEFFNUNG,
     TUERKATEGORIEN: TUERKATEGORIEN,
@@ -354,6 +412,8 @@
     BERECHTIGUNG: BERECHTIGUNG,
     systemById: systemById,
     systemLabel: systemLabel,
+    systemTechnologie: systemTechnologie,
+    istElektronisch: istElektronisch,
     statusById: statusById,
     berechtigungZeichen: berechtigungZeichen
   };

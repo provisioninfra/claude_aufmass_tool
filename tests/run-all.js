@@ -3,6 +3,7 @@
 const { execFileSync } = require('child_process');
 const reihen = [
   ['PDF-Writer',      'test-pdf.js'],
+  ['Entdoppelung',    'test-entdoppelung.js'],
   ['Robustheit',      'test-robustheit.js'],
   ['Report-Erzeugung','test-reports.js'],
   ['Browser (E2E)',   'test-e2e.js'],

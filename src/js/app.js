@@ -284,7 +284,8 @@
       });
       behaelter.appendChild(chip);
     });
-    return el('div', { class: 'feld voll' }, [el('label', { text: beschriftung }), behaelter]);
+    /* Beschriftung als HTML, damit Zusätze wie <span class="einheit"> wirken */
+    return el('div', { class: 'feld voll' }, [el('label', { html: beschriftung }), behaelter]);
   }
 
   /* Ein Projekt zum aktiven Projekt machen und als zuletzt geöffnet merken,
