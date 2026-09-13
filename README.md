@@ -54,6 +54,16 @@ Doppelklick. Für die gehostete Fassung:
 npm start        # lokaler Webserver auf http://localhost:8080
 ```
 
+### Dateiausgabe
+
+Die Anwendung erkennt selbst, wie sie ausgeliefert wird, und wählt den
+passenden Weg für PDF- und Projektdateien:
+
+* lokal geöffnet oder von einem Webserver → üblicher Browser-Download
+* in einer eingebetteten Umgebung, die eigene Downloads unterbindet →
+  die dort bereitgestellte Speicherfunktion (der Betrachter bestätigt
+  Dateiname und Größe)
+
 ### Datenaustausch iPad ↔ Büro
 
 *Export → Projekt exportieren* erzeugt eine `.json`-Datei. Diese per AirDrop,
@@ -77,6 +87,7 @@ src/
   js/main.js              Navigation und Start
   sw.js                   Offline-Bereitstellung
 tools/build.js            Erzeugt die eigenständige Einzeldatei
+tools/build-artifact.js   Erzeugt die Fassung für die gehostete Veröffentlichung
 tests/                    Testreihen (siehe unten)
 dist/aufmass-tool.html    Eigenständige Fassung (aus `npm run build`)
 ```
@@ -107,6 +118,7 @@ Die Testreihen prüfen:
 | `test-reports.js` | Erzeugung aller PDF-Ausgaben inklusive Randfälle |
 | `test-e2e.js` | vollständiger Durchlauf im echten Browser: Projekt anlegen, Struktur, Türen, Matrix, PDF-Download, Neuladen, Import, iPad- und Telefonbreite |
 | `test-standalone.js` | Einzeldatei aus `dist/`: startet per `file://`, stellt nachweislich keine einzige Netzanfrage |
+| `test-downloads.js` | zweiter Ausgabeweg: Übergabe an eine bereitgestellte Speicherfunktion, Ablehnung durch den Betrachter, Größenfehler |
 
 Die Browser-Tests laufen gegen Chromium über Playwright.
 

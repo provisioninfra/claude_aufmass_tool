@@ -3227,17 +3227,59 @@ table.matrix tfoot td.tuername { z-index: 5; text-align: left; }
     return kopie;
   }
 
-  /* --- Datei-Download (auch auf iPadOS nutzbar) ---------------------------- */
+  /* --- Dateiausgabe -------------------------------------------------------
+   * Zwei Wege, je nachdem wie die Anwendung ausgeliefert wird:
+   *  - lokal geöffnet oder von einem Webserver: klassischer Download-Link
+   *  - in einer eingebetteten Umgebung, die eigene Downloads unterbindet:
+   *    die dort bereitgestellte Speicherfunktion
+   * ---------------------------------------------------------------------- */
+  var speicherFunktion;          // undefined = noch nicht geprüft, null = nicht vorhanden
+
+  function ausgabeVorbereiten() {
+    if (speicherFunktion !== undefined) return Promise.resolve(speicherFunktion);
+    if (!global.claude || typeof global.claude.use !== 'function') {
+      speicherFunktion = null;
+      return Promise.resolve(null);
+    }
+    return global.claude.use('downloads').then(function (d) {
+      speicherFunktion = (d && typeof d.save === 'function') ? d : null;
+      return speicherFunktion;
+    }).catch(function () { speicherFunktion = null; return null; });
+  }
+
+  /* Gibt ein Promise auf 'gespeichert' | 'abgelehnt' zurück bzw. wird
+   * mit einer verständlichen Meldung abgelehnt. */
   function dateiHerunterladen(inhalt, dateiname, mimeTyp) {
-    var blob = (inhalt instanceof Blob) ? inhalt : new Blob([inhalt], { type: mimeTyp || 'application/json' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url; a.download = dateiname; a.rel = 'noopener';
-    document.body.appendChild(a); a.click();
-    setTimeout(function () {
-      if (a.parentNode) a.parentNode.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, 4000);
+    var blob = (inhalt instanceof Blob) ? inhalt
+      : new Blob([inhalt], { type: mimeTyp || 'application/json' });
+
+    return ausgabeVorbereiten().then(function (speichern) {
+      if (speichern) {
+        return speichern.save({ filename: dateiname, data: blob })
+          .then(function () { return 'gespeichert'; })
+          .catch(function (fehler) {
+            var code = fehler && fehler.code;
+            if (code === 'declined') return 'abgelehnt';
+            if (code === 'rate_limited') {
+              throw new Error('Es ist bereits eine Abfrage offen. Bitte kurz warten und erneut versuchen.');
+            }
+            if (code === 'too_large') {
+              throw new Error('Die Datei ist zu groß. Bitte den Export ohne Fotos wählen.');
+            }
+            throw new Error('Speichern nicht möglich (' + (code || 'unbekannt') + ').');
+          });
+      }
+      /* Klassischer Weg */
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = dateiname; a.rel = 'noopener';
+      document.body.appendChild(a); a.click();
+      setTimeout(function () {
+        if (a.parentNode) a.parentNode.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 4000);
+      return 'gespeichert';
+    });
   }
 
   /* --- Fotos: verkleinern und als JPEG ablegen ----------------------------
@@ -3314,6 +3356,7 @@ table.matrix tfoot td.tuername { z-index: 5; text-align: left; }
     importParsen: importParsen,
     projektKlonen: projektKlonen,
     dateiHerunterladen: dateiHerunterladen,
+    ausgabeVorbereiten: ausgabeVorbereiten,
     fotoVerarbeiten: fotoVerarbeiten,
     speicherInfo: speicherInfo,
     projektGroesse: projektGroesse,
@@ -4985,11 +5028,15 @@ table.matrix tfoot td.tuername { z-index: 5; text-align: left; }
     ]));
 
     function jsonExport(mitFotos) {
+      var daten, text;
       try {
-        var daten = Store.exportDaten(p, eins, mitFotos);
-        Store.dateiHerunterladen(JSON.stringify(daten, null, 1), Store.exportDateiname(p), 'application/json');
-        A.toast('Projektdatei erzeugt.', 'ok');
-      } catch (e) { A.toast('Export fehlgeschlagen: ' + e.message, 'fehler'); }
+        daten = Store.exportDaten(p, eins, mitFotos);
+        text = JSON.stringify(daten, null, 1);
+      } catch (e) { A.toast('Export fehlgeschlagen: ' + e.message, 'fehler'); return; }
+      Store.dateiHerunterladen(text, Store.exportDateiname(p), 'application/json').then(function (stand) {
+        if (stand === 'abgelehnt') { A.toast('Speichern abgebrochen.'); return; }
+        A.toast('Projektdatei erzeugt (' + global.ViewsProjekt.kb(text.length) + ').', 'ok');
+      }).catch(function (fehler) { A.toast(fehler.message, 'fehler'); });
     }
 
     function sicherungExport() {
@@ -4998,8 +5045,11 @@ table.matrix tfoot td.tuername { z-index: 5; text-align: left; }
           typ: 'schliessanlagen-aufmass-sicherung', version: 1,
           exportiert: new Date().toISOString(), projekte: alle
         };
-        Store.dateiHerunterladen(JSON.stringify(daten), 'Aufmass-Sicherung_' + M.heute() + '.json', 'application/json');
-        A.toast(alle.length + ' Projekte gesichert.', 'ok');
+        Store.dateiHerunterladen(JSON.stringify(daten), 'Aufmass-Sicherung_' + M.heute() + '.json',
+          'application/json').then(function (stand) {
+          if (stand === 'abgelehnt') { A.toast('Speichern abgebrochen.'); return; }
+          A.toast(alle.length + ' Projekte gesichert.', 'ok');
+        }).catch(function (fehler) { A.toast(fehler.message, 'fehler'); });
       });
     }
   }
@@ -5024,15 +5074,21 @@ table.matrix tfoot td.tuername { z-index: 5; text-align: left; }
     A.toast('PDF wird erzeugt …');
     /* Kurz warten, damit die Meldung erscheint, bevor der Aufbau blockiert */
     setTimeout(function () {
+      var doc, name;
       try {
-        var doc = bauen();
-        var name = Reports.dateiName(Zustand.projekt, suffix);
-        doc.speichern(name);
-        A.toast(doc.seitenAnzahl() + ' Seiten erzeugt: ' + name, 'ok');
+        doc = bauen();
+        name = Reports.dateiName(Zustand.projekt, suffix);
       } catch (fehler) {
         console.error(fehler);
         A.toast('PDF-Erzeugung fehlgeschlagen: ' + fehler.message, 'fehler');
+        return;
       }
+      Store.dateiHerunterladen(doc.blob(), name, 'application/pdf').then(function (stand) {
+        if (stand === 'abgelehnt') { A.toast('Speichern abgebrochen.'); return; }
+        A.toast(doc.seitenAnzahl() + ' Seiten erzeugt: ' + name, 'ok');
+      }).catch(function (fehler) {
+        A.toast(fehler.message || 'Speichern fehlgeschlagen.', 'fehler');
+      });
     }, 60);
   }
 
