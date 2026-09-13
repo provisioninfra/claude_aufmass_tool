@@ -27,10 +27,14 @@
     var p = Zustand.projekt;
 
     /* --- Kopfzeile --- */
+    var eins = Zustand.einstellungen || {};
     wurzel.appendChild(el('header', { class: 'kopf' }, [
+      eins.logoDataUrl
+        ? el('img', { class: 'logo', src: eins.logoDataUrl, alt: eins.firma || 'Firmenlogo' })
+        : null,
       el('div', { class: 'marke' }, [
-        'Aufmaß-Tool',
-        el('small', { text: 'Schließanlagen & Zutritt' })
+        eins.firma || 'Aufmaß-Tool',
+        el('small', { text: eins.firmaZusatz || 'Schließanlagen & Zutritt' })
       ]),
       el('div', { class: 'projekt-titel' }, p ? [
         (p.kunde || p.name || 'Ohne Namen'),
@@ -65,6 +69,15 @@
     wurzel.appendChild(haupt);
     wurzel.appendChild(el('div', { id: 'toast-bereich' }));
 
+    /* Die häufigste Aktion der jeweiligen Ansicht liegt als schwebender
+     * Knopf in der Daumenzone - so ist sie mit einer Hand erreichbar. */
+    var HAUPTAKTION = {
+      projekte:  { text: '+ Neues Aufmaß', tun: function () { VP.neuesProjektAnlegen(zeichnen); } },
+      tueren:    { text: '+ Neue Tür',     tun: function () { VT.tuerBearbeiten(null, zeichnen); } },
+      struktur:  { text: '+ Standort',     tun: function () { VP.standortAnlegen(zeichnen); } },
+      plan:      { text: '+ Schließung',   tun: function () { VPL.schliessungBearbeiten(null, zeichnen); } }
+    };
+
     if (!p && ['projekte', 'einstellungen'].indexOf(Zustand.ansicht) === -1) {
       Zustand.ansicht = 'projekte';
     }
@@ -90,6 +103,15 @@
             onclick: function () { Zustand.ansicht = 'projekte'; zeichnen(); } })
         ])
       ]));
+    }
+
+    var aktion = HAUPTAKTION[Zustand.ansicht];
+    if (aktion && (p || Zustand.ansicht === 'projekte')) {
+      haupt.classList.add('mit-schwebe');
+      wurzel.appendChild(el('button', {
+        class: 'schwebe-aktion', text: aktion.text,
+        title: aktion.text, onclick: aktion.tun
+      }));
     }
 
     A.statusAnzeigen(Zustand.ungesichert ? 'ungesichert' : (p ? 'gesichert' : ''));

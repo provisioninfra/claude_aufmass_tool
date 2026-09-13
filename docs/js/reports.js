@@ -826,85 +826,124 @@
   /* =========================================================================
    * 3) MATERIALLISTE / STÜCKLISTE
    * ====================================================================== */
-  function materialliste(projekt, einstellungen) {
+  function materialliste(projekt, einstellungen, optionen) {
+    optionen = optionen || {};
+    var mitTueren = optionen.mitTueren !== false;
     var doc = new PDF.Doc({
-      format: 'a4', orientation: 'portrait',
+      format: 'a4', orientation: 'landscape',
       titel: 'Materialliste ' + (projekt.kunde || projekt.name),
       autor: einstellungen && einstellungen.firma || '',
-      betreff: 'Materialliste / Stückliste',
-      margin: { oben: 12, unten: 14, links: 14, rechts: 14 }
+      betreff: 'Materialliste / Bestellgrundlage',
+      margin: { oben: 12, unten: 14, links: 12, rechts: 12 }
     });
-    kopfUndFussSetzen(doc, projekt, einstellungen, 'Materialliste / Stückliste');
+    kopfUndFussSetzen(doc, projekt, einstellungen, 'Materialliste / Bestellgrundlage');
     doc.neueSeite();
     projektKopfBlock(doc, projekt, einstellungen);
 
     var liste = M.materialliste(projekt, einstellungen && einstellungen.eigeneSysteme);
     var b = doc.inhaltsBreite();
 
-    if (!liste.systeme.length) {
+    if (!liste.systeme.length || !liste.gesamtStueck) {
       doc.text('Keine Positionen vorhanden.', doc.rand.links, doc.y, { size: 10, color: FARBE.grau });
       return doc;
     }
 
-    var gesamtStueck = 0;
     var zeilen = [];
     liste.systeme.forEach(function (sys) {
-      var summe = sys.positionen.reduce(function (s, p) { return s + p.menge; }, 0);
-      gesamtStueck += summe;
-      zeilen.push({ __gruppe: sys.label, __gruppeRechts: sys.tueren + ' Türen  ·  ' + summe + ' Stück' });
-      sys.positionen.forEach(function (p) { zeilen.push(p); });
+      if (!sys.positionen.length) return;
+      zeilen.push({ __gruppe: sys.label,
+        __gruppeRechts: plural(sys.tueren, 'Tür', 'Türen') + '  ·  ' + sys.summe + ' Stück' });
+      var letzteGruppe = null;
+      sys.positionen.forEach(function (pos) {
+        if (pos.gruppe !== letzteGruppe) { pos.__ersteDerGruppe = true; letzteGruppe = pos.gruppe; }
+        else { pos.__ersteDerGruppe = false; }
+        zeilen.push(pos);
+      });
     });
 
-    var spalten = [
-      { titel: 'Pos.', breite: b * 0.07, align: 'center', render: function (p, i) { return ''; } },
-      { titel: 'Bezeichnung', breite: b * 0.52, key: 'bezeichnung', bold: true },
-      { titel: 'Detail / Maß', breite: b * 0.26, key: 'detail' },
-      { titel: 'Menge', breite: b * 0.15, align: 'right', bold: true,
-        render: function (p) { return String(p.menge) + ' Stk'; } }
-    ];
-    /* Positionsnummern fortlaufend vergeben */
     var pos = 0;
-    spalten[0].render = function (p) { if (p.__gruppe) return ''; pos++; return String(pos); };
+    var spalten = [
+      { titel: 'Pos.', breite: b * 0.045, align: 'center',
+        render: function (x) { if (x.__gruppe) return ''; pos++; return String(pos); } },
+      { titel: 'Art', breite: b * 0.095, size: 7.2, color: FARBE.grau,
+        render: function (x) { return x.__ersteDerGruppe ? txt(x.gruppe) : ''; } },
+      { titel: 'Bezeichnung', breite: b * 0.245, key: 'bezeichnung', bold: true },
+      { titel: 'Maß / Ausprägung', breite: b * 0.185, key: 'mass' },
+      { titel: 'Ausführung', breite: b * 0.165, key: 'ausfuehrung' },
+      { titel: 'Menge', breite: b * 0.075, align: 'right', bold: true,
+        render: function (x) { return String(x.menge) + ' Stk'; } }
+    ];
+    if (mitTueren) {
+      spalten.push({ titel: 'Türen', breite: b * 0.19, size: 6.8, color: FARBE.grau, maxLines: 3,
+        render: function (x) { return (x.tueren || []).join(', '); } });
+    } else {
+      spalten[2].breite += b * 0.19;
+    }
+
     tabelle(doc, spalten, zeilen, { size: 8 });
 
+    /* --- Gesamtsumme --- */
     doc.y += 2;
     doc.platzPruefen(10);
     doc.rechteck(doc.rand.links, doc.y, b, 7, { fill: FARBE.kopfBg, stroke: FARBE.linie, width: 0.3 });
-    doc.text('Gesamtsumme Positionen', doc.rand.links + 2, doc.y + 1.6, { size: 8.5, bold: true });
-    doc.text(String(gesamtStueck) + ' Stück', doc.rand.links + b - 2, doc.y + 1.6,
+    doc.text('Gesamtsumme Bauteile', doc.rand.links + 2, doc.y + 1.6, { size: 8.5, bold: true });
+    doc.text(String(liste.gesamtStueck) + ' Stück', doc.rand.links + b - 2, doc.y + 1.6,
              { size: 8.5, bold: true, align: 'right', color: FARBE.akzent });
     doc.y += 12;
 
-    /* Identmedien */
+    /* --- Identmedien --- */
     if (liste.medien.length) {
-      doc.platzPruefen(20);
+      doc.platzPruefen(24);
       doc.text('Identmedien / Schlüssel aus dem Schließplan', doc.rand.links, doc.y,
                { size: 10, bold: true, color: FARBE.akzent });
       doc.y += 6;
       var medienSpalten = [
-        { titel: 'Kürzel', breite: b * 0.14, key: 'kuerzel', bold: true },
-        { titel: 'Bezeichnung', breite: b * 0.44, key: 'bezeichnung' },
-        { titel: 'Typ', breite: b * 0.27, render: function (m) {
+        { titel: 'Kürzel', breite: b * 0.12, key: 'kuerzel', bold: true },
+        { titel: 'Bezeichnung', breite: b * 0.34, key: 'bezeichnung' },
+        { titel: 'Typ', breite: b * 0.22, render: function (m) {
             var t = K.SCHLIESSUNG_TYPEN.filter(function (x2) { return x2.id === m.typ; })[0];
             return t ? t.label : txt(m.typ); } },
-        { titel: 'Anzahl', breite: b * 0.15, align: 'right', bold: true,
+        { titel: 'Person / Bereich', breite: b * 0.22, key: 'person' },
+        { titel: 'Anzahl', breite: b * 0.10, align: 'right', bold: true,
           render: function (m) { return String(m.menge) + ' Stk'; } }
       ];
       tabelle(doc, medienSpalten, liste.medien.slice(), { size: 8 });
-      var medienSumme = liste.medien.reduce(function (s, m) { return s + m.menge; }, 0);
       doc.y += 2;
       doc.platzPruefen(10);
       doc.rechteck(doc.rand.links, doc.y, b, 7, { fill: FARBE.kopfBg, stroke: FARBE.linie, width: 0.3 });
       doc.text('Summe Identmedien', doc.rand.links + 2, doc.y + 1.6, { size: 8.5, bold: true });
-      doc.text(String(medienSumme) + ' Stück', doc.rand.links + b - 2, doc.y + 1.6,
+      doc.text(String(liste.gesamtMedien) + ' Stück', doc.rand.links + b - 2, doc.y + 1.6,
                { size: 8.5, bold: true, align: 'right', color: FARBE.akzent });
       doc.y += 12;
     }
 
+    /* --- Angaben zur Anlage, die für die Bestellung gebraucht werden --- */
+    doc.platzPruefen(30);
+    doc.text('Angaben für die Bestellung', doc.rand.links, doc.y,
+             { size: 10, bold: true, color: FARBE.akzent });
+    doc.y += 6;
+    var anlage = [
+      ['Art der Anlage', (K.ANLAGENART.filter(function (a) { return a.id === projekt.anlagenart; })[0] || {}).label || '–'],
+      ['Mechanisches System', projekt.systemMechanik ? K.systemLabel(projekt.systemMechanik, einstellungen && einstellungen.eigeneSysteme) : '–'],
+      ['Elektronisches System', projekt.systemElektronik ? K.systemLabel(projekt.systemElektronik, einstellungen && einstellungen.eigeneSysteme) : '–'],
+      ['Detail zur Anlage', projekt.systemDetail || '–'],
+      ['Anlagen-Nr.', projekt.anlagenNr || '–'],
+      ['Schließungen im Plan', String(projekt.schliessungen.length)]
+    ];
+    var sp = b / 3;
+    anlage.forEach(function (f, i) {
+      var spalte = i % 3, zeile = Math.floor(i / 3);
+      var fx = doc.rand.links + spalte * sp, fy = doc.y + zeile * 9;
+      doc.text(f[0], fx, fy, { size: 6.8, color: FARBE.hellgrau });
+      doc.textBlock(txt(f[1]), fx, fy + 3.2, sp - 4, { size: 8.5, bold: true, maxLines: 1 });
+    });
+    doc.y += Math.ceil(anlage.length / 3) * 9 + 4;
+
     doc.platzPruefen(16);
     doc.textBlock('Hinweis: Die Mengen ergeben sich rechnerisch aus dem Aufmaß. ' +
       'Zylinderlängen, Beschläge und Panikfunktionen sind vor Bestellung gegen die ' +
-      'tatsächlichen Türmaße und die geltenden Brandschutz- bzw. Fluchtweganforderungen zu prüfen.',
+      'tatsächlichen Türmaße und die geltenden Brandschutz- bzw. Fluchtweganforderungen zu prüfen. ' +
+      'Artikelnummern und Preise sind in dieser Liste nicht enthalten.',
       doc.rand.links, doc.y, b, { size: 7.5, color: FARBE.hellgrau });
 
     return doc;

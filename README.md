@@ -64,6 +64,44 @@ daraus die Anlage des Projekts erschlossen (das je Technologie häufigste
 System); weicht eine einzelne Tür davon ab, bleibt der Hinweis als
 *Besonderheit zu dieser Tür* erhalten. Es gehen keine Angaben verloren.
 
+## Bedienung auf der Baustelle
+
+Das Werkzeug ist auf die Bedienung mit einer Hand bzw. einem Finger ausgelegt.
+`tests/test-bedienung.js` misst das nach und lässt keine Abweichung durch:
+
+* jedes Bedienelement ist mindestens 44 px hoch
+* Eingabefelder haben mindestens 16 px Schrift – darunter zoomt iOS beim
+  Antippen in das Feld hinein
+* die häufigste Aktion je Ansicht liegt als schwebender Knopf im unteren
+  Fünftel (Daumenzone)
+* die Aktionen im Formular stehen unten und bleiben beim Blättern sichtbar
+* auf dem Telefon wandert die Navigation an den unteren Rand
+* Matrixzellen sind 48 × 48 px groß
+
+Das unter *Einstellungen* hinterlegte Logo erscheint auch in der Kopfzeile der
+Anwendung, zusammen mit dem Firmennamen.
+
+## Schließplan als Blanko-Plan
+
+Unter *Schließplan → Blanko-Plan erzeugen* entsteht aus der Gliederung ein
+vollständiger Plan als Arbeitsgrundlage: ein Generalhauptschlüssel, je Gebäude
+ein Hauptschlüssel, je Bereich ein Gruppenschlüssel und auf Wunsch je Tür eine
+Einzelschließung – die Berechtigungen werden gleich mitgesetzt. Vorab wird
+angezeigt, wie viele Schließungen entstehen.
+
+## Materialliste als Bestellgrundlage
+
+Die Materialliste führt je Position Art, Bezeichnung, Maß, Ausführung, Menge
+und die zugehörigen Türen. Gleiche Bauteile werden zusammengefasst, bei
+unterschiedlichem Maß oder unterschiedlicher Ausführung aber getrennt gehalten
+– die Zeile ohne Zusatz wird dann ausdrücklich als *Standardausführung*
+benannt, damit zwei ähnliche Zeilen nicht wie eine Doppelung wirken.
+
+`tests/test-exportlisten.js` prüft mit 19 Nachweisen, dass keine Position
+doppelt erscheint, kein Bauteil über zwei Wege in die Liste gelangt und die
+Mengen mit dem Aufmaß übereinstimmen. Artikelnummern und Preise sind bewusst
+nicht enthalten.
+
 ## Unterstützte Systeme
 
 **Elektronik:** EVVA AirKey · EVVA Xesar · SimonsVoss MobileKey ·

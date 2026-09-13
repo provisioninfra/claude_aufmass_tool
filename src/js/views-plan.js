@@ -23,9 +23,11 @@
         el('h1', { text: 'Kreuzschließplan / Zutrittsmatrix' }),
         el('p', { class: 'hinweis', text: 'Zeilen sind die aufgemessenen Türen, Spalten die Schließungen bzw. Personen und Gruppen. Zelle antippen schaltet die Berechtigung weiter.' })
       ]),
-      el('button', { class: 'haupt', text: '+ Schließung',
+      el('button', { class: 'haupt', text: 'Blanko-Plan erzeugen',
+        onclick: function () { blankoDialog(neuZeichnen); } }),
+      el('button', { text: '+ Schließung',
         onclick: function () { schliessungBearbeiten(null, neuZeichnen); } }),
-      el('button', { text: 'Schließungen verwalten',
+      el('button', { text: 'Verwalten',
         onclick: function () { schliessungenVerwalten(neuZeichnen); } })
     ]));
 
@@ -39,22 +41,12 @@
     if (!p.schliessungen.length) {
       seite.appendChild(el('div', { class: 'leer' }, [
         el('h3', { text: 'Noch keine Schließungen angelegt' }),
-        el('p', { text: 'Legen Sie Schließungen an – etwa GHS, Hauptschlüssel je Gebäude, Abteilungen oder einzelne Personen.' }),
+        el('p', { text: 'Aus Ihrer Gliederung lässt sich ein vollständiger Plan als Arbeitsgrundlage erzeugen: Generalhauptschlüssel, Hauptschlüssel je Gebäude und Gruppenschlüssel je Bereich – mit bereits gesetzten Berechtigungen.' }),
         el('div', { class: 'knopfleiste', style: { justifyContent: 'center' } }, [
-          el('button', { class: 'haupt', text: '+ Erste Schließung anlegen',
-            onclick: function () { schliessungBearbeiten(null, neuZeichnen); } }),
-          el('button', { text: 'Vorschlag übernehmen (GHS, HS, Hausmeister)',
-            onclick: function () {
-              [['GHS', 'Generalhauptschlüssel', 'ghs', 2],
-               ['HS', 'Hauptschlüssel', 'hs', 2],
-               ['HM', 'Hausmeister', 'person', 2]].forEach(function (v, i) {
-                p.schliessungen.push(M.neueSchliessung({
-                  kuerzel: v[0], bezeichnung: v[1], typ: v[2], anzahlMedien: v[3], sort: i
-                }));
-              });
-              A.alsGeaendertMarkieren(); neuZeichnen();
-              A.toast('Drei Schließungen angelegt.', 'ok');
-            } })
+          el('button', { class: 'haupt', text: 'Blanko-Plan aus der Struktur erzeugen',
+            onclick: function () { blankoDialog(neuZeichnen); } }),
+          el('button', { text: '+ Einzelne Schließung anlegen',
+            onclick: function () { schliessungBearbeiten(null, neuZeichnen); } })
         ])
       ]));
       return;
@@ -186,6 +178,73 @@
           p.tueren.forEach(function (t) { M.setBerechtigung(p, t.id, auswahl.value, wert); });
           A.alsGeaendertMarkieren(); neuZeichnen();
           A.toast('Berechtigungen aktualisiert.', 'ok');
+        } }
+      ]
+    });
+  }
+
+  /* --- Blanko-Plan aus der Gebäudestruktur -------------------------------- */
+  function blankoDialog(neuZeichnen) {
+    var p = Zustand.projekt;
+    var optionen = { ghs: true, proGebaeude: true, proBereich: true, proTuer: false,
+                     vorhandeneErsetzen: p.schliessungen.length === 0 };
+    var vorschau = el('div', { class: 'meldung info', style: { marginTop: '4px' } });
+
+    function vorschauAktualisieren() {
+      A.leeren(vorschau);
+      var anzahl = M.blankoVorschau(p, optionen);
+      vorschau.appendChild(el('div', {}, [
+        el('b', { text: anzahl + (anzahl === 1 ? ' Schließung' : ' Schließungen') + ' werden angelegt' }),
+        el('div', { style: { marginTop: '4px', fontSize: '13px' },
+          text: optionen.vorhandeneErsetzen
+            ? 'Die vorhandenen ' + p.schliessungen.length + ' Schließungen werden dabei ersetzt.'
+            : 'Die vorhandenen Schließungen bleiben erhalten, die neuen kommen hinzu.' })
+      ]));
+    }
+
+    function schalter(schluessel, beschriftung, zusatz) {
+      return el('div', { style: { marginBottom: '4px' } }, [
+        A.schalterFeld(optionen, schluessel, beschriftung, function () { vorschauAktualisieren(); }),
+        zusatz ? el('div', { class: 'zart', style: { marginLeft: '55px', marginTop: '-6px' }, text: zusatz }) : null
+      ]);
+    }
+
+    var inhalt = el('div', {}, [
+      el('p', { class: 'hinweis', style: { marginTop: '0' },
+        text: 'Erzeugt aus Standorten, Gebäuden und Bereichen einen vollständigen Plan als Arbeitsgrundlage. Die Berechtigungen werden gleich mitgesetzt und lassen sich danach frei anpassen.' }),
+      schalter('ghs', 'Generalhauptschlüssel', 'Eine Schließung, die überall berechtigt ist.'),
+      schalter('proGebaeude', 'Hauptschlüssel je Gebäude', 'Berechtigt für alle Türen des jeweiligen Gebäudes.'),
+      schalter('proBereich', 'Gruppenschlüssel je Bereich / Etage', 'Berechtigt für alle Türen des Bereichs.'),
+      schalter('proTuer', 'Einzelschließung je Tür', 'Für jede Tür eine eigene Schließung – bei großen Objekten viele Spalten.'),
+      el('hr', { class: 'trenner' }),
+      schalter('vorhandeneErsetzen', 'Vorhandene Schließungen ersetzen',
+        'Ohne diesen Schalter werden die neuen Schließungen ergänzt.'),
+      vorschau
+    ]);
+    vorschauAktualisieren();
+
+    A.dialogOeffnen({
+      titel: 'Blanko-Plan erzeugen', inhalt: inhalt,
+      knoepfe: [
+        { fuellen: true },
+        { text: 'Abbrechen' },
+        { text: 'Plan erzeugen', klasse: 'haupt', aktion: function (schliessen) {
+          var anzahl = M.blankoVorschau(p, optionen);
+          if (!anzahl) { A.toast('Mit dieser Auswahl entsteht keine Schließung.', 'fehler'); return false; }
+          function ausfuehren() {
+            var ergebnis = M.blankoSchliessplan(p, optionen);
+            A.alsGeaendertMarkieren(); A.speichern();
+            A.toast(ergebnis.angelegt + ' Schließungen und ' + ergebnis.berechtigungen +
+                    ' Berechtigungen angelegt.', 'ok');
+            schliessen(); neuZeichnen();
+          }
+          if (optionen.vorhandeneErsetzen && p.schliessungen.length) {
+            A.bestaetigen('Vorhandene Schließungen ersetzen?',
+              'Die bestehenden ' + p.schliessungen.length + ' Schließungen und alle gesetzten ' +
+              'Berechtigungen werden gelöscht und durch den neuen Plan ersetzt.',
+              'Ersetzen').then(function (ja) { if (ja) ausfuehren(); });
+          } else { ausfuehren(); }
+          return false;
         } }
       ]
     });

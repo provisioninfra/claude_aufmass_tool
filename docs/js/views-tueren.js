@@ -16,6 +16,46 @@
   }
   function alleSysteme() { return K.SYSTEME.concat(eigeneListe('eigeneSysteme')); }
 
+  /* Maßauswahl: übliche Werte als Liste, abweichende Maße über "anderes Maß".
+   * Vor Ort wird so in der Regel nur getippt statt getastet. */
+  function massFeld(objekt, schluessel, beschriftung, werte, platzhalter) {
+    var behaelter = el('div', { class: 'feld' });
+    var freitext = el('input', {
+      type: 'number', inputmode: 'numeric', placeholder: platzhalter || 'Maß in mm',
+      value: objekt[schluessel] || '',
+      oninput: function (e) { objekt[schluessel] = e.target.value; A.alsGeaendertMarkieren(); }
+    });
+    var auswahl = el('select', {
+      onchange: function (e) {
+        if (e.target.value === K.ANDERES_MASS) {
+          freitext.classList.remove('versteckt');
+          freitext.focus();
+          return;
+        }
+        objekt[schluessel] = e.target.value;
+        freitext.value = e.target.value;
+        freitext.classList.add('versteckt');
+        A.alsGeaendertMarkieren();
+      }
+    });
+    auswahl.appendChild(el('option', { value: '', text: '– bitte wählen –' }));
+    werte.forEach(function (w) { auswahl.appendChild(el('option', { value: w, text: w + ' mm' })); });
+    auswahl.appendChild(el('option', { value: K.ANDERES_MASS, text: K.ANDERES_MASS }));
+
+    var vorhanden = objekt[schluessel];
+    if (vorhanden && werte.indexOf(String(vorhanden)) === -1) {
+      auswahl.value = K.ANDERES_MASS;          /* Altwert außerhalb der Liste */
+    } else {
+      auswahl.value = vorhanden || '';
+      freitext.classList.add('versteckt');
+    }
+
+    behaelter.appendChild(el('label', { html: beschriftung }));
+    behaelter.appendChild(auswahl);
+    behaelter.appendChild(freitext);
+    return behaelter;
+  }
+
   /* Auswahlliste aller Strukturknoten mit eingerücktem Pfad */
   function strukturOptionen() {
     var p = Zustand.projekt, out = [];
@@ -352,9 +392,11 @@
           A.auswahlFeld(t, 'beschlagBauform', 'Bauform', liste('BESCHLAG_BAUFORM', 'eigeneBeschlagarten'), {
             beiAenderung: function () { bauteilFelderZeichnen(); }
           }),
+          A.auswahlFeld(t, 'beschlagAusfuehrung', 'Ausführung', K.BESCHLAG_AUSFUEHRUNG, {
+            beiAenderung: function () { bauteilFelderZeichnen(); elektronikSichtbarkeit(); }
+          }),
           A.auswahlFeld(t, 'beschlagBestueckung', 'Bestückung', K.BESCHLAG_BESTUECKUNG),
-          A.textFeld(t, 'vierkant', 'Vierkant <span class="einheit">mm</span>',
-            { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 8' })
+          massFeld(t, 'vierkant', 'Vierkant <span class="einheit">mm</span>', K.VIERKANT, 'z. B. 8')
         ]);
         /* Sicherheitsklasse nur beim Schutzbeschlag */
         if (t.beschlagBauform === 'Schutzbeschlag') {
@@ -372,11 +414,19 @@
         schlossFelder.appendChild(el('div', { class: 'raster' }, [
           A.auswahlFeld(t, 'schlossBauform', 'Bauform', liste('SCHLOSS_BAUFORM', 'eigeneSchlossarten')),
           A.auswahlFeld(t, 'schlossFunktion', 'Funktion', K.SCHLOSS_FUNKTION),
-          A.textFeld(t, 'dornmass', 'Dornmaß <span class="einheit">mm</span>',
-            { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 55' }),
-          A.textFeld(t, 'entfernung', 'Entfernung <span class="einheit">mm</span>',
-            { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 72' }),
           A.textFeld(t, 'stulpmass', 'Stulpmaß / Stulpform')
+        ]));
+      }
+
+      /* ---- Dornmaß und Entfernung: gelten für Beschlag und Schloss
+             gemeinsam und werden deshalb nur einmal abgefragt. ---- */
+      if (t.brauchtBeschlag || t.brauchtSchloss) {
+        var wofuer = (t.brauchtBeschlag && t.brauchtSchloss) ? 'Beschlag und Schloss'
+                   : t.brauchtBeschlag ? 'Beschlag' : 'Schloss';
+        schlossFelder.appendChild(el('h3', { text: 'Maße für ' + wofuer }));
+        schlossFelder.appendChild(el('div', { class: 'raster' }, [
+          massFeld(t, 'dornmass', 'Dornmaß <span class="einheit">mm</span>', K.DORNMASS, 'z. B. 55'),
+          massFeld(t, 'entfernung', 'Entfernung <span class="einheit">mm</span>', K.ENTFERNUNG, 'z. B. 72')
         ]));
       }
 
@@ -513,7 +563,8 @@
 
     function elektronikSichtbarkeit() {
       if (!elektronikAbschnitt) return;   /* wird beim Aufbau noch nicht gebraucht */
-      var zeigen = M.istTuerElektronisch(p, t) || t.brauchtWandleser;
+      var zeigen = M.istTuerElektronisch(p, t) || t.brauchtWandleser ||
+                   K.beschlagIstElektronisch(t);
       elektronikAbschnitt.style.display = zeigen ? '' : 'none';
     }
 

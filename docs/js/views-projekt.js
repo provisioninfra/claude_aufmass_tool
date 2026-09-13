@@ -432,8 +432,13 @@
       });
   }
 
+  /* Von der schwebenden Hauptaktion aus aufrufbar */
+  function standortAnlegen(neuZeichnen) { knotenAnlegen('standort', null, neuZeichnen); }
+
   global.ViewsProjekt = {
     ansichtProjekte: ansichtProjekte,
+    neuesProjektAnlegen: neuesProjektAnlegen,
+    standortAnlegen: standortAnlegen,
     ansichtStammdaten: ansichtStammdaten,
     ansichtStruktur: ansichtStruktur,
     datumKurz: datumKurz, kb: kb

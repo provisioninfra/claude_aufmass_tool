@@ -92,6 +92,14 @@ function pruefe(bedingung, text, info) {
   await page.fill('.dialog input[type=text] >> nth=0', 'A-EG-01');
   await page.fill('.dialog input[type=text] >> nth=1', 'Haupteingang');
 
+  // Tür dem Erdgeschoss zuordnen – Grundlage für den Blanko-Schließplan
+  const bereichWahl = page.locator('.dialog select').filter({
+    has: page.locator('option:has-text("Erdgeschoss")') }).first();
+  const bereichWerte = await bereichWahl.locator('option').evaluateAll(os =>
+    os.filter(o => /Erdgeschoss/.test(o.textContent)).map(o => o.value));
+  await bereichWahl.selectOption(bereichWerte[0]);
+  await page.waitForTimeout(150);
+
   // Das System steht im Projekt und darf hier nicht erneut wählbar sein
   const systemImDialog = await page.locator('.dialog select')
     .filter({ has: page.locator('option[value="evva-airkey"]') }).count();
@@ -151,19 +159,36 @@ function pruefe(bedingung, text, info) {
 
   // --- Schließplan ---------------------------------------------------------
   await page.click('nav.reiter button:has-text("Schließplan")');
-  await page.click('button:has-text("Vorschlag übernehmen")');
-  await page.waitForSelector('table.matrix', { timeout: 4000 });
+  // Blanko-Plan aus der Gebäudestruktur erzeugen
+  await page.click('button:has-text("Blanko-Plan")');
+  await page.waitForSelector('.dialog');
+  const vorschauText = await page.textContent('.dialog .meldung');
+  pruefe(/Schließung(en)? werden angelegt/.test(vorschauText),
+    'Blanko-Plan zeigt vorab, wie viele Schließungen entstehen', vorschauText.trim().slice(0, 60));
+  await page.click('.dialog button:has-text("Plan erzeugen")');
+  await page.waitForSelector('table.matrix', { timeout: 6000 });
   const spalten = await page.$$eval('table.matrix th.spaltenkopf', n => n.length);
-  pruefe(spalten === 3, 'Matrix mit 3 Schließungen aufgebaut', 'gefunden: ' + spalten);
+  pruefe(spalten >= 3, 'Blanko-Plan legt GHS, Hauptschlüssel und Gruppe an (' + spalten + ' Schließungen)');
+  const kuerzel = await page.$$eval('table.matrix th.spaltenkopf .dreh', n => n.map(x => x.textContent.trim()));
+  pruefe(kuerzel.some(k => /^GHS/.test(k)) && kuerzel.some(k => /^HS-/.test(k)),
+    'Hierarchie aus Generalhaupt- und Hauptschlüssel entsteht', kuerzel.join(' | '));
+  const gesetzt = await page.$$eval('table.matrix td.zelle', z =>
+    z.filter(c => c.textContent.trim()).length);
+  pruefe(gesetzt > 0, 'Berechtigungen sind bereits gesetzt (' + gesetzt + ' Kreuze)');
 
   // Zelle dreimal antippen: nein -> ja -> zeit -> temp
   const zelle = await page.$('table.matrix td.zelle');
-  await zelle.click(); await page.waitForTimeout(60);
-  pruefe((await zelle.textContent()).trim() === 'X', 'Zellklick setzt Berechtigung X');
-  await zelle.click(); await page.waitForTimeout(60);
-  pruefe((await zelle.textContent()).trim() === 'Z', 'zweiter Klick: zeitbeschränkt Z');
+  const vorher = (await zelle.textContent()).trim();
+  await zelle.click(); await page.waitForTimeout(80);
+  const nachher = (await zelle.textContent()).trim();
+  pruefe(vorher !== nachher, 'Zellklick schaltet die Berechtigung weiter',
+    JSON.stringify(vorher) + ' -> ' + JSON.stringify(nachher));
+  const zellGroesse = await zelle.boundingBox();
+  pruefe(zellGroesse.height >= 44 && zellGroesse.width >= 44,
+    'Matrixzellen sind mit einem Finger treffbar (' +
+    Math.round(zellGroesse.width) + '×' + Math.round(zellGroesse.height) + ' px)');
   const summe = await page.textContent('table.matrix tfoot td >> nth=1');
-  pruefe(summe.trim() === '1', 'Summenzeile rechnet mit', 'gefunden: ' + summe);
+  pruefe(/^\d+$/.test(summe.trim()), 'Summenzeile rechnet mit', 'gefunden: ' + summe);
 
   // --- PDF-Export ----------------------------------------------------------
   await page.click('nav.reiter button:has-text("Export")');

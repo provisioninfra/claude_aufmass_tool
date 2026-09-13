@@ -38,8 +38,6 @@
       id: 'evva-airkey', hersteller: 'EVVA', name: 'AirKey', typ: 'elektronisch',
       hinweis: 'Cloud-basiert, Smartphone (NFC/BLE) und Karte/Schlüsselanhänger.',
       komponenten: [
-        'AirKey Wandleser',
-        'AirKey Wandleser mit Tastatur',
         'AirKey Vorhangschloss',
         'AirKey Codierstation / Smartphone-Programmierung'
       ],
@@ -49,9 +47,6 @@
       id: 'evva-xesar', hersteller: 'EVVA', name: 'Xesar', typ: 'elektronisch',
       hinweis: 'Eigenständige Anlage mit Xesar-Software, virtuelles Netzwerk über Wandleser.',
       komponenten: [
-        'Xesar Wandleser',
-        'Xesar Wandleser mit Tastatur',
-        'Xesar Online-Wandleser',
         'Xesar Schrankschloss',
         'Xesar Codierstation',
         'Xesar Verwaltungssoftware'
@@ -99,7 +94,6 @@
       id: 'keyota', hersteller: 'Keyota', name: 'Keyota', typ: 'elektronisch',
       hinweis: 'Komponentenliste im Menü "Einstellungen" an den konkreten Lieferumfang anpassen.',
       komponenten: [
-        'Keyota Wandleser',
         'Keyota Programmiereinheit'
       ],
       identmedien: ['Smartphone (App)', 'Karte', 'Schlüsselanhänger']
@@ -257,6 +251,24 @@
   /* Nur bei Schutzbeschlag abgefragt */
   var BESCHLAG_SICHERHEIT = ['ES0', 'ES1', 'ES2', 'ES3'];
 
+  /* Wie der Beschlag ausgeführt ist - bestellrelevant, weil elektronische
+   * Beschläge je Seite kalkuliert werden. */
+  var BESCHLAG_AUSFUEHRUNG = [
+    'rein mechanisch',
+    'einseitig elektronisch (außen)',
+    'einseitig elektronisch (innen)',
+    'beidseitig elektronisch'
+  ];
+
+  /* --- Maße, die Beschlag und Schloss gemeinsam betreffen ----------------
+   * Als Auswahl hinterlegt, damit vor Ort nicht getippt werden muss.
+   * Abweichende Maße bleiben über "anderes Maß" erfassbar. */
+  var DORNMASS = ['25', '30', '35', '40', '45', '50', '55', '60', '65', '70',
+                  '75', '80', '85', '90', '95', '100', '110', '120'];
+  var ENTFERNUNG = ['72', '74', '78', '88', '92', '94'];
+  var VIERKANT = ['7', '8', '8,5', '9', '10'];
+  var ANDERES_MASS = 'anderes Maß …';
+
   function beschlagText(tuer) {
     if (!tuer || !tuer.brauchtBeschlag) return '';
     var teile = [];
@@ -265,7 +277,14 @@
       teile.push(tuer.beschlagSicherheit);
     }
     if (tuer.beschlagBestueckung) teile.push('· ' + tuer.beschlagBestueckung);
+    if (tuer.beschlagAusfuehrung) teile.push('· ' + tuer.beschlagAusfuehrung);
     return teile.join(' ').trim();
+  }
+
+  /* Ist der Beschlag elektronisch? Bestimmt, ob er als elektronische
+   * Komponente kalkuliert wird. */
+  function beschlagIstElektronisch(tuer) {
+    return /elektronisch/i.test(String((tuer && tuer.beschlagAusfuehrung) || ''));
   }
 
   /* --- Schloss -----------------------------------------------------------
@@ -277,6 +296,7 @@
     'Rohrrahmenschloss',
     'Mehrfachverriegelung',
     'Motorschloss',
+    'Motorschloss EVVA EMZY',
     'Möbelschloss',
     'Elektrischer Türöffner',
     'Haftmagnet'
@@ -422,6 +442,12 @@
     BESCHLAG_BAUFORM: BESCHLAG_BAUFORM,
     BESCHLAG_BESTUECKUNG: BESCHLAG_BESTUECKUNG,
     BESCHLAG_SICHERHEIT: BESCHLAG_SICHERHEIT,
+    BESCHLAG_AUSFUEHRUNG: BESCHLAG_AUSFUEHRUNG,
+    beschlagIstElektronisch: beschlagIstElektronisch,
+    DORNMASS: DORNMASS,
+    ENTFERNUNG: ENTFERNUNG,
+    VIERKANT: VIERKANT,
+    ANDERES_MASS: ANDERES_MASS,
     beschlagText: beschlagText,
     /* Schloss */
     SCHLOSS_BAUFORM: SCHLOSS_BAUFORM,
