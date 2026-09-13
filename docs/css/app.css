@@ -1,0 +1,504 @@
+/* =============================================================================
+   Schließanlagen Aufmaß-Tool — Oberfläche
+   Ausgelegt auf Touch-Bedienung (iPad vor Ort) und Maus/Tastatur (Büro).
+   ========================================================================== */
+
+:root {
+  --akzent:        #1a4b8c;
+  --akzent-hell:   #2a6ac0;
+  --akzent-bg:     #eaf1fa;
+  --text:          #1a1f26;
+  --text-schwach:  #5c6670;
+  --text-zart:     #8d969e;
+  --flaeche:       #ffffff;
+  --flaeche-2:     #f5f7f9;
+  --flaeche-3:     #eef1f4;
+  --rand:          #d6dce2;
+  --rand-zart:     #e6eaee;
+  --gruen:         #1f7a3d;
+  --gelb:          #b3721e;
+  --rot:           #b3261e;
+  --schatten:      0 1px 3px rgba(20,30,45,.10), 0 6px 18px rgba(20,30,45,.06);
+  --radius:        10px;
+  --radius-klein:  7px;
+  --tap:           44px;          /* Mindestgröße für Touch-Ziele */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --akzent:        #6fa8ee;
+    --akzent-hell:   #8cbcf5;
+    --akzent-bg:     #1b2836;
+    --text:          #e7ecf1;
+    --text-schwach:  #a4aeb8;
+    --text-zart:     #79838d;
+    --flaeche:       #151b22;
+    --flaeche-2:     #1b222b;
+    --flaeche-3:     #232c36;
+    --rand:          #333d48;
+    --rand-zart:     #28313b;
+    --gruen:         #4ec27a;
+    --gelb:          #e0a445;
+    --rot:           #ef6b62;
+    --schatten:      0 1px 3px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.3);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0; height: 100%;
+  background: var(--flaeche-2); color: var(--text);
+  font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+/* --- Grundlayout --------------------------------------------------------- */
+#app { display: flex; flex-direction: column; height: 100%; }
+
+header.kopf {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px; background: var(--flaeche);
+  border-bottom: 1px solid var(--rand);
+  position: sticky; top: 0; z-index: 30;
+  padding-top: max(10px, env(safe-area-inset-top));
+}
+.kopf .marke { font-weight: 700; font-size: 15px; color: var(--akzent); white-space: nowrap; }
+.kopf .marke small { display: block; font-weight: 400; font-size: 11px; color: var(--text-zart); }
+.kopf .projekt-titel {
+  flex: 1; min-width: 0; font-weight: 600; font-size: 14px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.kopf .projekt-titel span { display: block; font-weight: 400; font-size: 11.5px; color: var(--text-zart); }
+.speicher-status {
+  font-size: 11.5px; color: var(--text-zart); white-space: nowrap;
+  display: flex; align-items: center; gap: 5px;
+}
+.speicher-status.aktiv { color: var(--gruen); }
+.speicher-status .punkt { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+nav.reiter {
+  display: flex; gap: 2px; padding: 0 10px; background: var(--flaeche);
+  border-bottom: 1px solid var(--rand); overflow-x: auto; z-index: 25;
+  position: sticky; top: 0; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+nav.reiter::-webkit-scrollbar { display: none; }
+nav.reiter button {
+  appearance: none; border: 0; background: transparent; color: var(--text-schwach);
+  padding: 11px 14px; font-size: 14px; font-weight: 600; cursor: pointer;
+  border-bottom: 3px solid transparent; white-space: nowrap; min-height: var(--tap);
+  font-family: inherit;
+}
+nav.reiter button[aria-selected="true"] { color: var(--akzent); border-bottom-color: var(--akzent); }
+nav.reiter button:disabled { opacity: .35; cursor: not-allowed; }
+nav.reiter button .zahl {
+  display: inline-block; margin-left: 6px; padding: 1px 6px; font-size: 11px;
+  border-radius: 9px; background: var(--flaeche-3); color: var(--text-schwach);
+}
+
+main.inhalt {
+  flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 16px; padding-bottom: max(28px, env(safe-area-inset-bottom));
+}
+.seite { max-width: 1400px; margin: 0 auto; }
+.seite.breit { max-width: none; }
+
+/* --- Typografie ---------------------------------------------------------- */
+h1 { font-size: 21px; margin: 0 0 4px; }
+h2 { font-size: 16px; margin: 22px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--rand-zart); }
+h2:first-child { margin-top: 0; }
+h3 { font-size: 14px; margin: 16px 0 8px; color: var(--text-schwach); }
+p.hinweis { color: var(--text-schwach); font-size: 13.5px; margin: 4px 0 14px; }
+
+/* --- Karten -------------------------------------------------------------- */
+.karte {
+  background: var(--flaeche); border: 1px solid var(--rand);
+  border-radius: var(--radius); padding: 16px; margin-bottom: 14px;
+  box-shadow: var(--schatten);
+}
+.karte.schmal { padding: 12px; }
+
+/* --- Formulare ----------------------------------------------------------- */
+.raster { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px 14px; }
+.raster.eng { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.raster.zwei { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.feld { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.feld.voll { grid-column: 1 / -1; }
+.feld label { font-size: 12px; font-weight: 600; color: var(--text-schwach); }
+.feld .einheit { font-weight: 400; color: var(--text-zart); }
+
+input[type="text"], input[type="number"], input[type="date"], input[type="tel"],
+input[type="email"], input[type="search"], select, textarea {
+  font: inherit; font-size: 15px; color: var(--text);
+  background: var(--flaeche); border: 1px solid var(--rand);
+  border-radius: var(--radius-klein); padding: 9px 11px; width: 100%;
+  min-height: var(--tap); appearance: none; -webkit-appearance: none;
+}
+select {
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-schwach) 50%),
+                    linear-gradient(135deg, var(--text-schwach) 50%, transparent 50%);
+  background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%;
+  background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+  padding-right: 30px;
+}
+textarea { min-height: 74px; resize: vertical; line-height: 1.45; }
+input:focus, select:focus, textarea:focus {
+  outline: 2px solid var(--akzent); outline-offset: -1px; border-color: var(--akzent);
+}
+input::placeholder, textarea::placeholder { color: var(--text-zart); }
+
+/* Umschalter (Checkbox als Schalter) */
+.schalter { display: flex; align-items: center; gap: 9px; min-height: var(--tap); cursor: pointer; }
+.schalter input { position: absolute; opacity: 0; width: 0; height: 0; }
+.schalter .bahn {
+  width: 46px; height: 27px; border-radius: 14px; background: var(--flaeche-3);
+  border: 1px solid var(--rand); position: relative; transition: background .15s, border-color .15s;
+  flex-shrink: 0;
+}
+.schalter .bahn::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 21px; height: 21px;
+  border-radius: 50%; background: var(--flaeche); box-shadow: 0 1px 3px rgba(0,0,0,.3);
+  transition: transform .15s;
+}
+.schalter input:checked + .bahn { background: var(--akzent); border-color: var(--akzent); }
+.schalter input:checked + .bahn::after { transform: translateX(19px); }
+.schalter input:focus-visible + .bahn { outline: 2px solid var(--akzent); outline-offset: 2px; }
+.schalter .beschriftung { font-size: 14px; font-weight: 500; }
+
+/* Mehrfachauswahl als Chips */
+.chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px;
+  border: 1px solid var(--rand); border-radius: 18px; background: var(--flaeche);
+  font-size: 13.5px; cursor: pointer; user-select: none; min-height: 38px;
+  color: var(--text);
+}
+.chip:hover { border-color: var(--akzent); }
+.chip[aria-pressed="true"] {
+  background: var(--akzent); border-color: var(--akzent); color: #fff; font-weight: 600;
+}
+@media (prefers-color-scheme: dark) { .chip[aria-pressed="true"] { color: #0d1219; } }
+
+/* --- Schaltflächen ------------------------------------------------------- */
+button, .knopf {
+  font: inherit; font-size: 14px; font-weight: 600; font-family: inherit;
+  border: 1px solid var(--rand); background: var(--flaeche); color: var(--text);
+  border-radius: var(--radius-klein); padding: 10px 15px; cursor: pointer;
+  min-height: var(--tap); display: inline-flex; align-items: center; justify-content: center;
+  gap: 7px; text-decoration: none; white-space: nowrap;
+}
+button:hover, .knopf:hover { border-color: var(--akzent); color: var(--akzent); }
+button:active, .knopf:active { transform: translateY(1px); }
+button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+button.haupt, .knopf.haupt {
+  background: var(--akzent); border-color: var(--akzent); color: #fff;
+}
+button.haupt:hover { background: var(--akzent-hell); border-color: var(--akzent-hell); color: #fff; }
+@media (prefers-color-scheme: dark) {
+  button.haupt, .knopf.haupt { color: #0d1219; }
+  button.haupt:hover { color: #0d1219; }
+}
+button.gefahr { color: var(--rot); border-color: var(--rand); }
+button.gefahr:hover { background: var(--rot); border-color: var(--rot); color: #fff; }
+button.klein { padding: 6px 10px; font-size: 13px; min-height: 34px; }
+button.nur-symbol { padding: 8px 10px; min-width: 38px; }
+.knopfleiste { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; }
+.knopfleiste.rechts { justify-content: flex-end; }
+
+/* --- Werkzeugleiste über Listen ------------------------------------------ */
+.werkzeuge {
+  display: flex; gap: 9px; align-items: center; flex-wrap: wrap;
+  margin-bottom: 14px; padding: 11px; background: var(--flaeche);
+  border: 1px solid var(--rand); border-radius: var(--radius);
+}
+.werkzeuge .suche { flex: 1; min-width: 170px; }
+.werkzeuge select { width: auto; min-width: 130px; }
+
+/* --- Tabellen ------------------------------------------------------------ */
+.tabelle-rahmen {
+  overflow: auto; border: 1px solid var(--rand); border-radius: var(--radius);
+  background: var(--flaeche); -webkit-overflow-scrolling: touch;
+}
+table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13.5px; }
+th, td { padding: 9px 11px; text-align: left; border-bottom: 1px solid var(--rand-zart); }
+th {
+  background: var(--flaeche-3); font-size: 12px; font-weight: 700; color: var(--text-schwach);
+  position: sticky; top: 0; z-index: 2; white-space: nowrap;
+}
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr.anklickbar { cursor: pointer; }
+tbody tr.anklickbar:hover td { background: var(--akzent-bg); }
+td.zahl, th.zahl { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* --- Türliste als Karten (Touch) ----------------------------------------- */
+.tuer-gruppe { margin-bottom: 20px; }
+.tuer-gruppe > .kopfzeile {
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+  background: var(--akzent-bg); border: 1px solid var(--rand);
+  border-radius: var(--radius) var(--radius) 0 0; font-weight: 700; font-size: 14px;
+  color: var(--akzent);
+}
+.tuer-gruppe > .kopfzeile .anzahl { margin-left: auto; font-weight: 500; font-size: 12.5px; color: var(--text-schwach); }
+.tuer-liste {
+  border: 1px solid var(--rand); border-top: 0;
+  border-radius: 0 0 var(--radius) var(--radius); overflow: hidden; background: var(--flaeche);
+}
+.tuer-zeile {
+  display: flex; align-items: stretch; gap: 0; border-bottom: 1px solid var(--rand-zart);
+  cursor: pointer; background: var(--flaeche);
+}
+.tuer-zeile:last-child { border-bottom: 0; }
+.tuer-zeile:hover { background: var(--akzent-bg); }
+.tuer-zeile .statusbalken { width: 5px; flex-shrink: 0; background: var(--text-zart); }
+.tuer-zeile .inhalt { flex: 1; min-width: 0; padding: 11px 13px; display: flex; gap: 12px; align-items: center; }
+.tuer-zeile .nummer {
+  font-weight: 700; font-size: 13.5px; min-width: 72px; flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.tuer-zeile .haupt { flex: 1; min-width: 0; }
+.tuer-zeile .haupt .bez { font-weight: 600; font-size: 14.5px; }
+.tuer-zeile .haupt .detail {
+  font-size: 12.5px; color: var(--text-schwach); margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tuer-zeile .marken { display: flex; gap: 6px; flex-shrink: 0; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+
+.marke-pille {
+  font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 11px;
+  background: var(--flaeche-3); color: var(--text-schwach); white-space: nowrap;
+}
+.marke-pille.gruen { background: rgba(31,122,61,.14); color: var(--gruen); }
+.marke-pille.gelb  { background: rgba(179,114,30,.16); color: var(--gelb); }
+.marke-pille.rot   { background: rgba(179,38,30,.14); color: var(--rot); }
+.marke-pille.blau  { background: var(--akzent-bg); color: var(--akzent); }
+.marke-pille.foto::before { content: '▣ '; }
+
+/* --- Strukturbaum -------------------------------------------------------- */
+.baum { list-style: none; margin: 0; padding: 0; }
+.baum ul { list-style: none; margin: 0; padding-left: 22px; border-left: 1px dashed var(--rand); }
+.baum li { margin: 5px 0; }
+.knoten {
+  display: flex; align-items: center; gap: 9px; padding: 8px 11px;
+  background: var(--flaeche); border: 1px solid var(--rand);
+  border-radius: var(--radius-klein); min-height: 42px;
+}
+.knoten .name { flex: 1; font-weight: 600; font-size: 14px; min-width: 0; }
+.knoten .ebene-marke {
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+  color: var(--text-zart); padding: 2px 7px; background: var(--flaeche-3); border-radius: 4px;
+}
+.knoten .tuerzahl { font-size: 12px; color: var(--text-schwach); }
+.knoten .aktionen { display: flex; gap: 4px; }
+
+/* --- Matrix / Kreuzschließplan ------------------------------------------- */
+.matrix-rahmen {
+  overflow: auto; border: 1px solid var(--rand); border-radius: var(--radius);
+  background: var(--flaeche); max-height: 72vh; -webkit-overflow-scrolling: touch;
+  position: relative;
+  display: inline-block; max-width: 100%; vertical-align: top;  /* nur so breit wie die Matrix */
+}
+table.matrix {
+  border-collapse: separate; border-spacing: 0; font-size: 13px;
+  width: auto;                 /* nur so breit wie nötig, nicht auf volle Breite gedehnt */
+  --kopfhoehe: 150px;          /* wird beim Aufbau an den längsten Spaltentitel angepasst */
+}
+table.matrix th, table.matrix td { border-bottom: 1px solid var(--rand-zart); padding: 0; }
+table.matrix th.ecke {
+  position: sticky; left: 0; top: 0; z-index: 6; background: var(--flaeche-3);
+  min-width: 240px; max-width: 240px; padding: 8px 10px; text-align: left;
+  border-right: 2px solid var(--rand);
+}
+table.matrix th.spaltenkopf {
+  position: sticky; top: 0; z-index: 4; background: var(--flaeche-3);
+  height: var(--kopfhoehe); width: 40px; min-width: 40px; max-width: 40px;
+  padding: 0; vertical-align: bottom; border-right: 1px solid var(--rand-zart);
+}
+table.matrix th.spaltenkopf .dreh {
+  writing-mode: vertical-rl; transform: rotate(180deg);
+  white-space: nowrap; padding: 8px 0; font-size: 12px; font-weight: 700;
+  max-height: calc(var(--kopfhoehe) - 22px); overflow: hidden; text-overflow: ellipsis;
+  display: block; margin: 0 auto; color: var(--text);
+}
+table.matrix th.spaltenkopf .medien {
+  display: block; font-size: 10px; font-weight: 500; color: var(--text-zart);
+  padding-bottom: 4px; text-align: center;
+}
+table.matrix td.tuername {
+  position: sticky; left: 0; z-index: 3; background: var(--flaeche);
+  min-width: 240px; max-width: 240px; padding: 7px 10px;
+  border-right: 2px solid var(--rand); font-size: 13px;
+}
+table.matrix td.tuername .nr { font-weight: 700; margin-right: 6px; }
+table.matrix td.tuername .bez { color: var(--text-schwach); }
+table.matrix tr.gruppenzeile td {
+  position: sticky; left: 0; z-index: 3;
+  background: var(--akzent-bg); color: var(--akzent); font-weight: 700;
+  font-size: 12.5px; padding: 7px 10px;
+}
+table.matrix tr:hover td.tuername { background: var(--akzent-bg); }
+table.matrix td.zelle {
+  text-align: center; cursor: pointer; user-select: none;
+  border-right: 1px solid var(--rand-zart); font-weight: 700; font-size: 15px;
+  min-width: 40px; height: 38px; color: var(--akzent);
+}
+table.matrix td.zelle:hover { background: var(--akzent-bg); }
+table.matrix td.zelle.gesetzt-ja    { background: rgba(26,75,140,.10); }
+table.matrix td.zelle.gesetzt-zeit  { background: rgba(179,114,30,.14); color: var(--gelb); }
+table.matrix td.zelle.gesetzt-temp  { background: rgba(179,114,30,.10); color: var(--gelb); }
+table.matrix td.zelle.gesetzt-sperr { background: rgba(179,38,30,.12); color: var(--rot); }
+table.matrix tfoot td {
+  position: sticky; bottom: 0; background: var(--flaeche-3); font-weight: 700;
+  font-size: 12px; text-align: center; z-index: 3; padding: 6px 2px;
+}
+table.matrix tfoot td.tuername { z-index: 5; text-align: left; }
+
+.matrix-legende {
+  display: flex; flex-wrap: wrap; gap: 14px; margin-top: 12px;
+  font-size: 12.5px; color: var(--text-schwach);
+}
+.matrix-legende b { color: var(--akzent); margin-right: 3px; }
+
+/* --- Dialog -------------------------------------------------------------- */
+.dialog-hinter {
+  position: fixed; inset: 0; background: rgba(12,18,26,.55); z-index: 50;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 20px; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  backdrop-filter: blur(2px);
+}
+.dialog {
+  background: var(--flaeche); border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.35);
+  width: 100%; max-width: 940px; margin: auto 0; border: 1px solid var(--rand);
+}
+.dialog.klein { max-width: 480px; }
+.dialog > .kopf {
+  display: flex; align-items: center; gap: 12px; padding: 14px 18px;
+  border-bottom: 1px solid var(--rand); position: sticky; top: 0;
+  background: var(--flaeche); border-radius: 14px 14px 0 0; z-index: 2;
+}
+.dialog > .kopf h2 { margin: 0; border: 0; padding: 0; font-size: 17px; flex: 1; }
+.dialog > .koerper { padding: 18px; }
+.dialog > .fuss {
+  display: flex; gap: 9px; padding: 14px 18px; border-top: 1px solid var(--rand);
+  position: sticky; bottom: 0; background: var(--flaeche); border-radius: 0 0 14px 14px;
+  padding-bottom: max(14px, env(safe-area-inset-bottom));
+}
+.dialog > .fuss .fuellen { flex: 1; }
+
+/* --- Abschnitte im Türformular ------------------------------------------- */
+.abschnitt {
+  border: 1px solid var(--rand); border-radius: var(--radius);
+  margin-bottom: 12px; overflow: hidden; background: var(--flaeche);
+}
+.abschnitt > summary {
+  padding: 12px 15px; font-weight: 700; font-size: 14.5px; cursor: pointer;
+  background: var(--flaeche-3); list-style: none; display: flex;
+  align-items: center; gap: 9px; min-height: var(--tap);
+}
+.abschnitt > summary::-webkit-details-marker { display: none; }
+.abschnitt > summary::before {
+  content: '▸'; color: var(--text-zart); font-size: 13px; transition: transform .15s;
+}
+.abschnitt[open] > summary::before { transform: rotate(90deg); }
+.abschnitt > summary .zusatz {
+  margin-left: auto; font-weight: 500; font-size: 12px; color: var(--text-zart);
+}
+.abschnitt > .koerper { padding: 15px; }
+
+/* --- Fotos --------------------------------------------------------------- */
+.foto-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 11px; }
+.foto-karte {
+  border: 1px solid var(--rand); border-radius: var(--radius-klein);
+  overflow: hidden; background: var(--flaeche-2);
+}
+.foto-karte img { width: 100%; height: 100px; object-fit: cover; display: block; background: var(--flaeche-3); }
+.foto-karte .unten { padding: 6px; display: flex; flex-direction: column; gap: 5px; }
+.foto-karte input { font-size: 12.5px; padding: 5px 7px; min-height: 32px; }
+.foto-karte button { padding: 4px 8px; font-size: 12px; min-height: 30px; }
+
+/* --- Meldungen ----------------------------------------------------------- */
+.meldung {
+  padding: 11px 14px; border-radius: var(--radius-klein); font-size: 13.5px;
+  margin-bottom: 12px; border: 1px solid; display: flex; gap: 9px; align-items: flex-start;
+}
+.meldung.info  { background: var(--akzent-bg); border-color: var(--akzent); color: var(--akzent); }
+.meldung.warn  { background: rgba(179,114,30,.12); border-color: var(--gelb); color: var(--gelb); }
+.meldung.fehler{ background: rgba(179,38,30,.10); border-color: var(--rot); color: var(--rot); }
+.meldung.ok    { background: rgba(31,122,61,.10); border-color: var(--gruen); color: var(--gruen); }
+
+#toast-bereich {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: max(22px, env(safe-area-inset-bottom)); z-index: 90;
+  display: flex; flex-direction: column; gap: 8px; align-items: center;
+  pointer-events: none; width: calc(100% - 32px); max-width: 480px;
+}
+.toast {
+  background: #1a1f26; color: #fff; padding: 11px 18px; border-radius: 22px;
+  font-size: 14px; font-weight: 500; box-shadow: 0 6px 22px rgba(0,0,0,.35);
+  animation: einblenden .18s ease-out; text-align: center;
+}
+.toast.fehler { background: var(--rot); }
+.toast.ok { background: var(--gruen); }
+@keyframes einblenden { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+/* --- Kennzahlen ---------------------------------------------------------- */
+.kennzahlen { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 11px; }
+.kennzahl {
+  background: var(--flaeche); border: 1px solid var(--rand); border-radius: var(--radius);
+  padding: 13px; text-align: center;
+}
+.kennzahl .wert { font-size: 25px; font-weight: 700; color: var(--akzent); line-height: 1.15; }
+.kennzahl .bez { font-size: 11.5px; color: var(--text-schwach); margin-top: 3px; }
+
+/* --- Leerzustand --------------------------------------------------------- */
+.leer {
+  text-align: center; padding: 44px 20px; color: var(--text-schwach);
+  border: 2px dashed var(--rand); border-radius: var(--radius); background: var(--flaeche);
+}
+.leer h3 { color: var(--text); margin: 0 0 7px; font-size: 16px; }
+.leer p { margin: 0 0 16px; font-size: 14px; }
+
+/* --- Projektkarten ------------------------------------------------------- */
+.projekt-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 13px; }
+.projekt-karte {
+  background: var(--flaeche); border: 1px solid var(--rand); border-radius: var(--radius);
+  padding: 15px; cursor: pointer; display: flex; flex-direction: column; gap: 7px;
+  box-shadow: var(--schatten);
+}
+.projekt-karte:hover { border-color: var(--akzent); }
+.projekt-karte .titel { font-weight: 700; font-size: 15.5px; }
+.projekt-karte .zeile { font-size: 13px; color: var(--text-schwach); }
+.projekt-karte .zahlen { display: flex; gap: 14px; margin-top: 5px; font-size: 12px; color: var(--text-zart); }
+.projekt-karte .zahlen b { color: var(--text); font-size: 14px; }
+.projekt-karte .aktionen { display: flex; gap: 7px; margin-top: 9px; }
+
+/* --- Hilfsklassen -------------------------------------------------------- */
+.zeile-verteilt { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.zeile-verteilt .fuellen { flex: 1; }
+.trenner { height: 1px; background: var(--rand-zart); margin: 16px 0; border: 0; }
+.zart { color: var(--text-zart); font-size: 12.5px; }
+.mono { font-variant-numeric: tabular-nums; }
+.versteckt { display: none !important; }
+.nur-lesen { opacity: .6; pointer-events: none; }
+
+/* --- Anpassung an kleine Geräte ------------------------------------------ */
+@media (max-width: 700px) {
+  main.inhalt { padding: 12px; }
+  .kopf .marke small { display: none; }
+  .tuer-zeile .inhalt { flex-wrap: wrap; gap: 7px; }
+  .tuer-zeile .nummer { min-width: 0; }
+  .tuer-zeile .marken { width: 100%; justify-content: flex-start; }
+  table.matrix th.ecke, table.matrix td.tuername { min-width: 160px; max-width: 160px; }
+  .dialog-hinter { padding: 0; }
+  .dialog { border-radius: 0; min-height: 100%; max-width: none; }
+  .dialog > .kopf, .dialog > .fuss { border-radius: 0; }
+}
+
+/* --- Druck: der PDF-Export ist der vorgesehene Weg ----------------------- */
+@media print {
+  nav.reiter, header.kopf, .werkzeuge, .knopfleiste, #toast-bereich { display: none !important; }
+  main.inhalt { overflow: visible; padding: 0; }
+  .karte, .tuer-liste { box-shadow: none; break-inside: avoid; }
+}

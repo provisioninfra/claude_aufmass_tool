@@ -30,9 +30,15 @@ function bauen() {
   html = html.replace(/<link rel="manifest"[^>]*>\s*/g, '');
   html = html.replace(/<script>\s*\/\* Offline-Bereitstellung[\s\S]*?<\/script>/, '');
 
-  /* Icon als Daten-URL einbetten */
+  /* Symbole als Daten-URL einbetten, damit keine Datei danebenliegen muss */
   const iconUrl = 'data:image/svg+xml;base64,' + Buffer.from(icon, 'utf8').toString('base64');
   html = html.replace(/href="icon\.svg"/g, 'href="' + iconUrl + '"');
+  ['icon-180.png', 'icon-192.png', 'icon-512.png'].forEach(datei => {
+    const pfad = path.join(QUELLE, datei);
+    if (!fs.existsSync(pfad)) return;
+    const url = 'data:image/png;base64,' + fs.readFileSync(pfad).toString('base64');
+    html = html.replace(new RegExp('href="' + datei.replace('.', '\\.') + '"', 'g'), 'href="' + url + '"');
+  });
 
   /* Skripte einbetten */
   let gebuendelt = '';

@@ -1,0 +1,371 @@
+/* =============================================================================
+ * views-projekt.js — Ansichten: Projektübersicht, Stammdaten, Struktur
+ * ========================================================================== */
+(function (global) {
+  'use strict';
+  var A = global.AppKern, K = global.Katalog, M = global.Model, Store = global.Store;
+  var el = A.el, Zustand = A.Zustand;
+
+  function datumKurz(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d)) return String(iso).slice(0, 10);
+    function p(n) { return (n < 10 ? '0' : '') + n; }
+    return p(d.getDate()) + '.' + p(d.getMonth() + 1) + '.' + d.getFullYear();
+  }
+  function kb(bytes) {
+    if (bytes > 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+    return Math.round(bytes / 1024) + ' KB';
+  }
+
+  /* =========================================================================
+   * Projektübersicht
+   * ====================================================================== */
+  function ansichtProjekte(behaelter, neuLaden) {
+    var seite = el('div', { class: 'seite' });
+    behaelter.appendChild(seite);
+
+    seite.appendChild(el('div', { class: 'zeile-verteilt', style: { marginBottom: '14px' } }, [
+      el('div', { class: 'fuellen' }, [
+        el('h1', { text: 'Aufmaß-Projekte' }),
+        el('p', { class: 'hinweis', text: 'Alle Daten liegen ausschließlich auf diesem Gerät. Zum Austausch mit dem Büro bitte das Projekt exportieren.' })
+      ]),
+      el('button', {
+        class: 'haupt', text: '+ Neues Aufmaß',
+        onclick: function () { neuesProjektAnlegen(neuLaden); }
+      }),
+      el('button', {
+        text: 'Projekt importieren',
+        onclick: function () { importDialog(neuLaden); }
+      })
+    ]));
+
+    var listenBereich = el('div');
+    seite.appendChild(listenBereich);
+    listenBereich.appendChild(el('p', { class: 'zart', text: 'Projekte werden geladen …' }));
+
+    Store.alleProjekte().then(function (projekte) {
+      A.leeren(listenBereich);
+      if (!projekte.length) {
+        listenBereich.appendChild(el('div', { class: 'leer' }, [
+          el('h3', { text: 'Noch kein Aufmaß vorhanden' }),
+          el('p', { text: 'Legen Sie ein neues Aufmaß an oder importieren Sie eine Projektdatei aus dem Büro.' }),
+          el('button', { class: 'haupt', text: '+ Neues Aufmaß anlegen',
+            onclick: function () { neuesProjektAnlegen(neuLaden); } })
+        ]));
+        return;
+      }
+      var raster = el('div', { class: 'projekt-raster' });
+      projekte.forEach(function (p) {
+        var s = M.statistik(p);
+        raster.appendChild(el('div', {
+          class: 'projekt-karte',
+          onclick: function (e) { if (!e.target.closest('button')) projektOeffnen(p.id, neuLaden); }
+        }, [
+          el('div', { class: 'titel', text: p.kunde || p.name || 'Ohne Namen' }),
+          el('div', { class: 'zeile', text: p.objekt || '—' }),
+          el('div', { class: 'zeile zart', text:
+            [p.anlagenNr ? 'Anlage ' + p.anlagenNr : '', 'geändert ' + datumKurz(p.geaendert)]
+            .filter(Boolean).join('  ·  ') }),
+          el('div', { class: 'zahlen' }, [
+            el('span', {}, [el('b', { text: String(s.tuerenGesamtAnzahl) }), ' Türen']),
+            el('span', {}, [el('b', { text: String(s.schliessungen) }), ' Schließungen']),
+            s.fotos ? el('span', {}, [el('b', { text: String(s.fotos) }), ' Fotos']) : null,
+            s.nacharbeit ? el('span', { class: 'marke-pille rot', text: s.nacharbeit + '× Nacharbeit' }) : null
+          ]),
+          el('div', { class: 'aktionen' }, [
+            el('button', { class: 'haupt klein', text: 'Öffnen',
+              onclick: function () { projektOeffnen(p.id, neuLaden); } }),
+            el('button', { class: 'klein', text: 'Kopieren',
+              onclick: function () {
+                var klon = Store.projektKlonen(p);
+                Store.projektSpeichern(klon).then(function () {
+                  A.toast('Projekt kopiert.', 'ok'); neuLaden();
+                });
+              } }),
+            el('button', { class: 'klein gefahr', text: 'Löschen',
+              onclick: function () {
+                A.bestaetigen('Projekt löschen?',
+                  'Das Aufmaß „' + (p.kunde || p.name) + '“ mit ' + s.tueren +
+                  ' Türen wird endgültig gelöscht. Dieser Schritt kann nicht rückgängig gemacht werden.')
+                  .then(function (ja) {
+                    if (!ja) return;
+                    Store.projektLoeschen(p.id).then(function () {
+                      if (Zustand.projekt && Zustand.projekt.id === p.id) A.projektAktivieren(null, 'projekte');
+                      A.toast('Projekt gelöscht.'); neuLaden();
+                    });
+                  });
+              } })
+          ])
+        ]));
+      });
+      listenBereich.appendChild(raster);
+
+      Store.speicherInfo().then(function (info) {
+        if (!info.unterstuetzt) return;
+        listenBereich.appendChild(el('p', {
+          class: 'zart', style: { marginTop: '16px' },
+          text: 'Belegter Gerätespeicher: ' + kb(info.benutzt) +
+                (info.verfuegbar ? ' von rund ' + kb(info.verfuegbar) : '') +
+                (Store.nutztFallback() ? '  ·  Hinweis: Es wird der einfache Browserspeicher genutzt (begrenzte Kapazität).' : '')
+        }));
+      });
+    });
+  }
+
+  function neuesProjektAnlegen(neuLaden) {
+    A.textAbfragen('Neues Aufmaß', 'Kunde oder Objektbezeichnung', '', 'z. B. Müller GmbH – Verwaltung')
+      .then(function (name) {
+        if (name === null) return;
+        var p = M.neuesProjekt(name || 'Neues Aufmaß');
+        p.kunde = name || '';
+        if (Zustand.einstellungen && Zustand.einstellungen.standardBearbeiter) {
+          p.bearbeiter = Zustand.einstellungen.standardBearbeiter;
+        }
+        Store.projektSpeichern(p).then(function () {
+          A.projektAktivieren(p, 'stammdaten');
+          neuLaden();
+          A.toast('Aufmaß angelegt. Bitte Stammdaten ergänzen.', 'ok');
+        });
+      });
+  }
+
+  function projektOeffnen(id, neuLaden) {
+    Store.projektLaden(id).then(function (p) {
+      if (!p) { A.toast('Projekt nicht gefunden.', 'fehler'); return; }
+      var geladen = M.migriere(p);
+      geladen.id = p.id;
+      A.projektAktivieren(geladen, 'tueren');
+      neuLaden();
+    });
+  }
+
+  function importDialog(neuLaden) {
+    var dateiEingabe = el('input', {
+      type: 'file', accept: '.json,application/json',
+      onchange: function (e) {
+        var datei = e.target.files && e.target.files[0];
+        if (!datei) return;
+        var leser = new FileReader();
+        leser.onerror = function () { A.toast('Die Datei konnte nicht gelesen werden.', 'fehler'); };
+        leser.onload = function () {
+          var ergebnis;
+          try { ergebnis = Store.importParsen(leser.result); }
+          catch (fehler) { A.toast(fehler.message, 'fehler'); return; }
+          Store.alleProjekte().then(function (vorhandene) {
+            var gleich = vorhandene.filter(function (v) { return v.id === ergebnis.projekt.id; })[0];
+            var fortsetzen = function (projekt) {
+              Store.projektSpeichern(projekt).then(function () {
+                A.projektAktivieren(projekt, 'tueren');
+                A.toast('Projekt importiert: ' + projekt.tueren.length + ' Türen.', 'ok');
+                dlg.schliessen(); neuLaden();
+              });
+            };
+            if (gleich) {
+              A.bestaetigen('Projekt bereits vorhanden',
+                'Ein Projekt mit derselben Kennung existiert bereits („' + (gleich.kunde || gleich.name) +
+                '“). Soll es überschrieben werden? Andernfalls wird eine Kopie angelegt.',
+                'Überschreiben').then(function (ueberschreiben) {
+                  fortsetzen(ueberschreiben ? ergebnis.projekt
+                    : Store.projektKlonen(ergebnis.projekt, (ergebnis.projekt.name || 'Import') + ' (Import)'));
+                });
+            } else { fortsetzen(ergebnis.projekt); }
+          });
+        };
+        leser.readAsText(datei);
+      }
+    });
+    var dlg = A.dialogOeffnen({
+      titel: 'Projekt importieren', klein: true,
+      inhalt: el('div', {}, [
+        el('p', { class: 'hinweis', text: 'Wählen Sie eine zuvor exportierte Aufmaß-Datei (.json) aus.' }),
+        dateiEingabe
+      ]),
+      knoepfe: [{ fuellen: true }, { text: 'Abbrechen' }]
+    });
+  }
+
+  /* =========================================================================
+   * Stammdaten
+   * ====================================================================== */
+  function ansichtStammdaten(behaelter) {
+    var p = Zustand.projekt;
+    var seite = el('div', { class: 'seite' });
+    behaelter.appendChild(seite);
+
+    seite.appendChild(el('h1', { text: 'Projekt-Stammdaten' }));
+    seite.appendChild(el('p', { class: 'hinweis', text: 'Diese Angaben erscheinen im Kopf jeder PDF-Ausgabe.' }));
+
+    seite.appendChild(el('div', { class: 'karte' }, [
+      el('h2', { text: 'Kunde und Objekt' }),
+      el('div', { class: 'raster' }, [
+        A.textFeld(p, 'kunde', 'Kunde / Firma'),
+        A.textFeld(p, 'kundenNr', 'Kunden-Nr.'),
+        A.textFeld(p, 'objekt', 'Objekt / Liegenschaft'),
+        A.textFeld(p, 'strasse', 'Straße und Hausnummer'),
+        A.textFeld(p, 'plz', 'PLZ', { inputmode: 'numeric' }),
+        A.textFeld(p, 'ort', 'Ort'),
+        A.textFeld(p, 'anlagenNr', 'Anlagen-Nr. / Schließanlagen-Nr.')
+      ])
+    ]));
+
+    seite.appendChild(el('div', { class: 'karte' }, [
+      el('h2', { text: 'Ansprechpartner vor Ort' }),
+      el('div', { class: 'raster' }, [
+        A.textFeld(p, 'ansprechpartner', 'Name'),
+        A.textFeld(p, 'telefon', 'Telefon', { typ: 'tel' }),
+        A.textFeld(p, 'email', 'E-Mail', { typ: 'email' })
+      ])
+    ]));
+
+    seite.appendChild(el('div', { class: 'karte' }, [
+      el('h2', { text: 'Aufmaß' }),
+      el('div', { class: 'raster' }, [
+        A.textFeld(p, 'aufmassDatum', 'Aufmaßdatum', { typ: 'date' }),
+        A.textFeld(p, 'bearbeiter', 'Bearbeiter / Monteur'),
+        A.textFeld(p, 'name', 'Interne Projektbezeichnung')
+      ]),
+      el('div', { class: 'raster', style: { marginTop: '12px' } }, [
+        A.bereichFeld(p, 'bemerkung', 'Projektbemerkung', {
+          zeilen: 4,
+          platzhalter: 'Besonderheiten, Absprachen, Bauabschnitte, offene Punkte …'
+        })
+      ])
+    ]));
+  }
+
+  /* =========================================================================
+   * Struktur: Standorte → Gebäude → Bereiche/Etagen
+   * ====================================================================== */
+  var EBENEN = {
+    standort: { label: 'Standort', kind: 'gebaeude', kindLabel: 'Gebäude' },
+    gebaeude: { label: 'Gebäude', kind: 'bereich',  kindLabel: 'Bereich / Etage' },
+    bereich:  { label: 'Bereich', kind: 'bereich',  kindLabel: 'Unterbereich' }
+  };
+
+  function ansichtStruktur(behaelter, neuZeichnen) {
+    var p = Zustand.projekt;
+    var seite = el('div', { class: 'seite' });
+    behaelter.appendChild(seite);
+
+    seite.appendChild(el('div', { class: 'zeile-verteilt', style: { marginBottom: '6px' } }, [
+      el('div', { class: 'fuellen' }, [
+        el('h1', { text: 'Standorte, Gebäude und Bereiche' }),
+        el('p', { class: 'hinweis', text: 'Die Gliederung bestimmt die Gruppierung in Türliste und Kreuzschließplan. Die Reihenfolge hier ist auch die Reihenfolge in der PDF-Ausgabe.' })
+      ]),
+      el('button', { class: 'haupt', text: '+ Standort',
+        onclick: function () { knotenAnlegen('standort', null, neuZeichnen); } })
+    ]));
+
+    var wurzeln = M.kinderVon(p, null);
+    if (!wurzeln.length) {
+      seite.appendChild(el('div', { class: 'leer' }, [
+        el('h3', { text: 'Noch keine Gliederung angelegt' }),
+        el('p', { text: 'Legen Sie zuerst einen Standort an, darunter Gebäude und Etagen. Türen ohne Zuordnung erscheinen in der PDF unter „Ohne Zuordnung“.' }),
+        el('button', { class: 'haupt', text: '+ Ersten Standort anlegen',
+          onclick: function () { knotenAnlegen('standort', null, neuZeichnen); } })
+      ]));
+      return;
+    }
+
+    var liste = el('ul', { class: 'baum' });
+    wurzeln.forEach(function (k) { liste.appendChild(knotenZeichnen(k, neuZeichnen)); });
+    seite.appendChild(el('div', { class: 'karte' }, liste));
+  }
+
+  function tuerenImKnoten(knotenId) {
+    var p = Zustand.projekt;
+    var ids = [knotenId], i = 0;
+    while (i < ids.length) {
+      var aktuell = ids[i++];
+      p.standorte.forEach(function (k) { if (k.parentId === aktuell) ids.push(k.id); });
+    }
+    return p.tueren.filter(function (t) { return ids.indexOf(t.strukturId) !== -1; }).length;
+  }
+
+  function knotenZeichnen(knoten, neuZeichnen) {
+    var p = Zustand.projekt;
+    var kinder = M.kinderVon(p, knoten.id);
+    var konfig = EBENEN[knoten.ebene] || EBENEN.bereich;
+    var anzahl = tuerenImKnoten(knoten.id);
+    var geschwister = M.kinderVon(p, knoten.parentId);
+    var index = geschwister.indexOf(geschwister.filter(function (g) { return g.id === knoten.id; })[0]);
+
+    function verschieben(richtung) {
+      var ziel = index + richtung;
+      if (ziel < 0 || ziel >= geschwister.length) return;
+      /* Sortierwerte neu vergeben und die beiden Knoten tauschen */
+      geschwister.forEach(function (g, i) { g.sort = i; });
+      geschwister[index].sort = ziel;
+      geschwister[ziel].sort = index;
+      A.alsGeaendertMarkieren();
+      neuZeichnen();
+    }
+
+    var eintrag = el('li', {}, [
+      el('div', { class: 'knoten' }, [
+        el('span', { class: 'ebene-marke', text: konfig.label }),
+        el('span', { class: 'name', text: knoten.name || '(ohne Namen)' }),
+        anzahl ? el('span', { class: 'tuerzahl', text: anzahl + (anzahl === 1 ? ' Tür' : ' Türen') }) : null,
+        el('div', { class: 'aktionen' }, [
+          el('button', { class: 'klein nur-symbol', title: 'Nach oben', text: '↑',
+            disabled: index <= 0, onclick: function () { verschieben(-1); } }),
+          el('button', { class: 'klein nur-symbol', title: 'Nach unten', text: '↓',
+            disabled: index >= geschwister.length - 1, onclick: function () { verschieben(1); } }),
+          el('button', { class: 'klein', text: '+ ' + konfig.kindLabel,
+            onclick: function () { knotenAnlegen(konfig.kind, knoten.id, neuZeichnen); } }),
+          el('button', { class: 'klein nur-symbol', title: 'Umbenennen', text: '✎',
+            onclick: function () {
+              A.textAbfragen('Umbenennen', konfig.label + 'sbezeichnung', knoten.name).then(function (neu) {
+                if (neu === null) return;
+                knoten.name = neu; A.alsGeaendertMarkieren(); neuZeichnen();
+              });
+            } }),
+          el('button', { class: 'klein nur-symbol gefahr', title: 'Löschen', text: '🗑',
+            onclick: function () {
+              var text = anzahl
+                ? 'Dieser Eintrag und alle Unterbereiche werden gelöscht. ' + anzahl +
+                  ' zugeordnete Tür(en) bleiben erhalten, verlieren aber ihre Zuordnung.'
+                : 'Dieser Eintrag und alle Unterbereiche werden gelöscht.';
+              A.bestaetigen('„' + (knoten.name || 'Eintrag') + '“ löschen?', text).then(function (ja) {
+                if (!ja) return;
+                M.loescheStruktur(p, knoten.id);
+                A.alsGeaendertMarkieren(); neuZeichnen();
+                A.toast('Eintrag gelöscht.');
+              });
+            } })
+        ])
+      ])
+    ]);
+
+    if (kinder.length) {
+      var unterliste = el('ul');
+      kinder.forEach(function (k) { unterliste.appendChild(knotenZeichnen(k, neuZeichnen)); });
+      eintrag.appendChild(unterliste);
+    }
+    return eintrag;
+  }
+
+  function knotenAnlegen(ebene, parentId, neuZeichnen) {
+    var konfig = EBENEN[ebene] || EBENEN.bereich;
+    A.textAbfragen('Neuer Eintrag', konfig.label + 'sbezeichnung', '',
+      ebene === 'standort' ? 'z. B. Standort Düsseldorf'
+        : ebene === 'gebaeude' ? 'z. B. Haus A (Verwaltung)' : 'z. B. Erdgeschoss')
+      .then(function (name) {
+        if (name === null) return;
+        var p = Zustand.projekt;
+        var knoten = M.neuerStrukturknoten(ebene, name || konfig.label, parentId);
+        knoten.sort = M.kinderVon(p, parentId).length;
+        p.standorte.push(knoten);
+        A.alsGeaendertMarkieren();
+        neuZeichnen();
+      });
+  }
+
+  global.ViewsProjekt = {
+    ansichtProjekte: ansichtProjekte,
+    ansichtStammdaten: ansichtStammdaten,
+    ansichtStruktur: ansichtStruktur,
+    datumKurz: datumKurz, kb: kb
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
