@@ -78,6 +78,27 @@ header.kopf {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .kopf .projekt-titel span { display: block; font-weight: 400; font-size: 11.5px; color: var(--text-zart); }
+/* --- Zurück-Knopf: überall im Projekt erreichbar ------------------------ */
+.zurueck-knopf {
+  display: inline-flex; align-items: center; gap: 7px;
+  min-height: var(--tap); padding: 8px 14px;
+  border: 1px solid var(--rand); border-radius: var(--radius-klein);
+  background: var(--flaeche); color: var(--text);
+  font-size: 14.5px; font-weight: 600; flex-shrink: 0;
+}
+.zurueck-knopf .pfeil { font-size: 19px; line-height: 1; }
+.zurueck-knopf .zahl {
+  font-size: 11.5px; font-weight: 700; padding: 1px 7px; border-radius: 9px;
+  background: var(--akzent-bg); color: var(--akzent);
+}
+.zurueck-knopf:hover:not(:disabled) { border-color: var(--akzent); color: var(--akzent); }
+.zurueck-knopf.leer { opacity: .4; }
+.zurueck-knopf:disabled { cursor: not-allowed; }
+@media (max-width: 700px) {
+  .zurueck-knopf .beschriftung { display: none; }
+  .zurueck-knopf { padding: 8px 11px; }
+}
+
 .speicher-status {
   font-size: 11.5px; color: var(--text-zart); white-space: nowrap;
   display: flex; align-items: center; gap: 5px;
@@ -520,6 +541,14 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
 /* --- Anpassung an kleine Geräte ------------------------------------------ */
 @media (max-width: 700px) {
   main.inhalt { padding: 12px; }
+  /* Die Kopfzeile muss auch neben dem Zurück-Knopf umbruchfrei passen */
+  header.kopf { gap: 8px; padding-left: 12px; padding-right: 12px; }
+  .kopf .marke { display: none; }
+  .kopf .logo { height: 28px; max-width: 70px; }
+  .kopf .projekt-titel { font-size: 13.5px; }
+  .kopf .projekt-titel span { font-size: 11px; }
+  .speicher-status { font-size: 0; gap: 0; }
+  .speicher-status .punkt { width: 9px; height: 9px; }
   /* Auf dem Telefon wandert die Navigation in die Daumenzone */
   #app { flex-direction: column; }
   nav.reiter {

@@ -2,7 +2,7 @@
  * Service Worker, Neustart ohne Netz, PDF-Erzeugung im Offline-Zustand. */
 const path = require('path');
 const { spawn } = require('child_process');
-const { starte } = require('./browser.js');
+const { starte, ersteProjektOeffnen } = require('./browser.js');
 
 let ok = 0, fehler = 0;
 function pruefe(b, t, i) { if (b) { ok++; console.log('  OK   ' + t); } else { fehler++; console.log('  FEHL ' + t + (i ? ' -> ' + i : '')); } }
@@ -61,7 +61,8 @@ function pruefe(b, t, i) { if (b) { ok++; console.log('  OK   ' + t); } else { f
     await page.waitForSelector('header.kopf', { timeout: 8000 });
     pruefe(true, 'Anwendung startet OHNE Netzverbindung neu');
 
-    await page.waitForTimeout(700);
+    await page.waitForTimeout(500);
+    await ersteProjektOeffnen(page);
     const titel = await page.textContent('.projekt-titel');
     pruefe(/Kunde ohne Netz/.test(titel), 'Projekt ist offline weiterhin vorhanden', titel.trim());
 

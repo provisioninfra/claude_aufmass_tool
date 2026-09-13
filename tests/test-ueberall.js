@@ -5,7 +5,7 @@
  * Jeweils mit der entscheidenden Frage: bleiben die Daten erhalten? */
 const path = require('path'), fs = require('fs');
 const { spawn } = require('child_process');
-const { starte } = require('./browser.js');
+const { starte, ersteProjektOeffnen } = require('./browser.js');
 
 const DATEI = path.join(__dirname, '..', 'dist', 'aufmass-tool.html');
 let ok = 0, fehler = 0;
@@ -31,7 +31,8 @@ async function durchlauf(page, bezeichnung) {
 
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('header.kopf', { timeout: 10000 });
-  await page.waitForTimeout(800);
+  await page.waitForTimeout(500);
+  await ersteProjektOeffnen(page, 10000);
 
   const titel = await page.textContent('.projekt-titel');
   const erhalten = /Beständigkeitsprüfung/.test(titel);

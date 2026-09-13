@@ -20,10 +20,14 @@
    * Vor Ort wird so in der Regel nur getippt statt getastet. */
   function massFeld(objekt, schluessel, beschriftung, werte, platzhalter) {
     var behaelter = el('div', { class: 'feld' });
+    var reinText = String(beschriftung).replace(/<[^>]*>/g, '').trim();
     var freitext = el('input', {
       type: 'number', inputmode: 'numeric', placeholder: platzhalter || 'Maß in mm',
       value: objekt[schluessel] || '',
-      oninput: function (e) { objekt[schluessel] = e.target.value; A.alsGeaendertMarkieren(); }
+      oninput: function (e) {
+        A.eingabeSchrittMerken('Eingabe: ' + reinText);
+        objekt[schluessel] = e.target.value; A.alsGeaendertMarkieren();
+      }
     });
     var auswahl = el('select', {
       onchange: function (e) {
@@ -32,6 +36,7 @@
           freitext.focus();
           return;
         }
+        A.schrittMerken('Maß: ' + reinText);
         objekt[schluessel] = e.target.value;
         freitext.value = e.target.value;
         freitext.classList.add('versteckt');
@@ -669,6 +674,8 @@
       }
       t.anzahl = Math.max(1, parseInt(t.anzahl, 10) || 1);
       t.geaendert = new Date().toISOString();
+      A.schrittMerken(istNeu ? ('Tür ' + (t.nummer || t.bezeichnung) + ' angelegt')
+                             : ('Tür ' + (t.nummer || t.bezeichnung) + ' geändert'));
       if (istNeu) {
         p.tueren.push(t);
       } else {
@@ -692,6 +699,7 @@
     var knoepfe = [];
     if (!istNeu) {
       knoepfe.push({ text: 'Duplizieren', aktion: function (schliessen) {
+        A.schrittMerken('Tür dupliziert');
         var kopie = JSON.parse(JSON.stringify(t));
         kopie.id = M.uid('tur');
         kopie.nummer = naechsteNummer(t.nummer);
@@ -706,6 +714,7 @@
         A.bestaetigen('Tür löschen?', 'Die Tür „' + (t.nummer || t.bezeichnung) +
           '“ wird gelöscht, samt Fotos und Berechtigungen im Schließplan.').then(function (ja) {
           if (!ja) return;
+          A.schrittMerken('Tür ' + (t.nummer || t.bezeichnung) + ' gelöscht');
           p.tueren = p.tueren.filter(function (x) { return x.id !== t.id; });
           M.matrixAufraeumen(p);
           A.alsGeaendertMarkieren(); A.speichern(); neuZeichnen();

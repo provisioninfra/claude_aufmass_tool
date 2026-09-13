@@ -57,36 +57,19 @@
     {
       id: 'sv-mobilekey', hersteller: 'SimonsVoss', name: 'MobileKey', typ: 'elektronisch',
       hinweis: 'Kleinanlage / Web-App. Für kleinere Objekte ausgelegt.',
-      komponenten: [
-        'MobileKey SmartRelais',
-        'MobileKey WebApp-Stick / GatewayNode',
-        'MobileKey Programmiergerät'
-      ],
+      komponenten: [],
       identmedien: ['Transponder', 'Karte', 'Smartphone (App)', 'PinCode-Tastatur']
     },
     {
       id: 'sv-3060', hersteller: 'SimonsVoss', name: 'System 3060', typ: 'elektronisch',
       hinweis: 'Klassisches System 3060 mit LSM-Software.',
-      komponenten: [
-        'SmartRelais 3063 / 2',
-        'SmartLocker / Möbelschloss',
-        'Programmiergerät / SmartCD',
-        'RouterNode / LockNode (WaveNet)',
-        'LSM-Software'
-      ],
+      komponenten: [],
       identmedien: ['Transponder', 'SmartCard', 'SmartTag', 'PinCode-Tastatur']
     },
     {
       id: 'sv-ax', hersteller: 'SimonsVoss', name: 'System AX (Digital Cylinder AX)', typ: 'elektronisch',
       hinweis: 'AX-Generation, BLE-fähig, AX-Manager / LSM.',
-      komponenten: [
-        'SmartRelais AX / 3 Advanced',
-        'SmartLocker AX',
-        'PinCode AX Tastatur',
-        'RouterNode 2 / AccessNode',
-        'Programmiergerät / SmartCD',
-        'AX-Manager / LSM'
-      ],
+      komponenten: [],
       identmedien: ['Transponder AX', 'SmartCard (MIFARE)', 'Smartphone (BLE App)', 'PinCode AX']
     },
     /* ---------------------- Weitere ------------------------------------ */

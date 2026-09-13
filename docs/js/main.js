@@ -40,6 +40,7 @@
         (p.kunde || p.name || 'Ohne Namen'),
         el('span', { text: [p.objekt, p.anlagenNr && ('Anlage ' + p.anlagenNr)].filter(Boolean).join('  ·  ') })
       ] : [el('span', { class: 'zart', text: 'Kein Projekt geöffnet' })]),
+      p ? zurueckKnopfBauen() : (function () { zurueckKnopf = null; return null; })(),
       el('div', { class: 'speicher-status', id: 'speicher-status' })
     ]));
 
@@ -118,7 +119,74 @@
     haupt.scrollTop = scrollPos;
   }
 
+  /* Knopf zum Zurücknehmen des letzten Arbeitsschritts. Steht überall
+   * innerhalb eines Projekts zur Verfügung und lässt sich beliebig oft
+   * betätigen, solange Schritte vorliegen. */
+  var zurueckKnopf = null;
+
+  function zurueckKnopfBauen() {
+    zurueckKnopf = el('button', {
+      class: 'zurueck-knopf',
+      'aria-label': 'Letzten Schritt zurücknehmen',
+      onclick: function () { schrittZurueckNehmen(); }
+    });
+    zurueckKnopfAktualisieren();
+    return zurueckKnopf;
+  }
+
+  /* Der Zähler muss sich auch dann ändern, wenn die Seite nicht neu
+   * aufgebaut wird - etwa beim Antippen einer Matrixzelle. */
+  function zurueckKnopfAktualisieren() {
+    if (!zurueckKnopf || !zurueckKnopf.isConnected && !zurueckKnopf.parentNode) {
+      /* Knopf wurde beim Neuaufbau ersetzt */
+    }
+    if (!zurueckKnopf) return;
+    var V = global.Verlauf;
+    var moeglich = !!(V && V.moeglich());
+    var was = moeglich ? V.naechsteBeschreibung() : '';
+    zurueckKnopf.className = 'zurueck-knopf' + (moeglich ? '' : ' leer');
+    zurueckKnopf.disabled = !moeglich;
+    zurueckKnopf.title = moeglich
+      ? ('Zurücknehmen: ' + was + '  (' + V.anzahl() + ' Schritte möglich)')
+      : 'Nichts zurückzunehmen';
+    A.leeren(zurueckKnopf);
+    zurueckKnopf.appendChild(el('span', { class: 'pfeil', text: '↶' }));
+    zurueckKnopf.appendChild(el('span', { class: 'beschriftung', text: 'Zurück' }));
+    if (moeglich) zurueckKnopf.appendChild(el('span', { class: 'zahl', text: String(V.anzahl()) }));
+  }
+
+  function schrittZurueckNehmen() {
+    var ergebnis = A.schrittZurueck();
+    if (!ergebnis) { A.toast('Es gibt nichts zurückzunehmen.'); return; }
+    A.speichern();
+    zeichnen();
+    A.toast('Zurückgenommen: ' + ergebnis.beschreibung, 'ok');
+  }
+
+  /* Tastatur: im Büro ist Strg/Cmd+Z gewohnt */
+  document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
+      var imFeld = /^(INPUT|TEXTAREA|SELECT)$/.test((e.target || {}).tagName || '');
+      if (imFeld) return;                 /* im Eingabefeld gilt die Textrücknahme */
+      if (!Zustand.projekt) return;
+      e.preventDefault();
+      schrittZurueckNehmen();
+    }
+  });
+
   function wechseln(ansicht) {
+    /* Die Projektübersicht ist bewusst kein Arbeitsplatz: Beim Wechsel
+     * dorthin wird gesichert und das Projekt geschlossen. */
+    if (ansicht === 'projekte' && Zustand.projekt) {
+      var name = Zustand.projekt.kunde || Zustand.projekt.name || 'Projekt';
+      A.projektSchliessen().then(function (warOffen) {
+        Zustand.ansicht = 'projekte';
+        zeichnen();
+        A.toast(warOffen ? ('Gespeichert und geschlossen: ' + name)
+                         : ('Geschlossen: ' + name));
+      });
+      return;
+    }
     Zustand.ansicht = ansicht;
     zeichnen();
     var haupt = A.$('main.inhalt');
@@ -127,17 +195,13 @@
 
   /* --- Start -------------------------------------------------------------- */
   function starten() {
+    if (global.Verlauf) global.Verlauf.aufAenderung(zurueckKnopfAktualisieren);
     Store.einstellungenLaden().then(function (e) {
       Zustand.einstellungen = e;
-      if (e.letztesProjekt) {
-        return Store.projektLaden(e.letztesProjekt).then(function (p) {
-          if (p) {
-            Zustand.projekt = M.migriere(p);
-            Zustand.projekt.id = p.id;
-            Zustand.ansicht = 'tueren';
-          }
-        }).catch(function () { /* zuletzt geöffnetes Projekt nicht mehr vorhanden */ });
-      }
+      /* Die Anwendung startet auf der Projektübersicht, ohne ein Projekt
+       * zu öffnen. So wird nie versehentlich im falschen Projekt gearbeitet. */
+      Zustand.ansicht = 'projekte';
+      Zustand.projekt = null;
     }).catch(function () {
       Zustand.einstellungen = Object.assign({}, Store.EINSTELLUNGEN_STANDARD);
     }).then(function () {

@@ -1,6 +1,6 @@
 /* Öffnet das Türformular mit einer realistischen Tür für die Sichtprüfung. */
 const fs = require('fs'), path = require('path');
-const { starte } = require('./browser.js');
+const { starte, ersteProjektOeffnen } = require('./browser.js');
 const { baueTestprojekt, einstellungen } = require('./fixture.js');
 const SEITE = 'file://' + path.join(__dirname, '..', 'src', 'index.html');
 const AUS = path.join(__dirname, 'out');
@@ -21,7 +21,7 @@ const AUS = path.join(__dirname, 'out');
     await window.Store.einstellungenSpeichern(e);
   }, [projekt, Object.assign({}, einstellungen, { letztesProjekt: projekt.id })]);
   await page.reload({ waitUntil: 'load' });
-  await page.waitForSelector('.tuer-zeile', { timeout: 8000 });
+  await ersteProjektOeffnen(page, 8000);
 
   // Stammdaten mit der Anlage
   await page.evaluate(() => window.App.wechseln('stammdaten'));

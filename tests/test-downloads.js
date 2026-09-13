@@ -1,7 +1,7 @@
 /* Prüft den zweiten Ausgabeweg: eingebettete Umgebung, die eigene Downloads
  * unterbindet und stattdessen eine Speicherfunktion bereitstellt. */
 const path = require('path');
-const { starte } = require('./browser.js');
+const { starte, ersteProjektOeffnen } = require('./browser.js');
 const SEITE = 'file://' + path.join(__dirname, '..', 'src', 'index.html');
 let ok = 0, fehler = 0;
 function pruefe(b, t, i) { if (b) { ok++; console.log('  OK   ' + t); } else { fehler++; console.log('  FEHL ' + t + (i ? ' -> ' + i : '')); } }
@@ -58,7 +58,7 @@ function pruefe(b, t, i) { if (b) { ok++; console.log('  OK   ' + t); } else { f
       Object.assign({}, window.Store.EINSTELLUNGEN_STANDARD, { letztesProjekt: p.id, firma: 'Testfirma' }));
   });
   await page.reload({ waitUntil: 'load' });
-  await page.waitForSelector('.tuer-zeile', { timeout: 6000 });
+  await ersteProjektOeffnen(page, 6000);
   await page.click('nav.reiter button:has-text("Export")');
   await page.waitForSelector('.kennzahl');
 

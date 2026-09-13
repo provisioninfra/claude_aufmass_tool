@@ -28,7 +28,7 @@
     seite.appendChild(el('div', { class: 'zeile-verteilt', style: { marginBottom: '14px' } }, [
       el('div', { class: 'fuellen' }, [
         el('h1', { text: 'Aufmaß-Projekte' }),
-        el('p', { class: 'hinweis', text: 'Alle Daten liegen ausschließlich auf diesem Gerät. Zum Austausch mit dem Büro bitte das Projekt exportieren.' })
+        el('p', { class: 'hinweis', text: 'Zum Bearbeiten ein Projekt öffnen. Alle Daten liegen ausschließlich auf diesem Gerät; zum Austausch mit dem Büro das Projekt exportieren.' })
       ]),
       el('button', {
         class: 'haupt', text: '+ Neues Aufmaß',
@@ -91,7 +91,10 @@
                   .then(function (ja) {
                     if (!ja) return;
                     Store.projektLoeschen(p.id).then(function () {
-                      if (Zustand.projekt && Zustand.projekt.id === p.id) A.projektAktivieren(null, 'projekte');
+                      if (Zustand.projekt && Zustand.projekt.id === p.id) {
+                        Zustand.projekt = null; Zustand.ansicht = 'projekte';
+                        if (global.Verlauf) global.Verlauf.beenden();
+                      }
                       A.toast('Projekt gelöscht.'); neuLaden();
                     });
                   });
@@ -123,7 +126,7 @@
           p.bearbeiter = Zustand.einstellungen.standardBearbeiter;
         }
         Store.projektSpeichern(p).then(function () {
-          A.projektAktivieren(p, 'stammdaten');
+          A.projektOeffnenIntern(p, 'stammdaten');
           neuLaden();
           A.toast('Aufmaß angelegt. Bitte Stammdaten ergänzen.', 'ok');
         });
@@ -135,7 +138,7 @@
       if (!p) { A.toast('Projekt nicht gefunden.', 'fehler'); return; }
       var geladen = M.migriere(p);
       geladen.id = p.id;
-      A.projektAktivieren(geladen, 'tueren');
+      A.projektOeffnenIntern(geladen, 'tueren');
       neuLaden();
     });
   }
@@ -156,7 +159,7 @@
             var gleich = vorhandene.filter(function (v) { return v.id === ergebnis.projekt.id; })[0];
             var fortsetzen = function (projekt) {
               Store.projektSpeichern(projekt).then(function () {
-                A.projektAktivieren(projekt, 'tueren');
+                A.projektOeffnenIntern(projekt, 'tueren');
                 A.toast('Projekt importiert: ' + projekt.tueren.length + ' Türen.', 'ok');
                 dlg.schliessen(); neuLaden();
               });
@@ -365,6 +368,7 @@
       var ziel = index + richtung;
       if (ziel < 0 || ziel >= geschwister.length) return;
       /* Sortierwerte neu vergeben und die beiden Knoten tauschen */
+      A.schrittMerken('Reihenfolge geändert');
       geschwister.forEach(function (g, i) { g.sort = i; });
       geschwister[index].sort = ziel;
       geschwister[ziel].sort = index;
@@ -388,6 +392,7 @@
             onclick: function () {
               A.textAbfragen('Umbenennen', konfig.label + 'sbezeichnung', knoten.name).then(function (neu) {
                 if (neu === null) return;
+                A.schrittMerken('Umbenannt: ' + (knoten.name || 'Eintrag'));
                 knoten.name = neu; A.alsGeaendertMarkieren(); neuZeichnen();
               });
             } }),
@@ -399,6 +404,7 @@
                 : 'Dieser Eintrag und alle Unterbereiche werden gelöscht.';
               A.bestaetigen('„' + (knoten.name || 'Eintrag') + '“ löschen?', text).then(function (ja) {
                 if (!ja) return;
+                A.schrittMerken('Gelöscht: ' + (knoten.name || 'Eintrag'));
                 M.loescheStruktur(p, knoten.id);
                 A.alsGeaendertMarkieren(); neuZeichnen();
                 A.toast('Eintrag gelöscht.');
@@ -424,6 +430,7 @@
       .then(function (name) {
         if (name === null) return;
         var p = Zustand.projekt;
+        A.schrittMerken((konfig.label) + ' angelegt: ' + (name || konfig.label));
         var knoten = M.neuerStrukturknoten(ebene, name || konfig.label, parentId);
         knoten.sort = M.kinderVon(p, parentId).length;
         p.standorte.push(knoten);

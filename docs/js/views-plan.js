@@ -101,6 +101,8 @@
             text: K.berechtigungZeichen(wert),
             title: t.nummer + ' / ' + (s.kuerzel || s.bezeichnung),
             onclick: function () {
+              A.schrittMerken('Berechtigung: ' + (t.nummer || t.bezeichnung) +
+                              ' / ' + (s.kuerzel || s.bezeichnung));
               var jetzt = M.getBerechtigung(p, t.id, s.id);
               var naechst = ZELL_FOLGE[(ZELL_FOLGE.indexOf(jetzt) + 1) % ZELL_FOLGE.length];
               M.setBerechtigung(p, t.id, s.id, naechst);
@@ -175,6 +177,7 @@
       knoepfe: [
         { fuellen: true }, { text: 'Abbrechen' },
         { text: 'Ausführen', klasse: 'haupt', aktion: function () {
+          A.schrittMerken(wert === 'ja' ? 'Alle Türen freigegeben' : 'Schließung geleert');
           p.tueren.forEach(function (t) { M.setBerechtigung(p, t.id, auswahl.value, wert); });
           A.alsGeaendertMarkieren(); neuZeichnen();
           A.toast('Berechtigungen aktualisiert.', 'ok');
@@ -232,6 +235,7 @@
           var anzahl = M.blankoVorschau(p, optionen);
           if (!anzahl) { A.toast('Mit dieser Auswahl entsteht keine Schließung.', 'fehler'); return false; }
           function ausfuehren() {
+            A.schrittMerken('Blanko-Plan erzeugt');
             var ergebnis = M.blankoSchliessplan(p, optionen);
             A.alsGeaendertMarkieren(); A.speichern();
             A.toast(ergebnis.angelegt + ' Schließungen und ' + ergebnis.berechtigungen +
@@ -274,6 +278,7 @@
           'Die Schließung „' + (s.kuerzel || s.bezeichnung) +
           '“ und alle zugehörigen Berechtigungen werden entfernt.').then(function (ja) {
           if (!ja) return;
+          A.schrittMerken('Schließung ' + (s.kuerzel || s.bezeichnung) + ' gelöscht');
           p.schliessungen = p.schliessungen.filter(function (x) { return x.id !== s.id; });
           M.matrixAufraeumen(p);
           A.alsGeaendertMarkieren(); neuZeichnen();
@@ -287,6 +292,8 @@
     knoepfe.push({ text: 'Abbrechen' });
     knoepfe.push({ text: istNeu ? 'Anlegen' : 'Übernehmen', klasse: 'haupt', aktion: function (schliessen) {
       if (!s.kuerzel && !s.bezeichnung) { A.toast('Bitte Kürzel oder Bezeichnung angeben.', 'fehler'); return false; }
+      A.schrittMerken(istNeu ? ('Schließung ' + (s.kuerzel || s.bezeichnung) + ' angelegt')
+                             : ('Schließung ' + (s.kuerzel || s.bezeichnung) + ' geändert'));
       s.anzahlMedien = Math.max(0, parseInt(s.anzahlMedien, 10) || 0);
       if (istNeu) p.schliessungen.push(s);
       else {
@@ -327,6 +334,7 @@
           el('td', { class: 'zahl', text: String(s.anzahlMedien || 0) }),
           el('td', {}, el('div', { class: 'knopfleiste' }, [
             el('button', { class: 'klein nur-symbol', text: '↑', disabled: index === 0, onclick: function () {
+              A.schrittMerken('Reihenfolge der Schließungen geändert');
               sortiert[index].sort = index - 1; sortiert[index - 1].sort = index;
               A.alsGeaendertMarkieren(); zeichnen(); neuZeichnen();
             } }),

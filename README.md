@@ -64,6 +64,31 @@ daraus die Anlage des Projekts erschlossen (das je Technologie häufigste
 System); weicht eine einzelne Tür davon ab, bleibt der Hinweis als
 *Besonderheit zu dieser Tür* erhalten. Es gehen keine Angaben verloren.
 
+## Projekt öffnen und schließen
+
+Die Anwendung startet auf der Projektübersicht, **ohne** ein Projekt zu öffnen.
+Gearbeitet wird erst nach einem Klick auf *Öffnen*. Der Wechsel zurück zur
+Übersicht sichert das Projekt und schließt es wieder. So wird nie
+versehentlich im falschen Aufmaß gearbeitet.
+
+## Arbeitsschritte zurücknehmen
+
+Innerhalb eines Projekts steht in der Kopfzeile ein **Zurück-Knopf**, der den
+jeweils letzten Arbeitsschritt zurücknimmt – beliebig oft, bis zu
+`Verlauf.MAX_SCHRITTE` Schritten. Der Knopf nennt, was zurückgenommen wird,
+und zeigt, wie viele Schritte noch möglich sind. Am Rechner wirkt zusätzlich
+Strg bzw. Cmd + Z.
+
+Erfasst werden alle Arbeitsschritte: Türen anlegen, ändern, duplizieren und
+löschen, Struktur bearbeiten, Schließungen und Berechtigungen, der Blanko-Plan
+sowie Eingaben in den Formularen. Laufende Texteingaben werden zu einem
+Schritt zusammengefasst, damit nicht jeder Tastendruck einen eigenen erzeugt.
+
+Fotos würden einen solchen Verlauf sprengen. Sie werden deshalb ausgelagert
+und je Bild nur einmal gehalten (`src/js/verlauf.js`): 20 Schritte mit einem
+200-KB-Foto belegen rund 227 KB statt 4 MB. Beim Schließen des Projekts wird
+der Verlauf verworfen.
+
 ## Bedienung auf der Baustelle
 
 Das Werkzeug ist auf die Bedienung mit einer Hand bzw. einem Finger ausgelegt.
@@ -178,6 +203,7 @@ src/
   js/pdf.js               Eigener PDF-Writer (ohne Fremdbibliothek)
   js/reports.js           Die vier PDF-Ausgaben
   js/store.js             Speicherung (IndexedDB), Export/Import, Fotos
+  js/verlauf.js           Rücknahme von Arbeitsschritten
   js/app.js               Grundgerüst der Oberfläche, Autospeicherung
   js/views-*.js           Die einzelnen Ansichten
   js/main.js              Navigation und Start

@@ -1,7 +1,7 @@
 /* Misst die Bedienbarkeit mit einer Hand: Größe der Bedienelemente,
  * Erreichbarkeit in der Daumenzone, kein Hineinzoomen auf iOS. */
 const path = require('path');
-const { starte } = require('./browser.js');
+const { starte, ersteProjektOeffnen } = require('./browser.js');
 const fs = require('fs');
 const { baueTestprojekt, einstellungen } = require('./fixture.js');
 const SEITE = 'file://' + path.join(__dirname, '..', 'src', 'index.html');
@@ -34,6 +34,7 @@ const MIN = 44;
       logoDataUrl: fs.existsSync(AUS + '/foto.txt') ? fs.readFileSync(AUS + '/foto.txt', 'utf8') : ''
     })]);
   await page.reload({ waitUntil: 'load' });
+  await ersteProjektOeffnen(page, 8000);
   await page.waitForSelector('.tuer-zeile', { timeout: 8000 });
 
   /* --- Logo in der Kopfzeile --- */

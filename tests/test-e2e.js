@@ -2,7 +2,7 @@
  * Simuliert einen kompletten Aufmaß-Durchlauf inklusive PDF-Erzeugung. */
 const fs = require('fs');
 const path = require('path');
-const { starte } = require('./browser.js');
+const { starte, ersteProjektOeffnen } = require('./browser.js');
 
 const WURZEL = path.join(__dirname, '..', 'src');
 const AUS = path.join(__dirname, 'out');
@@ -230,10 +230,29 @@ function pruefe(bedingung, text, info) {
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('header.kopf');
   await page.waitForTimeout(600);
-  const titelNachReload = await page.textContent('.projekt-titel');
-  pruefe(/Müller/.test(titelNachReload), 'Projekt nach Neuladen automatisch wiederhergestellt', titelNachReload);
+
+  // Nach dem Start ist bewusst kein Projekt geöffnet
+  const reiterAktiv = await page.textContent('nav.reiter button[aria-selected=true]');
+  pruefe(/Projekte/.test(reiterAktiv), 'Start zeigt die Projektübersicht ohne offenes Projekt', reiterAktiv.trim());
+  const titelLeer = await page.textContent('.projekt-titel');
+  pruefe(/Kein Projekt/.test(titelLeer), 'kein Projekt aktiv ausgewählt', titelLeer.trim());
+  const zurueckImKopf = await page.$$eval('.zurueck-knopf', n => n.length);
+  pruefe(zurueckImKopf === 0, 'ohne Projekt gibt es keinen Zurück-Knopf');
+
+  // Erst durch Öffnen wird gearbeitet
+  await ersteProjektOeffnen(page);
+  const titelNachOeffnen = await page.textContent('.projekt-titel');
+  pruefe(/Müller/.test(titelNachOeffnen), 'Projekt lässt sich über „Öffnen“ aktivieren', titelNachOeffnen.trim());
   const tuerenNachReload = await page.$$eval('.tuer-zeile', n => n.length).catch(() => -1);
   pruefe(tuerenNachReload === 2, 'Türen bleiben nach Neuladen erhalten (IndexedDB)', 'gefunden: ' + tuerenNachReload);
+
+  // Zurück auf die Projektübersicht schließt das Projekt
+  await page.click('nav.reiter button:has-text("Projekte")');
+  await page.waitForTimeout(700);
+  const titelNachSchliessen = await page.textContent('.projekt-titel');
+  pruefe(/Kein Projekt/.test(titelNachSchliessen),
+    'Wechsel zur Übersicht schließt das Projekt', titelNachSchliessen.trim());
+  await ersteProjektOeffnen(page);
 
   // --- Import --------------------------------------------------------------
   await page.click('nav.reiter button:has-text("Projekte")');
@@ -247,7 +266,7 @@ function pruefe(bedingung, text, info) {
     await page.waitForTimeout(500);
   }
   // Nach dem Import wird das Projekt direkt geöffnet
-  await page.waitForSelector('nav.reiter button[aria-selected=true]:has-text("Türen")', { timeout: 5000 });
+  await page.waitForSelector('nav.reiter button[aria-selected=true]:has-text("Türen")', { timeout: 8000 });
   const tuerenNachImport = await page.$$eval('.tuer-zeile', n => n.length);
   pruefe(tuerenNachImport === 2, 'Import öffnet das Projekt direkt mit allen Türen',
     'gefunden: ' + tuerenNachImport);
@@ -259,8 +278,7 @@ function pruefe(bedingung, text, info) {
   pruefe(projektZahl === 1, 'Überschreiben erzeugt kein Duplikat', 'gefunden: ' + projektZahl);
 
   // --- Screenshots für die Sichtprüfung ------------------------------------
-  await page.click('.projekt-karte button:has-text("Öffnen")');
-  await page.waitForTimeout(400);
+  await ersteProjektOeffnen(page);
   await page.screenshot({ path: path.join(AUS, 'ui-tueren.png'), fullPage: false });
   await page.click('nav.reiter button:has-text("Schließplan")');
   await page.waitForTimeout(400);

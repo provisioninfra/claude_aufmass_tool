@@ -1,7 +1,7 @@
 /* Prüft die eigenständige Einzeldatei aus dist/ - das ist die Fassung,
  * die vor Ort ohne Server und ohne Netz genutzt wird. */
 const path = require('path'), fs = require('fs');
-const { starte } = require('./browser.js');
+const { starte, ersteProjektOeffnen } = require('./browser.js');
 const DATEI = 'file://' + path.join(__dirname, '..', 'dist', 'aufmass-tool.html');
 const AUS = path.join(__dirname, 'out');
 
@@ -54,11 +54,8 @@ function pruefe(b, t, i) { if (b) { ok++; console.log('  OK   ' + t); } else { f
 
   // Echter Download über die Oberfläche
   await page.reload({ waitUntil: 'load' });
-  await page.waitForSelector('.projekt-karte, .leer', { timeout: 6000 });
-  const karte = await page.$('.projekt-karte button:has-text("Öffnen")');
+  const karte = await ersteProjektOeffnen(page, 6000);
   if (karte) {
-    await karte.click();
-    await page.waitForTimeout(400);
     await page.click('nav.reiter button:has-text("Export")');
     await page.waitForSelector('.kennzahl');
     const [dl] = await Promise.all([

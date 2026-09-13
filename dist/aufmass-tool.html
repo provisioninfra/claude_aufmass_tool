@@ -90,6 +90,27 @@ header.kopf {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .kopf .projekt-titel span { display: block; font-weight: 400; font-size: 11.5px; color: var(--text-zart); }
+/* --- Zurück-Knopf: überall im Projekt erreichbar ------------------------ */
+.zurueck-knopf {
+  display: inline-flex; align-items: center; gap: 7px;
+  min-height: var(--tap); padding: 8px 14px;
+  border: 1px solid var(--rand); border-radius: var(--radius-klein);
+  background: var(--flaeche); color: var(--text);
+  font-size: 14.5px; font-weight: 600; flex-shrink: 0;
+}
+.zurueck-knopf .pfeil { font-size: 19px; line-height: 1; }
+.zurueck-knopf .zahl {
+  font-size: 11.5px; font-weight: 700; padding: 1px 7px; border-radius: 9px;
+  background: var(--akzent-bg); color: var(--akzent);
+}
+.zurueck-knopf:hover:not(:disabled) { border-color: var(--akzent); color: var(--akzent); }
+.zurueck-knopf.leer { opacity: .4; }
+.zurueck-knopf:disabled { cursor: not-allowed; }
+@media (max-width: 700px) {
+  .zurueck-knopf .beschriftung { display: none; }
+  .zurueck-knopf { padding: 8px 11px; }
+}
+
 .speicher-status {
   font-size: 11.5px; color: var(--text-zart); white-space: nowrap;
   display: flex; align-items: center; gap: 5px;
@@ -532,6 +553,14 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
 /* --- Anpassung an kleine Geräte ------------------------------------------ */
 @media (max-width: 700px) {
   main.inhalt { padding: 12px; }
+  /* Die Kopfzeile muss auch neben dem Zurück-Knopf umbruchfrei passen */
+  header.kopf { gap: 8px; padding-left: 12px; padding-right: 12px; }
+  .kopf .marke { display: none; }
+  .kopf .logo { height: 28px; max-width: 70px; }
+  .kopf .projekt-titel { font-size: 13.5px; }
+  .kopf .projekt-titel span { font-size: 11px; }
+  .speicher-status { font-size: 0; gap: 0; }
+  .speicher-status .punkt { width: 9px; height: 9px; }
   /* Auf dem Telefon wandert die Navigation in die Daumenzone */
   #app { flex-direction: column; }
   nav.reiter {
@@ -638,36 +667,19 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     {
       id: 'sv-mobilekey', hersteller: 'SimonsVoss', name: 'MobileKey', typ: 'elektronisch',
       hinweis: 'Kleinanlage / Web-App. Für kleinere Objekte ausgelegt.',
-      komponenten: [
-        'MobileKey SmartRelais',
-        'MobileKey WebApp-Stick / GatewayNode',
-        'MobileKey Programmiergerät'
-      ],
+      komponenten: [],
       identmedien: ['Transponder', 'Karte', 'Smartphone (App)', 'PinCode-Tastatur']
     },
     {
       id: 'sv-3060', hersteller: 'SimonsVoss', name: 'System 3060', typ: 'elektronisch',
       hinweis: 'Klassisches System 3060 mit LSM-Software.',
-      komponenten: [
-        'SmartRelais 3063 / 2',
-        'SmartLocker / Möbelschloss',
-        'Programmiergerät / SmartCD',
-        'RouterNode / LockNode (WaveNet)',
-        'LSM-Software'
-      ],
+      komponenten: [],
       identmedien: ['Transponder', 'SmartCard', 'SmartTag', 'PinCode-Tastatur']
     },
     {
       id: 'sv-ax', hersteller: 'SimonsVoss', name: 'System AX (Digital Cylinder AX)', typ: 'elektronisch',
       hinweis: 'AX-Generation, BLE-fähig, AX-Manager / LSM.',
-      komponenten: [
-        'SmartRelais AX / 3 Advanced',
-        'SmartLocker AX',
-        'PinCode AX Tastatur',
-        'RouterNode 2 / AccessNode',
-        'Programmiergerät / SmartCD',
-        'AX-Manager / LSM'
-      ],
+      komponenten: [],
       identmedien: ['Transponder AX', 'SmartCard (MIFARE)', 'Smartphone (BLE App)', 'PinCode AX']
     },
     /* ---------------------- Weitere ------------------------------------ */
@@ -4158,6 +4170,147 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
 })(typeof window !== 'undefined' ? window : globalThis);
 
 
+/* ==== js/verlauf.js ==== */
+/* =============================================================================
+ * verlauf.js — Schrittweise Rücknahme von Änderungen
+ *
+ * Jeder logische Arbeitsschritt legt vorher einen Stand ab. Der Zurück-Knopf
+ * stellt den jeweils vorherigen Stand wieder her, beliebig oft.
+ *
+ * Fotos würden einen solchen Verlauf sprengen, weil sie als Bilddaten im
+ * Projekt stehen. Sie werden deshalb ausgelagert und im Stand nur über ihre
+ * Kennung geführt; jedes Bild liegt genau einmal im Speicher.
+ * ========================================================================== */
+(function (global) {
+  'use strict';
+
+  var MAX_SCHRITTE = 60;
+
+  var schritte = [];        // [{ stand: '<json>', beschreibung, zeit }]
+  var bilder = {};          // fotoId -> dataUrl
+  var projektId = null;
+  var beiAenderung = null;  // Rückmeldung an die Oberfläche
+
+  /* --- Bilddaten aus- und wieder einlagern -------------------------------- */
+  function auslagern(projekt) {
+    var kopie = JSON.parse(JSON.stringify(projekt));
+    (kopie.tueren || []).forEach(function (t) {
+      (t.fotos || []).forEach(function (f) {
+        if (f && f.dataUrl && f.id) {
+          bilder[f.id] = f.dataUrl;
+          f.dataUrl = '';
+        }
+      });
+    });
+    return JSON.stringify(kopie);
+  }
+
+  function einlagern(text) {
+    var projekt = JSON.parse(text);
+    (projekt.tueren || []).forEach(function (t) {
+      (t.fotos || []).forEach(function (f) {
+        if (f && !f.dataUrl && f.id && bilder[f.id]) f.dataUrl = bilder[f.id];
+      });
+    });
+    return projekt;
+  }
+
+  /* Bilder freigeben, die in keinem Stand mehr vorkommen. */
+  function bilderAufraeumen(aktuellesProjekt) {
+    var gebraucht = {};
+    function sammeln(p) {
+      (p.tueren || []).forEach(function (t) {
+        (t.fotos || []).forEach(function (f) { if (f && f.id) gebraucht[f.id] = true; });
+      });
+    }
+    if (aktuellesProjekt) sammeln(aktuellesProjekt);
+    schritte.forEach(function (s) {
+      try { sammeln(JSON.parse(s.stand)); } catch (e) { /* beschädigter Stand */ }
+    });
+    Object.keys(bilder).forEach(function (id) { if (!gebraucht[id]) delete bilder[id]; });
+  }
+
+  /* --- Verwaltung ---------------------------------------------------------- */
+
+  /* Beim Öffnen eines Projekts beginnt ein neuer Verlauf. */
+  function beginnen(projekt) {
+    schritte = [];
+    bilder = {};
+    projektId = projekt ? projekt.id : null;
+    melden();
+  }
+
+  function beenden() {
+    schritte = [];
+    bilder = {};
+    projektId = null;
+    melden();
+  }
+
+  /* Vor einem Arbeitsschritt den aktuellen Stand ablegen. */
+  function merken(projekt, beschreibung) {
+    if (!projekt) return;
+    if (projektId && projekt.id !== projektId) beginnen(projekt);
+    projektId = projekt.id;
+
+    var stand = auslagern(projekt);
+    /* Unveränderte Stände nicht doppelt ablegen */
+    if (schritte.length && schritte[schritte.length - 1].stand === stand) return;
+
+    schritte.push({ stand: stand, beschreibung: beschreibung || 'Änderung', zeit: Date.now() });
+    if (schritte.length > MAX_SCHRITTE) {
+      schritte.shift();
+      bilderAufraeumen(projekt);
+    }
+    melden();
+  }
+
+  /* Letzten Stand wiederherstellen. Gibt das wiederhergestellte Projekt
+   * zurück oder null, wenn es nichts zurückzunehmen gibt. */
+  function zurueck() {
+    if (!schritte.length) return null;
+    var schritt = schritte.pop();
+    var projekt;
+    try { projekt = einlagern(schritt.stand); }
+    catch (e) { melden(); return null; }
+    melden();
+    return { projekt: projekt, beschreibung: schritt.beschreibung };
+  }
+
+  /* Was würde der nächste Zurück-Schritt rücknehmen? */
+  function naechsteBeschreibung() {
+    return schritte.length ? schritte[schritte.length - 1].beschreibung : '';
+  }
+  function anzahl() { return schritte.length; }
+  function moeglich() { return schritte.length > 0; }
+
+  /* Ungefährer Speicherbedarf in Byte - für die Anzeige in den Einstellungen. */
+  function groesse() {
+    var n = 0;
+    schritte.forEach(function (s) { n += s.stand.length; });
+    Object.keys(bilder).forEach(function (id) { n += bilder[id].length; });
+    return n;
+  }
+
+  function aufAenderung(rueckruf) { beiAenderung = rueckruf; }
+  function melden() { if (beiAenderung) beiAenderung(moeglich(), naechsteBeschreibung(), anzahl()); }
+
+  global.Verlauf = {
+    MAX_SCHRITTE: MAX_SCHRITTE,
+    beginnen: beginnen,
+    beenden: beenden,
+    merken: merken,
+    zurueck: zurueck,
+    moeglich: moeglich,
+    anzahl: anzahl,
+    naechsteBeschreibung: naechsteBeschreibung,
+    groesse: groesse,
+    aufAenderung: aufAenderung
+  };
+  if (typeof module !== 'undefined' && module.exports) { module.exports = global.Verlauf; }
+})(typeof window !== 'undefined' ? window : globalThis);
+
+
 /* ==== js/app.js ==== */
 /* =============================================================================
  * app.js — Oberfläche und Ablaufsteuerung
@@ -4306,6 +4459,17 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
   };
 
   var speicherTimer = null;
+  var eingabeTimer = null;
+
+  /* Laufende Texteingaben werden zu einem Schritt zusammengefasst: Nach
+   * kurzer Pause gilt die Eingabe als abgeschlossen. Sonst entstünde je
+   * Tastendruck ein eigener Schritt. */
+  function eingabeSchrittMerken(beschreibung) {
+    if (!Zustand.projekt || !global.Verlauf) return;
+    if (eingabeTimer) return;                 /* läuft bereits */
+    global.Verlauf.merken(Zustand.projekt, beschreibung || 'Eingabe');
+    eingabeTimer = setTimeout(function () { eingabeTimer = null; }, 1600);
+  }
 
   function alsGeaendertMarkieren() {
     if (!Zustand.projekt) return;
@@ -4376,6 +4540,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       inputmode: optionen.inputmode || null,
       autocomplete: optionen.autocomplete || 'off',
       oninput: function (e) {
+        eingabeSchrittMerken('Eingabe: ' + String(beschriftung).replace(/<[^>]*>/g, '').trim());
         objekt[schluessel] = e.target.value;
         if (optionen.beiAenderung) optionen.beiAenderung(e.target.value);
         alsGeaendertMarkieren();
@@ -4389,7 +4554,10 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     var eingabe = el('textarea', {
       placeholder: optionen.platzhalter || '',
       rows: optionen.zeilen || 3,
-      oninput: function (e) { objekt[schluessel] = e.target.value; alsGeaendertMarkieren(); }
+      oninput: function (e) {
+        eingabeSchrittMerken('Eingabe: ' + String(beschriftung).replace(/<[^>]*>/g, '').trim());
+        objekt[schluessel] = e.target.value; alsGeaendertMarkieren();
+      }
     });
     eingabe.value = objekt[schluessel] || '';
     return feld(beschriftung, eingabe, optionen.breit !== false);
@@ -4399,6 +4567,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     konfig = konfig || {};
     var auswahl = el('select', {
       onchange: function (e) {
+        schrittMerken('Auswahl: ' + String(beschriftung).replace(/<[^>]*>/g, '').trim());
         objekt[schluessel] = e.target.value;
         if (konfig.beiAenderung) konfig.beiAenderung(e.target.value);
         alsGeaendertMarkieren();
@@ -4418,6 +4587,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     var eingabe = el('input', {
       type: 'checkbox', checked: !!objekt[schluessel],
       onchange: function (e) {
+        schrittMerken((e.target.checked ? 'Eingeschaltet: ' : 'Ausgeschaltet: ') + beschriftung);
         objekt[schluessel] = e.target.checked;
         if (beiAenderung) beiAenderung(e.target.checked);
         alsGeaendertMarkieren();
@@ -4438,6 +4608,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
         type: 'button', class: 'chip', 'aria-pressed': aktiv ? 'true' : 'false', text: o,
         onclick: function () {
           var i = objekt[schluessel].indexOf(o);
+          schrittMerken((i === -1 ? 'Gewählt: ' : 'Abgewählt: ') + o);
           if (i === -1) objekt[schluessel].push(o); else objekt[schluessel].splice(i, 1);
           chip.setAttribute('aria-pressed', i === -1 ? 'true' : 'false');
           alsGeaendertMarkieren();
@@ -4449,24 +4620,56 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     return el('div', { class: 'feld voll' }, [el('label', { html: beschriftung }), behaelter]);
   }
 
-  /* Ein Projekt zum aktiven Projekt machen und als zuletzt geöffnet merken,
-   * damit es beim nächsten Start automatisch wieder erscheint. */
-  function projektAktivieren(projekt, ansicht) {
+  /* Ein Projekt zum Bearbeiten öffnen. Erst damit ist ein Projekt aktiv;
+   * auf der Projektübersicht ist bewusst keines geöffnet. */
+  function projektOeffnenIntern(projekt, ansicht) {
     Zustand.projekt = projekt;
     Zustand.ungesichert = false;
     if (ansicht) Zustand.ansicht = ansicht;
     Zustand.tuerFilter = { suche: '', struktur: '', status: '', system: '' };
-    if (Zustand.einstellungen) {
-      Zustand.einstellungen.letztesProjekt = projekt ? projekt.id : '';
-      global.Store.einstellungenSpeichern(Zustand.einstellungen);
+    if (global.Verlauf) global.Verlauf.beginnen(projekt);
+  }
+
+  /* Projekt sichern und schließen. Danach ist kein Projekt mehr aktiv. */
+  function projektSchliessen() {
+    if (!Zustand.projekt) return Promise.resolve();
+    var offen = Zustand.ungesichert;
+    return (offen ? speichern() : Promise.resolve()).then(function () {
+      Zustand.projekt = null;
+      Zustand.ungesichert = false;
+      clearTimeout(speicherTimer);
+      if (global.Verlauf) global.Verlauf.beenden();
+      return offen;
+    });
+  }
+
+  /* Einen Arbeitsschritt festhalten, bevor er ausgeführt wird. */
+  function schrittMerken(beschreibung) {
+    if (Zustand.projekt && global.Verlauf) {
+      global.Verlauf.merken(Zustand.projekt, beschreibung);
     }
+  }
+
+  /* Letzten Arbeitsschritt zurücknehmen. */
+  function schrittZurueck() {
+    if (!Zustand.projekt || !global.Verlauf) return null;
+    var ergebnis = global.Verlauf.zurueck();
+    if (!ergebnis) return null;
+    ergebnis.projekt.id = Zustand.projekt.id;
+    Zustand.projekt = ergebnis.projekt;
+    alsGeaendertMarkieren();
+    return ergebnis;
   }
 
   global.AppKern = {
     el: el, leeren: leeren, $: $, toast: toast,
     dialogOeffnen: dialogOeffnen, bestaetigen: bestaetigen, textAbfragen: textAbfragen,
     Zustand: Zustand, alsGeaendertMarkieren: alsGeaendertMarkieren, speichern: speichern,
-    projektAktivieren: projektAktivieren,
+    projektOeffnenIntern: projektOeffnenIntern,
+    projektSchliessen: projektSchliessen,
+    schrittMerken: schrittMerken,
+    eingabeSchrittMerken: eingabeSchrittMerken,
+    schrittZurueck: schrittZurueck,
     statusAnzeigen: statusAnzeigen,
     feld: feld, textFeld: textFeld, bereichFeld: bereichFeld,
     auswahlFeld: auswahlFeld, schalterFeld: schalterFeld, chipFeld: chipFeld
@@ -4505,7 +4708,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     seite.appendChild(el('div', { class: 'zeile-verteilt', style: { marginBottom: '14px' } }, [
       el('div', { class: 'fuellen' }, [
         el('h1', { text: 'Aufmaß-Projekte' }),
-        el('p', { class: 'hinweis', text: 'Alle Daten liegen ausschließlich auf diesem Gerät. Zum Austausch mit dem Büro bitte das Projekt exportieren.' })
+        el('p', { class: 'hinweis', text: 'Zum Bearbeiten ein Projekt öffnen. Alle Daten liegen ausschließlich auf diesem Gerät; zum Austausch mit dem Büro das Projekt exportieren.' })
       ]),
       el('button', {
         class: 'haupt', text: '+ Neues Aufmaß',
@@ -4568,7 +4771,10 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
                   .then(function (ja) {
                     if (!ja) return;
                     Store.projektLoeschen(p.id).then(function () {
-                      if (Zustand.projekt && Zustand.projekt.id === p.id) A.projektAktivieren(null, 'projekte');
+                      if (Zustand.projekt && Zustand.projekt.id === p.id) {
+                        Zustand.projekt = null; Zustand.ansicht = 'projekte';
+                        if (global.Verlauf) global.Verlauf.beenden();
+                      }
                       A.toast('Projekt gelöscht.'); neuLaden();
                     });
                   });
@@ -4600,7 +4806,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
           p.bearbeiter = Zustand.einstellungen.standardBearbeiter;
         }
         Store.projektSpeichern(p).then(function () {
-          A.projektAktivieren(p, 'stammdaten');
+          A.projektOeffnenIntern(p, 'stammdaten');
           neuLaden();
           A.toast('Aufmaß angelegt. Bitte Stammdaten ergänzen.', 'ok');
         });
@@ -4612,7 +4818,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       if (!p) { A.toast('Projekt nicht gefunden.', 'fehler'); return; }
       var geladen = M.migriere(p);
       geladen.id = p.id;
-      A.projektAktivieren(geladen, 'tueren');
+      A.projektOeffnenIntern(geladen, 'tueren');
       neuLaden();
     });
   }
@@ -4633,7 +4839,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
             var gleich = vorhandene.filter(function (v) { return v.id === ergebnis.projekt.id; })[0];
             var fortsetzen = function (projekt) {
               Store.projektSpeichern(projekt).then(function () {
-                A.projektAktivieren(projekt, 'tueren');
+                A.projektOeffnenIntern(projekt, 'tueren');
                 A.toast('Projekt importiert: ' + projekt.tueren.length + ' Türen.', 'ok');
                 dlg.schliessen(); neuLaden();
               });
@@ -4842,6 +5048,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       var ziel = index + richtung;
       if (ziel < 0 || ziel >= geschwister.length) return;
       /* Sortierwerte neu vergeben und die beiden Knoten tauschen */
+      A.schrittMerken('Reihenfolge geändert');
       geschwister.forEach(function (g, i) { g.sort = i; });
       geschwister[index].sort = ziel;
       geschwister[ziel].sort = index;
@@ -4865,6 +5072,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
             onclick: function () {
               A.textAbfragen('Umbenennen', konfig.label + 'sbezeichnung', knoten.name).then(function (neu) {
                 if (neu === null) return;
+                A.schrittMerken('Umbenannt: ' + (knoten.name || 'Eintrag'));
                 knoten.name = neu; A.alsGeaendertMarkieren(); neuZeichnen();
               });
             } }),
@@ -4876,6 +5084,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
                 : 'Dieser Eintrag und alle Unterbereiche werden gelöscht.';
               A.bestaetigen('„' + (knoten.name || 'Eintrag') + '“ löschen?', text).then(function (ja) {
                 if (!ja) return;
+                A.schrittMerken('Gelöscht: ' + (knoten.name || 'Eintrag'));
                 M.loescheStruktur(p, knoten.id);
                 A.alsGeaendertMarkieren(); neuZeichnen();
                 A.toast('Eintrag gelöscht.');
@@ -4901,6 +5110,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       .then(function (name) {
         if (name === null) return;
         var p = Zustand.projekt;
+        A.schrittMerken((konfig.label) + ' angelegt: ' + (name || konfig.label));
         var knoten = M.neuerStrukturknoten(ebene, name || konfig.label, parentId);
         knoten.sort = M.kinderVon(p, parentId).length;
         p.standorte.push(knoten);
@@ -4946,10 +5156,14 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
    * Vor Ort wird so in der Regel nur getippt statt getastet. */
   function massFeld(objekt, schluessel, beschriftung, werte, platzhalter) {
     var behaelter = el('div', { class: 'feld' });
+    var reinText = String(beschriftung).replace(/<[^>]*>/g, '').trim();
     var freitext = el('input', {
       type: 'number', inputmode: 'numeric', placeholder: platzhalter || 'Maß in mm',
       value: objekt[schluessel] || '',
-      oninput: function (e) { objekt[schluessel] = e.target.value; A.alsGeaendertMarkieren(); }
+      oninput: function (e) {
+        A.eingabeSchrittMerken('Eingabe: ' + reinText);
+        objekt[schluessel] = e.target.value; A.alsGeaendertMarkieren();
+      }
     });
     var auswahl = el('select', {
       onchange: function (e) {
@@ -4958,6 +5172,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
           freitext.focus();
           return;
         }
+        A.schrittMerken('Maß: ' + reinText);
         objekt[schluessel] = e.target.value;
         freitext.value = e.target.value;
         freitext.classList.add('versteckt');
@@ -5595,6 +5810,8 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       }
       t.anzahl = Math.max(1, parseInt(t.anzahl, 10) || 1);
       t.geaendert = new Date().toISOString();
+      A.schrittMerken(istNeu ? ('Tür ' + (t.nummer || t.bezeichnung) + ' angelegt')
+                             : ('Tür ' + (t.nummer || t.bezeichnung) + ' geändert'));
       if (istNeu) {
         p.tueren.push(t);
       } else {
@@ -5618,6 +5835,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     var knoepfe = [];
     if (!istNeu) {
       knoepfe.push({ text: 'Duplizieren', aktion: function (schliessen) {
+        A.schrittMerken('Tür dupliziert');
         var kopie = JSON.parse(JSON.stringify(t));
         kopie.id = M.uid('tur');
         kopie.nummer = naechsteNummer(t.nummer);
@@ -5632,6 +5850,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
         A.bestaetigen('Tür löschen?', 'Die Tür „' + (t.nummer || t.bezeichnung) +
           '“ wird gelöscht, samt Fotos und Berechtigungen im Schließplan.').then(function (ja) {
           if (!ja) return;
+          A.schrittMerken('Tür ' + (t.nummer || t.bezeichnung) + ' gelöscht');
           p.tueren = p.tueren.filter(function (x) { return x.id !== t.id; });
           M.matrixAufraeumen(p);
           A.alsGeaendertMarkieren(); A.speichern(); neuZeichnen();
@@ -5818,6 +6037,8 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
             text: K.berechtigungZeichen(wert),
             title: t.nummer + ' / ' + (s.kuerzel || s.bezeichnung),
             onclick: function () {
+              A.schrittMerken('Berechtigung: ' + (t.nummer || t.bezeichnung) +
+                              ' / ' + (s.kuerzel || s.bezeichnung));
               var jetzt = M.getBerechtigung(p, t.id, s.id);
               var naechst = ZELL_FOLGE[(ZELL_FOLGE.indexOf(jetzt) + 1) % ZELL_FOLGE.length];
               M.setBerechtigung(p, t.id, s.id, naechst);
@@ -5892,6 +6113,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       knoepfe: [
         { fuellen: true }, { text: 'Abbrechen' },
         { text: 'Ausführen', klasse: 'haupt', aktion: function () {
+          A.schrittMerken(wert === 'ja' ? 'Alle Türen freigegeben' : 'Schließung geleert');
           p.tueren.forEach(function (t) { M.setBerechtigung(p, t.id, auswahl.value, wert); });
           A.alsGeaendertMarkieren(); neuZeichnen();
           A.toast('Berechtigungen aktualisiert.', 'ok');
@@ -5949,6 +6171,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
           var anzahl = M.blankoVorschau(p, optionen);
           if (!anzahl) { A.toast('Mit dieser Auswahl entsteht keine Schließung.', 'fehler'); return false; }
           function ausfuehren() {
+            A.schrittMerken('Blanko-Plan erzeugt');
             var ergebnis = M.blankoSchliessplan(p, optionen);
             A.alsGeaendertMarkieren(); A.speichern();
             A.toast(ergebnis.angelegt + ' Schließungen und ' + ergebnis.berechtigungen +
@@ -5991,6 +6214,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
           'Die Schließung „' + (s.kuerzel || s.bezeichnung) +
           '“ und alle zugehörigen Berechtigungen werden entfernt.').then(function (ja) {
           if (!ja) return;
+          A.schrittMerken('Schließung ' + (s.kuerzel || s.bezeichnung) + ' gelöscht');
           p.schliessungen = p.schliessungen.filter(function (x) { return x.id !== s.id; });
           M.matrixAufraeumen(p);
           A.alsGeaendertMarkieren(); neuZeichnen();
@@ -6004,6 +6228,8 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     knoepfe.push({ text: 'Abbrechen' });
     knoepfe.push({ text: istNeu ? 'Anlegen' : 'Übernehmen', klasse: 'haupt', aktion: function (schliessen) {
       if (!s.kuerzel && !s.bezeichnung) { A.toast('Bitte Kürzel oder Bezeichnung angeben.', 'fehler'); return false; }
+      A.schrittMerken(istNeu ? ('Schließung ' + (s.kuerzel || s.bezeichnung) + ' angelegt')
+                             : ('Schließung ' + (s.kuerzel || s.bezeichnung) + ' geändert'));
       s.anzahlMedien = Math.max(0, parseInt(s.anzahlMedien, 10) || 0);
       if (istNeu) p.schliessungen.push(s);
       else {
@@ -6044,6 +6270,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
           el('td', { class: 'zahl', text: String(s.anzahlMedien || 0) }),
           el('td', {}, el('div', { class: 'knopfleiste' }, [
             el('button', { class: 'klein nur-symbol', text: '↑', disabled: index === 0, onclick: function () {
+              A.schrittMerken('Reihenfolge der Schließungen geändert');
               sortiert[index].sort = index - 1; sortiert[index - 1].sort = index;
               A.alsGeaendertMarkieren(); zeichnen(); neuZeichnen();
             } }),
@@ -6434,6 +6661,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
         (p.kunde || p.name || 'Ohne Namen'),
         el('span', { text: [p.objekt, p.anlagenNr && ('Anlage ' + p.anlagenNr)].filter(Boolean).join('  ·  ') })
       ] : [el('span', { class: 'zart', text: 'Kein Projekt geöffnet' })]),
+      p ? zurueckKnopfBauen() : (function () { zurueckKnopf = null; return null; })(),
       el('div', { class: 'speicher-status', id: 'speicher-status' })
     ]));
 
@@ -6512,7 +6740,74 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     haupt.scrollTop = scrollPos;
   }
 
+  /* Knopf zum Zurücknehmen des letzten Arbeitsschritts. Steht überall
+   * innerhalb eines Projekts zur Verfügung und lässt sich beliebig oft
+   * betätigen, solange Schritte vorliegen. */
+  var zurueckKnopf = null;
+
+  function zurueckKnopfBauen() {
+    zurueckKnopf = el('button', {
+      class: 'zurueck-knopf',
+      'aria-label': 'Letzten Schritt zurücknehmen',
+      onclick: function () { schrittZurueckNehmen(); }
+    });
+    zurueckKnopfAktualisieren();
+    return zurueckKnopf;
+  }
+
+  /* Der Zähler muss sich auch dann ändern, wenn die Seite nicht neu
+   * aufgebaut wird - etwa beim Antippen einer Matrixzelle. */
+  function zurueckKnopfAktualisieren() {
+    if (!zurueckKnopf || !zurueckKnopf.isConnected && !zurueckKnopf.parentNode) {
+      /* Knopf wurde beim Neuaufbau ersetzt */
+    }
+    if (!zurueckKnopf) return;
+    var V = global.Verlauf;
+    var moeglich = !!(V && V.moeglich());
+    var was = moeglich ? V.naechsteBeschreibung() : '';
+    zurueckKnopf.className = 'zurueck-knopf' + (moeglich ? '' : ' leer');
+    zurueckKnopf.disabled = !moeglich;
+    zurueckKnopf.title = moeglich
+      ? ('Zurücknehmen: ' + was + '  (' + V.anzahl() + ' Schritte möglich)')
+      : 'Nichts zurückzunehmen';
+    A.leeren(zurueckKnopf);
+    zurueckKnopf.appendChild(el('span', { class: 'pfeil', text: '↶' }));
+    zurueckKnopf.appendChild(el('span', { class: 'beschriftung', text: 'Zurück' }));
+    if (moeglich) zurueckKnopf.appendChild(el('span', { class: 'zahl', text: String(V.anzahl()) }));
+  }
+
+  function schrittZurueckNehmen() {
+    var ergebnis = A.schrittZurueck();
+    if (!ergebnis) { A.toast('Es gibt nichts zurückzunehmen.'); return; }
+    A.speichern();
+    zeichnen();
+    A.toast('Zurückgenommen: ' + ergebnis.beschreibung, 'ok');
+  }
+
+  /* Tastatur: im Büro ist Strg/Cmd+Z gewohnt */
+  document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
+      var imFeld = /^(INPUT|TEXTAREA|SELECT)$/.test((e.target || {}).tagName || '');
+      if (imFeld) return;                 /* im Eingabefeld gilt die Textrücknahme */
+      if (!Zustand.projekt) return;
+      e.preventDefault();
+      schrittZurueckNehmen();
+    }
+  });
+
   function wechseln(ansicht) {
+    /* Die Projektübersicht ist bewusst kein Arbeitsplatz: Beim Wechsel
+     * dorthin wird gesichert und das Projekt geschlossen. */
+    if (ansicht === 'projekte' && Zustand.projekt) {
+      var name = Zustand.projekt.kunde || Zustand.projekt.name || 'Projekt';
+      A.projektSchliessen().then(function (warOffen) {
+        Zustand.ansicht = 'projekte';
+        zeichnen();
+        A.toast(warOffen ? ('Gespeichert und geschlossen: ' + name)
+                         : ('Geschlossen: ' + name));
+      });
+      return;
+    }
     Zustand.ansicht = ansicht;
     zeichnen();
     var haupt = A.$('main.inhalt');
@@ -6521,17 +6816,13 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
 
   /* --- Start -------------------------------------------------------------- */
   function starten() {
+    if (global.Verlauf) global.Verlauf.aufAenderung(zurueckKnopfAktualisieren);
     Store.einstellungenLaden().then(function (e) {
       Zustand.einstellungen = e;
-      if (e.letztesProjekt) {
-        return Store.projektLaden(e.letztesProjekt).then(function (p) {
-          if (p) {
-            Zustand.projekt = M.migriere(p);
-            Zustand.projekt.id = p.id;
-            Zustand.ansicht = 'tueren';
-          }
-        }).catch(function () { /* zuletzt geöffnetes Projekt nicht mehr vorhanden */ });
-      }
+      /* Die Anwendung startet auf der Projektübersicht, ohne ein Projekt
+       * zu öffnen. So wird nie versehentlich im falschen Projekt gearbeitet. */
+      Zustand.ansicht = 'projekte';
+      Zustand.projekt = null;
     }).catch(function () {
       Zustand.einstellungen = Object.assign({}, Store.EINSTELLUNGEN_STANDARD);
     }).then(function () {

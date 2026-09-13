@@ -145,6 +145,17 @@
   };
 
   var speicherTimer = null;
+  var eingabeTimer = null;
+
+  /* Laufende Texteingaben werden zu einem Schritt zusammengefasst: Nach
+   * kurzer Pause gilt die Eingabe als abgeschlossen. Sonst entstünde je
+   * Tastendruck ein eigener Schritt. */
+  function eingabeSchrittMerken(beschreibung) {
+    if (!Zustand.projekt || !global.Verlauf) return;
+    if (eingabeTimer) return;                 /* läuft bereits */
+    global.Verlauf.merken(Zustand.projekt, beschreibung || 'Eingabe');
+    eingabeTimer = setTimeout(function () { eingabeTimer = null; }, 1600);
+  }
 
   function alsGeaendertMarkieren() {
     if (!Zustand.projekt) return;
@@ -215,6 +226,7 @@
       inputmode: optionen.inputmode || null,
       autocomplete: optionen.autocomplete || 'off',
       oninput: function (e) {
+        eingabeSchrittMerken('Eingabe: ' + String(beschriftung).replace(/<[^>]*>/g, '').trim());
         objekt[schluessel] = e.target.value;
         if (optionen.beiAenderung) optionen.beiAenderung(e.target.value);
         alsGeaendertMarkieren();
@@ -228,7 +240,10 @@
     var eingabe = el('textarea', {
       placeholder: optionen.platzhalter || '',
       rows: optionen.zeilen || 3,
-      oninput: function (e) { objekt[schluessel] = e.target.value; alsGeaendertMarkieren(); }
+      oninput: function (e) {
+        eingabeSchrittMerken('Eingabe: ' + String(beschriftung).replace(/<[^>]*>/g, '').trim());
+        objekt[schluessel] = e.target.value; alsGeaendertMarkieren();
+      }
     });
     eingabe.value = objekt[schluessel] || '';
     return feld(beschriftung, eingabe, optionen.breit !== false);
@@ -238,6 +253,7 @@
     konfig = konfig || {};
     var auswahl = el('select', {
       onchange: function (e) {
+        schrittMerken('Auswahl: ' + String(beschriftung).replace(/<[^>]*>/g, '').trim());
         objekt[schluessel] = e.target.value;
         if (konfig.beiAenderung) konfig.beiAenderung(e.target.value);
         alsGeaendertMarkieren();
@@ -257,6 +273,7 @@
     var eingabe = el('input', {
       type: 'checkbox', checked: !!objekt[schluessel],
       onchange: function (e) {
+        schrittMerken((e.target.checked ? 'Eingeschaltet: ' : 'Ausgeschaltet: ') + beschriftung);
         objekt[schluessel] = e.target.checked;
         if (beiAenderung) beiAenderung(e.target.checked);
         alsGeaendertMarkieren();
@@ -277,6 +294,7 @@
         type: 'button', class: 'chip', 'aria-pressed': aktiv ? 'true' : 'false', text: o,
         onclick: function () {
           var i = objekt[schluessel].indexOf(o);
+          schrittMerken((i === -1 ? 'Gewählt: ' : 'Abgewählt: ') + o);
           if (i === -1) objekt[schluessel].push(o); else objekt[schluessel].splice(i, 1);
           chip.setAttribute('aria-pressed', i === -1 ? 'true' : 'false');
           alsGeaendertMarkieren();
@@ -288,24 +306,56 @@
     return el('div', { class: 'feld voll' }, [el('label', { html: beschriftung }), behaelter]);
   }
 
-  /* Ein Projekt zum aktiven Projekt machen und als zuletzt geöffnet merken,
-   * damit es beim nächsten Start automatisch wieder erscheint. */
-  function projektAktivieren(projekt, ansicht) {
+  /* Ein Projekt zum Bearbeiten öffnen. Erst damit ist ein Projekt aktiv;
+   * auf der Projektübersicht ist bewusst keines geöffnet. */
+  function projektOeffnenIntern(projekt, ansicht) {
     Zustand.projekt = projekt;
     Zustand.ungesichert = false;
     if (ansicht) Zustand.ansicht = ansicht;
     Zustand.tuerFilter = { suche: '', struktur: '', status: '', system: '' };
-    if (Zustand.einstellungen) {
-      Zustand.einstellungen.letztesProjekt = projekt ? projekt.id : '';
-      global.Store.einstellungenSpeichern(Zustand.einstellungen);
+    if (global.Verlauf) global.Verlauf.beginnen(projekt);
+  }
+
+  /* Projekt sichern und schließen. Danach ist kein Projekt mehr aktiv. */
+  function projektSchliessen() {
+    if (!Zustand.projekt) return Promise.resolve();
+    var offen = Zustand.ungesichert;
+    return (offen ? speichern() : Promise.resolve()).then(function () {
+      Zustand.projekt = null;
+      Zustand.ungesichert = false;
+      clearTimeout(speicherTimer);
+      if (global.Verlauf) global.Verlauf.beenden();
+      return offen;
+    });
+  }
+
+  /* Einen Arbeitsschritt festhalten, bevor er ausgeführt wird. */
+  function schrittMerken(beschreibung) {
+    if (Zustand.projekt && global.Verlauf) {
+      global.Verlauf.merken(Zustand.projekt, beschreibung);
     }
+  }
+
+  /* Letzten Arbeitsschritt zurücknehmen. */
+  function schrittZurueck() {
+    if (!Zustand.projekt || !global.Verlauf) return null;
+    var ergebnis = global.Verlauf.zurueck();
+    if (!ergebnis) return null;
+    ergebnis.projekt.id = Zustand.projekt.id;
+    Zustand.projekt = ergebnis.projekt;
+    alsGeaendertMarkieren();
+    return ergebnis;
   }
 
   global.AppKern = {
     el: el, leeren: leeren, $: $, toast: toast,
     dialogOeffnen: dialogOeffnen, bestaetigen: bestaetigen, textAbfragen: textAbfragen,
     Zustand: Zustand, alsGeaendertMarkieren: alsGeaendertMarkieren, speichern: speichern,
-    projektAktivieren: projektAktivieren,
+    projektOeffnenIntern: projektOeffnenIntern,
+    projektSchliessen: projektSchliessen,
+    schrittMerken: schrittMerken,
+    eingabeSchrittMerken: eingabeSchrittMerken,
+    schrittZurueck: schrittZurueck,
     statusAnzeigen: statusAnzeigen,
     feld: feld, textFeld: textFeld, bereichFeld: bereichFeld,
     auswahlFeld: auswahlFeld, schalterFeld: schalterFeld, chipFeld: chipFeld

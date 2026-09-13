@@ -10,7 +10,7 @@ const QUELLE = path.join(WURZEL, 'src');
 const ZIEL = path.join(WURZEL, 'dist', 'artifact');
 
 const SKRIPTE = [
-  'catalog.js', 'model.js', 'pdf.js', 'reports.js', 'store.js',
+  'catalog.js', 'model.js', 'pdf.js', 'reports.js', 'store.js', 'verlauf.js',
   'app.js', 'views-projekt.js', 'views-tueren.js', 'views-plan.js', 'main.js'
 ];
 
