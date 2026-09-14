@@ -37,20 +37,13 @@
     {
       id: 'evva-airkey', hersteller: 'EVVA', name: 'AirKey', typ: 'elektronisch',
       hinweis: 'Cloud-basiert, Smartphone (NFC/BLE) und Karte/Schlüsselanhänger.',
-      komponenten: [
-        'AirKey Vorhangschloss',
-        'AirKey Codierstation / Smartphone-Programmierung'
-      ],
+      komponenten: [],
       identmedien: ['Smartphone (App)', 'Karte', 'Schlüsselanhänger', 'Kombi-Schlüssel']
     },
     {
       id: 'evva-xesar', hersteller: 'EVVA', name: 'Xesar', typ: 'elektronisch',
       hinweis: 'Eigenständige Anlage mit Xesar-Software, virtuelles Netzwerk über Wandleser.',
-      komponenten: [
-        'Xesar Schrankschloss',
-        'Xesar Codierstation',
-        'Xesar Verwaltungssoftware'
-      ],
+      komponenten: [],
       identmedien: ['Karte', 'Schlüsselanhänger', 'Armband', 'Smartphone (sofern freigeschaltet)']
     },
     /* ---------------------- SimonsVoss --------------------------------- */
@@ -76,23 +69,13 @@
     {
       id: 'keyota', hersteller: 'Keyota', name: 'Keyota', typ: 'elektronisch',
       hinweis: 'Komponentenliste im Menü "Einstellungen" an den konkreten Lieferumfang anpassen.',
-      komponenten: [
-        'Keyota Programmiereinheit'
-      ],
+      komponenten: [],
       identmedien: ['Smartphone (App)', 'Karte', 'Schlüsselanhänger']
     },
     {
       id: 'nuki', hersteller: 'Nuki', name: 'Nuki', typ: 'elektronisch',
       hinweis: 'Nachrüstlösung, sitzt in der Regel innen auf dem vorhandenen Zylinder (Not- und Gefahrenfunktion beachten).',
-      komponenten: [
-        'Nuki Smart Lock',
-        'Nuki Smart Lock Pro',
-        'Nuki Smart Lock Ultra',
-        'Nuki Opener (Türsprechanlage)',
-        'Nuki Keypad',
-        'Nuki Fob',
-        'Nuki Bridge'
-      ],
+      komponenten: [],
       identmedien: ['Smartphone (App)', 'Keypad-Code', 'Fob', 'Fingerprint (geräteabhängig)']
     },
     /* ---------------------- EVVA Mechanik ------------------------------ */
@@ -156,7 +139,8 @@
     'Briefkastenzylinder',
     'Schaltzylinder',
     'Rundzylinder',
-    'Blindzylinder'
+    'Blindzylinder',
+    'Motorzylinder EVVA EMZY'
   ];
 
   var ZYLINDER_AUSFUEHRUNG = [
@@ -279,7 +263,6 @@
     'Rohrrahmenschloss',
     'Mehrfachverriegelung',
     'Motorschloss',
-    'Motorschloss EVVA EMZY',
     'Möbelschloss',
     'Elektrischer Türöffner',
     'Haftmagnet'
@@ -312,22 +295,69 @@
 
   /* --- Türkategorien ------------------------------------------------------ */
   var TUERKATEGORIEN = [
+    /* Zugänge */
     'Haupteingang',
     'Nebeneingang',
-    'Hintereingang / Lieferantentür',
+    'Hintereingang / Lieferanteneingang',
+    'Personaleingang',
+    'Besuchereingang',
+    'Windfang / Schleuse',
+    /* Innen */
     'Innentür Büro',
     'Innentür Flur',
-    'Technikraum / Heizung',
+    'Innentür Besprechung',
+    'Innentür Aufenthalt / Pausenraum',
+    'Innentür Wohnung',
+    'Wohnungseingangstür',
+    'Zimmertür',
+    /* Technik und Versorgung */
+    'Technikraum',
+    'Heizungsraum',
     'Elektroraum / HAK',
     'Serverraum / EDV',
-    'Lager / Archiv',
+    'Aufzugsmaschinenraum',
+    'Lüftungszentrale',
+    'Wasserübergabe / Hauswasserstation',
+    'Müllraum',
+    'Putzmittelraum',
+    /* Lager und Nebenräume */
+    'Lager',
+    'Archiv',
+    'Werkstatt',
+    'Garderobe / Umkleide',
     'Sanitär / WC',
-    'Aufzug / Aufzugsschacht',
-    'Tiefgarage / Garagentor',
+    'Dusche',
+    'Keller / Kellerabteil',
+    'Dachboden / Spitzboden',
+    /* Außen und Verkehrsflächen */
+    'Tiefgarage',
+    'Garage / Garagentor',
+    'Hoftor / Einfahrt',
+    'Fahrradraum',
+    'Außenanlage / Gartentor',
+    'Schranke / Poller',
+    /* Sicherheit und Sonderbereiche */
     'Fluchttür / Notausgang',
-    'Hoftor / Außenanlage',
+    'Brandschutztür',
+    'Treppenhaustür',
+    'Aufzug / Aufzugsschacht',
+    'Tresorraum / Wertschutz',
+    'Labor',
+    'Reinraum',
+    'Kühlraum',
+    'Arztzimmer / Behandlung',
+    'Medikamentenschrank',
+    'Klassenraum',
+    'Hörsaal / Seminarraum',
+    'Produktion / Halle',
+    'Verkaufsraum',
+    'Kasse / Geldbereich',
+    /* Kleinzylinder */
     'Briefkastenanlage',
-    'Schrank / Möbel / Spind',
+    'Schrank / Möbel',
+    'Spind / Schließfach',
+    'Schaltschrank',
+    'Vitrine',
     'Sonstige'
   ];
 

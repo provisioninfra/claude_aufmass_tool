@@ -389,6 +389,23 @@ table.matrix tfoot td {
 }
 table.matrix tfoot td.tuername { z-index: 5; text-align: left; }
 
+/* --- Entfernen-Modus im Schließplan ------------------------------------- */
+table.matrix th.spaltenkopf.entfernbar { background: rgba(179,38,30,.12); }
+table.matrix th.spaltenkopf.entfernbar:hover { background: rgba(179,38,30,.22); }
+table.matrix th.spaltenkopf .entfernen-zeichen {
+  display: block; text-align: center; font-size: 14px; font-weight: 700;
+  color: var(--rot); padding-bottom: 3px;
+}
+table.matrix td.tuername.entfernbar { background: rgba(179,38,30,.06); }
+.entfernen-knopf {
+  min-height: 34px; min-width: 34px; padding: 0; margin-right: 8px;
+  border-radius: 50%; border: 1px solid var(--rot); background: var(--flaeche);
+  color: var(--rot); font-size: 15px; font-weight: 700; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  vertical-align: middle;
+}
+.entfernen-knopf:hover { background: var(--rot); color: #fff; border-color: var(--rot); }
+
 .matrix-legende {
   display: flex; flex-wrap: wrap; gap: 14px; margin-top: 12px;
   font-size: 12.5px; color: var(--text-schwach);

@@ -89,6 +89,33 @@ und je Bild nur einmal gehalten (`src/js/verlauf.js`): 20 Schritte mit einem
 200-KB-Foto belegen rund 227 KB statt 4 MB. Beim Schließen des Projekts wird
 der Verlauf verworfen.
 
+## Matrix vom Kunden ausfüllen lassen
+
+Unter *Schließplan → Kundenfreigabe* entsteht ein Link, den der Kunde im
+Browser öffnet. Er sieht die vollständige Matrix, kann aber nur die Felder
+anklicken, die zuvor freigegeben wurden – alle übrigen sind schraffiert und
+gesperrt. Freigeben lässt sich spaltenweise je Schließung, wahlweise
+beschränkt auf noch leere Felder. Hinweis und Rückmeldefrist werden mitgegeben.
+
+Seine Rückmeldung kommt als Datei oder als Textschlüssel zurück und wird
+unter *Schließplan → Rückmeldung* eingelesen. Übernommen werden ausschließlich
+Felder, die tatsächlich freigegeben waren; eine veränderte Rückmeldung kann
+keine gesperrten Berechtigungen setzen. Die Übernahme lässt sich über den
+Zurück-Knopf rückgängig machen.
+
+**Es gibt dafür keinen Server.** Die Plandaten stehen im Anker (`#`) der
+Adresse – dieser Teil einer Adresse wird von Browsern niemals an einen Server
+gesendet. Die Aufmaßdaten verlassen damit weder Ihr Gerät noch das des Kunden.
+Zwei Dinge folgen daraus:
+
+* Der Link ist lang (bei rund 150 Feldern etwa 3.500 Zeichen, bei 3.400
+  Feldern etwa 17.000). Die Anwendung warnt, wenn er sehr lang wird; er lässt
+  sich dann auch als Datei versenden.
+* Der Rückweg ist nicht automatisch: Der Kunde sendet Datei oder Schlüssel
+  zurück. Die Rückmeldung enthält nur die Abweichungen und bleibt kurz.
+* Die Anwendung muss dafür über eine Web-Adresse laufen (siehe iPad-Abschnitt);
+  aus einer lokal geöffneten Datei heraus weist der Dialog darauf hin.
+
 ## Bedienung auf der Baustelle
 
 Das Werkzeug ist auf die Bedienung mit einer Hand bzw. einem Finger ausgelegt.
@@ -204,6 +231,8 @@ src/
   js/reports.js           Die vier PDF-Ausgaben
   js/store.js             Speicherung (IndexedDB), Export/Import, Fotos
   js/verlauf.js           Rücknahme von Arbeitsschritten
+  js/freigabe.js          Kundenfreigabe der Matrix (Kodierung)
+  freigabe.html           Seite, die der Kunde über den Link öffnet
   js/app.js               Grundgerüst der Oberfläche, Autospeicherung
   js/views-*.js           Die einzelnen Ansichten
   js/main.js              Navigation und Start

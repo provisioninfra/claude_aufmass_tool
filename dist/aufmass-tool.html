@@ -401,6 +401,23 @@ table.matrix tfoot td {
 }
 table.matrix tfoot td.tuername { z-index: 5; text-align: left; }
 
+/* --- Entfernen-Modus im Schließplan ------------------------------------- */
+table.matrix th.spaltenkopf.entfernbar { background: rgba(179,38,30,.12); }
+table.matrix th.spaltenkopf.entfernbar:hover { background: rgba(179,38,30,.22); }
+table.matrix th.spaltenkopf .entfernen-zeichen {
+  display: block; text-align: center; font-size: 14px; font-weight: 700;
+  color: var(--rot); padding-bottom: 3px;
+}
+table.matrix td.tuername.entfernbar { background: rgba(179,38,30,.06); }
+.entfernen-knopf {
+  min-height: 34px; min-width: 34px; padding: 0; margin-right: 8px;
+  border-radius: 50%; border: 1px solid var(--rot); background: var(--flaeche);
+  color: var(--rot); font-size: 15px; font-weight: 700; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  vertical-align: middle;
+}
+.entfernen-knopf:hover { background: var(--rot); color: #fff; border-color: var(--rot); }
+
 .matrix-legende {
   display: flex; flex-wrap: wrap; gap: 14px; margin-top: 12px;
   font-size: 12.5px; color: var(--text-schwach);
@@ -597,7 +614,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
 <link rel="icon" type="image/png" sizes="192x192" href="data:image/png;base64,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">
 <!-- Eigenständige Fassung: enthält Programm und Gestaltung vollständig.
      Kann lokal gespeichert und ohne Internetverbindung geöffnet werden.
-     Erzeugt am 2026-09-13 -->
+     Erzeugt am 2026-09-14 -->
 </head>
 <body>
 <div id="app">
@@ -647,20 +664,13 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     {
       id: 'evva-airkey', hersteller: 'EVVA', name: 'AirKey', typ: 'elektronisch',
       hinweis: 'Cloud-basiert, Smartphone (NFC/BLE) und Karte/Schlüsselanhänger.',
-      komponenten: [
-        'AirKey Vorhangschloss',
-        'AirKey Codierstation / Smartphone-Programmierung'
-      ],
+      komponenten: [],
       identmedien: ['Smartphone (App)', 'Karte', 'Schlüsselanhänger', 'Kombi-Schlüssel']
     },
     {
       id: 'evva-xesar', hersteller: 'EVVA', name: 'Xesar', typ: 'elektronisch',
       hinweis: 'Eigenständige Anlage mit Xesar-Software, virtuelles Netzwerk über Wandleser.',
-      komponenten: [
-        'Xesar Schrankschloss',
-        'Xesar Codierstation',
-        'Xesar Verwaltungssoftware'
-      ],
+      komponenten: [],
       identmedien: ['Karte', 'Schlüsselanhänger', 'Armband', 'Smartphone (sofern freigeschaltet)']
     },
     /* ---------------------- SimonsVoss --------------------------------- */
@@ -686,23 +696,13 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     {
       id: 'keyota', hersteller: 'Keyota', name: 'Keyota', typ: 'elektronisch',
       hinweis: 'Komponentenliste im Menü "Einstellungen" an den konkreten Lieferumfang anpassen.',
-      komponenten: [
-        'Keyota Programmiereinheit'
-      ],
+      komponenten: [],
       identmedien: ['Smartphone (App)', 'Karte', 'Schlüsselanhänger']
     },
     {
       id: 'nuki', hersteller: 'Nuki', name: 'Nuki', typ: 'elektronisch',
       hinweis: 'Nachrüstlösung, sitzt in der Regel innen auf dem vorhandenen Zylinder (Not- und Gefahrenfunktion beachten).',
-      komponenten: [
-        'Nuki Smart Lock',
-        'Nuki Smart Lock Pro',
-        'Nuki Smart Lock Ultra',
-        'Nuki Opener (Türsprechanlage)',
-        'Nuki Keypad',
-        'Nuki Fob',
-        'Nuki Bridge'
-      ],
+      komponenten: [],
       identmedien: ['Smartphone (App)', 'Keypad-Code', 'Fob', 'Fingerprint (geräteabhängig)']
     },
     /* ---------------------- EVVA Mechanik ------------------------------ */
@@ -766,7 +766,8 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     'Briefkastenzylinder',
     'Schaltzylinder',
     'Rundzylinder',
-    'Blindzylinder'
+    'Blindzylinder',
+    'Motorzylinder EVVA EMZY'
   ];
 
   var ZYLINDER_AUSFUEHRUNG = [
@@ -889,7 +890,6 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     'Rohrrahmenschloss',
     'Mehrfachverriegelung',
     'Motorschloss',
-    'Motorschloss EVVA EMZY',
     'Möbelschloss',
     'Elektrischer Türöffner',
     'Haftmagnet'
@@ -922,22 +922,69 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
 
   /* --- Türkategorien ------------------------------------------------------ */
   var TUERKATEGORIEN = [
+    /* Zugänge */
     'Haupteingang',
     'Nebeneingang',
-    'Hintereingang / Lieferantentür',
+    'Hintereingang / Lieferanteneingang',
+    'Personaleingang',
+    'Besuchereingang',
+    'Windfang / Schleuse',
+    /* Innen */
     'Innentür Büro',
     'Innentür Flur',
-    'Technikraum / Heizung',
+    'Innentür Besprechung',
+    'Innentür Aufenthalt / Pausenraum',
+    'Innentür Wohnung',
+    'Wohnungseingangstür',
+    'Zimmertür',
+    /* Technik und Versorgung */
+    'Technikraum',
+    'Heizungsraum',
     'Elektroraum / HAK',
     'Serverraum / EDV',
-    'Lager / Archiv',
+    'Aufzugsmaschinenraum',
+    'Lüftungszentrale',
+    'Wasserübergabe / Hauswasserstation',
+    'Müllraum',
+    'Putzmittelraum',
+    /* Lager und Nebenräume */
+    'Lager',
+    'Archiv',
+    'Werkstatt',
+    'Garderobe / Umkleide',
     'Sanitär / WC',
-    'Aufzug / Aufzugsschacht',
-    'Tiefgarage / Garagentor',
+    'Dusche',
+    'Keller / Kellerabteil',
+    'Dachboden / Spitzboden',
+    /* Außen und Verkehrsflächen */
+    'Tiefgarage',
+    'Garage / Garagentor',
+    'Hoftor / Einfahrt',
+    'Fahrradraum',
+    'Außenanlage / Gartentor',
+    'Schranke / Poller',
+    /* Sicherheit und Sonderbereiche */
     'Fluchttür / Notausgang',
-    'Hoftor / Außenanlage',
+    'Brandschutztür',
+    'Treppenhaustür',
+    'Aufzug / Aufzugsschacht',
+    'Tresorraum / Wertschutz',
+    'Labor',
+    'Reinraum',
+    'Kühlraum',
+    'Arztzimmer / Behandlung',
+    'Medikamentenschrank',
+    'Klassenraum',
+    'Hörsaal / Seminarraum',
+    'Produktion / Halle',
+    'Verkaufsraum',
+    'Kasse / Geldbereich',
+    /* Kleinzylinder */
     'Briefkastenanlage',
-    'Schrank / Möbel / Spind',
+    'Schrank / Möbel',
+    'Spind / Schließfach',
+    'Schaltschrank',
+    'Vitrine',
     'Sonstige'
   ];
 
@@ -1196,7 +1243,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       etage: '',                  // freies Etagenfeld, falls keine Struktur gepflegt
       kategorie: '',
       anzahl: 1,                  // identische Türen zusammenfassen
-      status: 'offen',
+      status: 'aufgemessen',      // beim Anlegen gilt die Tür als aufgemessen
 
       /* --- System ---
        * Das System steht im Projekt. Hier wird nur bei einer Hybridanlage
@@ -1273,6 +1320,23 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     };
     if (vorgabe) { for (var k in vorgabe) { if (Object.prototype.hasOwnProperty.call(vorgabe, k)) t[k] = vorgabe[k]; } }
     return t;
+  }
+
+  /* Nächste laufende Türnummer eines Projekts. Gezählt wird bei 001
+   * beginnend; vorhandene rein numerische Nummern werden berücksichtigt,
+   * damit nach dem Löschen keine Nummer doppelt vergeben wird. */
+  function naechsteLaufendeNummer(projekt) {
+    var hoechste = 0;
+    (projekt && projekt.tueren || []).forEach(function (t) {
+      var treffer = /^0*(\d{1,6})$/.exec(String(t.nummer || '').trim());
+      if (treffer) {
+        var n = parseInt(treffer[1], 10);
+        if (n > hoechste) hoechste = n;
+      }
+    });
+    var naechste = String(hoechste + 1);
+    while (naechste.length < 3) naechste = '0' + naechste;
+    return naechste;
   }
 
   /* --- Schließung (Spalte im Kreuzschließplan) ---------------------------- */
@@ -1567,20 +1631,56 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       return proSystem[systemId];
     }
 
+    /* Wohin gehört ein Bauteil?
+     *   'schliessanlage' - wird beim Schließanlagen-Hersteller bestellt
+     *                      (Zylinder, elektronische Beschläge, Wandleser)
+     *   'tuertechnik'    - Baubeschlag bzw. Schlosser (Einsteckschlösser,
+     *                      rein mechanische Drücker und Beschläge)
+     * und ist es mechanisch oder elektronisch? */
+    function einordnen(gruppe, tuer) {
+      var K2 = kat();
+      if (gruppe === 'Zylinder') {
+        return { bereich: 'schliessanlage',
+                 technik: istTuerElektronisch(projekt, tuer) ? 'elektronik' : 'mechanik' };
+      }
+      if (gruppe === 'Beschlag') {
+        var elektronisch = K2 && K2.beschlagIstElektronisch(tuer);
+        return elektronisch
+          ? { bereich: 'schliessanlage', technik: 'elektronik' }
+          : { bereich: 'tuertechnik', technik: 'mechanik' };
+      }
+      if (gruppe === 'Schloss') {
+        /* Motorschlösser und elektrische Türöffner sind elektrisch angebunden,
+           bleiben aber Türtechnik. */
+        var el = /Motorschloss|Türöffner|Haftmagnet/i.test(String(tuer.schlossBauform || ''));
+        return { bereich: 'tuertechnik', technik: el ? 'elektronik' : 'mechanik' };
+      }
+      if (gruppe === 'Zutrittsleser') {
+        return { bereich: 'schliessanlage', technik: 'elektronik' };
+      }
+      return { bereich: 'schliessanlage',
+               technik: istTuerElektronisch(projekt, tuer) ? 'elektronik' : 'mechanik' };
+    }
+
     /* Eine Position wird über Bezeichnung UND Ausprägung eindeutig
      * bestimmt. Gleiche Bauteile mit unterschiedlichem Maß bleiben damit
      * getrennt, identische werden zusammengefasst - jede Zeile ist genau
      * einmal vorhanden. */
     function addPos(b, daten) {
-      var schluessel = [daten.bezeichnung, daten.mass, daten.ausfuehrung, daten.hinweis]
+      var vorEin = einordnen(daten.gruppe || 'Sonstiges', daten.tuer || {});
+      var schluessel = [daten.bezeichnung, daten.mass, daten.ausfuehrung, daten.hinweis,
+                        vorEin.bereich, vorEin.technik]
         .map(function (x) { return String(x || ''); }).join('||');
       if (!b.positionen[schluessel]) {
+        var ein = einordnen(daten.gruppe || 'Sonstiges', daten.tuer || {});
         b.positionen[schluessel] = {
           bezeichnung: daten.bezeichnung,
           mass: daten.mass || '',
           ausfuehrung: daten.ausfuehrung || '',
           hinweis: daten.hinweis || '',
           gruppe: daten.gruppe || 'Sonstiges',
+          bereich: ein.bereich,
+          technik: ein.technik,
           menge: 0,
           tueren: []
         };
@@ -1720,10 +1820,63 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       };
     }).sort(function (a, c) { return a.label.localeCompare(c.label, 'de'); });
 
+    /* Gliederung für die Bestellung: erst nach Gewerk, darin nach Technik. */
+    var alleP = [];
+    listen.forEach(function (sy) {
+      sy.positionen.forEach(function (pos) {
+        alleP.push({ pos: pos, system: sy.label, systemId: sy.systemId });
+      });
+    });
+
+    function sammeln(bereich, technik) {
+      var treffer = alleP.filter(function (e) {
+        return e.pos.bereich === bereich && e.pos.technik === technik;
+      });
+      /* Nach System gruppieren, damit die Bestellung je Hersteller entsteht */
+      var proSys = {};
+      treffer.forEach(function (e) {
+        if (!proSys[e.system]) proSys[e.system] = { label: e.system, systemId: e.systemId, positionen: [] };
+        proSys[e.system].positionen.push(e.pos);
+      });
+      var gruppen = Object.keys(proSys).map(function (k) {
+        var g = proSys[k];
+        g.summe = g.positionen.reduce(function (sum, x) { return sum + x.menge; }, 0);
+        return g;
+      }).sort(function (a, c) { return a.label.localeCompare(c.label, 'de'); });
+      return {
+        gruppen: gruppen,
+        summe: gruppen.reduce(function (sum, g) { return sum + g.summe; }, 0)
+      };
+    }
+
+    var gliederung = [
+      { id: 'sa-elektronik', bereich: 'schliessanlage', technik: 'elektronik',
+        titel: 'Schließanlage – Elektronik',
+        hinweis: 'Elektronische Zylinder, Beschläge und Zutrittsleser' },
+      { id: 'sa-mechanik', bereich: 'schliessanlage', technik: 'mechanik',
+        titel: 'Schließanlage – Mechanik',
+        hinweis: 'Mechanische Zylinder' },
+      { id: 'tt-elektronik', bereich: 'tuertechnik', technik: 'elektronik',
+        titel: 'Türtechnik – Elektrisch',
+        hinweis: 'Motorschlösser, elektrische Türöffner, Haftmagnete' },
+      { id: 'tt-mechanik', bereich: 'tuertechnik', technik: 'mechanik',
+        titel: 'Türtechnik – Mechanik',
+        hinweis: 'Einsteckschlösser sowie rein mechanische Drücker und Beschläge' }
+    ].map(function (a) {
+      var d = sammeln(a.bereich, a.technik);
+      a.gruppen = d.gruppen; a.summe = d.summe;
+      return a;
+    }).filter(function (a) { return a.summe > 0; });
+
     return {
       systeme: listen,
+      gliederung: gliederung,
       medien: medien,
       gesamtStueck: listen.reduce(function (sum, sy) { return sum + sy.summe; }, 0),
+      summeSchliessanlage: gliederung.filter(function (a) { return a.bereich === 'schliessanlage'; })
+        .reduce(function (s2, a) { return s2 + a.summe; }, 0),
+      summeTuertechnik: gliederung.filter(function (a) { return a.bereich === 'tuertechnik'; })
+        .reduce(function (s2, a) { return s2 + a.summe; }, 0),
       gesamtMedien: medien.reduce(function (sum, m) { return sum + m.menge; }, 0)
     };
   }
@@ -2130,6 +2283,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     neuesProjekt: neuesProjekt,
     neuerStrukturknoten: neuerStrukturknoten,
     neueTuer: neueTuer,
+    naechsteLaufendeNummer: naechsteLaufendeNummer,
     neueSchliessung: neueSchliessung,
     tuerSystemId: tuerSystemId,
     tuerTechnologie: tuerTechnologie,
@@ -3654,19 +3808,9 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       return doc;
     }
 
-    var zeilen = [];
-    liste.systeme.forEach(function (sys) {
-      if (!sys.positionen.length) return;
-      zeilen.push({ __gruppe: sys.label,
-        __gruppeRechts: plural(sys.tueren, 'Tür', 'Türen') + '  ·  ' + sys.summe + ' Stück' });
-      var letzteGruppe = null;
-      sys.positionen.forEach(function (pos) {
-        if (pos.gruppe !== letzteGruppe) { pos.__ersteDerGruppe = true; letzteGruppe = pos.gruppe; }
-        else { pos.__ersteDerGruppe = false; }
-        zeilen.push(pos);
-      });
-    });
-
+    /* Die Liste ist nach Gewerk und Technik gegliedert: die Bauteile der
+     * Schließanlage getrennt von der Türtechnik, jeweils mechanisch und
+     * elektronisch. So lässt sich je Lieferant bestellen. */
     var pos = 0;
     var spalten = [
       { titel: 'Pos.', breite: b * 0.045, align: 'center',
@@ -3686,7 +3830,44 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       spalten[2].breite += b * 0.19;
     }
 
-    tabelle(doc, spalten, zeilen, { size: 8 });
+    liste.gliederung.forEach(function (abschnitt, index) {
+      if (index > 0) doc.y += 4;
+      doc.platzPruefen(26);
+
+      /* Abschnittsüberschrift */
+      doc.rechteck(doc.rand.links, doc.y, b, 9, { fill: FARBE.akzent });
+      doc.text(abschnitt.titel, doc.rand.links + 3, doc.y + 2, { size: 10, bold: true, color: '#ffffff' });
+      doc.text(abschnitt.summe + ' Stück', doc.rand.links + b - 3, doc.y + 2.4,
+               { size: 9, bold: true, align: 'right', color: '#ffffff' });
+      doc.y += 9;
+      doc.text(abschnitt.hinweis, doc.rand.links + 1, doc.y + 1, { size: 7, color: FARBE.hellgrau });
+      doc.y += 5.5;
+
+      var zeilen = [];
+      abschnitt.gruppen.forEach(function (g) {
+        zeilen.push({ __gruppe: g.label, __gruppeRechts: g.summe + ' Stück' });
+        var letzteGruppe = null;
+        g.positionen.forEach(function (p2) {
+          p2.__ersteDerGruppe = (p2.gruppe !== letzteGruppe);
+          letzteGruppe = p2.gruppe;
+          zeilen.push(p2);
+        });
+      });
+      tabelle(doc, spalten, zeilen, { size: 8 });
+    });
+
+    /* --- Zwischensummen je Gewerk --- */
+    doc.y += 3;
+    doc.platzPruefen(18);
+    [['Summe Schließanlage', liste.summeSchliessanlage],
+     ['Summe Türtechnik', liste.summeTuertechnik]].forEach(function (z) {
+      if (!z[1]) return;
+      doc.rechteck(doc.rand.links, doc.y, b, 6.5, { fill: FARBE.zebraBg, stroke: FARBE.linieHell });
+      doc.text(z[0], doc.rand.links + 2, doc.y + 1.4, { size: 8, bold: true, color: FARBE.grau });
+      doc.text(String(z[1]) + ' Stück', doc.rand.links + b - 2, doc.y + 1.4,
+               { size: 8, bold: true, align: 'right', color: FARBE.grau });
+      doc.y += 6.5;
+    });
 
     /* --- Gesamtsumme --- */
     doc.y += 2;
@@ -4311,6 +4492,253 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
 })(typeof window !== 'undefined' ? window : globalThis);
 
 
+/* ==== js/freigabe.js ==== */
+/* =============================================================================
+ * freigabe.js — Kunden-Freigabe der Zutrittsmatrix
+ *
+ * Der Kunde erhält einen Link, öffnet die Matrix im Browser und trägt in den
+ * freigegebenen Feldern seine Berechtigungen ein. Seine Antwort kommt als
+ * kurzer Rückschlüssel oder als Datei zurück und wird hier eingelesen.
+ *
+ * Es gibt bewusst keinen Server: Die Daten stehen im Adress-Anker (#) des
+ * Links. Dieser Teil einer Adresse wird von Browsern niemals an einen Server
+ * gesendet - die Aufmaßdaten verlassen also weder Ihr Gerät noch das des
+ * Kunden.
+ * ========================================================================== */
+(function (global) {
+  'use strict';
+
+  var FORMAT = 1;
+  /* Zeichen je Berechtigungsstufe - ein Zeichen pro Zelle hält die Daten klein */
+  var WERTE = ['nein', 'ja', 'zeit', 'temp', 'sperr'];
+  var ZEICHEN = ['0', '1', '2', '3', '4'];
+
+  function wertZuZeichen(w) {
+    var i = WERTE.indexOf(w || 'nein');
+    return ZEICHEN[i === -1 ? 0 : i];
+  }
+  function zeichenZuWert(z) {
+    var i = ZEICHEN.indexOf(z);
+    return WERTE[i === -1 ? 0 : i];
+  }
+
+  /* --- Lauflängenkodierung: Matrizen bestehen überwiegend aus Nullen ------
+   * Wiederholungen werden mit einem Trennzeichen eingeleitet, das in den
+   * Daten selbst nicht vorkommt. Ohne dieses Zeichen ließe sich "04" sowohl
+   * als "einmal 0, einmal 4" wie auch als "viermal 0" lesen. */
+  var WIEDERHOLUNG = '~';
+
+  function packen(text) {
+    var aus = '', i = 0;
+    while (i < text.length) {
+      var z = text[i], n = 1;
+      while (i + n < text.length && text[i + n] === z) n++;
+      if (n > 3) {
+        /* In Blöcken zählen, damit der Zähler einstellig bleibt (max 35) */
+        var rest = n;
+        while (rest > 0) {
+          var block = Math.min(rest, 35);
+          if (block > 3) { aus += z + WIEDERHOLUNG + block.toString(36); }
+          else { for (var k = 0; k < block; k++) aus += z; }
+          rest -= block;
+        }
+      } else {
+        for (var j = 0; j < n; j++) aus += z;
+      }
+      i += n;
+    }
+    return aus;
+  }
+
+  function entpacken(text) {
+    var aus = '', i = 0;
+    while (i < text.length) {
+      var z = text[i];
+      if (text[i + 1] === WIEDERHOLUNG) {
+        var n = parseInt(text[i + 2], 36);
+        if (!isFinite(n) || n < 1) n = 1;
+        for (var k = 0; k < n; k++) aus += z;
+        i += 3;
+      } else {
+        aus += z; i += 1;
+      }
+    }
+    return aus;
+  }
+
+  /* --- Text sicher in eine Adresse verpacken ------------------------------ */
+  function textZuAnker(text) {
+    var bytes = unescape(encodeURIComponent(text));
+    var b64 = (typeof btoa === 'function') ? btoa(bytes)
+            : Buffer.from(bytes, 'binary').toString('base64');
+    return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function ankerZuText(anker) {
+    var b64 = String(anker || '').replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4) b64 += '=';
+    var bytes = (typeof atob === 'function') ? atob(b64)
+              : Buffer.from(b64, 'base64').toString('binary');
+    return decodeURIComponent(escape(bytes));
+  }
+
+  /* =========================================================================
+   * Freigabe erzeugen
+   * ======================================================================
+   * optionen: { freigegebeneSchliessungen: [id, ...], nurLeereFelder,
+   *             hinweis, frist }
+   */
+  function erstellen(projekt, optionen) {
+    optionen = optionen || {};
+    var M = global.Model;
+    var frei = optionen.freigegebeneSchliessungen || [];
+
+    var schliessungen = projekt.schliessungen.slice().sort(function (a, b) {
+      return (a.sort - b.sort) || String(a.kuerzel).localeCompare(String(b.kuerzel), 'de', { numeric: true });
+    });
+
+    /* Türen in der Reihenfolge der Gliederung, mit ihrem Bereich */
+    var tueren = [];
+    M.tuerenGruppiert(projekt).forEach(function (g) {
+      g.tueren.forEach(function (t) {
+        tueren.push({ id: t.id, nr: t.nummer || '', bez: t.bezeichnung || '', bereich: g.titel });
+      });
+    });
+
+    /* Matrix und Freigabemaske als je eine Zeichenkette */
+    var matrix = '', maske = '';
+    tueren.forEach(function (t) {
+      schliessungen.forEach(function (s) {
+        var wert = M.getBerechtigung(projekt, t.id, s.id);
+        matrix += wertZuZeichen(wert);
+        var darf = frei.indexOf(s.id) !== -1;
+        if (darf && optionen.nurLeereFelder && wert !== 'nein') darf = false;
+        maske += darf ? '1' : '0';
+      });
+    });
+
+    var daten = {
+      f: FORMAT,
+      pid: projekt.id,
+      kunde: projekt.kunde || '',
+      objekt: projekt.objekt || '',
+      anlage: projekt.anlagenNr || '',
+      hinweis: optionen.hinweis || '',
+      frist: optionen.frist || '',
+      firma: optionen.firma || '',
+      t: tueren.map(function (t) { return [t.id, t.nr, t.bez, t.bereich]; }),
+      s: schliessungen.map(function (s) {
+        return [s.id, s.kuerzel || '', s.bezeichnung || '', s.person || s.abteilung || ''];
+      }),
+      m: packen(matrix),
+      e: packen(maske)
+    };
+    return daten;
+  }
+
+  function alsAnker(daten) { return textZuAnker(JSON.stringify(daten)); }
+
+  function ausAnker(anker) {
+    var daten = JSON.parse(ankerZuText(anker));
+    if (!daten || daten.f !== FORMAT) throw new Error('Der Link stammt aus einer anderen Fassung des Werkzeugs.');
+    daten.matrix = entpacken(daten.m);
+    daten.maske = entpacken(daten.e);
+    var erwartet = daten.t.length * daten.s.length;
+    if (daten.matrix.length !== erwartet || daten.maske.length !== erwartet) {
+      throw new Error('Der Link ist unvollständig. Bitte vollständig kopieren.');
+    }
+    return daten;
+  }
+
+  /* =========================================================================
+   * Antwort des Kunden
+   * ====================================================================== */
+
+  /* Nur die Abweichungen zurückgeben - das hält die Antwort kurz. */
+  function antwortErstellen(daten, geaenderteMatrix) {
+    var aenderungen = [];
+    for (var i = 0; i < geaenderteMatrix.length; i++) {
+      if (geaenderteMatrix[i] !== daten.matrix[i] && daten.maske[i] === '1') {
+        aenderungen.push(i.toString(36) + ':' + geaenderteMatrix[i]);
+      }
+    }
+    return {
+      f: FORMAT, pid: daten.pid, typ: 'antwort',
+      anzahl: daten.t.length + 'x' + daten.s.length,
+      tIds: daten.t.map(function (t) { return t[0]; }),
+      sIds: daten.s.map(function (s) { return s[0]; }),
+      a: aenderungen.join(','),
+      gesendet: new Date().toISOString()
+    };
+  }
+
+  function antwortAlsSchluessel(antwort) { return textZuAnker(JSON.stringify(antwort)); }
+
+  function antwortAusSchluessel(schluessel) {
+    var roh = String(schluessel || '').trim();
+    /* Auch eine vollständige Adresse wird angenommen */
+    var raute = roh.indexOf('#');
+    if (raute !== -1) roh = roh.slice(raute + 1);
+    if (roh.indexOf('antwort=') === 0) roh = roh.slice(8);
+    var antwort;
+    try { antwort = JSON.parse(ankerZuText(roh)); }
+    catch (e) { throw new Error('Der Rückschlüssel ist nicht lesbar. Bitte vollständig einfügen.'); }
+    if (!antwort || antwort.typ !== 'antwort') throw new Error('Das ist keine Kundenantwort.');
+    if (antwort.f !== FORMAT) throw new Error('Die Antwort stammt aus einer anderen Fassung.');
+    return antwort;
+  }
+
+  /* Antwort in das Projekt übernehmen. Gibt einen Bericht zurück. */
+  function antwortUebernehmen(projekt, antwort, optionen) {
+    optionen = optionen || {};
+    var M = global.Model;
+    if (antwort.pid !== projekt.id && !optionen.fremdesProjektZulassen) {
+      throw new Error('Die Antwort gehört zu einem anderen Projekt.');
+    }
+    var tIds = antwort.tIds || [], sIds = antwort.sIds || [];
+    var spalten = sIds.length;
+    var uebernommen = 0, uebersprungen = 0;
+    var liste = [];
+
+    (antwort.a ? antwort.a.split(',') : []).forEach(function (eintrag) {
+      if (!eintrag) return;
+      var teile = eintrag.split(':');
+      var index = parseInt(teile[0], 36);
+      var wert = zeichenZuWert(teile[1]);
+      var zeile = Math.floor(index / spalten), spalte = index % spalten;
+      var tuerId = tIds[zeile], schliessungId = sIds[spalte];
+      if (!tuerId || !schliessungId) { uebersprungen++; return; }
+      /* Nur übernehmen, wenn Tür und Schließung noch vorhanden sind */
+      var tuer = projekt.tueren.filter(function (t) { return t.id === tuerId; })[0];
+      var sch = projekt.schliessungen.filter(function (s) { return s.id === schliessungId; })[0];
+      if (!tuer || !sch) { uebersprungen++; return; }
+      var vorher = M.getBerechtigung(projekt, tuerId, schliessungId);
+      if (vorher === wert) return;
+      M.setBerechtigung(projekt, tuerId, schliessungId, wert);
+      uebernommen++;
+      liste.push({
+        tuer: tuer.nummer || tuer.bezeichnung,
+        schliessung: sch.kuerzel || sch.bezeichnung,
+        vorher: vorher, nachher: wert
+      });
+    });
+    return { uebernommen: uebernommen, uebersprungen: uebersprungen, aenderungen: liste };
+  }
+
+  global.Freigabe = {
+    FORMAT: FORMAT,
+    WERTE: WERTE, ZEICHEN: ZEICHEN,
+    wertZuZeichen: wertZuZeichen, zeichenZuWert: zeichenZuWert,
+    erstellen: erstellen, alsAnker: alsAnker, ausAnker: ausAnker,
+    antwortErstellen: antwortErstellen,
+    antwortAlsSchluessel: antwortAlsSchluessel,
+    antwortAusSchluessel: antwortAusSchluessel,
+    antwortUebernehmen: antwortUebernehmen,
+    _intern: { packen: packen, entpacken: entpacken, textZuAnker: textZuAnker, ankerZuText: ankerZuText }
+  };
+  if (typeof module !== 'undefined' && module.exports) { module.exports = global.Freigabe; }
+})(typeof window !== 'undefined' ? window : globalThis);
+
+
 /* ==== js/app.js ==== */
 /* =============================================================================
  * app.js — Oberfläche und Ablaufsteuerung
@@ -4351,9 +4779,23 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
   function leeren(knoten) { while (knoten.firstChild) knoten.removeChild(knoten.firstChild); }
   function $(sel, wurzel) { return (wurzel || document).querySelector(sel); }
 
-  /* Kurzmeldung unten am Bildschirm */
+  /* Kurzmeldung unten am Bildschirm.
+   * Der Meldungsbereich hängt am Dokument und nicht an der Ansicht, damit
+   * Meldungen einen Neuaufbau der Seite überstehen. */
+  function toastBereich() {
+    var bereich = document.getElementById('toast-bereich');
+    if (!bereich) {
+      bereich = document.createElement('div');
+      bereich.id = 'toast-bereich';
+      document.body.appendChild(bereich);
+    } else if (bereich.parentNode !== document.body) {
+      document.body.appendChild(bereich);
+    }
+    return bereich;
+  }
+
   function toast(text, art) {
-    var bereich = $('#toast-bereich');
+    var bereich = toastBereich();
     var t = el('div', { class: 'toast' + (art ? ' ' + art : ''), text: text });
     bereich.appendChild(t);
     setTimeout(function () {
@@ -4663,6 +5105,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
 
   global.AppKern = {
     el: el, leeren: leeren, $: $, toast: toast,
+    toastBereich: toastBereich,
     dialogOeffnen: dialogOeffnen, bestaetigen: bestaetigen, textAbfragen: textAbfragen,
     Zustand: Zustand, alsGeaendertMarkieren: alsGeaendertMarkieren, speichern: speichern,
     projektOeffnenIntern: projektOeffnenIntern,
@@ -5381,7 +5824,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     var p = Zustand.projekt;
     var istNeu = !vorhandene;
     /* Auf einer Kopie arbeiten, damit „Abbrechen“ wirklich verwirft */
-    var t = istNeu ? M.neueTuer(vorlageAusLetzterTuer()) : JSON.parse(JSON.stringify(vorhandene));
+    var t = istNeu ? M.neueTuer(vorlageFuerNeueTuer()) : JSON.parse(JSON.stringify(vorhandene));
 
     var inhalt = el('div');
     var abschnitte = [];
@@ -5406,7 +5849,8 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
 
     inhalt.appendChild(abschnitt('Türkennung und Lage', true, [
       el('div', { class: 'raster' }, [
-        A.textFeld(t, 'nummer', 'Türnummer', { platzhalter: 'z. B. A-EG-01' }),
+        A.textFeld(t, 'nummer', 'Tür-Nr. <span class="einheit">(lfd., änderbar)</span>',
+          { platzhalter: '001', inputmode: 'numeric' }),
         A.textFeld(t, 'bezeichnung', 'Bezeichnung / Raum', { platzhalter: 'z. B. Büro Empfang' }),
         A.auswahlFeld(t, 'kategorie', 'Türkategorie', K.TUERKATEGORIEN, {
           leerText: '– ohne Angabe –' }),
@@ -5422,7 +5866,6 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
      * Das System steht im Projekt. Hier wird nur bei einer Hybridanlage
      * entschieden, welche Seite für diese Tür gilt. */
     var systemHinweis = el('p', { class: 'hinweis', style: { margin: '8px 0 0' } });
-    var komponentenBereich = el('div');
     var anlageAnzeige = el('div', { class: 'zeile-verteilt' });
     var hybridWahl = el('div');
 
@@ -5464,12 +5907,6 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
 
       systemHinweis.textContent = sys && sys.hinweis ? sys.hinweis : '';
 
-      A.leeren(komponentenBereich);
-      if (sys && sys.komponenten && sys.komponenten.length) {
-        komponentenBereich.appendChild(A.chipFeld(t, 'komponenten',
-          'Zusätzliche Systemkomponenten <span class="einheit">(Zylinder, Beschlag und Schloss werden unten erfasst)</span>',
-          sys.komponenten));
-      }
       elektronikSichtbarkeit();
       zusammenfassungenAktualisieren();
     }
@@ -5478,7 +5915,6 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       anlageAnzeige,
       hybridWahl,
       systemHinweis,
-      komponentenBereich,
       el('div', { class: 'raster', style: { marginTop: '12px' } }, [
         A.textFeld(t, 'systemNotiz', 'Besonderheit zu dieser Tür <span class="einheit">(nur bei Abweichung)</span>',
           { platzhalter: 'z. B. Fremdfabrikat im Bestand, Sonderausführung' })
@@ -5820,7 +6256,6 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       }
       A.alsGeaendertMarkieren();
       A.speichern();
-      letzteTuerMerken(t);
       if (undWeiter) {
         A.toast('Tür gespeichert. Nächste Tür …', 'ok');
         neuZeichnen();
@@ -5878,40 +6313,13 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     });
   }
 
-  /* Übernimmt wiederkehrende Angaben der zuletzt erfassten Tür als Vorbelegung. */
-  var letzteTuer = null;
-  function letzteTuerMerken(t) {
-    /* Angaben, die sich beim Abarbeiten einer Etage meist wiederholen */
-    letzteTuer = {
-      strukturId: t.strukturId, etage: t.etage, tuerTechnologie: t.tuerTechnologie,
-      kategorie: t.kategorie, nummer: t.nummer,
-      brauchtZylinder: t.brauchtZylinder, brauchtBeschlag: t.brauchtBeschlag,
-      brauchtSchloss: t.brauchtSchloss, brauchtWandleser: t.brauchtWandleser,
-      zylinderBauform: t.zylinderBauform,
-      zylinderAusfuehrung: (t.zylinderAusfuehrung || []).slice(),
-      zylinderKnaufseite: t.zylinderKnaufseite,
-      beschlagBauform: t.beschlagBauform, beschlagBestueckung: t.beschlagBestueckung,
-      beschlagSicherheit: t.beschlagSicherheit,
-      schlossBauform: t.schlossBauform, schlossFunktion: t.schlossFunktion,
-      zutrittsseite: t.zutrittsseite,
-      tueranforderungen: (t.tueranforderungen || []).slice(),
-      dinRichtung: t.dinRichtung, tuermaterial: t.tuermaterial
-    };
+  /* Eine neue Tür beginnt bewusst leer: Es werden keine Angaben der zuvor
+   * erfassten Tür übernommen. Vorbelegt wird allein die laufende Nummer und
+   * der Status; alles andere wird bewusst gewählt. */
+  function vorlageFuerNeueTuer() {
+    return { nummer: M.naechsteLaufendeNummer(Zustand.projekt), status: 'aufgemessen' };
   }
-  function vorlageAusLetzterTuer() {
-    var v = letzteTuer ? JSON.parse(JSON.stringify(letzteTuer)) : {};
-    if (letzteTuer) v.nummer = naechsteNummer(letzteTuer.nummer);
-    /* Ist in der Liste ein Bereich gefiltert, wird die neue Tür dort eingeordnet -
-       beim Aufmaß arbeitet man Etage für Etage ab. */
-    var f = Zustand.tuerFilter;
-    if (f && f.struktur && f.struktur !== '__ohne__') v.strukturId = f.struktur;
-    else if (!v.strukturId) {
-      /* Gibt es genau einen Bereich, ist die Zuordnung eindeutig. */
-      var blaetter = strukturOptionen();
-      if (blaetter.length === 1) v.strukturId = blaetter[0].id;
-    }
-    return Object.keys(v).length ? v : null;
-  }
+
   /* "A-EG-01" -> "A-EG-02"; ohne Ziffer am Ende bleibt das Feld leer. */
   function naechsteNummer(nummer) {
     if (!nummer) return '';
@@ -5928,6 +6336,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     tuerBearbeiten: tuerBearbeiten,
     strukturOptionen: strukturOptionen,
     naechsteNummer: naechsteNummer,
+    vorlageFuerNeueTuer: vorlageFuerNeueTuer,
     eigeneListe: eigeneListe
   };
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -5964,7 +6373,13 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       el('button', { text: '+ Schließung',
         onclick: function () { schliessungBearbeiten(null, neuZeichnen); } }),
       el('button', { text: 'Verwalten',
-        onclick: function () { schliessungenVerwalten(neuZeichnen); } })
+        onclick: function () { schliessungenVerwalten(neuZeichnen); } }),
+      el('button', { text: '→ Kundenfreigabe',
+        title: 'Matrix zur Bearbeitung an den Kunden senden',
+        onclick: function () { freigabeDialog(neuZeichnen); } }),
+      el('button', { text: '← Rückmeldung',
+        title: 'Rückmeldung des Kunden einlesen',
+        onclick: function () { antwortDialog(neuZeichnen); } })
     ]));
 
     if (!p.tueren.length) {
@@ -5992,6 +6407,53 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       return (a.sort - b.sort) || String(a.kuerzel).localeCompare(String(b.kuerzel), 'de', { numeric: true });
     });
 
+    /* Entfernen ist ein eigener Modus: Auf dem Tablett soll niemand beim
+     * Setzen von Berechtigungen versehentlich eine Zeile löschen. */
+    var entfernenAn = { wert: false };
+    var werkzeuge = el('div', { class: 'werkzeuge', style: { marginBottom: '12px' } }, [
+      A.schalterFeld(entfernenAn, 'wert', 'Türen und Schließungen entfernen', function () {
+        neuZeichnen();
+      }),
+      el('span', { class: 'zart', text: entfernenAn.wert
+        ? 'Zum Beenden den Schalter wieder ausschalten.'
+        : 'Einschalten, um einzelne Zeilen oder Spalten aus dem Plan zu nehmen.' })
+    ]);
+    /* Der Modus überlebt das Neuzeichnen */
+    if (Zustand.planEntfernen) { entfernenAn.wert = true; }
+    werkzeuge.querySelector('input').checked = entfernenAn.wert;
+    werkzeuge.querySelector('input').addEventListener('change', function (e) {
+      Zustand.planEntfernen = e.target.checked;
+    });
+    seite.appendChild(werkzeuge);
+
+    function tuerEntfernen(t) {
+      A.bestaetigen('Tür aus dem Projekt entfernen?',
+        'Die Tür „' + (t.nummer || t.bezeichnung) + '“ wird mit allen Angaben, Fotos und ' +
+        'Berechtigungen gelöscht. Das lässt sich über den Zurück-Knopf rückgängig machen.')
+        .then(function (ja) {
+          if (!ja) return;
+          A.schrittMerken('Tür ' + (t.nummer || t.bezeichnung) + ' entfernt');
+          p.tueren = p.tueren.filter(function (x) { return x.id !== t.id; });
+          M.matrixAufraeumen(p);
+          A.alsGeaendertMarkieren(); A.speichern(); neuZeichnen();
+          A.toast('Tür entfernt.');
+        });
+    }
+
+    function schliessungEntfernen(sch) {
+      A.bestaetigen('Schließung entfernen?',
+        'Die Schließung „' + (sch.kuerzel || sch.bezeichnung) + '“ und alle zugehörigen ' +
+        'Berechtigungen werden gelöscht. Das lässt sich über den Zurück-Knopf rückgängig machen.')
+        .then(function (ja) {
+          if (!ja) return;
+          A.schrittMerken('Schließung ' + (sch.kuerzel || sch.bezeichnung) + ' entfernt');
+          p.schliessungen = p.schliessungen.filter(function (x) { return x.id !== sch.id; });
+          M.matrixAufraeumen(p);
+          A.alsGeaendertMarkieren(); A.speichern(); neuZeichnen();
+          A.toast('Schließung entfernt.');
+        });
+    }
+
     /* --- Tabelle aufbauen --- */
     var tabelle = el('table', { class: 'matrix' });
     /* Kopfhöhe am längsten Spaltentitel ausrichten: kurze Kürzel sollen keinen
@@ -6007,12 +6469,19 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     schliessungen.forEach(function (s) {
       var titel = (s.kuerzel ? s.kuerzel + ' ' : '') + (s.bezeichnung || '');
       kopfZeile.appendChild(el('th', {
-        class: 'spaltenkopf', title: titel + (s.person ? ' – ' + s.person : ''),
-        onclick: function () { schliessungBearbeiten(s, neuZeichnen); },
+        class: 'spaltenkopf' + (entfernenAn.wert ? ' entfernbar' : ''),
+        title: entfernenAn.wert ? ('Schließung „' + titel + '“ entfernen')
+                                : (titel + (s.person ? ' – ' + s.person : '')),
+        onclick: function () {
+          if (entfernenAn.wert) schliessungEntfernen(s);
+          else schliessungBearbeiten(s, neuZeichnen);
+        },
         style: { cursor: 'pointer' }
       }, [
         el('span', { class: 'dreh', text: titel || '–' }),
-        el('span', { class: 'medien', text: (parseInt(s.anzahlMedien, 10) || 0) + '×' })
+        entfernenAn.wert
+          ? el('span', { class: 'entfernen-zeichen', text: '✕' })
+          : el('span', { class: 'medien', text: (parseInt(s.anzahlMedien, 10) || 0) + '×' })
       ]));
     });
     tabelle.appendChild(el('thead', {}, kopfZeile));
@@ -6025,7 +6494,14 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       ]));
       g.tueren.forEach(function (t) {
         var zeile = el('tr');
-        zeile.appendChild(el('td', { class: 'tuername' }, [
+        zeile.appendChild(el('td', { class: 'tuername' + (entfernenAn.wert ? ' entfernbar' : '') }, [
+          entfernenAn.wert
+            ? el('button', {
+                class: 'entfernen-knopf', text: '✕',
+                title: 'Tür „' + (t.nummer || t.bezeichnung) + '“ entfernen',
+                onclick: function (e) { e.stopPropagation(); tuerEntfernen(t); }
+              })
+            : null,
           el('span', { class: 'nr', text: t.nummer || '—' }),
           el('span', { class: 'bez', text: t.bezeichnung || '' }),
           (parseInt(t.anzahl, 10) || 1) > 1 ? el('span', { class: 'zart', text: '  (' + t.anzahl + '×)' }) : null
@@ -6037,6 +6513,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
             text: K.berechtigungZeichen(wert),
             title: t.nummer + ' / ' + (s.kuerzel || s.bezeichnung),
             onclick: function () {
+              if (entfernenAn.wert) return;   /* im Entfernen-Modus nicht schalten */
               A.schrittMerken('Berechtigung: ' + (t.nummer || t.bezeichnung) +
                               ' / ' + (s.kuerzel || s.bezeichnung));
               var jetzt = M.getBerechtigung(p, t.id, s.id);
@@ -6117,6 +6594,249 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
           p.tueren.forEach(function (t) { M.setBerechtigung(p, t.id, auswahl.value, wert); });
           A.alsGeaendertMarkieren(); neuZeichnen();
           A.toast('Berechtigungen aktualisiert.', 'ok');
+        } }
+      ]
+    });
+  }
+
+  /* =========================================================================
+   * Kunden-Freigabe der Matrix
+   * ======================================================================
+   * Der Kunde erhält einen Link und trägt in den freigegebenen Feldern seine
+   * Berechtigungen ein. Es gibt keinen Server: Die Plandaten stehen im Anker
+   * der Adresse und werden von Browsern nie an einen Server gesendet.
+   * -------------------------------------------------------------------- */
+  function freigabeDialog(neuZeichnen) {
+    var p = Zustand.projekt;
+    var eins = Zustand.einstellungen || {};
+    var gewaehlt = {};
+    p.schliessungen.forEach(function (s) { gewaehlt[s.id] = false; });
+    var einstellungenFreigabe = { nurLeereFelder: false, hinweis: '', frist: '' };
+
+    var auswahlBereich = el('div', { class: 'chips', style: { marginBottom: '10px' } });
+    var vorschau = el('div', { class: 'meldung info' });
+    var ergebnisBereich = el('div');
+
+    function anzahlGewaehlt() {
+      return Object.keys(gewaehlt).filter(function (k) { return gewaehlt[k]; }).length;
+    }
+
+    function vorschauAktualisieren() {
+      A.leeren(vorschau);
+      var spalten = anzahlGewaehlt();
+      var felder = spalten * p.tueren.length;
+      if (!spalten) {
+        vorschau.className = 'meldung warn';
+        vorschau.appendChild(el('div', { text: 'Bitte mindestens eine Schließung freigeben.' }));
+        return;
+      }
+      vorschau.className = 'meldung info';
+      vorschau.appendChild(el('div', {}, [
+        el('b', { text: spalten + (spalten === 1 ? ' Schließung' : ' Schließungen') +
+                        ' mit ' + felder + ' Feldern werden freigegeben.' }),
+        el('div', { style: { marginTop: '4px', fontSize: '13px' },
+          text: 'Alle übrigen Felder sieht der Kunde, kann sie aber nicht ändern.' })
+      ]));
+    }
+
+    function auswahlZeichnen() {
+      A.leeren(auswahlBereich);
+      p.schliessungen.slice().sort(function (a, b) { return a.sort - b.sort; }).forEach(function (s) {
+        var titel = (s.kuerzel ? s.kuerzel + ' ' : '') + (s.bezeichnung || '');
+        var chip = el('button', {
+          type: 'button', class: 'chip',
+          'aria-pressed': gewaehlt[s.id] ? 'true' : 'false', text: titel || '–',
+          onclick: function () {
+            gewaehlt[s.id] = !gewaehlt[s.id];
+            chip.setAttribute('aria-pressed', gewaehlt[s.id] ? 'true' : 'false');
+            vorschauAktualisieren();
+          }
+        });
+        auswahlBereich.appendChild(chip);
+      });
+    }
+    auswahlZeichnen();
+    vorschauAktualisieren();
+
+    function linkErzeugen() {
+      var ids = Object.keys(gewaehlt).filter(function (k) { return gewaehlt[k]; });
+      var daten = global.Freigabe.erstellen(p, {
+        freigegebeneSchliessungen: ids,
+        nurLeereFelder: einstellungenFreigabe.nurLeereFelder,
+        hinweis: einstellungenFreigabe.hinweis,
+        frist: einstellungenFreigabe.frist,
+        firma: eins.firma || ''
+      });
+      var anker = global.Freigabe.alsAnker(daten);
+
+      /* Adresse der Freigabeseite neben der Anwendung */
+      var basis = location.href.replace(/[^\/]*(\?.*)?(#.*)?$/, '') + 'freigabe.html';
+      var link = basis + '#plan=' + anker;
+      var lokal = location.protocol === 'file:';
+
+      A.leeren(ergebnisBereich);
+      var feld = el('textarea', { class: 'schluessel-feld', readonly: true,
+        style: { minHeight: '110px', fontFamily: 'ui-monospace, Menlo, Consolas, monospace',
+                 fontSize: '12px', wordBreak: 'break-all' } });
+      feld.value = link;
+
+      ergebnisBereich.appendChild(el('hr', { class: 'trenner' }));
+      ergebnisBereich.appendChild(el('h3', { text: 'Freigabe-Link', style: { marginTop: '0' } }));
+
+      if (lokal) {
+        ergebnisBereich.appendChild(el('div', { class: 'meldung warn' }, el('div', {}, [
+          el('b', { text: 'Diese Anwendung läuft als lokale Datei. ' }),
+          'Der Link funktioniert nur, wenn der Kunde dieselbe Datei auf seinem Gerät hat. ' +
+          'Für den Versand an Kunden die Anwendung über eine Web-Adresse aufrufen.'
+        ])));
+      }
+      ergebnisBereich.appendChild(el('p', { class: 'hinweis',
+        text: 'Diesen Link vollständig in eine E-Mail einfügen. Die Plandaten stehen hinter dem ' +
+              'Rautezeichen und werden dabei an keinen Server übertragen. Länge: ' +
+              link.length.toLocaleString('de-DE') + ' Zeichen.' }));
+      if (link.length > 20000) {
+        ergebnisBereich.appendChild(el('div', { class: 'meldung warn' }, el('div', {}, [
+          el('b', { text: 'Der Link ist sehr lang. ' }),
+          'Manche E-Mail-Programme brechen lange Links um. Geben Sie im Zweifel weniger ' +
+          'Schließungen frei oder senden Sie die Datei unten.'
+        ])));
+      }
+      ergebnisBereich.appendChild(feld);
+      ergebnisBereich.appendChild(el('div', { class: 'knopfleiste', style: { marginTop: '10px' } }, [
+        el('button', { class: 'haupt', text: 'Link kopieren', onclick: function (e) {
+          feld.select();
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(link).then(function () {
+              e.target.textContent = 'Kopiert ✓';
+            }).catch(function () { e.target.textContent = 'Bitte von Hand markieren'; });
+          } else {
+            try { document.execCommand('copy'); e.target.textContent = 'Kopiert ✓'; }
+            catch (err) { e.target.textContent = 'Bitte von Hand markieren'; }
+          }
+        } }),
+        el('button', { text: 'Als Datei speichern', onclick: function () {
+          var name = 'Freigabe_' + (p.objekt || p.kunde || 'Matrix')
+            .replace(/[^\wäöüÄÖÜß \-]/g, '').trim().replace(/\s+/g, '-') + '.txt';
+          Store.dateiHerunterladen(link, name, 'text/plain').catch(function (f) {
+            A.toast(f.message, 'fehler');
+          });
+        } })
+      ]));
+    }
+
+    var inhalt = el('div', {}, [
+      el('p', { class: 'hinweis', style: { marginTop: '0' },
+        text: 'Der Kunde öffnet den Link im Browser und trägt in den freigegebenen Feldern ' +
+              'seine Berechtigungen ein. Seine Rückmeldung lesen Sie anschließend hier wieder ein.' }),
+      el('h3', { text: 'Welche Schließungen darf der Kunde bearbeiten?' }),
+      auswahlBereich,
+      el('div', { class: 'knopfleiste', style: { marginBottom: '12px' } }, [
+        el('button', { class: 'klein', text: 'Alle auswählen', onclick: function () {
+          p.schliessungen.forEach(function (s) { gewaehlt[s.id] = true; });
+          auswahlZeichnen(); vorschauAktualisieren();
+        } }),
+        el('button', { class: 'klein', text: 'Auswahl aufheben', onclick: function () {
+          p.schliessungen.forEach(function (s) { gewaehlt[s.id] = false; });
+          auswahlZeichnen(); vorschauAktualisieren();
+        } })
+      ]),
+      A.schalterFeld(einstellungenFreigabe, 'nurLeereFelder',
+        'Nur noch leere Felder freigeben', function () { vorschauAktualisieren(); }),
+      el('p', { class: 'zart', style: { marginLeft: '64px', marginTop: '-6px' },
+        text: 'Bereits gesetzte Berechtigungen kann der Kunde dann nicht mehr ändern.' }),
+      el('div', { class: 'raster', style: { marginTop: '12px' } }, [
+        A.textFeld(einstellungenFreigabe, 'hinweis', 'Hinweis für den Kunden',
+          { platzhalter: 'z. B. Bitte nur die Reinigungszeiten eintragen' }),
+        A.textFeld(einstellungenFreigabe, 'frist', 'Rückmeldung erbeten bis',
+          { platzhalter: 'z. B. 30.09.2026' })
+      ]),
+      vorschau,
+      el('div', { class: 'knopfleiste' }, [
+        el('button', { class: 'haupt', text: 'Freigabe-Link erzeugen', onclick: function () {
+          if (!anzahlGewaehlt()) { A.toast('Bitte mindestens eine Schließung freigeben.', 'fehler'); return; }
+          linkErzeugen();
+        } })
+      ]),
+      ergebnisBereich
+    ]);
+
+    A.dialogOeffnen({
+      titel: 'Matrix zur Freigabe an den Kunden senden', inhalt: inhalt,
+      knoepfe: [{ fuellen: true }, { text: 'Schließen' }]
+    });
+  }
+
+  /* --- Rückmeldung des Kunden einlesen ------------------------------------ */
+  function antwortDialog(neuZeichnen) {
+    var p = Zustand.projekt;
+    var feld = el('textarea', { class: 'schluessel-feld', rows: 6,
+      placeholder: 'Rückschlüssel des Kunden hier einfügen …',
+      style: { fontFamily: 'ui-monospace, Menlo, Consolas, monospace', fontSize: '12px' } });
+    var bericht = el('div');
+
+    var dateiEingabe = el('input', {
+      type: 'file', accept: '.txt,text/plain',
+      onchange: function (e) {
+        var datei = e.target.files && e.target.files[0];
+        if (!datei) return;
+        var leser = new FileReader();
+        leser.onload = function () { feld.value = String(leser.result).trim(); pruefen(); };
+        leser.onerror = function () { A.toast('Die Datei konnte nicht gelesen werden.', 'fehler'); };
+        leser.readAsText(datei);
+        e.target.value = '';
+      }
+    });
+
+    var gelesen = null;
+    function pruefen() {
+      A.leeren(bericht);
+      gelesen = null;
+      var text = feld.value.trim();
+      if (!text) return;
+      try { gelesen = global.Freigabe.antwortAusSchluessel(text); }
+      catch (fehler) {
+        bericht.appendChild(el('div', { class: 'meldung fehler' }, el('div', { text: fehler.message })));
+        return;
+      }
+      var fremd = gelesen.pid !== p.id;
+      var anzahl = (gelesen.a ? gelesen.a.split(',').filter(Boolean).length : 0);
+      bericht.appendChild(el('div', { class: 'meldung ' + (fremd ? 'warn' : 'ok') }, el('div', {}, [
+        el('b', { text: anzahl + (anzahl === 1 ? ' Änderung' : ' Änderungen') + ' in der Rückmeldung' }),
+        el('div', { style: { marginTop: '4px', fontSize: '13px' },
+          text: fremd ? 'Achtung: Die Rückmeldung gehört zu einem anderen Projekt. Ein Übernehmen '
+                      + 'ist nicht möglich.'
+                      : 'Matrixgröße zum Zeitpunkt der Freigabe: ' + (gelesen.anzahl || '–') })
+      ])));
+    }
+    feld.addEventListener('input', pruefen);
+
+    A.dialogOeffnen({
+      titel: 'Rückmeldung des Kunden einlesen',
+      inhalt: el('div', {}, [
+        el('p', { class: 'hinweis', style: { marginTop: '0' },
+          text: 'Die Rückmeldung kam als Datei oder als Text in einer E-Mail. Beides wird hier eingelesen. ' +
+                'Übernommen werden ausschließlich Felder, die Sie zuvor freigegeben haben.' }),
+        el('div', { class: 'knopfleiste', style: { marginBottom: '12px' } }, [
+          el('button', { text: 'Datei auswählen', onclick: function () { dateiEingabe.click(); } }),
+          dateiEingabe
+        ]),
+        feld, bericht
+      ]),
+      knoepfe: [
+        { fuellen: true },
+        { text: 'Abbrechen' },
+        { text: 'Änderungen übernehmen', klasse: 'haupt', aktion: function (schliessen) {
+          if (!gelesen) { A.toast('Bitte zuerst eine gültige Rückmeldung einfügen.', 'fehler'); return false; }
+          var ergebnis;
+          A.schrittMerken('Kundenrückmeldung übernommen');
+          try { ergebnis = global.Freigabe.antwortUebernehmen(p, gelesen); }
+          catch (fehler) { A.toast(fehler.message, 'fehler'); return false; }
+          A.alsGeaendertMarkieren(); A.speichern();
+          A.toast(ergebnis.uebernommen + ' Berechtigung(en) übernommen' +
+                  (ergebnis.uebersprungen ? (', ' + ergebnis.uebersprungen + ' übersprungen') : '') + '.',
+                  'ok');
+          schliessen(); neuZeichnen();
+          return false;
         } }
       ]
     });
@@ -6610,6 +7330,8 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
   }
 
   global.ViewsPlan = {
+    freigabeDialog: freigabeDialog,
+    antwortDialog: antwortDialog,
     ansichtPlan: ansichtPlan,
     ansichtExport: ansichtExport,
     ansichtEinstellungen: ansichtEinstellungen,
@@ -6643,6 +7365,9 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     var scrollPos = 0;
     var altesHaupt = A.$('main.inhalt');
     if (altesHaupt) scrollPos = altesHaupt.scrollTop;
+    /* Offene Meldungen vor dem Neuaufbau in Sicherheit bringen */
+    var meldungen = document.getElementById('toast-bereich');
+    if (meldungen && meldungen.parentNode === wurzel) document.body.appendChild(meldungen);
     A.leeren(wurzel);
 
     var p = Zustand.projekt;
@@ -6689,7 +7414,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     /* --- Inhalt --- */
     var haupt = el('main', { class: 'inhalt' });
     wurzel.appendChild(haupt);
-    wurzel.appendChild(el('div', { id: 'toast-bereich' }));
+    A.toastBereich();      /* hängt am Dokument, nicht an der Ansicht */
 
     /* Die häufigste Aktion der jeweiligen Ansicht liegt als schwebender
      * Knopf in der Daumenzone - so ist sie mit einer Hand erreichbar. */

@@ -10,7 +10,7 @@ const QUELLE = path.join(WURZEL, 'src');
 const ZIEL = path.join(WURZEL, 'dist', 'artifact');
 
 const SKRIPTE = [
-  'catalog.js', 'model.js', 'pdf.js', 'reports.js', 'store.js', 'verlauf.js',
+  'catalog.js', 'model.js', 'pdf.js', 'reports.js', 'store.js', 'verlauf.js', 'freigabe.js',
   'app.js', 'views-projekt.js', 'views-tueren.js', 'views-plan.js', 'main.js'
 ];
 
@@ -32,5 +32,9 @@ const seite = `<title>Aufmaß Schließanlagen</title>
 ${SKRIPTE.map(d => '<script src="js/' + d + '"></script>').join('\n')}
 `;
 fs.writeFileSync(path.join(ZIEL, 'index.html'), seite, 'utf8');
+
+/* Die Kundenseite wird unverändert übernommen: Sie ist eine eigenständige
+   Seite mit eigenem Dokumentgerüst. */
+fs.copyFileSync(path.join(QUELLE, 'freigabe.html'), path.join(ZIEL, 'freigabe.html'));
 console.log('Fassung für die Veröffentlichung: dist/artifact/  (' +
   (SKRIPTE.length + 2) + ' Dateien)');

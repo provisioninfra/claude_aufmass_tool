@@ -7,6 +7,7 @@ const reihen = [
   ['Exportlisten',    'test-exportlisten.js'],
   ['Bedienung',       'test-bedienung.js'],
   ['Verlauf',         'test-verlauf.js'],
+  ['Kundenfreigabe',  'test-freigabe.js'],
   ['Robustheit',      'test-robustheit.js'],
   ['Report-Erzeugung','test-reports.js'],
   ['Browser (E2E)',   'test-e2e.js'],

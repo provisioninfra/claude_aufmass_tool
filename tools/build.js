@@ -18,7 +18,7 @@ function bauen() {
 
   /* Reihenfolge wie in index.html - die Module bauen aufeinander auf */
   const skripte = [
-    'js/catalog.js', 'js/model.js', 'js/pdf.js', 'js/reports.js', 'js/store.js', 'js/verlauf.js',
+    'js/catalog.js', 'js/model.js', 'js/pdf.js', 'js/reports.js', 'js/store.js', 'js/verlauf.js', 'js/freigabe.js',
     'js/app.js', 'js/views-projekt.js', 'js/views-tueren.js', 'js/views-plan.js', 'js/main.js'
   ];
 
@@ -52,6 +52,10 @@ function bauen() {
     html = html.replace(new RegExp('<script src="' + datei.replace(/\//g, '\\/') + '"></script>\\s*'), '');
   });
   html = html.replace('</body>', '<script>' + gebuendelt + '</script>\n</body>');
+
+  /* Die Kundenfreigabe braucht eine Web-Adresse; in der Einzeldatei bleibt
+     sie bedienbar, der erzeugte Link funktioniert aber nur mit einer solchen.
+     Darauf weist die Anwendung im Dialog selbst hin. */
 
   /* Hinweis für Anwender, die die Datei lokal öffnen */
   html = html.replace('</head>',

@@ -37,9 +37,23 @@
   function leeren(knoten) { while (knoten.firstChild) knoten.removeChild(knoten.firstChild); }
   function $(sel, wurzel) { return (wurzel || document).querySelector(sel); }
 
-  /* Kurzmeldung unten am Bildschirm */
+  /* Kurzmeldung unten am Bildschirm.
+   * Der Meldungsbereich hängt am Dokument und nicht an der Ansicht, damit
+   * Meldungen einen Neuaufbau der Seite überstehen. */
+  function toastBereich() {
+    var bereich = document.getElementById('toast-bereich');
+    if (!bereich) {
+      bereich = document.createElement('div');
+      bereich.id = 'toast-bereich';
+      document.body.appendChild(bereich);
+    } else if (bereich.parentNode !== document.body) {
+      document.body.appendChild(bereich);
+    }
+    return bereich;
+  }
+
   function toast(text, art) {
-    var bereich = $('#toast-bereich');
+    var bereich = toastBereich();
     var t = el('div', { class: 'toast' + (art ? ' ' + art : ''), text: text });
     bereich.appendChild(t);
     setTimeout(function () {
@@ -349,6 +363,7 @@
 
   global.AppKern = {
     el: el, leeren: leeren, $: $, toast: toast,
+    toastBereich: toastBereich,
     dialogOeffnen: dialogOeffnen, bestaetigen: bestaetigen, textAbfragen: textAbfragen,
     Zustand: Zustand, alsGeaendertMarkieren: alsGeaendertMarkieren, speichern: speichern,
     projektOeffnenIntern: projektOeffnenIntern,

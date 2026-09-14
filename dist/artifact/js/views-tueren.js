@@ -245,7 +245,7 @@
     var p = Zustand.projekt;
     var istNeu = !vorhandene;
     /* Auf einer Kopie arbeiten, damit „Abbrechen“ wirklich verwirft */
-    var t = istNeu ? M.neueTuer(vorlageAusLetzterTuer()) : JSON.parse(JSON.stringify(vorhandene));
+    var t = istNeu ? M.neueTuer(vorlageFuerNeueTuer()) : JSON.parse(JSON.stringify(vorhandene));
 
     var inhalt = el('div');
     var abschnitte = [];
@@ -270,7 +270,8 @@
 
     inhalt.appendChild(abschnitt('Türkennung und Lage', true, [
       el('div', { class: 'raster' }, [
-        A.textFeld(t, 'nummer', 'Türnummer', { platzhalter: 'z. B. A-EG-01' }),
+        A.textFeld(t, 'nummer', 'Tür-Nr. <span class="einheit">(lfd., änderbar)</span>',
+          { platzhalter: '001', inputmode: 'numeric' }),
         A.textFeld(t, 'bezeichnung', 'Bezeichnung / Raum', { platzhalter: 'z. B. Büro Empfang' }),
         A.auswahlFeld(t, 'kategorie', 'Türkategorie', K.TUERKATEGORIEN, {
           leerText: '– ohne Angabe –' }),
@@ -286,7 +287,6 @@
      * Das System steht im Projekt. Hier wird nur bei einer Hybridanlage
      * entschieden, welche Seite für diese Tür gilt. */
     var systemHinweis = el('p', { class: 'hinweis', style: { margin: '8px 0 0' } });
-    var komponentenBereich = el('div');
     var anlageAnzeige = el('div', { class: 'zeile-verteilt' });
     var hybridWahl = el('div');
 
@@ -328,12 +328,6 @@
 
       systemHinweis.textContent = sys && sys.hinweis ? sys.hinweis : '';
 
-      A.leeren(komponentenBereich);
-      if (sys && sys.komponenten && sys.komponenten.length) {
-        komponentenBereich.appendChild(A.chipFeld(t, 'komponenten',
-          'Zusätzliche Systemkomponenten <span class="einheit">(Zylinder, Beschlag und Schloss werden unten erfasst)</span>',
-          sys.komponenten));
-      }
       elektronikSichtbarkeit();
       zusammenfassungenAktualisieren();
     }
@@ -342,7 +336,6 @@
       anlageAnzeige,
       hybridWahl,
       systemHinweis,
-      komponentenBereich,
       el('div', { class: 'raster', style: { marginTop: '12px' } }, [
         A.textFeld(t, 'systemNotiz', 'Besonderheit zu dieser Tür <span class="einheit">(nur bei Abweichung)</span>',
           { platzhalter: 'z. B. Fremdfabrikat im Bestand, Sonderausführung' })
@@ -684,7 +677,6 @@
       }
       A.alsGeaendertMarkieren();
       A.speichern();
-      letzteTuerMerken(t);
       if (undWeiter) {
         A.toast('Tür gespeichert. Nächste Tür …', 'ok');
         neuZeichnen();
@@ -742,40 +734,13 @@
     });
   }
 
-  /* Übernimmt wiederkehrende Angaben der zuletzt erfassten Tür als Vorbelegung. */
-  var letzteTuer = null;
-  function letzteTuerMerken(t) {
-    /* Angaben, die sich beim Abarbeiten einer Etage meist wiederholen */
-    letzteTuer = {
-      strukturId: t.strukturId, etage: t.etage, tuerTechnologie: t.tuerTechnologie,
-      kategorie: t.kategorie, nummer: t.nummer,
-      brauchtZylinder: t.brauchtZylinder, brauchtBeschlag: t.brauchtBeschlag,
-      brauchtSchloss: t.brauchtSchloss, brauchtWandleser: t.brauchtWandleser,
-      zylinderBauform: t.zylinderBauform,
-      zylinderAusfuehrung: (t.zylinderAusfuehrung || []).slice(),
-      zylinderKnaufseite: t.zylinderKnaufseite,
-      beschlagBauform: t.beschlagBauform, beschlagBestueckung: t.beschlagBestueckung,
-      beschlagSicherheit: t.beschlagSicherheit,
-      schlossBauform: t.schlossBauform, schlossFunktion: t.schlossFunktion,
-      zutrittsseite: t.zutrittsseite,
-      tueranforderungen: (t.tueranforderungen || []).slice(),
-      dinRichtung: t.dinRichtung, tuermaterial: t.tuermaterial
-    };
+  /* Eine neue Tür beginnt bewusst leer: Es werden keine Angaben der zuvor
+   * erfassten Tür übernommen. Vorbelegt wird allein die laufende Nummer und
+   * der Status; alles andere wird bewusst gewählt. */
+  function vorlageFuerNeueTuer() {
+    return { nummer: M.naechsteLaufendeNummer(Zustand.projekt), status: 'aufgemessen' };
   }
-  function vorlageAusLetzterTuer() {
-    var v = letzteTuer ? JSON.parse(JSON.stringify(letzteTuer)) : {};
-    if (letzteTuer) v.nummer = naechsteNummer(letzteTuer.nummer);
-    /* Ist in der Liste ein Bereich gefiltert, wird die neue Tür dort eingeordnet -
-       beim Aufmaß arbeitet man Etage für Etage ab. */
-    var f = Zustand.tuerFilter;
-    if (f && f.struktur && f.struktur !== '__ohne__') v.strukturId = f.struktur;
-    else if (!v.strukturId) {
-      /* Gibt es genau einen Bereich, ist die Zuordnung eindeutig. */
-      var blaetter = strukturOptionen();
-      if (blaetter.length === 1) v.strukturId = blaetter[0].id;
-    }
-    return Object.keys(v).length ? v : null;
-  }
+
   /* "A-EG-01" -> "A-EG-02"; ohne Ziffer am Ende bleibt das Feld leer. */
   function naechsteNummer(nummer) {
     if (!nummer) return '';
@@ -792,6 +757,7 @@
     tuerBearbeiten: tuerBearbeiten,
     strukturOptionen: strukturOptionen,
     naechsteNummer: naechsteNummer,
+    vorlageFuerNeueTuer: vorlageFuerNeueTuer,
     eigeneListe: eigeneListe
   };
 })(typeof window !== 'undefined' ? window : globalThis);

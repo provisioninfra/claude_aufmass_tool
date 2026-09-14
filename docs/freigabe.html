@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Zutrittsberechtigungen festlegen</title>
+<link rel="stylesheet" href="css/app.css">
+<style>
+  /* Nur für diese Seite: die Matrix füllt den Bildschirm */
+  .fr-kopf { background: var(--flaeche); border-bottom: 1px solid var(--rand);
+             padding: 14px 16px; position: sticky; top: 0; z-index: 30; }
+  .fr-kopf h1 { font-size: 18px; margin: 0 0 2px; color: var(--akzent); }
+  .fr-kopf .objekt { font-size: 14px; color: var(--text-schwach); }
+  .fr-inhalt { padding: 16px; max-width: 1400px; margin: 0 auto;
+               padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
+  .fr-fuss { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+             background: var(--flaeche); border-top: 1px solid var(--rand);
+             padding: 12px 16px; padding-bottom: calc(12px + env(safe-area-inset-bottom));
+             display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+             box-shadow: 0 -2px 12px rgba(20,30,45,.10); }
+  .fr-fuss .zaehler { flex: 1; font-size: 14px; color: var(--text-schwach); min-width: 140px; }
+  .fr-fuss button.haupt { min-height: var(--tap-gross); font-size: 16px; padding: 0 22px; }
+  table.matrix td.zelle.gesperrt { cursor: default; background: repeating-linear-gradient(
+      45deg, transparent, transparent 5px, var(--flaeche-3) 5px, var(--flaeche-3) 10px);
+      color: var(--text-zart); }
+  table.matrix td.zelle.gesperrt:hover, table.matrix td.zelle.gesperrt:active {
+      background: repeating-linear-gradient(45deg, transparent, transparent 5px,
+      var(--flaeche-3) 5px, var(--flaeche-3) 10px); color: var(--text-zart); }
+  table.matrix td.zelle.frei { box-shadow: inset 0 0 0 2px var(--akzent-bg); }
+  table.matrix td.zelle.geaendert { box-shadow: inset 0 0 0 2px var(--gruen); }
+  .schluessel-feld { width: 100%; min-height: 130px; font-family: ui-monospace, Menlo, Consolas, monospace;
+                     font-size: 12px; word-break: break-all; }
+</style>
+</head>
+<body>
+<div id="fr-app">
+  <div style="padding:40px;text-align:center;color:#5c6670;font:15px system-ui,sans-serif">
+    Seite wird geladen …
+  </div>
+</div>
+
+<script src="js/catalog.js"></script>
+<script src="js/freigabe.js"></script>
+<script>
+/* =============================================================================
+ * Kundenseite: freigegebene Berechtigungen eintragen
+ * Es werden keine Daten übertragen - alles steht im Anker der Adresse.
+ * ========================================================================== */
+(function () {
+  'use strict';
+  var K = window.Katalog, F = window.Freigabe;
+  var WURZEL = document.getElementById('fr-app');
+
+  function el(tag, eig, kinder) {
+    var n = document.createElement(tag);
+    if (eig) Object.keys(eig).forEach(function (k) {
+      var w = eig[k];
+      if (w === null || w === undefined || w === false) return;
+      if (k === 'class') n.className = w;
+      else if (k === 'text') n.textContent = w;
+      else if (k === 'style' && typeof w === 'object') Object.assign(n.style, w);
+      else if (k.indexOf('on') === 0 && typeof w === 'function') n.addEventListener(k.slice(2).toLowerCase(), w);
+      else if (w === true) n.setAttribute(k, '');
+      else n.setAttribute(k, w);
+    });
+    (Array.isArray(kinder) ? kinder : (kinder ? [kinder] : [])).forEach(function (kind) {
+      if (kind === null || kind === undefined || kind === false) return;
+      n.appendChild(typeof kind === 'string' ? document.createTextNode(kind) : kind);
+    });
+    return n;
+  }
+  function leeren(n) { while (n.firstChild) n.removeChild(n.firstChild); }
+
+  function fehlerZeigen(text, zusatz) {
+    leeren(WURZEL);
+    WURZEL.appendChild(el('div', { class: 'fr-inhalt' }, [
+      el('div', { class: 'meldung fehler' }, el('div', {}, [
+        el('b', { text: text }),
+        zusatz ? el('div', { style: { marginTop: '6px', fontSize: '13.5px' }, text: zusatz }) : null
+      ]))
+    ]));
+  }
+
+  /* --- Daten aus dem Anker lesen ---------------------------------------- */
+  var anker = (location.hash || '').replace(/^#/, '');
+  if (anker.indexOf('plan=') === 0) anker = anker.slice(5);
+  if (!anker) {
+    fehlerZeigen('Diese Seite wird über einen Freigabe-Link geöffnet.',
+      'Bitte den vollständigen Link verwenden, den Sie erhalten haben. Er enthält nach dem Rautezeichen (#) die Plandaten.');
+    return;
+  }
+
+  var daten;
+  try { daten = F.ausAnker(anker); }
+  catch (e) {
+    fehlerZeigen('Der Link konnte nicht gelesen werden.',
+      e.message + ' Häufigste Ursache: Der Link wurde beim Versand umbrochen und nur teilweise kopiert.');
+    return;
+  }
+
+  var arbeitsMatrix = daten.matrix.split('');
+  var spalten = daten.s.length;
+  var FOLGE = ['nein', 'ja', 'zeit'];       /* was der Kunde vergeben darf */
+
+  function indexVon(zeile, spalte) { return zeile * spalten + spalte; }
+  function geaendertAnzahl() {
+    var n = 0;
+    for (var i = 0; i < arbeitsMatrix.length; i++) if (arbeitsMatrix[i] !== daten.matrix[i]) n++;
+    return n;
+  }
+
+  /* --- Aufbau ------------------------------------------------------------ */
+  function zeichnen() {
+    leeren(WURZEL);
+
+    WURZEL.appendChild(el('div', { class: 'fr-kopf' }, [
+      el('h1', { text: 'Zutrittsberechtigungen festlegen' }),
+      el('div', { class: 'objekt', text: [daten.kunde, daten.objekt].filter(Boolean).join('  ·  ') ||
+        'Schließanlage' }),
+      daten.anlage ? el('div', { class: 'zart', text: 'Anlagen-Nr. ' + daten.anlage }) : null
+    ]));
+
+    var inhalt = el('div', { class: 'fr-inhalt' });
+    WURZEL.appendChild(inhalt);
+
+    /* Anleitung */
+    inhalt.appendChild(el('div', { class: 'meldung info' }, el('div', {}, [
+      el('b', { text: 'So geht es: ' }),
+      'Tippen Sie in der Tabelle auf die Felder, die Sie freigeben möchten. ' +
+      'Ein Tippen setzt ein Kreuz (X), ein weiteres macht daraus eine zeitlich ' +
+      'begrenzte Berechtigung (Z), ein drittes entfernt sie wieder. ',
+      el('br'),
+      'Schraffierte Felder sind nicht zur Bearbeitung freigegeben.',
+      daten.hinweis ? el('div', { style: { marginTop: '8px' } }, [
+        el('b', { text: 'Hinweis: ' }), daten.hinweis
+      ]) : null,
+      daten.frist ? el('div', { style: { marginTop: '4px' } }, [
+        el('b', { text: 'Rückmeldung bitte bis: ' }), daten.frist
+      ]) : null
+    ])));
+
+    /* Matrix */
+    var tabelle = el('table', { class: 'matrix' });
+    var laengster = daten.s.reduce(function (m, s) {
+      var t = ((s[1] ? s[1] + ' ' : '') + (s[2] || '')).length; return t > m ? t : m; }, 0);
+    tabelle.style.setProperty('--kopfhoehe', Math.min(210, Math.max(70, laengster * 7.6 + 30)) + 'px');
+
+    var kopf = el('tr', {}, [el('th', { class: 'ecke', text: 'Tür / Schließung' })]);
+    daten.s.forEach(function (s) {
+      var titel = (s[1] ? s[1] + ' ' : '') + (s[2] || '');
+      kopf.appendChild(el('th', { class: 'spaltenkopf', title: titel + (s[3] ? ' – ' + s[3] : '') }, [
+        el('span', { class: 'dreh', text: titel || '–' })
+      ]));
+    });
+    tabelle.appendChild(el('thead', {}, kopf));
+
+    var koerper = el('tbody');
+    var letzterBereich = null;
+    daten.t.forEach(function (t, zeile) {
+      if (t[3] && t[3] !== letzterBereich) {
+        letzterBereich = t[3];
+        koerper.appendChild(el('tr', { class: 'gruppenzeile' },
+          el('td', { colspan: spalten + 1, text: t[3] })));
+      }
+      var tr = el('tr');
+      tr.appendChild(el('td', { class: 'tuername' }, [
+        el('span', { class: 'nr', text: t[1] || '—' }),
+        el('span', { class: 'bez', text: t[2] || '' })
+      ]));
+      daten.s.forEach(function (s, spalte) {
+        var i = indexVon(zeile, spalte);
+        var frei = daten.maske[i] === '1';
+        var zelle = el('td', {
+          class: 'zelle',
+          title: (t[1] || t[2]) + ' / ' + ((s[1] || '') + ' ' + (s[2] || '')).trim() +
+                 (frei ? '' : '  (nicht freigegeben)')
+        });
+        zelleZeichnen(zelle, i, frei);
+        if (frei) {
+          zelle.addEventListener('click', function () {
+            var jetzt = F.zeichenZuWert(arbeitsMatrix[i]);
+            var pos = FOLGE.indexOf(jetzt);
+            var naechst = FOLGE[(pos === -1 ? 0 : pos + 1) % FOLGE.length];
+            arbeitsMatrix[i] = F.wertZuZeichen(naechst);
+            zelleZeichnen(zelle, i, true);
+            zaehlerAktualisieren();
+          });
+        }
+        tr.appendChild(zelle);
+      });
+      koerper.appendChild(tr);
+    });
+    tabelle.appendChild(koerper);
+    inhalt.appendChild(el('div', { class: 'matrix-rahmen' }, tabelle));
+
+    /* Legende */
+    var legende = el('div', { class: 'matrix-legende' });
+    [['X', 'berechtigt'], ['Z', 'berechtigt, zeitlich begrenzt']].forEach(function (l) {
+      legende.appendChild(el('span', {}, [el('b', { text: l[0] }), l[1]]));
+    });
+    legende.appendChild(el('span', { text: 'Schraffiert = nicht zur Bearbeitung freigegeben' }));
+    inhalt.appendChild(legende);
+
+    /* Fußleiste */
+    var zaehler = el('div', { class: 'zaehler', id: 'fr-zaehler' });
+    WURZEL.appendChild(el('div', { class: 'fr-fuss' }, [
+      zaehler,
+      el('button', { text: 'Zurücksetzen', onclick: function () {
+        arbeitsMatrix = daten.matrix.split('');
+        zeichnen();
+      } }),
+      el('button', { class: 'haupt', text: 'Rückmeldung erzeugen', onclick: antwortZeigen })
+    ]));
+    zaehlerAktualisieren();
+  }
+
+  function zelleZeichnen(zelle, i, frei) {
+    var wert = F.zeichenZuWert(arbeitsMatrix[i]);
+    var zeichen = K.berechtigungZeichen(wert);
+    zelle.textContent = zeichen;
+    var klassen = ['zelle'];
+    if (!frei) klassen.push('gesperrt');
+    else klassen.push('frei');
+    if (wert !== 'nein') klassen.push('gesetzt-' + wert);
+    if (arbeitsMatrix[i] !== daten.matrix[i]) klassen.push('geaendert');
+    zelle.className = klassen.join(' ');
+  }
+
+  function zaehlerAktualisieren() {
+    var z = document.getElementById('fr-zaehler');
+    if (!z) return;
+    var n = geaendertAnzahl();
+    var frei = 0;
+    for (var i = 0; i < daten.maske.length; i++) if (daten.maske[i] === '1') frei++;
+    z.textContent = n === 0
+      ? (frei + ' Felder stehen zur Bearbeitung bereit')
+      : (n === 1 ? '1 Änderung' : n + ' Änderungen') + ' von ' + frei + ' freigegebenen Feldern';
+  }
+
+  /* --- Rückmeldung -------------------------------------------------------- */
+  function antwortZeigen() {
+    var n = geaendertAnzahl();
+    var antwort = F.antwortErstellen(daten, arbeitsMatrix.join(''));
+    var schluessel = F.antwortAlsSchluessel(antwort);
+
+    var feld = el('textarea', { class: 'schluessel-feld', readonly: true });
+    feld.value = schluessel;
+
+    var hinter = el('div', { class: 'dialog-hinter' });
+    function schliessen() { if (hinter.parentNode) hinter.parentNode.removeChild(hinter); }
+
+    var kasten = el('div', { class: 'dialog' }, [
+      el('div', { class: 'kopf' }, [
+        el('h2', { text: 'Rückmeldung an ' + (daten.firma || 'den Absender') }),
+        el('button', { class: 'nur-symbol', text: '✕', onclick: schliessen })
+      ]),
+      el('div', { class: 'koerper' }, [
+        el('div', { class: 'meldung ' + (n ? 'ok' : 'warn') }, el('div', {}, [
+          el('b', { text: n ? (n + (n === 1 ? ' Änderung' : ' Änderungen') + ' erfasst.')
+                            : 'Sie haben noch nichts geändert.' }),
+          el('div', { style: { marginTop: '4px', fontSize: '13.5px' },
+            text: n ? 'Bitte senden Sie die Rückmeldung auf einem der folgenden Wege zurück.'
+                    : 'Sie können die Rückmeldung dennoch senden – sie enthält dann keine Änderungen.' })
+        ])),
+        el('h3', { text: '1. Als Datei senden' }),
+        el('p', { class: 'hinweis', text: 'Datei speichern und als Anhang zurücksenden. Das ist der zuverlässigste Weg.' }),
+        el('button', { class: 'haupt', text: 'Rückmeldung als Datei speichern', onclick: function () {
+          var name = 'Berechtigungen_' + (daten.objekt || daten.kunde || 'Rueckmeldung')
+            .replace(/[^\wäöüÄÖÜß \-]/g, '').trim().replace(/\s+/g, '-') + '.txt';
+          var blob = new Blob([schluessel], { type: 'text/plain' });
+          var url = URL.createObjectURL(blob);
+          var a = el('a', { href: url, download: name });
+          document.body.appendChild(a); a.click();
+          setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 3000);
+        } }),
+        el('hr', { class: 'trenner' }),
+        el('h3', { text: '2. Als Text senden' }),
+        el('p', { class: 'hinweis', text: 'Den gesamten Schlüssel kopieren und in eine E-Mail einfügen.' }),
+        feld,
+        el('div', { class: 'knopfleiste', style: { marginTop: '10px' } }, [
+          el('button', { text: 'In die Zwischenablage kopieren', onclick: function (e) {
+            feld.select();
+            var geklappt = false;
+            try { geklappt = document.execCommand('copy'); } catch (err) { geklappt = false; }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(schluessel).then(function () {
+                e.target.textContent = 'Kopiert ✓';
+              }).catch(function () {
+                e.target.textContent = geklappt ? 'Kopiert ✓' : 'Bitte von Hand markieren';
+              });
+            } else {
+              e.target.textContent = geklappt ? 'Kopiert ✓' : 'Bitte von Hand markieren';
+            }
+          } })
+        ])
+      ]),
+      el('div', { class: 'fuss' }, [
+        el('div', { class: 'fuellen' }),
+        el('button', { text: 'Weiter bearbeiten', onclick: schliessen })
+      ])
+    ]);
+    hinter.appendChild(kasten);
+    hinter.addEventListener('click', function (e) { if (e.target === hinter) schliessen(); });
+    document.body.appendChild(hinter);
+  }
+
+  zeichnen();
+})();
+</script>
+</body>
+</html>

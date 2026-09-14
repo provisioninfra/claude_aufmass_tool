@@ -28,7 +28,13 @@
       el('button', { text: '+ Schließung',
         onclick: function () { schliessungBearbeiten(null, neuZeichnen); } }),
       el('button', { text: 'Verwalten',
-        onclick: function () { schliessungenVerwalten(neuZeichnen); } })
+        onclick: function () { schliessungenVerwalten(neuZeichnen); } }),
+      el('button', { text: '→ Kundenfreigabe',
+        title: 'Matrix zur Bearbeitung an den Kunden senden',
+        onclick: function () { freigabeDialog(neuZeichnen); } }),
+      el('button', { text: '← Rückmeldung',
+        title: 'Rückmeldung des Kunden einlesen',
+        onclick: function () { antwortDialog(neuZeichnen); } })
     ]));
 
     if (!p.tueren.length) {
@@ -56,6 +62,53 @@
       return (a.sort - b.sort) || String(a.kuerzel).localeCompare(String(b.kuerzel), 'de', { numeric: true });
     });
 
+    /* Entfernen ist ein eigener Modus: Auf dem Tablett soll niemand beim
+     * Setzen von Berechtigungen versehentlich eine Zeile löschen. */
+    var entfernenAn = { wert: false };
+    var werkzeuge = el('div', { class: 'werkzeuge', style: { marginBottom: '12px' } }, [
+      A.schalterFeld(entfernenAn, 'wert', 'Türen und Schließungen entfernen', function () {
+        neuZeichnen();
+      }),
+      el('span', { class: 'zart', text: entfernenAn.wert
+        ? 'Zum Beenden den Schalter wieder ausschalten.'
+        : 'Einschalten, um einzelne Zeilen oder Spalten aus dem Plan zu nehmen.' })
+    ]);
+    /* Der Modus überlebt das Neuzeichnen */
+    if (Zustand.planEntfernen) { entfernenAn.wert = true; }
+    werkzeuge.querySelector('input').checked = entfernenAn.wert;
+    werkzeuge.querySelector('input').addEventListener('change', function (e) {
+      Zustand.planEntfernen = e.target.checked;
+    });
+    seite.appendChild(werkzeuge);
+
+    function tuerEntfernen(t) {
+      A.bestaetigen('Tür aus dem Projekt entfernen?',
+        'Die Tür „' + (t.nummer || t.bezeichnung) + '“ wird mit allen Angaben, Fotos und ' +
+        'Berechtigungen gelöscht. Das lässt sich über den Zurück-Knopf rückgängig machen.')
+        .then(function (ja) {
+          if (!ja) return;
+          A.schrittMerken('Tür ' + (t.nummer || t.bezeichnung) + ' entfernt');
+          p.tueren = p.tueren.filter(function (x) { return x.id !== t.id; });
+          M.matrixAufraeumen(p);
+          A.alsGeaendertMarkieren(); A.speichern(); neuZeichnen();
+          A.toast('Tür entfernt.');
+        });
+    }
+
+    function schliessungEntfernen(sch) {
+      A.bestaetigen('Schließung entfernen?',
+        'Die Schließung „' + (sch.kuerzel || sch.bezeichnung) + '“ und alle zugehörigen ' +
+        'Berechtigungen werden gelöscht. Das lässt sich über den Zurück-Knopf rückgängig machen.')
+        .then(function (ja) {
+          if (!ja) return;
+          A.schrittMerken('Schließung ' + (sch.kuerzel || sch.bezeichnung) + ' entfernt');
+          p.schliessungen = p.schliessungen.filter(function (x) { return x.id !== sch.id; });
+          M.matrixAufraeumen(p);
+          A.alsGeaendertMarkieren(); A.speichern(); neuZeichnen();
+          A.toast('Schließung entfernt.');
+        });
+    }
+
     /* --- Tabelle aufbauen --- */
     var tabelle = el('table', { class: 'matrix' });
     /* Kopfhöhe am längsten Spaltentitel ausrichten: kurze Kürzel sollen keinen
@@ -71,12 +124,19 @@
     schliessungen.forEach(function (s) {
       var titel = (s.kuerzel ? s.kuerzel + ' ' : '') + (s.bezeichnung || '');
       kopfZeile.appendChild(el('th', {
-        class: 'spaltenkopf', title: titel + (s.person ? ' – ' + s.person : ''),
-        onclick: function () { schliessungBearbeiten(s, neuZeichnen); },
+        class: 'spaltenkopf' + (entfernenAn.wert ? ' entfernbar' : ''),
+        title: entfernenAn.wert ? ('Schließung „' + titel + '“ entfernen')
+                                : (titel + (s.person ? ' – ' + s.person : '')),
+        onclick: function () {
+          if (entfernenAn.wert) schliessungEntfernen(s);
+          else schliessungBearbeiten(s, neuZeichnen);
+        },
         style: { cursor: 'pointer' }
       }, [
         el('span', { class: 'dreh', text: titel || '–' }),
-        el('span', { class: 'medien', text: (parseInt(s.anzahlMedien, 10) || 0) + '×' })
+        entfernenAn.wert
+          ? el('span', { class: 'entfernen-zeichen', text: '✕' })
+          : el('span', { class: 'medien', text: (parseInt(s.anzahlMedien, 10) || 0) + '×' })
       ]));
     });
     tabelle.appendChild(el('thead', {}, kopfZeile));
@@ -89,7 +149,14 @@
       ]));
       g.tueren.forEach(function (t) {
         var zeile = el('tr');
-        zeile.appendChild(el('td', { class: 'tuername' }, [
+        zeile.appendChild(el('td', { class: 'tuername' + (entfernenAn.wert ? ' entfernbar' : '') }, [
+          entfernenAn.wert
+            ? el('button', {
+                class: 'entfernen-knopf', text: '✕',
+                title: 'Tür „' + (t.nummer || t.bezeichnung) + '“ entfernen',
+                onclick: function (e) { e.stopPropagation(); tuerEntfernen(t); }
+              })
+            : null,
           el('span', { class: 'nr', text: t.nummer || '—' }),
           el('span', { class: 'bez', text: t.bezeichnung || '' }),
           (parseInt(t.anzahl, 10) || 1) > 1 ? el('span', { class: 'zart', text: '  (' + t.anzahl + '×)' }) : null
@@ -101,6 +168,7 @@
             text: K.berechtigungZeichen(wert),
             title: t.nummer + ' / ' + (s.kuerzel || s.bezeichnung),
             onclick: function () {
+              if (entfernenAn.wert) return;   /* im Entfernen-Modus nicht schalten */
               A.schrittMerken('Berechtigung: ' + (t.nummer || t.bezeichnung) +
                               ' / ' + (s.kuerzel || s.bezeichnung));
               var jetzt = M.getBerechtigung(p, t.id, s.id);
@@ -181,6 +249,249 @@
           p.tueren.forEach(function (t) { M.setBerechtigung(p, t.id, auswahl.value, wert); });
           A.alsGeaendertMarkieren(); neuZeichnen();
           A.toast('Berechtigungen aktualisiert.', 'ok');
+        } }
+      ]
+    });
+  }
+
+  /* =========================================================================
+   * Kunden-Freigabe der Matrix
+   * ======================================================================
+   * Der Kunde erhält einen Link und trägt in den freigegebenen Feldern seine
+   * Berechtigungen ein. Es gibt keinen Server: Die Plandaten stehen im Anker
+   * der Adresse und werden von Browsern nie an einen Server gesendet.
+   * -------------------------------------------------------------------- */
+  function freigabeDialog(neuZeichnen) {
+    var p = Zustand.projekt;
+    var eins = Zustand.einstellungen || {};
+    var gewaehlt = {};
+    p.schliessungen.forEach(function (s) { gewaehlt[s.id] = false; });
+    var einstellungenFreigabe = { nurLeereFelder: false, hinweis: '', frist: '' };
+
+    var auswahlBereich = el('div', { class: 'chips', style: { marginBottom: '10px' } });
+    var vorschau = el('div', { class: 'meldung info' });
+    var ergebnisBereich = el('div');
+
+    function anzahlGewaehlt() {
+      return Object.keys(gewaehlt).filter(function (k) { return gewaehlt[k]; }).length;
+    }
+
+    function vorschauAktualisieren() {
+      A.leeren(vorschau);
+      var spalten = anzahlGewaehlt();
+      var felder = spalten * p.tueren.length;
+      if (!spalten) {
+        vorschau.className = 'meldung warn';
+        vorschau.appendChild(el('div', { text: 'Bitte mindestens eine Schließung freigeben.' }));
+        return;
+      }
+      vorschau.className = 'meldung info';
+      vorschau.appendChild(el('div', {}, [
+        el('b', { text: spalten + (spalten === 1 ? ' Schließung' : ' Schließungen') +
+                        ' mit ' + felder + ' Feldern werden freigegeben.' }),
+        el('div', { style: { marginTop: '4px', fontSize: '13px' },
+          text: 'Alle übrigen Felder sieht der Kunde, kann sie aber nicht ändern.' })
+      ]));
+    }
+
+    function auswahlZeichnen() {
+      A.leeren(auswahlBereich);
+      p.schliessungen.slice().sort(function (a, b) { return a.sort - b.sort; }).forEach(function (s) {
+        var titel = (s.kuerzel ? s.kuerzel + ' ' : '') + (s.bezeichnung || '');
+        var chip = el('button', {
+          type: 'button', class: 'chip',
+          'aria-pressed': gewaehlt[s.id] ? 'true' : 'false', text: titel || '–',
+          onclick: function () {
+            gewaehlt[s.id] = !gewaehlt[s.id];
+            chip.setAttribute('aria-pressed', gewaehlt[s.id] ? 'true' : 'false');
+            vorschauAktualisieren();
+          }
+        });
+        auswahlBereich.appendChild(chip);
+      });
+    }
+    auswahlZeichnen();
+    vorschauAktualisieren();
+
+    function linkErzeugen() {
+      var ids = Object.keys(gewaehlt).filter(function (k) { return gewaehlt[k]; });
+      var daten = global.Freigabe.erstellen(p, {
+        freigegebeneSchliessungen: ids,
+        nurLeereFelder: einstellungenFreigabe.nurLeereFelder,
+        hinweis: einstellungenFreigabe.hinweis,
+        frist: einstellungenFreigabe.frist,
+        firma: eins.firma || ''
+      });
+      var anker = global.Freigabe.alsAnker(daten);
+
+      /* Adresse der Freigabeseite neben der Anwendung */
+      var basis = location.href.replace(/[^\/]*(\?.*)?(#.*)?$/, '') + 'freigabe.html';
+      var link = basis + '#plan=' + anker;
+      var lokal = location.protocol === 'file:';
+
+      A.leeren(ergebnisBereich);
+      var feld = el('textarea', { class: 'schluessel-feld', readonly: true,
+        style: { minHeight: '110px', fontFamily: 'ui-monospace, Menlo, Consolas, monospace',
+                 fontSize: '12px', wordBreak: 'break-all' } });
+      feld.value = link;
+
+      ergebnisBereich.appendChild(el('hr', { class: 'trenner' }));
+      ergebnisBereich.appendChild(el('h3', { text: 'Freigabe-Link', style: { marginTop: '0' } }));
+
+      if (lokal) {
+        ergebnisBereich.appendChild(el('div', { class: 'meldung warn' }, el('div', {}, [
+          el('b', { text: 'Diese Anwendung läuft als lokale Datei. ' }),
+          'Der Link funktioniert nur, wenn der Kunde dieselbe Datei auf seinem Gerät hat. ' +
+          'Für den Versand an Kunden die Anwendung über eine Web-Adresse aufrufen.'
+        ])));
+      }
+      ergebnisBereich.appendChild(el('p', { class: 'hinweis',
+        text: 'Diesen Link vollständig in eine E-Mail einfügen. Die Plandaten stehen hinter dem ' +
+              'Rautezeichen und werden dabei an keinen Server übertragen. Länge: ' +
+              link.length.toLocaleString('de-DE') + ' Zeichen.' }));
+      if (link.length > 20000) {
+        ergebnisBereich.appendChild(el('div', { class: 'meldung warn' }, el('div', {}, [
+          el('b', { text: 'Der Link ist sehr lang. ' }),
+          'Manche E-Mail-Programme brechen lange Links um. Geben Sie im Zweifel weniger ' +
+          'Schließungen frei oder senden Sie die Datei unten.'
+        ])));
+      }
+      ergebnisBereich.appendChild(feld);
+      ergebnisBereich.appendChild(el('div', { class: 'knopfleiste', style: { marginTop: '10px' } }, [
+        el('button', { class: 'haupt', text: 'Link kopieren', onclick: function (e) {
+          feld.select();
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(link).then(function () {
+              e.target.textContent = 'Kopiert ✓';
+            }).catch(function () { e.target.textContent = 'Bitte von Hand markieren'; });
+          } else {
+            try { document.execCommand('copy'); e.target.textContent = 'Kopiert ✓'; }
+            catch (err) { e.target.textContent = 'Bitte von Hand markieren'; }
+          }
+        } }),
+        el('button', { text: 'Als Datei speichern', onclick: function () {
+          var name = 'Freigabe_' + (p.objekt || p.kunde || 'Matrix')
+            .replace(/[^\wäöüÄÖÜß \-]/g, '').trim().replace(/\s+/g, '-') + '.txt';
+          Store.dateiHerunterladen(link, name, 'text/plain').catch(function (f) {
+            A.toast(f.message, 'fehler');
+          });
+        } })
+      ]));
+    }
+
+    var inhalt = el('div', {}, [
+      el('p', { class: 'hinweis', style: { marginTop: '0' },
+        text: 'Der Kunde öffnet den Link im Browser und trägt in den freigegebenen Feldern ' +
+              'seine Berechtigungen ein. Seine Rückmeldung lesen Sie anschließend hier wieder ein.' }),
+      el('h3', { text: 'Welche Schließungen darf der Kunde bearbeiten?' }),
+      auswahlBereich,
+      el('div', { class: 'knopfleiste', style: { marginBottom: '12px' } }, [
+        el('button', { class: 'klein', text: 'Alle auswählen', onclick: function () {
+          p.schliessungen.forEach(function (s) { gewaehlt[s.id] = true; });
+          auswahlZeichnen(); vorschauAktualisieren();
+        } }),
+        el('button', { class: 'klein', text: 'Auswahl aufheben', onclick: function () {
+          p.schliessungen.forEach(function (s) { gewaehlt[s.id] = false; });
+          auswahlZeichnen(); vorschauAktualisieren();
+        } })
+      ]),
+      A.schalterFeld(einstellungenFreigabe, 'nurLeereFelder',
+        'Nur noch leere Felder freigeben', function () { vorschauAktualisieren(); }),
+      el('p', { class: 'zart', style: { marginLeft: '64px', marginTop: '-6px' },
+        text: 'Bereits gesetzte Berechtigungen kann der Kunde dann nicht mehr ändern.' }),
+      el('div', { class: 'raster', style: { marginTop: '12px' } }, [
+        A.textFeld(einstellungenFreigabe, 'hinweis', 'Hinweis für den Kunden',
+          { platzhalter: 'z. B. Bitte nur die Reinigungszeiten eintragen' }),
+        A.textFeld(einstellungenFreigabe, 'frist', 'Rückmeldung erbeten bis',
+          { platzhalter: 'z. B. 30.09.2026' })
+      ]),
+      vorschau,
+      el('div', { class: 'knopfleiste' }, [
+        el('button', { class: 'haupt', text: 'Freigabe-Link erzeugen', onclick: function () {
+          if (!anzahlGewaehlt()) { A.toast('Bitte mindestens eine Schließung freigeben.', 'fehler'); return; }
+          linkErzeugen();
+        } })
+      ]),
+      ergebnisBereich
+    ]);
+
+    A.dialogOeffnen({
+      titel: 'Matrix zur Freigabe an den Kunden senden', inhalt: inhalt,
+      knoepfe: [{ fuellen: true }, { text: 'Schließen' }]
+    });
+  }
+
+  /* --- Rückmeldung des Kunden einlesen ------------------------------------ */
+  function antwortDialog(neuZeichnen) {
+    var p = Zustand.projekt;
+    var feld = el('textarea', { class: 'schluessel-feld', rows: 6,
+      placeholder: 'Rückschlüssel des Kunden hier einfügen …',
+      style: { fontFamily: 'ui-monospace, Menlo, Consolas, monospace', fontSize: '12px' } });
+    var bericht = el('div');
+
+    var dateiEingabe = el('input', {
+      type: 'file', accept: '.txt,text/plain',
+      onchange: function (e) {
+        var datei = e.target.files && e.target.files[0];
+        if (!datei) return;
+        var leser = new FileReader();
+        leser.onload = function () { feld.value = String(leser.result).trim(); pruefen(); };
+        leser.onerror = function () { A.toast('Die Datei konnte nicht gelesen werden.', 'fehler'); };
+        leser.readAsText(datei);
+        e.target.value = '';
+      }
+    });
+
+    var gelesen = null;
+    function pruefen() {
+      A.leeren(bericht);
+      gelesen = null;
+      var text = feld.value.trim();
+      if (!text) return;
+      try { gelesen = global.Freigabe.antwortAusSchluessel(text); }
+      catch (fehler) {
+        bericht.appendChild(el('div', { class: 'meldung fehler' }, el('div', { text: fehler.message })));
+        return;
+      }
+      var fremd = gelesen.pid !== p.id;
+      var anzahl = (gelesen.a ? gelesen.a.split(',').filter(Boolean).length : 0);
+      bericht.appendChild(el('div', { class: 'meldung ' + (fremd ? 'warn' : 'ok') }, el('div', {}, [
+        el('b', { text: anzahl + (anzahl === 1 ? ' Änderung' : ' Änderungen') + ' in der Rückmeldung' }),
+        el('div', { style: { marginTop: '4px', fontSize: '13px' },
+          text: fremd ? 'Achtung: Die Rückmeldung gehört zu einem anderen Projekt. Ein Übernehmen '
+                      + 'ist nicht möglich.'
+                      : 'Matrixgröße zum Zeitpunkt der Freigabe: ' + (gelesen.anzahl || '–') })
+      ])));
+    }
+    feld.addEventListener('input', pruefen);
+
+    A.dialogOeffnen({
+      titel: 'Rückmeldung des Kunden einlesen',
+      inhalt: el('div', {}, [
+        el('p', { class: 'hinweis', style: { marginTop: '0' },
+          text: 'Die Rückmeldung kam als Datei oder als Text in einer E-Mail. Beides wird hier eingelesen. ' +
+                'Übernommen werden ausschließlich Felder, die Sie zuvor freigegeben haben.' }),
+        el('div', { class: 'knopfleiste', style: { marginBottom: '12px' } }, [
+          el('button', { text: 'Datei auswählen', onclick: function () { dateiEingabe.click(); } }),
+          dateiEingabe
+        ]),
+        feld, bericht
+      ]),
+      knoepfe: [
+        { fuellen: true },
+        { text: 'Abbrechen' },
+        { text: 'Änderungen übernehmen', klasse: 'haupt', aktion: function (schliessen) {
+          if (!gelesen) { A.toast('Bitte zuerst eine gültige Rückmeldung einfügen.', 'fehler'); return false; }
+          var ergebnis;
+          A.schrittMerken('Kundenrückmeldung übernommen');
+          try { ergebnis = global.Freigabe.antwortUebernehmen(p, gelesen); }
+          catch (fehler) { A.toast(fehler.message, 'fehler'); return false; }
+          A.alsGeaendertMarkieren(); A.speichern();
+          A.toast(ergebnis.uebernommen + ' Berechtigung(en) übernommen' +
+                  (ergebnis.uebersprungen ? (', ' + ergebnis.uebersprungen + ' übersprungen') : '') + '.',
+                  'ok');
+          schliessen(); neuZeichnen();
+          return false;
         } }
       ]
     });
@@ -674,6 +985,8 @@
   }
 
   global.ViewsPlan = {
+    freigabeDialog: freigabeDialog,
+    antwortDialog: antwortDialog,
     ansichtPlan: ansichtPlan,
     ansichtExport: ansichtExport,
     ansichtEinstellungen: ansichtEinstellungen,

@@ -22,6 +22,9 @@
     var scrollPos = 0;
     var altesHaupt = A.$('main.inhalt');
     if (altesHaupt) scrollPos = altesHaupt.scrollTop;
+    /* Offene Meldungen vor dem Neuaufbau in Sicherheit bringen */
+    var meldungen = document.getElementById('toast-bereich');
+    if (meldungen && meldungen.parentNode === wurzel) document.body.appendChild(meldungen);
     A.leeren(wurzel);
 
     var p = Zustand.projekt;
@@ -68,7 +71,7 @@
     /* --- Inhalt --- */
     var haupt = el('main', { class: 'inhalt' });
     wurzel.appendChild(haupt);
-    wurzel.appendChild(el('div', { id: 'toast-bereich' }));
+    A.toastBereich();      /* hängt am Dokument, nicht an der Ansicht */
 
     /* Die häufigste Aktion der jeweiligen Ansicht liegt als schwebender
      * Knopf in der Daumenzone - so ist sie mit einer Hand erreichbar. */

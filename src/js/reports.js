@@ -848,19 +848,9 @@
       return doc;
     }
 
-    var zeilen = [];
-    liste.systeme.forEach(function (sys) {
-      if (!sys.positionen.length) return;
-      zeilen.push({ __gruppe: sys.label,
-        __gruppeRechts: plural(sys.tueren, 'Tür', 'Türen') + '  ·  ' + sys.summe + ' Stück' });
-      var letzteGruppe = null;
-      sys.positionen.forEach(function (pos) {
-        if (pos.gruppe !== letzteGruppe) { pos.__ersteDerGruppe = true; letzteGruppe = pos.gruppe; }
-        else { pos.__ersteDerGruppe = false; }
-        zeilen.push(pos);
-      });
-    });
-
+    /* Die Liste ist nach Gewerk und Technik gegliedert: die Bauteile der
+     * Schließanlage getrennt von der Türtechnik, jeweils mechanisch und
+     * elektronisch. So lässt sich je Lieferant bestellen. */
     var pos = 0;
     var spalten = [
       { titel: 'Pos.', breite: b * 0.045, align: 'center',
@@ -880,7 +870,44 @@
       spalten[2].breite += b * 0.19;
     }
 
-    tabelle(doc, spalten, zeilen, { size: 8 });
+    liste.gliederung.forEach(function (abschnitt, index) {
+      if (index > 0) doc.y += 4;
+      doc.platzPruefen(26);
+
+      /* Abschnittsüberschrift */
+      doc.rechteck(doc.rand.links, doc.y, b, 9, { fill: FARBE.akzent });
+      doc.text(abschnitt.titel, doc.rand.links + 3, doc.y + 2, { size: 10, bold: true, color: '#ffffff' });
+      doc.text(abschnitt.summe + ' Stück', doc.rand.links + b - 3, doc.y + 2.4,
+               { size: 9, bold: true, align: 'right', color: '#ffffff' });
+      doc.y += 9;
+      doc.text(abschnitt.hinweis, doc.rand.links + 1, doc.y + 1, { size: 7, color: FARBE.hellgrau });
+      doc.y += 5.5;
+
+      var zeilen = [];
+      abschnitt.gruppen.forEach(function (g) {
+        zeilen.push({ __gruppe: g.label, __gruppeRechts: g.summe + ' Stück' });
+        var letzteGruppe = null;
+        g.positionen.forEach(function (p2) {
+          p2.__ersteDerGruppe = (p2.gruppe !== letzteGruppe);
+          letzteGruppe = p2.gruppe;
+          zeilen.push(p2);
+        });
+      });
+      tabelle(doc, spalten, zeilen, { size: 8 });
+    });
+
+    /* --- Zwischensummen je Gewerk --- */
+    doc.y += 3;
+    doc.platzPruefen(18);
+    [['Summe Schließanlage', liste.summeSchliessanlage],
+     ['Summe Türtechnik', liste.summeTuertechnik]].forEach(function (z) {
+      if (!z[1]) return;
+      doc.rechteck(doc.rand.links, doc.y, b, 6.5, { fill: FARBE.zebraBg, stroke: FARBE.linieHell });
+      doc.text(z[0], doc.rand.links + 2, doc.y + 1.4, { size: 8, bold: true, color: FARBE.grau });
+      doc.text(String(z[1]) + ' Stück', doc.rand.links + b - 2, doc.y + 1.4,
+               { size: 8, bold: true, align: 'right', color: FARBE.grau });
+      doc.y += 6.5;
+    });
 
     /* --- Gesamtsumme --- */
     doc.y += 2;

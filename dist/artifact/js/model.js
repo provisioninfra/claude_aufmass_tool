@@ -125,7 +125,7 @@
       etage: '',                  // freies Etagenfeld, falls keine Struktur gepflegt
       kategorie: '',
       anzahl: 1,                  // identische Türen zusammenfassen
-      status: 'offen',
+      status: 'aufgemessen',      // beim Anlegen gilt die Tür als aufgemessen
 
       /* --- System ---
        * Das System steht im Projekt. Hier wird nur bei einer Hybridanlage
@@ -202,6 +202,23 @@
     };
     if (vorgabe) { for (var k in vorgabe) { if (Object.prototype.hasOwnProperty.call(vorgabe, k)) t[k] = vorgabe[k]; } }
     return t;
+  }
+
+  /* Nächste laufende Türnummer eines Projekts. Gezählt wird bei 001
+   * beginnend; vorhandene rein numerische Nummern werden berücksichtigt,
+   * damit nach dem Löschen keine Nummer doppelt vergeben wird. */
+  function naechsteLaufendeNummer(projekt) {
+    var hoechste = 0;
+    (projekt && projekt.tueren || []).forEach(function (t) {
+      var treffer = /^0*(\d{1,6})$/.exec(String(t.nummer || '').trim());
+      if (treffer) {
+        var n = parseInt(treffer[1], 10);
+        if (n > hoechste) hoechste = n;
+      }
+    });
+    var naechste = String(hoechste + 1);
+    while (naechste.length < 3) naechste = '0' + naechste;
+    return naechste;
   }
 
   /* --- Schließung (Spalte im Kreuzschließplan) ---------------------------- */
@@ -496,20 +513,56 @@
       return proSystem[systemId];
     }
 
+    /* Wohin gehört ein Bauteil?
+     *   'schliessanlage' - wird beim Schließanlagen-Hersteller bestellt
+     *                      (Zylinder, elektronische Beschläge, Wandleser)
+     *   'tuertechnik'    - Baubeschlag bzw. Schlosser (Einsteckschlösser,
+     *                      rein mechanische Drücker und Beschläge)
+     * und ist es mechanisch oder elektronisch? */
+    function einordnen(gruppe, tuer) {
+      var K2 = kat();
+      if (gruppe === 'Zylinder') {
+        return { bereich: 'schliessanlage',
+                 technik: istTuerElektronisch(projekt, tuer) ? 'elektronik' : 'mechanik' };
+      }
+      if (gruppe === 'Beschlag') {
+        var elektronisch = K2 && K2.beschlagIstElektronisch(tuer);
+        return elektronisch
+          ? { bereich: 'schliessanlage', technik: 'elektronik' }
+          : { bereich: 'tuertechnik', technik: 'mechanik' };
+      }
+      if (gruppe === 'Schloss') {
+        /* Motorschlösser und elektrische Türöffner sind elektrisch angebunden,
+           bleiben aber Türtechnik. */
+        var el = /Motorschloss|Türöffner|Haftmagnet/i.test(String(tuer.schlossBauform || ''));
+        return { bereich: 'tuertechnik', technik: el ? 'elektronik' : 'mechanik' };
+      }
+      if (gruppe === 'Zutrittsleser') {
+        return { bereich: 'schliessanlage', technik: 'elektronik' };
+      }
+      return { bereich: 'schliessanlage',
+               technik: istTuerElektronisch(projekt, tuer) ? 'elektronik' : 'mechanik' };
+    }
+
     /* Eine Position wird über Bezeichnung UND Ausprägung eindeutig
      * bestimmt. Gleiche Bauteile mit unterschiedlichem Maß bleiben damit
      * getrennt, identische werden zusammengefasst - jede Zeile ist genau
      * einmal vorhanden. */
     function addPos(b, daten) {
-      var schluessel = [daten.bezeichnung, daten.mass, daten.ausfuehrung, daten.hinweis]
+      var vorEin = einordnen(daten.gruppe || 'Sonstiges', daten.tuer || {});
+      var schluessel = [daten.bezeichnung, daten.mass, daten.ausfuehrung, daten.hinweis,
+                        vorEin.bereich, vorEin.technik]
         .map(function (x) { return String(x || ''); }).join('||');
       if (!b.positionen[schluessel]) {
+        var ein = einordnen(daten.gruppe || 'Sonstiges', daten.tuer || {});
         b.positionen[schluessel] = {
           bezeichnung: daten.bezeichnung,
           mass: daten.mass || '',
           ausfuehrung: daten.ausfuehrung || '',
           hinweis: daten.hinweis || '',
           gruppe: daten.gruppe || 'Sonstiges',
+          bereich: ein.bereich,
+          technik: ein.technik,
           menge: 0,
           tueren: []
         };
@@ -649,10 +702,63 @@
       };
     }).sort(function (a, c) { return a.label.localeCompare(c.label, 'de'); });
 
+    /* Gliederung für die Bestellung: erst nach Gewerk, darin nach Technik. */
+    var alleP = [];
+    listen.forEach(function (sy) {
+      sy.positionen.forEach(function (pos) {
+        alleP.push({ pos: pos, system: sy.label, systemId: sy.systemId });
+      });
+    });
+
+    function sammeln(bereich, technik) {
+      var treffer = alleP.filter(function (e) {
+        return e.pos.bereich === bereich && e.pos.technik === technik;
+      });
+      /* Nach System gruppieren, damit die Bestellung je Hersteller entsteht */
+      var proSys = {};
+      treffer.forEach(function (e) {
+        if (!proSys[e.system]) proSys[e.system] = { label: e.system, systemId: e.systemId, positionen: [] };
+        proSys[e.system].positionen.push(e.pos);
+      });
+      var gruppen = Object.keys(proSys).map(function (k) {
+        var g = proSys[k];
+        g.summe = g.positionen.reduce(function (sum, x) { return sum + x.menge; }, 0);
+        return g;
+      }).sort(function (a, c) { return a.label.localeCompare(c.label, 'de'); });
+      return {
+        gruppen: gruppen,
+        summe: gruppen.reduce(function (sum, g) { return sum + g.summe; }, 0)
+      };
+    }
+
+    var gliederung = [
+      { id: 'sa-elektronik', bereich: 'schliessanlage', technik: 'elektronik',
+        titel: 'Schließanlage – Elektronik',
+        hinweis: 'Elektronische Zylinder, Beschläge und Zutrittsleser' },
+      { id: 'sa-mechanik', bereich: 'schliessanlage', technik: 'mechanik',
+        titel: 'Schließanlage – Mechanik',
+        hinweis: 'Mechanische Zylinder' },
+      { id: 'tt-elektronik', bereich: 'tuertechnik', technik: 'elektronik',
+        titel: 'Türtechnik – Elektrisch',
+        hinweis: 'Motorschlösser, elektrische Türöffner, Haftmagnete' },
+      { id: 'tt-mechanik', bereich: 'tuertechnik', technik: 'mechanik',
+        titel: 'Türtechnik – Mechanik',
+        hinweis: 'Einsteckschlösser sowie rein mechanische Drücker und Beschläge' }
+    ].map(function (a) {
+      var d = sammeln(a.bereich, a.technik);
+      a.gruppen = d.gruppen; a.summe = d.summe;
+      return a;
+    }).filter(function (a) { return a.summe > 0; });
+
     return {
       systeme: listen,
+      gliederung: gliederung,
       medien: medien,
       gesamtStueck: listen.reduce(function (sum, sy) { return sum + sy.summe; }, 0),
+      summeSchliessanlage: gliederung.filter(function (a) { return a.bereich === 'schliessanlage'; })
+        .reduce(function (s2, a) { return s2 + a.summe; }, 0),
+      summeTuertechnik: gliederung.filter(function (a) { return a.bereich === 'tuertechnik'; })
+        .reduce(function (s2, a) { return s2 + a.summe; }, 0),
       gesamtMedien: medien.reduce(function (sum, m) { return sum + m.menge; }, 0)
     };
   }
@@ -1059,6 +1165,7 @@
     neuesProjekt: neuesProjekt,
     neuerStrukturknoten: neuerStrukturknoten,
     neueTuer: neueTuer,
+    naechsteLaufendeNummer: naechsteLaufendeNummer,
     neueSchliessung: neueSchliessung,
     tuerSystemId: tuerSystemId,
     tuerTechnologie: tuerTechnologie,

@@ -149,7 +149,29 @@ function pruefe(bedingung, text, info) {
   await page.click('button:has-text("+ Neue Tür")');
   await page.waitForSelector('.dialog');
   const nrFeld = await page.inputValue('.dialog input[type=text] >> nth=0');
-  pruefe(nrFeld === 'A-EG-02', 'Türnummer wird automatisch fortgezählt', 'gefunden: ' + nrFeld);
+  pruefe(/^\d{3}$/.test(nrFeld), 'neue Tür bekommt eine laufende Nummer', 'gefunden: ' + nrFeld);
+
+  // Eine neue Tür beginnt leer: nichts wird von der vorherigen übernommen
+  const leer = await page.evaluate(() => {
+    const d = document.querySelector('.dialog');
+    const felder = [...d.querySelectorAll('select')].filter(e => e.offsetParent !== null);
+    return {
+      gesetzteAuswahlen: felder.filter(e => e.value && !/aufgemessen/i.test(e.value)).length,
+      bezeichnung: d.querySelectorAll('input[type=text]')[1].value,
+      aktiveChips: d.querySelectorAll('.chip[aria-pressed=true]').length
+    };
+  });
+  pruefe(leer.bezeichnung === '', 'Bezeichnung ist leer', JSON.stringify(leer.bezeichnung));
+  pruefe(leer.aktiveChips === 0, 'keine Auswahl aus der vorherigen Tür übernommen',
+    leer.aktiveChips + ' Chips aktiv');
+  const status = await page.evaluate(() => {
+    const d = document.querySelector('.dialog');
+    const s2 = [...d.querySelectorAll('select')].find(e =>
+      [...e.options].some(o => /Aufgemessen/i.test(o.textContent)));
+    return s2 ? s2.value : '';
+  });
+  pruefe(status === 'aufgemessen', 'Status steht automatisch auf „Aufgemessen“', status);
+
   await page.fill('.dialog input[type=text] >> nth=1', 'Nebeneingang');
   await page.click('.dialog button:has-text("Speichern & nächste")');
   await page.waitForTimeout(500);
