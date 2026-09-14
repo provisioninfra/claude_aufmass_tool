@@ -1,7 +1,7 @@
 /* Service Worker: legt die Anwendung im Gerätespeicher ab, damit sie auch
  * ohne Netzverbindung startet (z. B. im Keller oder in der Tiefgarage).
  * Wirkt nur, wenn die Anwendung über http(s) ausgeliefert wird. */
-var CACHE = 'aufmass-tool-v4';
+var CACHE = 'aufmass-tool-v5';
 var DATEIEN = [
   './', './index.html', './freigabe.html', './css/app.css', './manifest.webmanifest',
   './icon.svg', './icon-180.png', './icon-192.png', './icon-512.png',

@@ -180,15 +180,33 @@
         return { deal: deal, pruefung: PD.istZuUebernehmen(deal, e, vorhandene) };
       });
       var offen = geprueft.filter(function (g) { return g.pruefung.uebernehmen; });
-      var schonDa = geprueft.filter(function (g) { return g.pruefung.grund === 'Aufmaß vorhanden'; });
+      var schonDa = geprueft.filter(function (g) { return g.pruefung.code === 'vorhanden'; });
+      var nichtOffen = geprueft.filter(function (g) { return g.pruefung.code === 'status'; });
 
       if (!offen.length) {
+        /* Der Grund wird beim Namen genannt - „nichts da“ und „alles schon
+         * übernommen“ sind zwei verschiedene Lagen mit verschiedener Abhilfe. */
+        var text;
+        if (!deals.length) {
+          text = 'Pipedrive liefert für ' +
+            (e.pipedrivePipelineName ? ('die Pipeline „' + e.pipedrivePipelineName + '“') : 'diese Einstellung') +
+            (e.pipedrivePhaseName ? (' in der Phase „' + e.pipedrivePhaseName + '“') : '') +
+            ' derzeit keinen offenen Deal zurück.';
+        } else if (schonDa.length === deals.length) {
+          text = 'Alle ' + deals.length + ' Deals in dieser Phase haben bereits ein Aufmaß.';
+        } else if (nichtOffen.length) {
+          text = 'Von ' + deals.length + ' Deals sind ' + nichtOffen.length +
+            ' nicht mehr offen (gewonnen, verloren oder gelöscht); die übrigen haben ein Aufmaß.';
+        } else {
+          text = 'Von ' + deals.length + ' gelesenen Deals passt derzeit keiner auf die ' +
+            'eingestellte Regel.';
+        }
         liste.appendChild(el('div', { class: 'leer' }, [
           el('h3', { text: 'Kein Deal zur Übernahme' }),
-          el('p', { text: deals.length
-            ? ('Alle ' + deals.length + ' Deals in dieser Phase haben bereits ein Aufmaß.')
-            : ('In der Phase „' + (e.pipedrivePhaseName || 'gewählten Phase') +
-               '“ steht derzeit kein offener Deal.') })
+          el('p', { text: text }),
+          el('div', { class: 'knopfleiste', style: { justifyContent: 'center', marginTop: '10px' } },
+            el('button', { class: 'haupt', text: 'Warum? – Verbindung prüfen',
+              onclick: function (ev) { diagnoseLaufenLassen(ev.target, liste); } }))
         ]));
       } else {
         liste.appendChild(el('p', { class: 'zart', style: { marginBottom: '8px' },
@@ -266,6 +284,144 @@
         fehler.zusatz ? el('div', { style: { marginTop: '6px', fontSize: '13px' }, text: fehler.zusatz }) : null
       ])));
     });
+  }
+
+  /* =========================================================================
+   * Diagnose: Was liefert Pipedrive wirklich?
+   * ======================================================================
+   * Wird sichtbar, sobald kein Deal angeboten wird. Sie liest die offenen
+   * Deals ohne Filter und zeigt zu jedem, in welcher Pipeline und Phase er
+   * steht - damit die Lücke zwischen Erwartung und Datenlage sichtbar wird.
+   */
+  function diagnoseLaufenLassen(knopf, ziel) {
+    var e = Zustand.einstellungen || {};
+    var beschriftung = knopf ? knopf.textContent : '';
+    /* Der Knopf wird in jedem Fall wieder benutzbar - auch wenn er noch
+     * dasteht, weil der Bericht woanders erscheint. */
+    function freigeben() {
+      if (knopf && knopf.parentNode) { knopf.disabled = false; knopf.textContent = beschriftung; }
+    }
+    if (knopf) { knopf.disabled = true; knopf.textContent = 'Prüfe …'; }
+    Store.alleProjekte().then(function (vorhandene) {
+      return global.Pipedrive.diagnose(e, vorhandene);
+    }).then(function (bericht) {
+      A.leeren(ziel);
+      ziel.appendChild(diagnoseAnzeigen(bericht));
+      freigeben();
+    }).catch(function (fehler) {
+      freigeben();
+      A.leeren(ziel);
+      ziel.appendChild(el('div', { class: 'meldung fehler' }, el('div', {}, [
+        el('b', { text: fehler.message || 'Die Prüfung ist fehlgeschlagen.' }),
+        fehler.zusatz ? el('div', { style: { marginTop: '6px', fontSize: '13px' },
+          text: fehler.zusatz }) : null
+      ])));
+    });
+  }
+
+  /* Den Bericht darstellen. Er enthält nie den Zugriffsschlüssel. */
+  function diagnoseAnzeigen(b) {
+    var z = b.zahlen || {};
+    var kasten = el('div', { class: 'pd-diagnose' });
+
+    kasten.appendChild(el('h3', { style: { margin: '0 0 8px' }, text: 'Prüfbericht' }));
+
+    var schritte = el('div', { class: 'tuer-liste', style: { border: '1px solid var(--rand)',
+      borderRadius: 'var(--radius)', marginBottom: '12px' } });
+    (b.schritte || []).forEach(function (sch) {
+      schritte.appendChild(el('div', { class: 'tuer-zeile', style: { cursor: 'default' } }, [
+        el('div', { class: 'statusbalken',
+          style: { background: sch.ok ? 'var(--gruen)' : 'var(--rot)' } }),
+        el('div', { class: 'inhalt' }, el('div', { class: 'haupt' }, [
+          el('div', { class: 'bez', text: (sch.ok ? '✓ ' : '✕ ') + sch.name }),
+          el('div', { class: 'detail', text: sch.text })
+        ]))
+      ]));
+    });
+    kasten.appendChild(schritte);
+
+    kasten.appendChild(el('p', { class: 'zart', style: { marginBottom: '10px' }, text:
+      z.gelesen + ' offene Deals gelesen  ·  ' + z.inPipeline + ' in der Pipeline  ·  ' +
+      z.inPhase + ' in der Phase  ·  ' + z.uebernehmbar + ' ohne Aufmaß' }));
+
+    (b.hinweise || []).forEach(function (h) {
+      kasten.appendChild(el('div', { class: 'meldung warn', style: { marginBottom: '10px' } },
+        el('div', { text: h })));
+    });
+
+    /* Die gelesenen Deals im Klartext - hier wird der Unterschied sichtbar */
+    if ((b.deals || []).length) {
+      var innen = el('div', { class: 'tuer-liste deal-diagnose', style: {
+        border: '1px solid var(--rand)', borderRadius: 'var(--radius)' } });
+      b.deals.slice(0, 40).forEach(function (d) {
+        innen.appendChild(el('div', { class: 'tuer-zeile', style: { cursor: 'default' } }, [
+          el('div', { class: 'statusbalken',
+            style: { background: d.uebernehmen ? 'var(--gruen)' : 'var(--text-zart)' } }),
+          el('div', { class: 'inhalt' }, [
+            el('div', { class: 'haupt' }, [
+              el('div', { class: 'bez', text: d.titel || ('Deal ' + d.id) }),
+              el('div', { class: 'detail', text:
+                ['Nr. ' + d.id,
+                 'Pipeline ' + (d.pipelineName || d.pipelineId || '–'),
+                 'Phase ' + (d.phaseName || d.phaseId || '–'),
+                 d.status || ''].filter(Boolean).join('  ·  ') })
+            ]),
+            el('div', { class: 'marken' }, el('span', {
+              class: 'marke-pille ' + (d.uebernehmen ? 'gruen' : ''),
+              text: d.uebernehmen ? 'würde angeboten' : d.grund }))
+          ])
+        ]));
+      });
+      kasten.appendChild(el('details', { class: 'abschnitt', open: true }, [
+        el('summary', {}, [
+          el('span', { text: 'Gelesene Deals' }),
+          el('span', { class: 'zusatz', text: b.deals.length + '' })
+        ]),
+        el('div', { class: 'koerper' }, innen)
+      ]));
+    }
+
+    kasten.appendChild(el('div', { class: 'knopfleiste', style: { marginTop: '12px' } },
+      el('button', { class: 'klein', text: 'Bericht kopieren', onclick: function () {
+        var text = diagnoseAlsText(b);
+        var fertig = function () { A.toast('Bericht kopiert.', 'ok'); };
+        if (global.navigator && navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(fertig, function () { ersatzKopie(text); });
+        } else { ersatzKopie(text); }
+      } })));
+    return kasten;
+  }
+
+  function ersatzKopie(text) {
+    var feld = el('textarea', { value: text, style: { position: 'fixed', top: '-1000px' } });
+    document.body.appendChild(feld);
+    feld.select();
+    try { document.execCommand('copy'); A.toast('Bericht kopiert.', 'ok'); }
+    catch (x) { A.toast('Kopieren nicht möglich.', 'fehler'); }
+    document.body.removeChild(feld);
+  }
+
+  /* Als Text zum Weitergeben - bewusst ohne Zugriffsschlüssel. */
+  function diagnoseAlsText(b) {
+    var z = b.zahlen || {};
+    var zeilen = ['Pipedrive-Prüfbericht', 'Adresse: ' + b.host,
+      'Pipeline: ' + (b.pipelineName || '–') + ' (Nr. ' + (b.pipelineId || '–') + ')',
+      'Phase: ' + (b.phaseName || '–') + ' (Nr. ' + (b.phaseId || '–') + ')', ''];
+    (b.schritte || []).forEach(function (sch) {
+      zeilen.push((sch.ok ? '[ok] ' : '[!] ') + sch.name + ': ' + sch.text);
+    });
+    zeilen.push('');
+    zeilen.push('Gelesen: ' + z.gelesen + ', in Pipeline: ' + z.inPipeline +
+      ', in Phase: ' + z.inPhase + ', übernehmbar: ' + z.uebernehmbar +
+      ', gefilterte Abfrage: ' + (z.gefiltert === null ? '–' : z.gefiltert));
+    (b.hinweise || []).forEach(function (h) { zeilen.push('Hinweis: ' + h); });
+    zeilen.push('');
+    (b.deals || []).slice(0, 40).forEach(function (d) {
+      zeilen.push('Deal ' + d.id + ' | Pipeline ' + (d.pipelineName || d.pipelineId) +
+        ' | Phase ' + (d.phaseName || d.phaseId) + ' | ' + d.status +
+        ' | ' + (d.uebernehmen ? 'würde angeboten' : d.grund));
+    });
+    return zeilen.join('\n');
   }
 
   function dealUebernehmen(deal, bekannt, dlg, neuLaden) {
@@ -646,6 +802,9 @@
     ansichtProjekte: ansichtProjekte,
     neuesProjektAnlegen: neuesProjektAnlegen,
     pipedriveDialog: pipedriveDialog,
+    diagnoseLaufenLassen: diagnoseLaufenLassen,
+    diagnoseAnzeigen: diagnoseAnzeigen,
+    diagnoseAlsText: diagnoseAlsText,
     standortAnlegen: standortAnlegen,
     ansichtStammdaten: ansichtStammdaten,
     ansichtStruktur: ansichtStruktur,

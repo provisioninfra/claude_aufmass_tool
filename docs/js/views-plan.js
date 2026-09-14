@@ -914,11 +914,13 @@
 
     /* --- Pipedrive ------------------------------------------------------- */
     var pdBereich = el('div', { class: 'karte' });
+    var pdDiagnose = el('div', { style: { marginTop: '12px' } });
     seite.appendChild(pdBereich);
     pdZeichnen();
 
     function pdZeichnen(pruefErgebnis) {
       A.leeren(pdBereich);
+      A.leeren(pdDiagnose);
       pdBereich.appendChild(el('h2', { text: 'Pipedrive' }));
       pdBereich.appendChild(el('p', { class: 'hinweis',
         text: 'Mit einer Verbindung zu Pipedrive lässt sich ein Aufmaß direkt aus einem Deal anlegen. ' +
@@ -974,11 +976,18 @@
             'Entfernen').then(function (ja) {
             if (!ja) return;
             e.pipedriveToken = ''; e.pipedrivePipelineId = ''; e.pipedrivePipelineName = '';
+            e.pipedrivePhaseId = ''; e.pipedrivePhaseName = '';
             merken(); pdZeichnen();
             A.toast('Verbindung entfernt.');
           });
-        } }) : null
+        } }) : null,
+        e.pipedriveToken ? el('button', { text: 'Deals prüfen',
+          title: 'Zeigt, welche Deals Pipedrive liefert und warum sie angeboten werden oder nicht',
+          onclick: function (ev) {
+            global.ViewsProjekt.diagnoseLaufenLassen(ev.target, pdDiagnose);
+          } }) : null
       ]));
+      pdBereich.appendChild(pdDiagnose);
 
       if (!pruefErgebnis) {
         if (e.pipedrivePipelineName) {
@@ -1074,6 +1083,11 @@
                 (e.pipedrivePhaseName ? (' in der Phase „' + e.pipedrivePhaseName + '“') : '') +
                 ' steht, offen ist und noch kein Aufmaß dazu vorliegt. Ob er dort neu angelegt ' +
                 'oder hineingeschoben wurde, spielt keine Rolle – maßgeblich ist, wo er jetzt steht.' }),
+              el('div', { style: { marginTop: '8px', fontSize: '13.5px' }, text:
+                'Angelegt wird das Aufmaß dabei nicht von selbst: Öffnen Sie „Projekte“, tippen Sie ' +
+                'auf „Aus Pipedrive“ und wählen Sie den Deal aus. Erst dieser Schritt erzeugt das ' +
+                'Aufmaß. Eine Anlage ohne Zutun setzt einen Zwischendienst voraus, der ständig ' +
+                'erreichbar ist – den gibt es hier bewusst noch nicht.' }),
               !e.pipedrivePhaseId ? el('div', { style: { marginTop: '6px', fontSize: '13px' },
                 text: 'Ohne gewählte Phase werden alle offenen Deals der Pipeline angeboten.' }) : null
             ]));

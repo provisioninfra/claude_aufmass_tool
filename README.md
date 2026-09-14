@@ -121,6 +121,23 @@ Deals, zu denen bereits ein Aufmaß besteht, erscheinen nicht in der Liste,
 sondern aufklappbar darunter – von dort lässt sich das vorhandene Aufmaß
 öffnen oder bewusst ein weiteres anlegen.
 
+### Wenn kein Deal angeboten wird
+
+Für diesen Fall gibt es einen Prüfbericht: *Einstellungen → Pipedrive →
+Deals prüfen*, und derselbe Bericht auch im Dialog *Aus Pipedrive*, sobald
+dort nichts zur Übernahme steht. Er liest die offenen Deals **ohne**
+Pipeline- und Phasenfilter und zeigt zu jedem, in welcher Pipeline und Phase
+er tatsächlich steht und woran die Regel scheitert. Damit wird die häufigste
+Ursache sofort sichtbar: Der Deal steht in einer anderen Phase als
+eingestellt, oder die gespeicherte Phase gehört gar nicht mehr zur
+gespeicherten Pipeline. Der Bericht lässt sich als Text kopieren und
+weitergeben; er enthält den Zugriffsschlüssel nicht.
+
+Die Eingrenzung auf Pipeline und Phase wird zusätzlich im Werkzeug selbst
+nachgeprüft. Sollte die Schnittstelle einen Filter einmal nicht beachten,
+werden trotzdem nur passende Deals angeboten — und der Prüfbericht weist
+auf die Abweichung hin.
+
 ### Zum Zugriffsschlüssel
 
 Ein Pipedrive-API-Token gilt mit allen Rechten des Benutzerkontos und lässt
@@ -133,8 +150,9 @@ Pipedrive zurückzuziehen.
 
 ### Grenze: keine Automatik ohne Dienst
 
-Ein Aufmaß entsteht, wenn Sie einen Deal auswählen — nicht von selbst, sobald
-in Pipedrive ein Deal angelegt wird. Dafür müsste ein Webhook-Empfänger
+Ein Aufmaß entsteht, wenn Sie einen Deal auswählen — **nicht von selbst**,
+sobald in Pipedrive ein Deal angelegt oder in die Phase geschoben wird. Der
+Weg ist: *Projekte → Aus Pipedrive → Deal antippen*. Dafür müsste ein Webhook-Empfänger
 dauerhaft laufen; eine Browser-Anwendung existiert nur, solange sie geöffnet
 ist. Die Übernahme ist deshalb als reine Abbildung ohne Seiteneffekte gebaut
 (`Pipedrive.aufProjektAbbilden`): Ein späterer Dienst kann dieselbe Funktion

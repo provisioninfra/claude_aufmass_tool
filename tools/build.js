@@ -67,15 +67,22 @@ function bauen() {
   const zielDatei = path.join(ZIEL, 'aufmass-tool.html');
   fs.writeFileSync(zielDatei, html, 'utf8');
 
-  /* Prüfen, dass keine externen Verweise übrig geblieben sind */
+  /* Prüfen, dass die Datei nichts aus dem Netz nachlädt.
+   *
+   * Gesucht wird nach Stellen, an denen der Browser beim Öffnen etwas holen
+   * würde: script/link/img/iframe-Quellen, CSS-url() und @import. Adressen,
+   * die erst zur Laufzeit gebraucht werden - der Aufruf der Pipedrive-
+   * Schnittstelle oder ein Link, den der Anwender selbst antippt - zählen
+   * nicht dazu: ohne Internet bleibt die Datei trotzdem voll benutzbar. */
   const reste = [];
   const src = html.match(/<script[^>]+src=/gi);
   if (src) reste.push(src.length + '× <script src>');
   const link = html.match(/<link[^>]+href="(?!data:)[^"]+"/gi);
   if (link) reste.push(link.length + '× externer <link>');
-  if (/https?:\/\//.test(html.replace(/https?:\/\/www\.w3\.org[^"']*/g, ''))) {
-    reste.push('externe URL im Dokument');
-  }
+  const ladend = (html.match(
+    /(?:<(?:img|iframe|video|audio|source|embed)[^>]+(?:src|srcset)\s*=\s*["']|url\(\s*["']?|@import\s+["'])https?:\/\//gi
+  ) || []).filter(t => !/www\.w3\.org/.test(t));
+  if (ladend.length) reste.push(ladend.length + '× nachgeladene Adresse');
 
   const groesse = fs.statSync(zielDatei).size;
   console.log('Einzeldatei erzeugt: dist/aufmass-tool.html  (' + Math.round(groesse / 1024) + ' KB)');

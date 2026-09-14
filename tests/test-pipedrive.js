@@ -29,7 +29,10 @@ const ANTWORTEN = {
       add_time: '2026-09-05T08:00:00Z', update_time: '2026-09-11T10:00:00Z' },
     { id: 5003, title: 'Noch im Erstkontakt – kein Aufmaß', value: 9000, currency: 'EUR',
       pipeline_id: 2, stage_id: 10, status: 'open', org_id: 301, person_id: null,
-      add_time: '2026-09-08T08:00:00Z', update_time: '2026-09-13T10:00:00Z' } ] },
+      add_time: '2026-09-08T08:00:00Z', update_time: '2026-09-13T10:00:00Z' },
+    { id: 5004, title: 'Andere Pipeline – Wartungsvertrag', value: 4000, currency: 'EUR',
+      pipeline_id: 1, stage_id: 5, status: 'open', org_id: 302, person_id: null,
+      add_time: '2026-09-02T08:00:00Z', update_time: '2026-09-10T10:00:00Z' } ] },
   '/api/v2/organizations/301': { success: true, data: {
     id: 301, name: 'Müller & Söhne Immobilienverwaltung GmbH',
     address: { route: 'Königsallee', street_number: '47', postal_code: '40212',
@@ -66,9 +69,20 @@ const ANTWORTEN = {
         body: JSON.stringify({ success: false, error: 'invalid token' }) });
     }
     if (antwortModus === 'nicht-erreichbar') return route.abort('failed');
-    const daten = ANTWORTEN[url.pathname];
+    let daten = ANTWORTEN[url.pathname];
     if (!daten) return route.fulfill({ status: 404, contentType: 'application/json',
       body: JSON.stringify({ success: false, error: 'not found' }) });
+    /* Die Schnittstelle beachtet ihre Filter - ausser im Modus „filter-taub“,
+     * der den Fall nachstellt, dass ein Parameter nicht greift. */
+    if (url.pathname === '/api/v2/deals' && antwortModus !== 'filter-taub') {
+      const pl = url.searchParams.get('pipeline_id');
+      const st = url.searchParams.get('stage_id');
+      const status = url.searchParams.get('status');
+      daten = { success: true, data: daten.data.filter(d =>
+        (!pl || String(d.pipeline_id) === pl) &&
+        (!st || String(d.stage_id) === st) &&
+        (!status || d.status === status)) };
+    }
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(daten) });
   });
 
@@ -262,6 +276,94 @@ const ANTWORTEN = {
     pruefe(f.uebernehmen === erwartet[f.bez],
       'Regel: ' + f.bez + ' → ' + (f.uebernehmen ? 'übernehmen' : f.grund));
   });
+
+  /* --- Prüfbericht: Warum wird kein Deal angeboten? --- */
+  console.log('\n== Prüfbericht ==');
+  antwortModus = 'gut';
+  await page.evaluate(() => window.App.wechseln('einstellungen'));
+  await page.waitForTimeout(400);
+  await page.click('button:has-text("Deals prüfen")');
+  await page.waitForSelector('.pd-diagnose', { timeout: 10000 });
+  await page.waitForTimeout(300);
+  const bericht = await page.textContent('.pd-diagnose');
+  pruefe(/4 offene Deals im Konto gelesen/.test(bericht),
+    'der Bericht nennt die ungefiltert gelesenen Deals', (bericht.match(/\d+ offene Deals[^·]*/) || [''])[0].trim());
+  const berichtZeilen = await page.$$eval('.deal-diagnose .tuer-zeile', n => n.map(x => x.textContent));
+  pruefe(berichtZeilen.length === 4, 'jeder gelesene Deal steht im Bericht (' + berichtZeilen.length + ')');
+  pruefe(berichtZeilen.some(t => /Erstkontakt/.test(t) && /andere Phase/.test(t)),
+    'ein Deal in der falschen Phase wird mit Phasenname und Grund gezeigt',
+    (berichtZeilen.find(t => /andere Phase/.test(t)) || '').slice(0, 90));
+  pruefe(berichtZeilen.some(t => /Vertrieb/.test(t) && /andere Pipeline/.test(t)),
+    'ein Deal in der falschen Pipeline wird mit Pipelinename und Grund gezeigt',
+    (berichtZeilen.find(t => /andere Pipeline/.test(t)) || '').slice(0, 90));
+  pruefe(berichtZeilen.some(t => /Aufmaß vorhanden/.test(t)),
+    'ein bereits übernommener Deal wird als solcher benannt');
+  pruefe(!/test-schluessel-123/.test(bericht), 'der Prüfbericht enthält den Schlüssel nicht');
+
+  const berichtText = await page.evaluate(() => window.ViewsProjekt.diagnoseAlsText({
+    host: 'api.pipedrive.com', pipelineName: 'X', pipelineId: '2', phaseName: 'Y', phaseId: '11',
+    zahlen: { gelesen: 1, inPipeline: 1, inPhase: 1, uebernehmbar: 0, gefiltert: 1 },
+    schritte: [{ name: 'Zugang', ok: true, text: 'a' }], hinweise: ['h'],
+    deals: [{ id: 1, pipelineName: 'X', phaseName: 'Y', status: 'open', grund: 'Aufmaß vorhanden' }]
+  }));
+  pruefe(/Pipedrive-Prüfbericht/.test(berichtText) && /Deal 1 \|/.test(berichtText),
+    'der Bericht lässt sich als Text weitergeben');
+
+  /* --- Leere Phase: die Meldung nennt den Grund beim Namen --- */
+  console.log('\n== Kein Deal in der Phase ==');
+  await page.evaluate(() => {
+    const e = window.AppKern.Zustand.einstellungen;
+    e.pipedrivePhaseId = '12'; e.pipedrivePhaseName = 'Angebot';
+  });
+  await page.evaluate(() => window.App.wechseln('projekte'));
+  await page.waitForTimeout(400);
+  await page.click('button:has-text("Aus Pipedrive")');
+  await page.waitForSelector('.dialog .leer', { timeout: 8000 });
+  const leerText = await page.textContent('.dialog .leer');
+  pruefe(/keinen offenen Deal/.test(leerText) && /Angebot/.test(leerText),
+    'die Meldung unterscheidet „nichts da“ von „schon übernommen“', leerText.trim().slice(0, 120));
+
+  await page.click('.dialog .leer button:has-text("Warum")');
+  await page.waitForSelector('.dialog .pd-diagnose', { timeout: 10000 });
+  await page.waitForTimeout(300);
+  const dlgBericht = await page.textContent('.dialog .pd-diagnose');
+  pruefe(/keiner davon in der Phase „Angebot/.test(dlgBericht),
+    'der Bericht benennt die Lücke zwischen Pipeline und Phase',
+    (dlgBericht.match(/In der Pipeline stehen[^]{0,90}/) || [''])[0]);
+
+  /* --- Wenn die Schnittstelle einen Filter nicht beachtet --- */
+  await page.click('.dialog button:has-text("Schließen")');
+  await page.waitForTimeout(400);
+  antwortModus = 'filter-taub';
+  await page.evaluate(() => window.App.wechseln('einstellungen'));
+  await page.waitForTimeout(400);
+  await page.click('button:has-text("Deals prüfen")');
+  await page.waitForSelector('.pd-diagnose', { timeout: 10000 });
+  await page.waitForTimeout(300);
+  const taub = await page.textContent('.pd-diagnose');
+  pruefe(/andere Anzahl als die eigene Nachprüfung/.test(taub),
+    'ein nicht beachteter Filter der Schnittstelle fällt auf', taub.slice(0, 40).trim());
+
+  /* Und trotzdem wird nur das Passende angeboten - die Nachprüfung greift */
+  const trotzTaub = await page.evaluate(async () => {
+    const e = window.AppKern.Zustand.einstellungen;
+    const l = await window.Pipedrive.deals(e, e.pipedrivePipelineId, { phaseId: e.pipedrivePhaseId });
+    return l.map(d => d.id);
+  });
+  pruefe(trotzTaub.length === 0,
+    'auch bei taubem Filter wird kein unpassender Deal angeboten', JSON.stringify(trotzTaub));
+  antwortModus = 'gut';
+
+  /* --- Veraltete Phase aus einer anderen Pipeline --- */
+  const veraltet = await page.evaluate(async () => {
+    const e = Object.assign({}, window.AppKern.Zustand.einstellungen,
+      { pipedrivePipelineId: '2', pipedrivePhaseId: '99', pipedrivePhaseName: 'Alt' });
+    const b = await window.Pipedrive.diagnose(e, []);
+    return { hinweise: b.hinweise, schritte: b.schritte.map(s => s.name + ':' + s.ok) };
+  });
+  pruefe(veraltet.hinweise.some(h => /gehört nicht zur eingestellten Pipeline/.test(h)),
+    'eine Phase, die nicht zur Pipeline gehört, wird als Ursache benannt',
+    veraltet.hinweise.join(' | ').slice(0, 100));
 
   pruefe(konsolenFehler.length === 0, 'keine JavaScript-Fehler', konsolenFehler.slice(0, 3).join(' | '));
   await browser.close();

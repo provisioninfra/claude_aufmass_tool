@@ -4886,10 +4886,31 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       });
   }
 
+  /* Ein Deal aus der Antwort in die Form dieses Werkzeugs bringen. */
+  function dealAbbilden(deal, pipelineId) {
+    return {
+      id: deal.id,
+      titel: deal.title || '',
+      wert: deal.value, waehrung: deal.currency || '',
+      pipelineId: deal.pipeline_id || pipelineId || null,
+      phaseId: deal.stage_id,
+      status: deal.status || '',
+      orgId: deal.org_id || null,
+      personId: deal.person_id || null,
+      besitzerId: deal.owner_id || deal.user_id || null,
+      erstellt: deal.add_time || '',
+      geaendert: deal.update_time || '',
+      phaseSeit: deal.stage_change_time || deal.update_time || ''
+    };
+  }
+
   /* Offene Deals einer Pipeline, auf Wunsch auf eine Phase eingegrenzt.
-   * Die Phase wird sowohl in der Abfrage mitgegeben als auch anschließend
-   * geprüft - so greift die Eingrenzung auch dann, wenn die Schnittstelle
-   * den Parameter einmal nicht berücksichtigt. */
+   * Die Phase wird sowohl in der Abfrage mitgegeben als auch anschliessend
+   * geprueft - so greift die Eingrenzung auch dann, wenn die Schnittstelle
+   * den Parameter einmal nicht beruecksichtigt.
+   *
+   * Mit optionen.ohneNachfilter unterbleibt die zweite Pruefung; das wird
+   * fuer die Diagnose gebraucht, die sehen will, was ungefiltert ankommt. */
   function deals(einstellungen, pipelineId, optionen) {
     optionen = optionen || {};
     var phaseId = optionen.phaseId;
@@ -4902,25 +4923,19 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       sort_direction: 'desc'
     }).then(function (d) {
       var liste = (d && d.data || []).map(function (deal) {
-        return {
-          id: deal.id,
-          titel: deal.title || '',
-          wert: deal.value, waehrung: deal.currency || '',
-          pipelineId: deal.pipeline_id || pipelineId || null,
-          phaseId: deal.stage_id,
-          status: deal.status || '',
-          orgId: deal.org_id || null,
-          personId: deal.person_id || null,
-          besitzerId: deal.owner_id || deal.user_id || null,
-          erstellt: deal.add_time || '',
-          geaendert: deal.update_time || '',
-          phaseSeit: deal.stage_change_time || deal.update_time || ''
-        };
+        return dealAbbilden(deal, pipelineId);
       });
-      if (phaseId) {
-        liste = liste.filter(function (deal) {
-          return String(deal.phaseId) === String(phaseId);
-        });
+      if (!optionen.ohneNachfilter) {
+        if (pipelineId) {
+          liste = liste.filter(function (deal) {
+            return String(deal.pipelineId) === String(pipelineId);
+          });
+        }
+        if (phaseId) {
+          liste = liste.filter(function (deal) {
+            return String(deal.phaseId) === String(phaseId);
+          });
+        }
       }
       return liste;
     });
@@ -4938,26 +4953,25 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
    * Entscheidung mit denselben Daten treffen kann.
    */
   function istZuUebernehmen(deal, einstellungen, vorhandeneProjekte) {
-    var grund = '';
-    if (!deal) return { uebernehmen: false, grund: 'kein Deal' };
+    if (!deal) return { uebernehmen: false, code: 'kein-deal', grund: 'kein Deal' };
 
     var pipelineId = einstellungen && einstellungen.pipedrivePipelineId;
     var phaseId = einstellungen && einstellungen.pipedrivePhaseId;
 
     if (pipelineId && String(deal.pipelineId || '') !== String(pipelineId)) {
-      return { uebernehmen: false, grund: 'andere Pipeline' };
+      return { uebernehmen: false, code: 'pipeline', grund: 'andere Pipeline' };
     }
     if (phaseId && String(deal.phaseId || '') !== String(phaseId)) {
-      return { uebernehmen: false, grund: 'andere Phase' };
+      return { uebernehmen: false, code: 'phase', grund: 'andere Phase' };
     }
     if (deal.status && deal.status !== 'open') {
-      return { uebernehmen: false, grund: 'Deal ist nicht offen' };
+      return { uebernehmen: false, code: 'status', grund: 'Deal ist nicht offen' };
     }
     var vorhanden = projektZuDeal(deal.id, vorhandeneProjekte);
     if (vorhanden) {
-      return { uebernehmen: false, grund: 'Aufmaß vorhanden', projekt: vorhanden };
+      return { uebernehmen: false, code: 'vorhanden', grund: 'Aufmaß vorhanden', projekt: vorhanden };
     }
-    return { uebernehmen: true, grund: grund };
+    return { uebernehmen: true, code: 'offen', grund: '' };
   }
 
   /* Gibt es zu diesem Deal bereits ein Aufmaß? */
@@ -5123,6 +5137,157 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     return { projekt: projekt, uebernommen: uebernommen };
   }
 
+  /* =========================================================================
+   * Diagnose: Warum wird kein Deal angeboten?
+   * ======================================================================
+   * Diese Abfrage beantwortet genau eine Frage: Was liefert Pipedrive
+   * tatsaechlich, und woran scheitert die Uebernahmeregel? Sie liest die
+   * offenen Deals bewusst OHNE Pipeline- und Phasenfilter und prueft erst
+   * danach jeden Deal gegen die eingestellte Regel. So wird sichtbar, ob
+   * ueberhaupt Deals ankommen, ob sie in der erwarteten Pipeline stehen und
+   * in welcher Phase sie tatsaechlich liegen.
+   *
+   * Der Bericht enthaelt niemals den Zugriffsschluessel.
+   */
+  function diagnose(einstellungen, vorhandeneProjekte) {
+    var e = einstellungen || {};
+    var bericht = {
+      host: hostAus(e),
+      pipelineId: String(e.pipedrivePipelineId || ''),
+      pipelineName: e.pipedrivePipelineName || '',
+      phaseId: String(e.pipedrivePhaseId || ''),
+      phaseName: e.pipedrivePhaseName || '',
+      schritte: [],
+      deals: [],
+      phasen: [],
+      zahlen: { gelesen: 0, inPipeline: 0, inPhase: 0, uebernehmbar: 0,
+                vorhanden: 0, nichtOffen: 0, gefiltert: null },
+      grenze: 200,
+      hinweise: []
+    };
+
+    function schritt(name, ok, text) {
+      bericht.schritte.push({ name: name, ok: !!ok, text: text || '' });
+    }
+    function hinweis(text) {
+      if (bericht.hinweise.indexOf(text) === -1) bericht.hinweise.push(text);
+    }
+
+    return verbindungPruefen(e).then(function (u) {
+      schritt('Zugang', true, 'Angemeldet als ' + (u.name || '–') +
+        (u.firma ? ('  ·  ' + u.firma) : ''));
+      return pipelines(e);
+    }).then(function (liste) {
+      bericht.pipelines = liste;
+      if (!bericht.pipelineId) {
+        schritt('Pipeline', true, 'Keine Pipeline festgelegt – es werden alle gelesen.');
+      } else {
+        var treffer = liste.filter(function (pl) {
+          return String(pl.id) === bericht.pipelineId; })[0];
+        if (treffer) {
+          bericht.pipelineName = treffer.name;
+          schritt('Pipeline', true, '„' + treffer.name + '“  (Nr. ' + treffer.id + ')');
+        } else {
+          schritt('Pipeline', false, 'Die gespeicherte Pipeline Nr. ' + bericht.pipelineId +
+            ' gibt es in diesem Konto nicht (mehr).');
+          hinweis('Die eingestellte Pipeline passt zu keiner Pipeline in Pipedrive. ' +
+                  'Bitte unter Einstellungen erneut auswählen.');
+        }
+      }
+      return bericht.pipelineId ? phasen(e, bericht.pipelineId) : Promise.resolve([]);
+    }).then(function (liste) {
+      bericht.phasen = liste;
+      if (!bericht.pipelineId) {
+        schritt('Phase', true, 'Ohne Pipeline gibt es keine Phaseneingrenzung.');
+      } else if (!bericht.phaseId) {
+        schritt('Phase', true, 'Keine Phase festgelegt – alle Phasen der Pipeline zählen.');
+      } else {
+        var ph = liste.filter(function (x) { return String(x.id) === bericht.phaseId; })[0];
+        if (ph) {
+          bericht.phaseName = ph.name;
+          schritt('Phase', true, '„' + ph.name + '“  (Nr. ' + ph.id + ')');
+        } else {
+          schritt('Phase', false, 'Die gespeicherte Phase Nr. ' + bericht.phaseId +
+            ' gehört nicht zu dieser Pipeline.');
+          hinweis('Die eingestellte Phase gehört nicht zur eingestellten Pipeline. ' +
+                  'Das ist der häufigste Grund dafür, dass kein Deal angeboten wird: ' +
+                  'Bitte unter Einstellungen Pipeline und danach Phase neu auswählen.');
+        }
+      }
+      /* Bewusst ohne Pipeline- und Phasenfilter lesen */
+      return deals(e, undefined, { status: 'open', limit: bericht.grenze, ohneNachfilter: true });
+    }).then(function (alle) {
+      bericht.zahlen.gelesen = alle.length;
+      schritt('Offene Deals', alle.length > 0,
+        alle.length + (alle.length === 1 ? ' offener Deal im Konto gelesen'
+                                         : ' offene Deals im Konto gelesen') +
+        (alle.length >= bericht.grenze ? ' (Obergrenze erreicht – es können mehr sein)' : ''));
+      if (!alle.length) {
+        hinweis('Pipedrive liefert überhaupt keine offenen Deals. Dann kann auch kein ' +
+                'Aufmaß angeboten werden.');
+      }
+
+      var phasenName = {};
+      bericht.phasen.forEach(function (ph) { phasenName[String(ph.id)] = ph.name; });
+      var pipelineName = {};
+      (bericht.pipelines || []).forEach(function (pl) { pipelineName[String(pl.id)] = pl.name; });
+
+      bericht.deals = alle.map(function (deal) {
+        var pr = istZuUebernehmen(deal, e, vorhandeneProjekte);
+        return {
+          id: deal.id, titel: deal.titel, status: deal.status,
+          pipelineId: deal.pipelineId,
+          pipelineName: pipelineName[String(deal.pipelineId)] || '',
+          phaseId: deal.phaseId,
+          phaseName: phasenName[String(deal.phaseId)] || '',
+          geaendert: deal.geaendert,
+          code: pr.code, grund: pr.grund, uebernehmen: pr.uebernehmen
+        };
+      });
+
+      bericht.zahlen.inPipeline = bericht.deals.filter(function (d) {
+        return !bericht.pipelineId || String(d.pipelineId || '') === bericht.pipelineId; }).length;
+      bericht.zahlen.inPhase = bericht.deals.filter(function (d) {
+        return d.code !== 'pipeline' && d.code !== 'phase'; }).length;
+      bericht.zahlen.uebernehmbar = bericht.deals.filter(function (d) { return d.uebernehmen; }).length;
+      bericht.zahlen.vorhanden = bericht.deals.filter(function (d) { return d.code === 'vorhanden'; }).length;
+      bericht.zahlen.nichtOffen = bericht.deals.filter(function (d) { return d.code === 'status'; }).length;
+
+      if (bericht.pipelineId && bericht.zahlen.gelesen && !bericht.zahlen.inPipeline) {
+        hinweis('Kein einziger offener Deal steht in der eingestellten Pipeline „' +
+                (bericht.pipelineName || bericht.pipelineId) + '“.');
+      } else if (bericht.phaseId && bericht.zahlen.inPipeline && !bericht.zahlen.inPhase) {
+        hinweis('In der Pipeline stehen ' + bericht.zahlen.inPipeline + ' offene Deals, aber ' +
+                'keiner davon in der Phase „' + (bericht.phaseName || bericht.phaseId) +
+                '“. Erst wenn ein Deal in diese Phase geschoben wird, wird er angeboten.');
+      } else if (bericht.zahlen.inPhase && !bericht.zahlen.uebernehmbar) {
+        hinweis('Alle passenden Deals haben bereits ein Aufmaß. Unter „Bereits übernommen“ ' +
+                'im Dialog lässt sich das vorhandene Aufmaß öffnen.');
+      }
+
+      /* Gegenprobe: liefert dieselbe Abfrage MIT Filter dasselbe Ergebnis? */
+      return deals(e, bericht.pipelineId || undefined, {
+        phaseId: bericht.phaseId || undefined, status: 'open', limit: bericht.grenze,
+        ohneNachfilter: true
+      }).then(function (gefiltert) {
+        bericht.zahlen.gefiltert = gefiltert.length;
+        var erwartet = bericht.zahlen.inPhase;
+        schritt('Gefilterte Abfrage', gefiltert.length === erwartet,
+          gefiltert.length + ' Deal(s) – erwartet waren ' + erwartet);
+        if (gefiltert.length !== erwartet) {
+          hinweis('Die eingegrenzte Abfrage an Pipedrive liefert eine andere Anzahl als die ' +
+                  'eigene Nachprüfung (' + gefiltert.length + ' statt ' + erwartet + '). ' +
+                  'Das Werkzeug prüft die Eingrenzung deshalb selbst nach – angeboten werden ' +
+                  'nur die tatsächlich passenden Deals. Bitte diesen Bericht weitergeben.');
+        }
+        return bericht;
+      }, function () {
+        schritt('Gefilterte Abfrage', false, 'Die eingegrenzte Abfrage schlug fehl.');
+        return bericht;
+      });
+    });
+  }
+
   global.Pipedrive = {
     STANDARD_HOST: STANDARD_HOST,
     hostAus: hostAus,
@@ -5130,6 +5295,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     pipelines: pipelines,
     phasen: phasen,
     deals: deals,
+    diagnose: diagnose,
     istZuUebernehmen: istZuUebernehmen,
     projektZuDeal: projektZuDeal,
     organisation: organisation,
@@ -5707,15 +5873,33 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
         return { deal: deal, pruefung: PD.istZuUebernehmen(deal, e, vorhandene) };
       });
       var offen = geprueft.filter(function (g) { return g.pruefung.uebernehmen; });
-      var schonDa = geprueft.filter(function (g) { return g.pruefung.grund === 'Aufmaß vorhanden'; });
+      var schonDa = geprueft.filter(function (g) { return g.pruefung.code === 'vorhanden'; });
+      var nichtOffen = geprueft.filter(function (g) { return g.pruefung.code === 'status'; });
 
       if (!offen.length) {
+        /* Der Grund wird beim Namen genannt - „nichts da“ und „alles schon
+         * übernommen“ sind zwei verschiedene Lagen mit verschiedener Abhilfe. */
+        var text;
+        if (!deals.length) {
+          text = 'Pipedrive liefert für ' +
+            (e.pipedrivePipelineName ? ('die Pipeline „' + e.pipedrivePipelineName + '“') : 'diese Einstellung') +
+            (e.pipedrivePhaseName ? (' in der Phase „' + e.pipedrivePhaseName + '“') : '') +
+            ' derzeit keinen offenen Deal zurück.';
+        } else if (schonDa.length === deals.length) {
+          text = 'Alle ' + deals.length + ' Deals in dieser Phase haben bereits ein Aufmaß.';
+        } else if (nichtOffen.length) {
+          text = 'Von ' + deals.length + ' Deals sind ' + nichtOffen.length +
+            ' nicht mehr offen (gewonnen, verloren oder gelöscht); die übrigen haben ein Aufmaß.';
+        } else {
+          text = 'Von ' + deals.length + ' gelesenen Deals passt derzeit keiner auf die ' +
+            'eingestellte Regel.';
+        }
         liste.appendChild(el('div', { class: 'leer' }, [
           el('h3', { text: 'Kein Deal zur Übernahme' }),
-          el('p', { text: deals.length
-            ? ('Alle ' + deals.length + ' Deals in dieser Phase haben bereits ein Aufmaß.')
-            : ('In der Phase „' + (e.pipedrivePhaseName || 'gewählten Phase') +
-               '“ steht derzeit kein offener Deal.') })
+          el('p', { text: text }),
+          el('div', { class: 'knopfleiste', style: { justifyContent: 'center', marginTop: '10px' } },
+            el('button', { class: 'haupt', text: 'Warum? – Verbindung prüfen',
+              onclick: function (ev) { diagnoseLaufenLassen(ev.target, liste); } }))
         ]));
       } else {
         liste.appendChild(el('p', { class: 'zart', style: { marginBottom: '8px' },
@@ -5793,6 +5977,144 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
         fehler.zusatz ? el('div', { style: { marginTop: '6px', fontSize: '13px' }, text: fehler.zusatz }) : null
       ])));
     });
+  }
+
+  /* =========================================================================
+   * Diagnose: Was liefert Pipedrive wirklich?
+   * ======================================================================
+   * Wird sichtbar, sobald kein Deal angeboten wird. Sie liest die offenen
+   * Deals ohne Filter und zeigt zu jedem, in welcher Pipeline und Phase er
+   * steht - damit die Lücke zwischen Erwartung und Datenlage sichtbar wird.
+   */
+  function diagnoseLaufenLassen(knopf, ziel) {
+    var e = Zustand.einstellungen || {};
+    var beschriftung = knopf ? knopf.textContent : '';
+    /* Der Knopf wird in jedem Fall wieder benutzbar - auch wenn er noch
+     * dasteht, weil der Bericht woanders erscheint. */
+    function freigeben() {
+      if (knopf && knopf.parentNode) { knopf.disabled = false; knopf.textContent = beschriftung; }
+    }
+    if (knopf) { knopf.disabled = true; knopf.textContent = 'Prüfe …'; }
+    Store.alleProjekte().then(function (vorhandene) {
+      return global.Pipedrive.diagnose(e, vorhandene);
+    }).then(function (bericht) {
+      A.leeren(ziel);
+      ziel.appendChild(diagnoseAnzeigen(bericht));
+      freigeben();
+    }).catch(function (fehler) {
+      freigeben();
+      A.leeren(ziel);
+      ziel.appendChild(el('div', { class: 'meldung fehler' }, el('div', {}, [
+        el('b', { text: fehler.message || 'Die Prüfung ist fehlgeschlagen.' }),
+        fehler.zusatz ? el('div', { style: { marginTop: '6px', fontSize: '13px' },
+          text: fehler.zusatz }) : null
+      ])));
+    });
+  }
+
+  /* Den Bericht darstellen. Er enthält nie den Zugriffsschlüssel. */
+  function diagnoseAnzeigen(b) {
+    var z = b.zahlen || {};
+    var kasten = el('div', { class: 'pd-diagnose' });
+
+    kasten.appendChild(el('h3', { style: { margin: '0 0 8px' }, text: 'Prüfbericht' }));
+
+    var schritte = el('div', { class: 'tuer-liste', style: { border: '1px solid var(--rand)',
+      borderRadius: 'var(--radius)', marginBottom: '12px' } });
+    (b.schritte || []).forEach(function (sch) {
+      schritte.appendChild(el('div', { class: 'tuer-zeile', style: { cursor: 'default' } }, [
+        el('div', { class: 'statusbalken',
+          style: { background: sch.ok ? 'var(--gruen)' : 'var(--rot)' } }),
+        el('div', { class: 'inhalt' }, el('div', { class: 'haupt' }, [
+          el('div', { class: 'bez', text: (sch.ok ? '✓ ' : '✕ ') + sch.name }),
+          el('div', { class: 'detail', text: sch.text })
+        ]))
+      ]));
+    });
+    kasten.appendChild(schritte);
+
+    kasten.appendChild(el('p', { class: 'zart', style: { marginBottom: '10px' }, text:
+      z.gelesen + ' offene Deals gelesen  ·  ' + z.inPipeline + ' in der Pipeline  ·  ' +
+      z.inPhase + ' in der Phase  ·  ' + z.uebernehmbar + ' ohne Aufmaß' }));
+
+    (b.hinweise || []).forEach(function (h) {
+      kasten.appendChild(el('div', { class: 'meldung warn', style: { marginBottom: '10px' } },
+        el('div', { text: h })));
+    });
+
+    /* Die gelesenen Deals im Klartext - hier wird der Unterschied sichtbar */
+    if ((b.deals || []).length) {
+      var innen = el('div', { class: 'tuer-liste deal-diagnose', style: {
+        border: '1px solid var(--rand)', borderRadius: 'var(--radius)' } });
+      b.deals.slice(0, 40).forEach(function (d) {
+        innen.appendChild(el('div', { class: 'tuer-zeile', style: { cursor: 'default' } }, [
+          el('div', { class: 'statusbalken',
+            style: { background: d.uebernehmen ? 'var(--gruen)' : 'var(--text-zart)' } }),
+          el('div', { class: 'inhalt' }, [
+            el('div', { class: 'haupt' }, [
+              el('div', { class: 'bez', text: d.titel || ('Deal ' + d.id) }),
+              el('div', { class: 'detail', text:
+                ['Nr. ' + d.id,
+                 'Pipeline ' + (d.pipelineName || d.pipelineId || '–'),
+                 'Phase ' + (d.phaseName || d.phaseId || '–'),
+                 d.status || ''].filter(Boolean).join('  ·  ') })
+            ]),
+            el('div', { class: 'marken' }, el('span', {
+              class: 'marke-pille ' + (d.uebernehmen ? 'gruen' : ''),
+              text: d.uebernehmen ? 'würde angeboten' : d.grund }))
+          ])
+        ]));
+      });
+      kasten.appendChild(el('details', { class: 'abschnitt', open: true }, [
+        el('summary', {}, [
+          el('span', { text: 'Gelesene Deals' }),
+          el('span', { class: 'zusatz', text: b.deals.length + '' })
+        ]),
+        el('div', { class: 'koerper' }, innen)
+      ]));
+    }
+
+    kasten.appendChild(el('div', { class: 'knopfleiste', style: { marginTop: '12px' } },
+      el('button', { class: 'klein', text: 'Bericht kopieren', onclick: function () {
+        var text = diagnoseAlsText(b);
+        var fertig = function () { A.toast('Bericht kopiert.', 'ok'); };
+        if (global.navigator && navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(fertig, function () { ersatzKopie(text); });
+        } else { ersatzKopie(text); }
+      } })));
+    return kasten;
+  }
+
+  function ersatzKopie(text) {
+    var feld = el('textarea', { value: text, style: { position: 'fixed', top: '-1000px' } });
+    document.body.appendChild(feld);
+    feld.select();
+    try { document.execCommand('copy'); A.toast('Bericht kopiert.', 'ok'); }
+    catch (x) { A.toast('Kopieren nicht möglich.', 'fehler'); }
+    document.body.removeChild(feld);
+  }
+
+  /* Als Text zum Weitergeben - bewusst ohne Zugriffsschlüssel. */
+  function diagnoseAlsText(b) {
+    var z = b.zahlen || {};
+    var zeilen = ['Pipedrive-Prüfbericht', 'Adresse: ' + b.host,
+      'Pipeline: ' + (b.pipelineName || '–') + ' (Nr. ' + (b.pipelineId || '–') + ')',
+      'Phase: ' + (b.phaseName || '–') + ' (Nr. ' + (b.phaseId || '–') + ')', ''];
+    (b.schritte || []).forEach(function (sch) {
+      zeilen.push((sch.ok ? '[ok] ' : '[!] ') + sch.name + ': ' + sch.text);
+    });
+    zeilen.push('');
+    zeilen.push('Gelesen: ' + z.gelesen + ', in Pipeline: ' + z.inPipeline +
+      ', in Phase: ' + z.inPhase + ', übernehmbar: ' + z.uebernehmbar +
+      ', gefilterte Abfrage: ' + (z.gefiltert === null ? '–' : z.gefiltert));
+    (b.hinweise || []).forEach(function (h) { zeilen.push('Hinweis: ' + h); });
+    zeilen.push('');
+    (b.deals || []).slice(0, 40).forEach(function (d) {
+      zeilen.push('Deal ' + d.id + ' | Pipeline ' + (d.pipelineName || d.pipelineId) +
+        ' | Phase ' + (d.phaseName || d.phaseId) + ' | ' + d.status +
+        ' | ' + (d.uebernehmen ? 'würde angeboten' : d.grund));
+    });
+    return zeilen.join('\n');
   }
 
   function dealUebernehmen(deal, bekannt, dlg, neuLaden) {
@@ -6173,6 +6495,9 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     ansichtProjekte: ansichtProjekte,
     neuesProjektAnlegen: neuesProjektAnlegen,
     pipedriveDialog: pipedriveDialog,
+    diagnoseLaufenLassen: diagnoseLaufenLassen,
+    diagnoseAnzeigen: diagnoseAnzeigen,
+    diagnoseAlsText: diagnoseAlsText,
     standortAnlegen: standortAnlegen,
     ansichtStammdaten: ansichtStammdaten,
     ansichtStruktur: ansichtStruktur,
@@ -7864,11 +8189,13 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
 
     /* --- Pipedrive ------------------------------------------------------- */
     var pdBereich = el('div', { class: 'karte' });
+    var pdDiagnose = el('div', { style: { marginTop: '12px' } });
     seite.appendChild(pdBereich);
     pdZeichnen();
 
     function pdZeichnen(pruefErgebnis) {
       A.leeren(pdBereich);
+      A.leeren(pdDiagnose);
       pdBereich.appendChild(el('h2', { text: 'Pipedrive' }));
       pdBereich.appendChild(el('p', { class: 'hinweis',
         text: 'Mit einer Verbindung zu Pipedrive lässt sich ein Aufmaß direkt aus einem Deal anlegen. ' +
@@ -7924,11 +8251,18 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
             'Entfernen').then(function (ja) {
             if (!ja) return;
             e.pipedriveToken = ''; e.pipedrivePipelineId = ''; e.pipedrivePipelineName = '';
+            e.pipedrivePhaseId = ''; e.pipedrivePhaseName = '';
             merken(); pdZeichnen();
             A.toast('Verbindung entfernt.');
           });
-        } }) : null
+        } }) : null,
+        e.pipedriveToken ? el('button', { text: 'Deals prüfen',
+          title: 'Zeigt, welche Deals Pipedrive liefert und warum sie angeboten werden oder nicht',
+          onclick: function (ev) {
+            global.ViewsProjekt.diagnoseLaufenLassen(ev.target, pdDiagnose);
+          } }) : null
       ]));
+      pdBereich.appendChild(pdDiagnose);
 
       if (!pruefErgebnis) {
         if (e.pipedrivePipelineName) {
@@ -8024,6 +8358,11 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
                 (e.pipedrivePhaseName ? (' in der Phase „' + e.pipedrivePhaseName + '“') : '') +
                 ' steht, offen ist und noch kein Aufmaß dazu vorliegt. Ob er dort neu angelegt ' +
                 'oder hineingeschoben wurde, spielt keine Rolle – maßgeblich ist, wo er jetzt steht.' }),
+              el('div', { style: { marginTop: '8px', fontSize: '13.5px' }, text:
+                'Angelegt wird das Aufmaß dabei nicht von selbst: Öffnen Sie „Projekte“, tippen Sie ' +
+                'auf „Aus Pipedrive“ und wählen Sie den Deal aus. Erst dieser Schritt erzeugt das ' +
+                'Aufmaß. Eine Anlage ohne Zutun setzt einen Zwischendienst voraus, der ständig ' +
+                'erreichbar ist – den gibt es hier bewusst noch nicht.' }),
               !e.pipedrivePhaseId ? el('div', { style: { marginTop: '6px', fontSize: '13px' },
                 text: 'Ohne gewählte Phase werden alle offenen Deals der Pipeline angeboten.' }) : null
             ]));
