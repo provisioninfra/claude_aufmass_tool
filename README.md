@@ -89,6 +89,44 @@ und je Bild nur einmal gehalten (`src/js/verlauf.js`): 20 Schritte mit einem
 200-KB-Foto belegen rund 227 KB statt 4 MB. Beim Schließen des Projekts wird
 der Verlauf verworfen.
 
+## Pipedrive-Anbindung
+
+Unter *Einstellungen → Pipedrive* wird ein Zugriffsschlüssel (API-Token)
+hinterlegt und die Pipeline gewählt, aus der Aufmaße entstehen sollen.
+Danach erscheint in der Projektübersicht *Aus Pipedrive*: Das Werkzeug listet
+die offenen Deals, und ein Tippen legt daraus ein Aufmaß an. Übernommen
+werden Firmenname und Adresse der Organisation sowie Name, Telefon und E-Mail
+des Ansprechpartners; Deal und Organisation bleiben im Projekt verknüpft
+(`projekt.pipedrive`), samt Link zurück zum Deal.
+
+**Das Werkzeug liest ausschließlich.** Es stellt nur GET-Abfragen und
+verändert in Pipedrive nichts. Ein bereits übernommener Deal wird in der
+Liste als solcher gekennzeichnet.
+
+### Zum Zugriffsschlüssel
+
+Ein Pipedrive-API-Token gilt mit allen Rechten des Benutzerkontos und lässt
+sich dort **nicht** auf reines Lesen beschränken. Er verbleibt ausschließlich
+im Speicher des jeweiligen Geräts. `tests/test-pipedrive.js` weist nach, dass
+er weder in ein Projekt, noch in eine Exportdatei, noch in einen Freigabe-Link
+gelangt und nur im Kopf der Abfrage übergeben wird — nie in der Adresse, wo er
+in Protokollen stehen bliebe. Geht ein Gerät verloren, ist der Token in
+Pipedrive zurückzuziehen.
+
+### Grenze: keine Automatik ohne Dienst
+
+Ein Aufmaß entsteht, wenn Sie einen Deal auswählen — nicht von selbst, sobald
+in Pipedrive ein Deal angelegt wird. Dafür müsste ein Webhook-Empfänger
+dauerhaft laufen; eine Browser-Anwendung existiert nur, solange sie geöffnet
+ist. Die Übernahme ist deshalb als reine Abbildung ohne Seiteneffekte gebaut
+(`Pipedrive.aufProjektAbbilden`): Ein späterer Dienst kann dieselbe Funktion
+mit denselben Daten verwenden, ohne dass etwas neu geschrieben werden muss.
+
+Ob Pipedrive Abfragen unmittelbar aus dem Browser zulässt, hängt an dessen
+CORS-Freigabe. Lehnt es ab, meldet das Werkzeug das verständlich; die übrigen
+Funktionen bleiben davon unberührt. In diesem Fall wäre ein kleiner
+Zwischendienst nötig.
+
 ## Matrix vom Kunden ausfüllen lassen
 
 Unter *Schließplan → Kundenfreigabe* entsteht ein Link, den der Kunde im
@@ -232,6 +270,7 @@ src/
   js/store.js             Speicherung (IndexedDB), Export/Import, Fotos
   js/verlauf.js           Rücknahme von Arbeitsschritten
   js/freigabe.js          Kundenfreigabe der Matrix (Kodierung)
+  js/pipedrive.js         Pipedrive-Anbindung (ausschließlich lesend)
   freigabe.html           Seite, die der Kunde über den Link öffnet
   js/app.js               Grundgerüst der Oberfläche, Autospeicherung
   js/views-*.js           Die einzelnen Ansichten

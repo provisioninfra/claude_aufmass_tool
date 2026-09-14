@@ -912,6 +912,123 @@
       el('p', { style: { marginTop: '8px' } }, qualitaetAnzeige)
     ]));
 
+    /* --- Pipedrive ------------------------------------------------------- */
+    var pdBereich = el('div', { class: 'karte' });
+    seite.appendChild(pdBereich);
+    pdZeichnen();
+
+    function pdZeichnen(pruefErgebnis) {
+      A.leeren(pdBereich);
+      pdBereich.appendChild(el('h2', { text: 'Pipedrive' }));
+      pdBereich.appendChild(el('p', { class: 'hinweis',
+        text: 'Mit einer Verbindung zu Pipedrive lässt sich ein Aufmaß direkt aus einem Deal anlegen. ' +
+              'Das Werkzeug liest dabei ausschließlich – es verändert in Pipedrive nichts.' }));
+
+      var tokenFeld = el('input', {
+        type: 'password', value: e.pipedriveToken || '',
+        placeholder: 'Zugriffsschlüssel aus Pipedrive',
+        autocomplete: 'off', spellcheck: 'false',
+        oninput: function (ev) { e.pipedriveToken = ev.target.value.trim(); merken(); }
+      });
+      var zeigen = el('button', { class: 'klein', text: 'Anzeigen', onclick: function (ev) {
+        var versteckt = tokenFeld.type === 'password';
+        tokenFeld.type = versteckt ? 'text' : 'password';
+        ev.target.textContent = versteckt ? 'Verbergen' : 'Anzeigen';
+      } });
+
+      pdBereich.appendChild(el('div', { class: 'raster' }, [
+        el('div', { class: 'feld' }, [
+          el('label', { html: 'Zugriffsschlüssel <span class="einheit">(API-Token)</span>' }),
+          tokenFeld,
+          el('div', { class: 'knopfleiste', style: { marginTop: '6px' } }, [zeigen])
+        ]),
+        textE('pipedriveHost', 'Pipedrive-Adresse',
+              'z. B. meinefirma.pipedrive.com – leer lassen für die Standardadresse')
+      ]));
+
+      pdBereich.appendChild(el('div', { class: 'meldung warn', style: { marginTop: '4px' } },
+        el('div', {}, [
+          el('b', { text: 'Zum Schlüssel: ' }),
+          'Er gilt in Pipedrive mit allen Rechten Ihres Benutzerkontos und lässt sich dort nicht ' +
+          'auf reines Lesen beschränken. Er verbleibt ausschließlich auf diesem Gerät, wird in ' +
+          'keinen Export und keinen Freigabe-Link geschrieben. Legen Sie ihn nur auf Geräten ab, ' +
+          'die Sie selbst kontrollieren, und ziehen Sie ihn in Pipedrive zurück, wenn ein Gerät ' +
+          'abhandenkommt. Sie finden ihn unter: Einstellungen → Persönliche Einstellungen → API.'
+        ])));
+
+      pdBereich.appendChild(el('div', { class: 'knopfleiste', style: { marginTop: '12px' } }, [
+        el('button', { class: 'haupt', text: 'Verbindung prüfen', onclick: function (ev) {
+          if (!e.pipedriveToken) { A.toast('Bitte zuerst den Schlüssel eintragen.', 'fehler'); return; }
+          ev.target.disabled = true; ev.target.textContent = 'Prüfe …';
+          global.Pipedrive.verbindungPruefen(e).then(function (benutzer) {
+            return global.Pipedrive.pipelines(e).then(function (liste) {
+              pdZeichnen({ gut: true, benutzer: benutzer, pipelines: liste });
+            });
+          }).catch(function (fehler) {
+            pdZeichnen({ gut: false, fehler: fehler });
+          });
+        } }),
+        e.pipedriveToken ? el('button', { class: 'gefahr', text: 'Verbindung entfernen', onclick: function () {
+          A.bestaetigen('Verbindung entfernen?',
+            'Der Zugriffsschlüssel wird von diesem Gerät gelöscht. In Pipedrive selbst ändert sich nichts.',
+            'Entfernen').then(function (ja) {
+            if (!ja) return;
+            e.pipedriveToken = ''; e.pipedrivePipelineId = ''; e.pipedrivePipelineName = '';
+            merken(); pdZeichnen();
+            A.toast('Verbindung entfernt.');
+          });
+        } }) : null
+      ]));
+
+      if (!pruefErgebnis) {
+        if (e.pipedrivePipelineName) {
+          pdBereich.appendChild(el('p', { class: 'zart', style: { marginTop: '10px' },
+            text: 'Gewählte Pipeline: ' + e.pipedrivePipelineName }));
+        }
+        return;
+      }
+
+      if (!pruefErgebnis.gut) {
+        var f = pruefErgebnis.fehler || {};
+        pdBereich.appendChild(el('div', { class: 'meldung fehler', style: { marginTop: '12px' } },
+          el('div', {}, [
+            el('b', { text: f.message || 'Die Verbindung ist fehlgeschlagen.' }),
+            f.zusatz ? el('div', { style: { marginTop: '6px', fontSize: '13px' }, text: f.zusatz }) : null,
+            f.art === 'verbindung' ? el('div', { style: { marginTop: '8px', fontSize: '13px' },
+              text: 'Hinweis: Wenn Pipedrive Abfragen aus dem Browser grundsätzlich ablehnt, ' +
+                    'lässt sich das nur über einen kleinen Zwischendienst lösen. Die Projektanlage ' +
+                    'funktioniert davon unabhängig weiter – nur eben ohne Übernahme aus Pipedrive.' }) : null
+          ])));
+        return;
+      }
+
+      var b = pruefErgebnis.benutzer;
+      pdBereich.appendChild(el('div', { class: 'meldung ok', style: { marginTop: '12px' } },
+        el('div', {}, [
+          el('b', { text: 'Verbindung steht.' }),
+          el('div', { style: { marginTop: '4px', fontSize: '13.5px' },
+            text: 'Angemeldet als ' + (b.name || '–') + (b.firma ? (' · ' + b.firma) : '') })
+        ])));
+
+      var auswahl = el('select', {
+        onchange: function (ev) {
+          e.pipedrivePipelineId = ev.target.value;
+          var gewaehlt = (pruefErgebnis.pipelines || []).filter(function (pl) {
+            return String(pl.id) === String(ev.target.value); })[0];
+          e.pipedrivePipelineName = gewaehlt ? gewaehlt.name : '';
+          merken();
+        }
+      });
+      auswahl.appendChild(el('option', { value: '', text: '– alle Pipelines –' }));
+      (pruefErgebnis.pipelines || []).forEach(function (pl) {
+        auswahl.appendChild(el('option', { value: pl.id, text: pl.name }));
+      });
+      auswahl.value = e.pipedrivePipelineId || '';
+      pdBereich.appendChild(el('div', { class: 'raster', style: { marginTop: '12px' } }, [
+        A.feld('Pipeline für neue Aufmaße <span class="einheit">(z. B. Neukunden-Funnel)</span>', auswahl)
+      ]));
+    }
+
     /* --- Eigene Katalogeinträge --- */
     seite.appendChild(el('div', { class: 'karte' }, [
       el('h2', { text: 'Eigene Katalogeinträge' }),

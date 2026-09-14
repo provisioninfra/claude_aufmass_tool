@@ -18,7 +18,7 @@ function bauen() {
 
   /* Reihenfolge wie in index.html - die Module bauen aufeinander auf */
   const skripte = [
-    'js/catalog.js', 'js/model.js', 'js/pdf.js', 'js/reports.js', 'js/store.js', 'js/verlauf.js', 'js/freigabe.js',
+    'js/catalog.js', 'js/model.js', 'js/pdf.js', 'js/reports.js', 'js/store.js', 'js/verlauf.js', 'js/freigabe.js', 'js/pipedrive.js',
     'js/app.js', 'js/views-projekt.js', 'js/views-tueren.js', 'js/views-plan.js', 'js/main.js'
   ];
 

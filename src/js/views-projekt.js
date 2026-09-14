@@ -34,6 +34,10 @@
         class: 'haupt', text: '+ Neues Aufmaß',
         onclick: function () { neuesProjektAnlegen(neuLaden); }
       }),
+      (Zustand.einstellungen && Zustand.einstellungen.pipedriveToken)
+        ? el('button', { text: 'Aus Pipedrive', title: 'Aufmaß aus einem Deal anlegen',
+            onclick: function () { pipedriveDialog(neuLaden); } })
+        : null,
       el('button', {
         text: 'Projekt importieren',
         onclick: function () { importDialog(neuLaden); }
@@ -114,6 +118,144 @@
         }));
       });
     });
+  }
+
+  /* =========================================================================
+   * Aufmaß aus einem Pipedrive-Deal anlegen
+   * ======================================================================
+   * Das Werkzeug holt die Deals ab; es wird nichts nach Pipedrive geschrieben.
+   */
+  function pipedriveDialog(neuLaden) {
+    var e = Zustand.einstellungen || {};
+    var PD = global.Pipedrive;
+
+    if (!e.pipedriveToken) {
+      A.dialogOeffnen({
+        titel: 'Pipedrive ist noch nicht verbunden', klein: true,
+        inhalt: el('div', {}, [
+          el('p', { class: 'hinweis', style: { marginTop: '0' },
+            text: 'Hinterlegen Sie zuerst unter Einstellungen den Zugriffsschlüssel aus Pipedrive. ' +
+                  'Danach lassen sich Aufmaße direkt aus einem Deal anlegen.' })
+        ]),
+        knoepfe: [
+          { fuellen: true },
+          { text: 'Abbrechen' },
+          { text: 'Zu den Einstellungen', klasse: 'haupt', aktion: function (schliessen) {
+            schliessen();
+            global.App.wechseln('einstellungen');
+            return false;
+          } }
+        ]
+      });
+      return;
+    }
+
+    var liste = el('div');
+    var dlg = A.dialogOeffnen({
+      titel: 'Aufmaß aus einem Pipedrive-Deal anlegen',
+      inhalt: el('div', {}, [
+        el('p', { class: 'hinweis', style: { marginTop: '0' },
+          text: e.pipedrivePipelineName
+            ? ('Offene Deals aus der Pipeline „' + e.pipedrivePipelineName + '“.')
+            : 'Offene Deals aus allen Pipelines. Unter Einstellungen lässt sich eine Pipeline festlegen.' }),
+        liste
+      ]),
+      knoepfe: [{ fuellen: true }, { text: 'Schließen' }]
+    });
+
+    liste.appendChild(el('p', { class: 'zart', text: 'Deals werden abgerufen …' }));
+
+    PD.deals(e, e.pipedrivePipelineId || undefined, { status: 'open', limit: 100 })
+      .then(function (deals) {
+        A.leeren(liste);
+        if (!deals.length) {
+          liste.appendChild(el('div', { class: 'leer' }, [
+            el('h3', { text: 'Keine offenen Deals gefunden' }),
+            el('p', { text: e.pipedrivePipelineName
+              ? ('In der Pipeline „' + e.pipedrivePipelineName + '“ steht derzeit kein offener Deal.')
+              : 'Es wurde kein offener Deal gefunden.' })
+          ]));
+          return;
+        }
+
+        /* Bereits übernommene Deals kennzeichnen */
+        Store.alleProjekte().then(function (vorhandene) {
+          var schonDa = {};
+          vorhandene.forEach(function (pr) {
+            if (pr.pipedrive && pr.pipedrive.dealId) schonDa[pr.pipedrive.dealId] = pr;
+          });
+
+          A.leeren(liste);
+          var box = el('div', { class: 'tuer-liste', style: { border: '1px solid var(--rand)',
+            borderRadius: 'var(--radius)' } });
+          deals.forEach(function (deal) {
+            var bekannt = schonDa[deal.id];
+            box.appendChild(el('div', {
+              class: 'tuer-zeile',
+              onclick: function () { dealUebernehmen(deal, bekannt, dlg, neuLaden); }
+            }, [
+              el('div', { class: 'statusbalken',
+                style: { background: bekannt ? 'var(--text-zart)' : 'var(--gruen)' } }),
+              el('div', { class: 'inhalt' }, [
+                el('div', { class: 'haupt' }, [
+                  el('div', { class: 'bez', text: deal.titel || ('Deal ' + deal.id) }),
+                  el('div', { class: 'detail', text:
+                    ['Deal-Nr. ' + deal.id,
+                     deal.wert ? (Number(deal.wert).toLocaleString('de-DE') + ' ' + deal.waehrung) : '',
+                     deal.geaendert ? ('geändert ' + datumKurz(deal.geaendert)) : ''
+                    ].filter(Boolean).join('  ·  ') })
+                ]),
+                el('div', { class: 'marken' }, [
+                  bekannt ? el('span', { class: 'marke-pille', text: 'bereits übernommen' })
+                          : el('span', { class: 'marke-pille gruen', text: 'übernehmen' })
+                ])
+              ])
+            ]));
+          });
+          liste.appendChild(box);
+        });
+      })
+      .catch(function (fehler) {
+        A.leeren(liste);
+        liste.appendChild(el('div', { class: 'meldung fehler' }, el('div', {}, [
+          el('b', { text: fehler.message || 'Die Deals konnten nicht abgerufen werden.' }),
+          fehler.zusatz ? el('div', { style: { marginTop: '6px', fontSize: '13px' }, text: fehler.zusatz }) : null
+        ])));
+      });
+  }
+
+  function dealUebernehmen(deal, bekannt, dlg, neuLaden) {
+    var e = Zustand.einstellungen || {};
+    var PD = global.Pipedrive;
+
+    if (bekannt) {
+      A.bestaetigen('Deal bereits übernommen',
+        'Zu diesem Deal gibt es schon das Aufmaß „' + (bekannt.kunde || bekannt.name) +
+        '“. Soll trotzdem ein weiteres angelegt werden?', 'Weiteres anlegen')
+        .then(function (ja) { if (ja) holenUndAnlegen(); });
+      return;
+    }
+    holenUndAnlegen();
+
+    function holenUndAnlegen() {
+      A.toast('Stammdaten werden aus Pipedrive geholt …');
+      PD.dealVollstaendig(e, deal).then(function (daten) {
+        var projekt = M.neuesProjekt(deal.titel || 'Aufmaß aus Pipedrive');
+        if (e.standardBearbeiter) projekt.bearbeiter = e.standardBearbeiter;
+        var ergebnis = PD.aufProjektAbbilden(projekt, daten, e);
+
+        return Store.projektSpeichern(projekt).then(function () {
+          if (dlg) dlg.schliessen();
+          A.projektOeffnenIntern(projekt, 'stammdaten');
+          neuLaden();
+          var n = ergebnis.uebernommen.length;
+          A.toast(n ? (n + ' Angaben aus Pipedrive übernommen: ' + ergebnis.uebernommen.join(', '))
+                    : 'Aufmaß angelegt. In Pipedrive waren keine Stammdaten hinterlegt.', 'ok');
+        });
+      }).catch(function (fehler) {
+        A.toast(fehler.message || 'Die Übernahme ist fehlgeschlagen.', 'fehler');
+      });
+    }
   }
 
   function neuesProjektAnlegen(neuLaden) {
@@ -198,6 +340,20 @@
 
     seite.appendChild(el('h1', { text: 'Projekt-Stammdaten' }));
     seite.appendChild(el('p', { class: 'hinweis', text: 'Diese Angaben erscheinen im Kopf jeder PDF-Ausgabe.' }));
+
+    /* Verknüpfung zu Pipedrive, sofern das Aufmaß von dort stammt */
+    if (p.pipedrive && p.pipedrive.dealId) {
+      seite.appendChild(el('div', { class: 'meldung info' }, el('div', {}, [
+        el('b', { text: 'Verknüpft mit Pipedrive' }),
+        el('div', { style: { marginTop: '4px', fontSize: '13.5px' }, text:
+          'Deal-Nr. ' + p.pipedrive.dealId +
+          (p.pipedrive.dealTitel ? ('  ·  ' + p.pipedrive.dealTitel) : '') +
+          (p.pipedrive.orgId ? ('  ·  Organisation ' + p.pipedrive.orgId) : '') }),
+        p.pipedrive.dealLink ? el('div', { style: { marginTop: '8px' } },
+          el('a', { class: 'knopf klein', href: p.pipedrive.dealLink, target: '_blank',
+                    rel: 'noopener noreferrer', text: 'Deal in Pipedrive öffnen ↗' })) : null
+      ])));
+    }
 
     seite.appendChild(el('div', { class: 'karte' }, [
       el('h2', { text: 'Kunde und Objekt' }),
@@ -445,6 +601,7 @@
   global.ViewsProjekt = {
     ansichtProjekte: ansichtProjekte,
     neuesProjektAnlegen: neuesProjektAnlegen,
+    pipedriveDialog: pipedriveDialog,
     standortAnlegen: standortAnlegen,
     ansichtStammdaten: ansichtStammdaten,
     ansichtStruktur: ansichtStruktur,
