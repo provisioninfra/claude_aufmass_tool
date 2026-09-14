@@ -130,6 +130,8 @@
     pipedriveHost: '',
     pipedrivePipelineId: '',
     pipedrivePipelineName: '',
+    pipedrivePhaseId: '',
+    pipedrivePhaseName: '',
     fotoQualitaet: 0.72,
     fotoMaxKante: 1280,
     letztesProjekt: ''

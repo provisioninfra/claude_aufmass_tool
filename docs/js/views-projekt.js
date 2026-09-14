@@ -156,8 +156,10 @@
       inhalt: el('div', {}, [
         el('p', { class: 'hinweis', style: { marginTop: '0' },
           text: e.pipedrivePipelineName
-            ? ('Offene Deals aus der Pipeline „' + e.pipedrivePipelineName + '“.')
-            : 'Offene Deals aus allen Pipelines. Unter Einstellungen lässt sich eine Pipeline festlegen.' }),
+            ? ('Offene Deals aus „' + e.pipedrivePipelineName + '“' +
+               (e.pipedrivePhaseName ? (', Phase „' + e.pipedrivePhaseName + '“') : '') +
+               ', zu denen noch kein Aufmaß vorliegt.')
+            : 'Offene Deals aus allen Pipelines. Unter Einstellungen lassen sich Pipeline und Phase festlegen.' }),
         liste
       ]),
       knoepfe: [{ fuellen: true }, { text: 'Schließen' }]
@@ -165,63 +167,105 @@
 
     liste.appendChild(el('p', { class: 'zart', text: 'Deals werden abgerufen …' }));
 
-    PD.deals(e, e.pipedrivePipelineId || undefined, { status: 'open', limit: 100 })
-      .then(function (deals) {
-        A.leeren(liste);
-        if (!deals.length) {
-          liste.appendChild(el('div', { class: 'leer' }, [
-            el('h3', { text: 'Keine offenen Deals gefunden' }),
-            el('p', { text: e.pipedrivePipelineName
-              ? ('In der Pipeline „' + e.pipedrivePipelineName + '“ steht derzeit kein offener Deal.')
-              : 'Es wurde kein offener Deal gefunden.' })
-          ]));
-          return;
-        }
+    Promise.all([
+      PD.deals(e, e.pipedrivePipelineId || undefined, {
+        phaseId: e.pipedrivePhaseId || undefined, status: 'open', limit: 100 }),
+      Store.alleProjekte()
+    ]).then(function (teile) {
+      var deals = teile[0], vorhandene = teile[1];
+      A.leeren(liste);
 
-        /* Bereits übernommene Deals kennzeichnen */
-        Store.alleProjekte().then(function (vorhandene) {
-          var schonDa = {};
-          vorhandene.forEach(function (pr) {
-            if (pr.pipedrive && pr.pipedrive.dealId) schonDa[pr.pipedrive.dealId] = pr;
-          });
-
-          A.leeren(liste);
-          var box = el('div', { class: 'tuer-liste', style: { border: '1px solid var(--rand)',
-            borderRadius: 'var(--radius)' } });
-          deals.forEach(function (deal) {
-            var bekannt = schonDa[deal.id];
-            box.appendChild(el('div', {
-              class: 'tuer-zeile',
-              onclick: function () { dealUebernehmen(deal, bekannt, dlg, neuLaden); }
-            }, [
-              el('div', { class: 'statusbalken',
-                style: { background: bekannt ? 'var(--text-zart)' : 'var(--gruen)' } }),
-              el('div', { class: 'inhalt' }, [
-                el('div', { class: 'haupt' }, [
-                  el('div', { class: 'bez', text: deal.titel || ('Deal ' + deal.id) }),
-                  el('div', { class: 'detail', text:
-                    ['Deal-Nr. ' + deal.id,
-                     deal.wert ? (Number(deal.wert).toLocaleString('de-DE') + ' ' + deal.waehrung) : '',
-                     deal.geaendert ? ('geändert ' + datumKurz(deal.geaendert)) : ''
-                    ].filter(Boolean).join('  ·  ') })
-                ]),
-                el('div', { class: 'marken' }, [
-                  bekannt ? el('span', { class: 'marke-pille', text: 'bereits übernommen' })
-                          : el('span', { class: 'marke-pille gruen', text: 'übernehmen' })
-                ])
-              ])
-            ]));
-          });
-          liste.appendChild(box);
-        });
-      })
-      .catch(function (fehler) {
-        A.leeren(liste);
-        liste.appendChild(el('div', { class: 'meldung fehler' }, el('div', {}, [
-          el('b', { text: fehler.message || 'Die Deals konnten nicht abgerufen werden.' }),
-          fehler.zusatz ? el('div', { style: { marginTop: '6px', fontSize: '13px' }, text: fehler.zusatz }) : null
-        ])));
+      /* Jeden Deal gegen die festgelegte Regel prüfen */
+      var geprueft = deals.map(function (deal) {
+        return { deal: deal, pruefung: PD.istZuUebernehmen(deal, e, vorhandene) };
       });
+      var offen = geprueft.filter(function (g) { return g.pruefung.uebernehmen; });
+      var schonDa = geprueft.filter(function (g) { return g.pruefung.grund === 'Aufmaß vorhanden'; });
+
+      if (!offen.length) {
+        liste.appendChild(el('div', { class: 'leer' }, [
+          el('h3', { text: 'Kein Deal zur Übernahme' }),
+          el('p', { text: deals.length
+            ? ('Alle ' + deals.length + ' Deals in dieser Phase haben bereits ein Aufmaß.')
+            : ('In der Phase „' + (e.pipedrivePhaseName || 'gewählten Phase') +
+               '“ steht derzeit kein offener Deal.') })
+        ]));
+      } else {
+        liste.appendChild(el('p', { class: 'zart', style: { marginBottom: '8px' },
+          text: offen.length + (offen.length === 1 ? ' Deal wartet' : ' Deals warten') + ' auf ein Aufmaß' }));
+        var box = el('div', { class: 'tuer-liste deal-offen', style: { border: '1px solid var(--rand)',
+          borderRadius: 'var(--radius)' } });
+        offen.forEach(function (g) {
+          var deal = g.deal;
+          box.appendChild(el('div', {
+            class: 'tuer-zeile',
+            onclick: function () { dealUebernehmen(deal, null, dlg, neuLaden); }
+          }, [
+            el('div', { class: 'statusbalken', style: { background: 'var(--gruen)' } }),
+            el('div', { class: 'inhalt' }, [
+              el('div', { class: 'haupt' }, [
+                el('div', { class: 'bez', text: deal.titel || ('Deal ' + deal.id) }),
+                el('div', { class: 'detail', text:
+                  ['Deal-Nr. ' + deal.id,
+                   deal.wert ? (Number(deal.wert).toLocaleString('de-DE') + ' ' + (deal.waehrung || '')) : '',
+                   deal.geaendert ? ('geändert ' + datumKurz(deal.geaendert)) : ''
+                  ].filter(Boolean).join('  ·  ') })
+              ]),
+              el('div', { class: 'marken' },
+                el('span', { class: 'marke-pille gruen', text: 'Aufmaß anlegen' }))
+            ])
+          ]));
+        });
+        liste.appendChild(box);
+      }
+
+      /* Bereits übernommene Deals nur auf Wunsch zeigen */
+      if (schonDa.length) {
+        var aufklapp = el('details', { class: 'abschnitt', style: { marginTop: '14px' } }, [
+          el('summary', {}, [
+            el('span', { text: 'Bereits übernommen' }),
+            el('span', { class: 'zusatz', text: schonDa.length + (schonDa.length === 1 ? ' Deal' : ' Deals') })
+          ]),
+          el('div', { class: 'koerper' }, (function () {
+            var innen = el('div', { class: 'tuer-liste deal-vorhanden', style: { border: '1px solid var(--rand)',
+              borderRadius: 'var(--radius)' } });
+            schonDa.forEach(function (g) {
+              var pr = g.pruefung.projekt || {};
+              innen.appendChild(el('div', { class: 'tuer-zeile', style: { cursor: 'default' } }, [
+                el('div', { class: 'statusbalken', style: { background: 'var(--text-zart)' } }),
+                el('div', { class: 'inhalt' }, [
+                  el('div', { class: 'haupt' }, [
+                    el('div', { class: 'bez', text: g.deal.titel || ('Deal ' + g.deal.id) }),
+                    el('div', { class: 'detail',
+                      text: 'Aufmaß vorhanden: ' + (pr.kunde || pr.name || '–') })
+                  ]),
+                  el('div', { class: 'marken' }, [
+                    el('button', { class: 'klein', text: 'Öffnen', onclick: function (ev) {
+                      ev.stopPropagation();
+                      if (dlg) dlg.schliessen();
+                      projektOeffnen(pr.id, neuLaden);
+                    } }),
+                    el('button', { class: 'klein', text: 'Trotzdem neu anlegen', onclick: function (ev) {
+                      ev.stopPropagation();
+                      dealUebernehmen(g.deal, pr, dlg, neuLaden);
+                    } })
+                  ])
+                ])
+              ]));
+            });
+            return innen;
+          })())
+        ]);
+        liste.appendChild(aufklapp);
+      }
+    })
+    .catch(function (fehler) {
+      A.leeren(liste);
+      liste.appendChild(el('div', { class: 'meldung fehler' }, el('div', {}, [
+        el('b', { text: fehler.message || 'Die Deals konnten nicht abgerufen werden.' }),
+        fehler.zusatz ? el('div', { style: { marginTop: '6px', fontSize: '13px' }, text: fehler.zusatz }) : null
+      ])));
+    });
   }
 
   function dealUebernehmen(deal, bekannt, dlg, neuLaden) {

@@ -16,13 +16,20 @@ const ANTWORTEN = {
   '/api/v2/pipelines': { success: true, data: [
     { id: 1, name: 'Vertrieb', order_nr: 1 },
     { id: 2, name: 'Neukunden Funnel', order_nr: 2 } ] },
+  '/api/v2/stages': { success: true, data: [
+    { id: 10, name: 'Erstkontakt', order_nr: 1, pipeline_id: 2 },
+    { id: 11, name: 'Workshop / Aufmaß v.O.', order_nr: 2, pipeline_id: 2 },
+    { id: 12, name: 'Angebot', order_nr: 3, pipeline_id: 2 } ] },
   '/api/v2/deals': { success: true, data: [
     { id: 5001, title: 'Schließanlage Bürogebäude Königsallee', value: 18500, currency: 'EUR',
-      stage_id: 11, status: 'open', org_id: 301, person_id: 901,
+      pipeline_id: 2, stage_id: 11, status: 'open', org_id: 301, person_id: 901,
       add_time: '2026-09-01T09:00:00Z', update_time: '2026-09-12T14:20:00Z' },
     { id: 5002, title: 'Wohnanlage Nordpark – 40 Türen', value: 32000, currency: 'EUR',
-      stage_id: 11, status: 'open', org_id: 302, person_id: null,
-      add_time: '2026-09-05T08:00:00Z', update_time: '2026-09-11T10:00:00Z' } ] },
+      pipeline_id: 2, stage_id: 11, status: 'open', org_id: 302, person_id: null,
+      add_time: '2026-09-05T08:00:00Z', update_time: '2026-09-11T10:00:00Z' },
+    { id: 5003, title: 'Noch im Erstkontakt – kein Aufmaß', value: 9000, currency: 'EUR',
+      pipeline_id: 2, stage_id: 10, status: 'open', org_id: 301, person_id: null,
+      add_time: '2026-09-08T08:00:00Z', update_time: '2026-09-13T10:00:00Z' } ] },
   '/api/v2/organizations/301': { success: true, data: {
     id: 301, name: 'Müller & Söhne Immobilienverwaltung GmbH',
     address: { route: 'Königsallee', street_number: '47', postal_code: '40212',
@@ -91,7 +98,19 @@ const ANTWORTEN = {
 
   const pipelineWahl = page.locator('select').filter({ has: page.locator('option:text("Neukunden Funnel")') }).first();
   await pipelineWahl.selectOption({ label: 'Neukunden Funnel' });
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(800);
+
+  /* --- Phase festlegen --- */
+  const phasenWahl = page.locator('select').filter({
+    has: page.locator('option:text("Workshop / Aufmaß v.O.")') }).first();
+  const phasen = await phasenWahl.locator('option').allTextContents();
+  pruefe(phasen.includes('Workshop / Aufmaß v.O.'), 'die Phasen der Pipeline werden geladen',
+    phasen.join(' | '));
+  await phasenWahl.selectOption({ label: 'Workshop / Aufmaß v.O.' });
+  await page.waitForTimeout(500);
+  const regel = await page.textContent('.regel-anzeige');
+  pruefe(/Workshop \/ Aufmaß v\.O\./.test(regel) && /noch kein Aufmaß/.test(regel),
+    'die Übernahmeregel wird im Klartext angezeigt', regel.trim().slice(0, 110));
 
   /* --- Deal übernehmen --- */
   await page.evaluate(() => window.App.wechseln('projekte'));
@@ -100,18 +119,21 @@ const ANTWORTEN = {
   pruefe(!!pdKnopf, 'der Knopf „Aus Pipedrive“ erscheint nach dem Verbinden');
 
   await pdKnopf.click();
-  await page.waitForSelector('.dialog .tuer-zeile', { timeout: 8000 });
-  const dealZeilen = await page.$$eval('.dialog .tuer-zeile', n => n.length);
-  pruefe(dealZeilen === 2, 'die offenen Deals werden aufgelistet (' + dealZeilen + ')');
+  await page.waitForSelector('.dialog .deal-offen .tuer-zeile', { timeout: 8000 });
+  const dealZeilen = await page.$$eval('.dialog .deal-offen .tuer-zeile', n => n.length);
+  pruefe(dealZeilen === 2, 'nur Deals der festgelegten Phase werden angeboten (' + dealZeilen + ' von 3)');
+  const titelListe = await page.$$eval('.dialog .deal-offen .tuer-zeile .bez', n => n.map(x => x.textContent));
+  pruefe(!titelListe.some(t => /Erstkontakt/.test(t)),
+    'ein Deal aus einer anderen Phase wird nicht angeboten', titelListe.join(' | '));
   const ersterDeal = await page.textContent('.dialog .tuer-zeile .bez');
   pruefe(/Königsallee/.test(ersterDeal), 'Dealtitel wird angezeigt', ersterDeal.trim());
 
   const gefiltert = anfragen.filter(a => a.pfad === '/api/v2/deals');
-  pruefe(gefiltert.length && /pipeline_id=2/.test(gefiltert[gefiltert.length - 1].suchteil),
-    'die gewählte Pipeline wird als Filter mitgegeben',
-    gefiltert.length ? gefiltert[gefiltert.length - 1].suchteil : 'keine Abfrage');
+  const letzteAbfrage = gefiltert.length ? gefiltert[gefiltert.length - 1].suchteil : '';
+  pruefe(/pipeline_id=2/.test(letzteAbfrage), 'die Pipeline wird als Filter mitgegeben', letzteAbfrage);
+  pruefe(/stage_id=11/.test(letzteAbfrage), 'die Phase wird als Filter mitgegeben', letzteAbfrage);
 
-  await page.click('.dialog .tuer-zeile');
+  await page.click('.dialog .deal-offen .tuer-zeile');
   await page.waitForSelector('nav.reiter button[aria-selected=true]:text("Stammdaten")', { timeout: 8000 });
   await page.waitForTimeout(600);
 
@@ -194,12 +216,16 @@ const ANTWORTEN = {
   await page.evaluate(() => window.App.wechseln('projekte'));
   await page.waitForTimeout(500);
   await page.click('button:has-text("Aus Pipedrive")');
-  await page.waitForSelector('.dialog .tuer-zeile', { timeout: 8000 });
-  const zeilen = await page.$$('.dialog .tuer-zeile');
-  const marken = await page.$$eval('.dialog .marke-pille', n => n.map(x => x.textContent));
-  pruefe(marken.includes('bereits übernommen'), 'ein schon übernommener Deal wird gekennzeichnet',
-    marken.join(' | '));
-  await zeilen[1].click();
+  await page.waitForSelector('.dialog .deal-offen .tuer-zeile', { timeout: 8000 });
+  const zeilen = await page.$$('.dialog .deal-offen .tuer-zeile');
+  const angeboten = await page.$$eval('.dialog .deal-offen .tuer-zeile .bez',
+    n => n.map(x => x.textContent));
+  pruefe(!angeboten.some(t => /Königsallee/.test(t)),
+    'ein Deal mit vorhandenem Aufmaß wird nicht mehr angeboten', angeboten.join(' | '));
+  const aufklapp = await page.textContent('.dialog details summary');
+  pruefe(/Bereits übernommen/.test(aufklapp),
+    'übernommene Deals stehen separat zum Nachschlagen', aufklapp.trim());
+  await zeilen[0].click();
   await page.waitForTimeout(1200);
   const zweites = await page.evaluate(() => {
     const p = window.AppKern.Zustand.projekt;
@@ -211,6 +237,31 @@ const ANTWORTEN = {
     'eine als Text gelieferte Adresse wird zerlegt',
     JSON.stringify(zweites.strasse + ' / ' + zweites.plz + ' ' + zweites.ort));
   pruefe(zweites.ansprechpartner === '', 'ein fehlender Ansprechpartner stört nicht');
+
+  /* --- Die Regel im Einzelnen --- */
+  console.log('\n== Übernahmeregel ==');
+  const regelFaelle = await page.evaluate(() => {
+    const e = { pipedrivePipelineId: '2', pipedrivePhaseId: '11' };
+    const projekte = [{ id: 'x', pipedrive: { dealId: 7001 } }];
+    const f = [
+      [{ id: 7001, pipelineId: 2, phaseId: 11, status: 'open' }, 'Aufmaß liegt vor'],
+      [{ id: 7002, pipelineId: 2, phaseId: 11, status: 'open' }, 'in Phase, ohne Aufmaß'],
+      [{ id: 7003, pipelineId: 2, phaseId: 12, status: 'open' }, 'andere Phase'],
+      [{ id: 7004, pipelineId: 1, phaseId: 11, status: 'open' }, 'andere Pipeline'],
+      [{ id: 7005, pipelineId: 2, phaseId: 11, status: 'won' }, 'bereits gewonnen'],
+      [{ id: 7006, pipelineId: 2, phaseId: 11, status: 'lost' }, 'verloren']
+    ];
+    return f.map(([deal, bez]) => {
+      const r = window.Pipedrive.istZuUebernehmen(deal, e, projekte);
+      return { bez, uebernehmen: r.uebernehmen, grund: r.grund };
+    });
+  });
+  const erwartet = { 'Aufmaß liegt vor': false, 'in Phase, ohne Aufmaß': true, 'andere Phase': false,
+                     'andere Pipeline': false, 'bereits gewonnen': false, 'verloren': false };
+  regelFaelle.forEach(f => {
+    pruefe(f.uebernehmen === erwartet[f.bez],
+      'Regel: ' + f.bez + ' → ' + (f.uebernehmen ? 'übernehmen' : f.grund));
+  });
 
   pruefe(konsolenFehler.length === 0, 'keine JavaScript-Fehler', konsolenFehler.slice(0, 3).join(' | '));
   await browser.close();

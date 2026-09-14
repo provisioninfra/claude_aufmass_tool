@@ -100,8 +100,26 @@ des Ansprechpartners; Deal und Organisation bleiben im Projekt verknüpft
 (`projekt.pipedrive`), samt Link zurück zum Deal.
 
 **Das Werkzeug liest ausschließlich.** Es stellt nur GET-Abfragen und
-verändert in Pipedrive nichts. Ein bereits übernommener Deal wird in der
-Liste als solcher gekennzeichnet.
+verändert in Pipedrive nichts.
+
+### Wann ein Aufmaß entsteht
+
+Angeboten wird ein Deal genau dann, wenn alle vier Bedingungen zutreffen
+(`Pipedrive.istZuUebernehmen`):
+
+1. Er steht in der festgelegten **Pipeline** (z. B. Neukunden Funnel),
+2. in der festgelegten **Phase** (z. B. Workshop / Aufmaß v.O.),
+3. sein Status ist **offen** (weder gewonnen noch verloren),
+4. und es liegt **noch kein Aufmaß** zu diesem Deal vor.
+
+Ob der Deal dort neu angelegt oder hineingeschoben wurde, spielt keine
+Rolle – maßgeblich ist, wo er jetzt steht. Damit ist derselbe Fall abgedeckt,
+den eine spätere Automatik über einen Webhook behandeln würde: Die Regel ist
+eine Funktion ohne Seiteneffekte und lässt sich unverändert weiterverwenden.
+
+Deals, zu denen bereits ein Aufmaß besteht, erscheinen nicht in der Liste,
+sondern aufklappbar darunter – von dort lässt sich das vorhandene Aufmaß
+öffnen oder bewusst ein weiteres anlegen.
 
 ### Zum Zugriffsschlüssel
 

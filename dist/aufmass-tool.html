@@ -4117,6 +4117,8 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     pipedriveHost: '',
     pipedrivePipelineId: '',
     pipedrivePipelineName: '',
+    pipedrivePhaseId: '',
+    pipedrivePhaseName: '',
     fotoQualitaet: 0.72,
     fotoMaxKante: 1280,
     letztesProjekt: ''
@@ -4884,31 +4886,87 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       });
   }
 
-  /* Offene Deals einer Pipeline. */
+  /* Offene Deals einer Pipeline, auf Wunsch auf eine Phase eingegrenzt.
+   * Die Phase wird sowohl in der Abfrage mitgegeben als auch anschließend
+   * geprüft - so greift die Eingrenzung auch dann, wenn die Schnittstelle
+   * den Parameter einmal nicht berücksichtigt. */
   function deals(einstellungen, pipelineId, optionen) {
     optionen = optionen || {};
+    var phaseId = optionen.phaseId;
     return holen(einstellungen, '/api/v2/deals', {
       pipeline_id: pipelineId,
+      stage_id: phaseId,
       status: optionen.status || 'open',
       limit: optionen.limit || 100,
       sort_by: 'update_time',
       sort_direction: 'desc'
     }).then(function (d) {
-      return (d && d.data || []).map(function (deal) {
+      var liste = (d && d.data || []).map(function (deal) {
         return {
           id: deal.id,
           titel: deal.title || '',
           wert: deal.value, waehrung: deal.currency || '',
+          pipelineId: deal.pipeline_id || pipelineId || null,
           phaseId: deal.stage_id,
           status: deal.status || '',
           orgId: deal.org_id || null,
           personId: deal.person_id || null,
           besitzerId: deal.owner_id || deal.user_id || null,
           erstellt: deal.add_time || '',
-          geaendert: deal.update_time || ''
+          geaendert: deal.update_time || '',
+          phaseSeit: deal.stage_change_time || deal.update_time || ''
         };
       });
+      if (phaseId) {
+        liste = liste.filter(function (deal) {
+          return String(deal.phaseId) === String(phaseId);
+        });
+      }
+      return liste;
     });
+  }
+
+  /* =========================================================================
+   * Regel: Für welchen Deal soll ein Aufmaß entstehen?
+   * ======================================================================
+   * Ein Aufmaß entsteht, wenn der Deal in der festgelegten Pipeline und
+   * Phase steht und zu ihm noch kein Projekt vorliegt. Dieselbe Prüfung
+   * gilt gleichermaßen für einen neu angelegten wie für einen in die Phase
+   * verschobenen Deal - maßgeblich ist allein, wo er jetzt steht.
+   *
+   * Bewusst ohne Seiteneffekte, damit ein späterer Webhook-Dienst dieselbe
+   * Entscheidung mit denselben Daten treffen kann.
+   */
+  function istZuUebernehmen(deal, einstellungen, vorhandeneProjekte) {
+    var grund = '';
+    if (!deal) return { uebernehmen: false, grund: 'kein Deal' };
+
+    var pipelineId = einstellungen && einstellungen.pipedrivePipelineId;
+    var phaseId = einstellungen && einstellungen.pipedrivePhaseId;
+
+    if (pipelineId && String(deal.pipelineId || '') !== String(pipelineId)) {
+      return { uebernehmen: false, grund: 'andere Pipeline' };
+    }
+    if (phaseId && String(deal.phaseId || '') !== String(phaseId)) {
+      return { uebernehmen: false, grund: 'andere Phase' };
+    }
+    if (deal.status && deal.status !== 'open') {
+      return { uebernehmen: false, grund: 'Deal ist nicht offen' };
+    }
+    var vorhanden = projektZuDeal(deal.id, vorhandeneProjekte);
+    if (vorhanden) {
+      return { uebernehmen: false, grund: 'Aufmaß vorhanden', projekt: vorhanden };
+    }
+    return { uebernehmen: true, grund: grund };
+  }
+
+  /* Gibt es zu diesem Deal bereits ein Aufmaß? */
+  function projektZuDeal(dealId, projekte) {
+    if (!dealId) return null;
+    var treffer = (projekte || []).filter(function (p) {
+      return p && p.pipedrive && String(p.pipedrive.dealId) === String(dealId);
+    });
+    return treffer[0] || null;
   }
 
   function organisation(einstellungen, orgId) {
@@ -5072,6 +5130,8 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     pipelines: pipelines,
     phasen: phasen,
     deals: deals,
+    istZuUebernehmen: istZuUebernehmen,
+    projektZuDeal: projektZuDeal,
     organisation: organisation,
     person: person,
     dealVollstaendig: dealVollstaendig,
@@ -5623,8 +5683,10 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       inhalt: el('div', {}, [
         el('p', { class: 'hinweis', style: { marginTop: '0' },
           text: e.pipedrivePipelineName
-            ? ('Offene Deals aus der Pipeline „' + e.pipedrivePipelineName + '“.')
-            : 'Offene Deals aus allen Pipelines. Unter Einstellungen lässt sich eine Pipeline festlegen.' }),
+            ? ('Offene Deals aus „' + e.pipedrivePipelineName + '“' +
+               (e.pipedrivePhaseName ? (', Phase „' + e.pipedrivePhaseName + '“') : '') +
+               ', zu denen noch kein Aufmaß vorliegt.')
+            : 'Offene Deals aus allen Pipelines. Unter Einstellungen lassen sich Pipeline und Phase festlegen.' }),
         liste
       ]),
       knoepfe: [{ fuellen: true }, { text: 'Schließen' }]
@@ -5632,63 +5694,105 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
 
     liste.appendChild(el('p', { class: 'zart', text: 'Deals werden abgerufen …' }));
 
-    PD.deals(e, e.pipedrivePipelineId || undefined, { status: 'open', limit: 100 })
-      .then(function (deals) {
-        A.leeren(liste);
-        if (!deals.length) {
-          liste.appendChild(el('div', { class: 'leer' }, [
-            el('h3', { text: 'Keine offenen Deals gefunden' }),
-            el('p', { text: e.pipedrivePipelineName
-              ? ('In der Pipeline „' + e.pipedrivePipelineName + '“ steht derzeit kein offener Deal.')
-              : 'Es wurde kein offener Deal gefunden.' })
-          ]));
-          return;
-        }
+    Promise.all([
+      PD.deals(e, e.pipedrivePipelineId || undefined, {
+        phaseId: e.pipedrivePhaseId || undefined, status: 'open', limit: 100 }),
+      Store.alleProjekte()
+    ]).then(function (teile) {
+      var deals = teile[0], vorhandene = teile[1];
+      A.leeren(liste);
 
-        /* Bereits übernommene Deals kennzeichnen */
-        Store.alleProjekte().then(function (vorhandene) {
-          var schonDa = {};
-          vorhandene.forEach(function (pr) {
-            if (pr.pipedrive && pr.pipedrive.dealId) schonDa[pr.pipedrive.dealId] = pr;
-          });
-
-          A.leeren(liste);
-          var box = el('div', { class: 'tuer-liste', style: { border: '1px solid var(--rand)',
-            borderRadius: 'var(--radius)' } });
-          deals.forEach(function (deal) {
-            var bekannt = schonDa[deal.id];
-            box.appendChild(el('div', {
-              class: 'tuer-zeile',
-              onclick: function () { dealUebernehmen(deal, bekannt, dlg, neuLaden); }
-            }, [
-              el('div', { class: 'statusbalken',
-                style: { background: bekannt ? 'var(--text-zart)' : 'var(--gruen)' } }),
-              el('div', { class: 'inhalt' }, [
-                el('div', { class: 'haupt' }, [
-                  el('div', { class: 'bez', text: deal.titel || ('Deal ' + deal.id) }),
-                  el('div', { class: 'detail', text:
-                    ['Deal-Nr. ' + deal.id,
-                     deal.wert ? (Number(deal.wert).toLocaleString('de-DE') + ' ' + deal.waehrung) : '',
-                     deal.geaendert ? ('geändert ' + datumKurz(deal.geaendert)) : ''
-                    ].filter(Boolean).join('  ·  ') })
-                ]),
-                el('div', { class: 'marken' }, [
-                  bekannt ? el('span', { class: 'marke-pille', text: 'bereits übernommen' })
-                          : el('span', { class: 'marke-pille gruen', text: 'übernehmen' })
-                ])
-              ])
-            ]));
-          });
-          liste.appendChild(box);
-        });
-      })
-      .catch(function (fehler) {
-        A.leeren(liste);
-        liste.appendChild(el('div', { class: 'meldung fehler' }, el('div', {}, [
-          el('b', { text: fehler.message || 'Die Deals konnten nicht abgerufen werden.' }),
-          fehler.zusatz ? el('div', { style: { marginTop: '6px', fontSize: '13px' }, text: fehler.zusatz }) : null
-        ])));
+      /* Jeden Deal gegen die festgelegte Regel prüfen */
+      var geprueft = deals.map(function (deal) {
+        return { deal: deal, pruefung: PD.istZuUebernehmen(deal, e, vorhandene) };
       });
+      var offen = geprueft.filter(function (g) { return g.pruefung.uebernehmen; });
+      var schonDa = geprueft.filter(function (g) { return g.pruefung.grund === 'Aufmaß vorhanden'; });
+
+      if (!offen.length) {
+        liste.appendChild(el('div', { class: 'leer' }, [
+          el('h3', { text: 'Kein Deal zur Übernahme' }),
+          el('p', { text: deals.length
+            ? ('Alle ' + deals.length + ' Deals in dieser Phase haben bereits ein Aufmaß.')
+            : ('In der Phase „' + (e.pipedrivePhaseName || 'gewählten Phase') +
+               '“ steht derzeit kein offener Deal.') })
+        ]));
+      } else {
+        liste.appendChild(el('p', { class: 'zart', style: { marginBottom: '8px' },
+          text: offen.length + (offen.length === 1 ? ' Deal wartet' : ' Deals warten') + ' auf ein Aufmaß' }));
+        var box = el('div', { class: 'tuer-liste deal-offen', style: { border: '1px solid var(--rand)',
+          borderRadius: 'var(--radius)' } });
+        offen.forEach(function (g) {
+          var deal = g.deal;
+          box.appendChild(el('div', {
+            class: 'tuer-zeile',
+            onclick: function () { dealUebernehmen(deal, null, dlg, neuLaden); }
+          }, [
+            el('div', { class: 'statusbalken', style: { background: 'var(--gruen)' } }),
+            el('div', { class: 'inhalt' }, [
+              el('div', { class: 'haupt' }, [
+                el('div', { class: 'bez', text: deal.titel || ('Deal ' + deal.id) }),
+                el('div', { class: 'detail', text:
+                  ['Deal-Nr. ' + deal.id,
+                   deal.wert ? (Number(deal.wert).toLocaleString('de-DE') + ' ' + (deal.waehrung || '')) : '',
+                   deal.geaendert ? ('geändert ' + datumKurz(deal.geaendert)) : ''
+                  ].filter(Boolean).join('  ·  ') })
+              ]),
+              el('div', { class: 'marken' },
+                el('span', { class: 'marke-pille gruen', text: 'Aufmaß anlegen' }))
+            ])
+          ]));
+        });
+        liste.appendChild(box);
+      }
+
+      /* Bereits übernommene Deals nur auf Wunsch zeigen */
+      if (schonDa.length) {
+        var aufklapp = el('details', { class: 'abschnitt', style: { marginTop: '14px' } }, [
+          el('summary', {}, [
+            el('span', { text: 'Bereits übernommen' }),
+            el('span', { class: 'zusatz', text: schonDa.length + (schonDa.length === 1 ? ' Deal' : ' Deals') })
+          ]),
+          el('div', { class: 'koerper' }, (function () {
+            var innen = el('div', { class: 'tuer-liste deal-vorhanden', style: { border: '1px solid var(--rand)',
+              borderRadius: 'var(--radius)' } });
+            schonDa.forEach(function (g) {
+              var pr = g.pruefung.projekt || {};
+              innen.appendChild(el('div', { class: 'tuer-zeile', style: { cursor: 'default' } }, [
+                el('div', { class: 'statusbalken', style: { background: 'var(--text-zart)' } }),
+                el('div', { class: 'inhalt' }, [
+                  el('div', { class: 'haupt' }, [
+                    el('div', { class: 'bez', text: g.deal.titel || ('Deal ' + g.deal.id) }),
+                    el('div', { class: 'detail',
+                      text: 'Aufmaß vorhanden: ' + (pr.kunde || pr.name || '–') })
+                  ]),
+                  el('div', { class: 'marken' }, [
+                    el('button', { class: 'klein', text: 'Öffnen', onclick: function (ev) {
+                      ev.stopPropagation();
+                      if (dlg) dlg.schliessen();
+                      projektOeffnen(pr.id, neuLaden);
+                    } }),
+                    el('button', { class: 'klein', text: 'Trotzdem neu anlegen', onclick: function (ev) {
+                      ev.stopPropagation();
+                      dealUebernehmen(g.deal, pr, dlg, neuLaden);
+                    } })
+                  ])
+                ])
+              ]));
+            });
+            return innen;
+          })())
+        ]);
+        liste.appendChild(aufklapp);
+      }
+    })
+    .catch(function (fehler) {
+      A.leeren(liste);
+      liste.appendChild(el('div', { class: 'meldung fehler' }, el('div', {}, [
+        el('b', { text: fehler.message || 'Die Deals konnten nicht abgerufen werden.' }),
+        fehler.zusatz ? el('div', { style: { marginTop: '6px', fontSize: '13px' }, text: fehler.zusatz }) : null
+      ])));
+    });
   }
 
   function dealUebernehmen(deal, bekannt, dlg, neuLaden) {
@@ -7829,7 +7933,8 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       if (!pruefErgebnis) {
         if (e.pipedrivePipelineName) {
           pdBereich.appendChild(el('p', { class: 'zart', style: { marginTop: '10px' },
-            text: 'Gewählte Pipeline: ' + e.pipedrivePipelineName }));
+            text: 'Gewählt: ' + e.pipedrivePipelineName +
+                  (e.pipedrivePhaseName ? ('  ·  Phase ' + e.pipedrivePhaseName) : '') }));
         }
         return;
       }
@@ -7862,7 +7967,9 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
           var gewaehlt = (pruefErgebnis.pipelines || []).filter(function (pl) {
             return String(pl.id) === String(ev.target.value); })[0];
           e.pipedrivePipelineName = gewaehlt ? gewaehlt.name : '';
+          e.pipedrivePhaseId = ''; e.pipedrivePhaseName = '';   /* Phase gehört zur Pipeline */
           merken();
+          phasenLaden();
         }
       });
       auswahl.appendChild(el('option', { value: '', text: '– alle Pipelines –' }));
@@ -7870,9 +7977,64 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
         auswahl.appendChild(el('option', { value: pl.id, text: pl.name }));
       });
       auswahl.value = e.pipedrivePipelineId || '';
+
+      var phasenBereich = el('div');
       pdBereich.appendChild(el('div', { class: 'raster', style: { marginTop: '12px' } }, [
-        A.feld('Pipeline für neue Aufmaße <span class="einheit">(z. B. Neukunden-Funnel)</span>', auswahl)
+        A.feld('Pipeline <span class="einheit">(z. B. Neukunden Funnel)</span>', auswahl)
       ]));
+      pdBereich.appendChild(phasenBereich);
+      phasenLaden();
+
+      function phasenLaden() {
+        A.leeren(phasenBereich);
+        if (!e.pipedrivePipelineId) {
+          phasenBereich.appendChild(el('p', { class: 'zart', style: { marginTop: '8px' },
+            text: 'Wählen Sie eine Pipeline, um die Phase festzulegen.' }));
+          return;
+        }
+        phasenBereich.appendChild(el('p', { class: 'zart', text: 'Phasen werden geladen …' }));
+        global.Pipedrive.phasen(e, e.pipedrivePipelineId).then(function (liste) {
+          A.leeren(phasenBereich);
+          var pa = el('select', {
+            onchange: function (ev) {
+              e.pipedrivePhaseId = ev.target.value;
+              var gew = liste.filter(function (ph) { return String(ph.id) === String(ev.target.value); })[0];
+              e.pipedrivePhaseName = gew ? gew.name : '';
+              merken();
+              regelAnzeigen();
+            }
+          });
+          pa.appendChild(el('option', { value: '', text: '– alle Phasen –' }));
+          liste.forEach(function (ph) { pa.appendChild(el('option', { value: ph.id, text: ph.name })); });
+          pa.value = e.pipedrivePhaseId || '';
+          phasenBereich.appendChild(el('div', { class: 'raster' }, [
+            A.feld('Phase <span class="einheit">(z. B. Workshop / Aufmaß v.O.)</span>', pa)
+          ]));
+          regelAnzeigen();
+
+          function regelAnzeigen() {
+            var alt2 = phasenBereich.querySelector('.regel-anzeige');
+            if (alt2) alt2.remove();
+            var kasten = el('div', { class: 'meldung info regel-anzeige', style: { marginTop: '12px' } });
+            kasten.appendChild(el('div', {}, [
+              el('b', { text: 'Wann ein Aufmaß entsteht' }),
+              el('div', { style: { marginTop: '6px', fontSize: '13.5px' }, text:
+                'Ein Deal wird zur Übernahme angeboten, wenn er in der Pipeline „' +
+                (e.pipedrivePipelineName || 'alle') + '“' +
+                (e.pipedrivePhaseName ? (' in der Phase „' + e.pipedrivePhaseName + '“') : '') +
+                ' steht, offen ist und noch kein Aufmaß dazu vorliegt. Ob er dort neu angelegt ' +
+                'oder hineingeschoben wurde, spielt keine Rolle – maßgeblich ist, wo er jetzt steht.' }),
+              !e.pipedrivePhaseId ? el('div', { style: { marginTop: '6px', fontSize: '13px' },
+                text: 'Ohne gewählte Phase werden alle offenen Deals der Pipeline angeboten.' }) : null
+            ]));
+            phasenBereich.appendChild(kasten);
+          }
+        }).catch(function (fehler) {
+          A.leeren(phasenBereich);
+          phasenBereich.appendChild(el('div', { class: 'meldung fehler', style: { marginTop: '8px' } },
+            el('div', { text: fehler.message || 'Die Phasen konnten nicht geladen werden.' })));
+        });
+      }
     }
 
     /* --- Eigene Katalogeinträge --- */

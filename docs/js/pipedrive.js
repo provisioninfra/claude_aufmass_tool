@@ -130,31 +130,87 @@
       });
   }
 
-  /* Offene Deals einer Pipeline. */
+  /* Offene Deals einer Pipeline, auf Wunsch auf eine Phase eingegrenzt.
+   * Die Phase wird sowohl in der Abfrage mitgegeben als auch anschließend
+   * geprüft - so greift die Eingrenzung auch dann, wenn die Schnittstelle
+   * den Parameter einmal nicht berücksichtigt. */
   function deals(einstellungen, pipelineId, optionen) {
     optionen = optionen || {};
+    var phaseId = optionen.phaseId;
     return holen(einstellungen, '/api/v2/deals', {
       pipeline_id: pipelineId,
+      stage_id: phaseId,
       status: optionen.status || 'open',
       limit: optionen.limit || 100,
       sort_by: 'update_time',
       sort_direction: 'desc'
     }).then(function (d) {
-      return (d && d.data || []).map(function (deal) {
+      var liste = (d && d.data || []).map(function (deal) {
         return {
           id: deal.id,
           titel: deal.title || '',
           wert: deal.value, waehrung: deal.currency || '',
+          pipelineId: deal.pipeline_id || pipelineId || null,
           phaseId: deal.stage_id,
           status: deal.status || '',
           orgId: deal.org_id || null,
           personId: deal.person_id || null,
           besitzerId: deal.owner_id || deal.user_id || null,
           erstellt: deal.add_time || '',
-          geaendert: deal.update_time || ''
+          geaendert: deal.update_time || '',
+          phaseSeit: deal.stage_change_time || deal.update_time || ''
         };
       });
+      if (phaseId) {
+        liste = liste.filter(function (deal) {
+          return String(deal.phaseId) === String(phaseId);
+        });
+      }
+      return liste;
     });
+  }
+
+  /* =========================================================================
+   * Regel: Für welchen Deal soll ein Aufmaß entstehen?
+   * ======================================================================
+   * Ein Aufmaß entsteht, wenn der Deal in der festgelegten Pipeline und
+   * Phase steht und zu ihm noch kein Projekt vorliegt. Dieselbe Prüfung
+   * gilt gleichermaßen für einen neu angelegten wie für einen in die Phase
+   * verschobenen Deal - maßgeblich ist allein, wo er jetzt steht.
+   *
+   * Bewusst ohne Seiteneffekte, damit ein späterer Webhook-Dienst dieselbe
+   * Entscheidung mit denselben Daten treffen kann.
+   */
+  function istZuUebernehmen(deal, einstellungen, vorhandeneProjekte) {
+    var grund = '';
+    if (!deal) return { uebernehmen: false, grund: 'kein Deal' };
+
+    var pipelineId = einstellungen && einstellungen.pipedrivePipelineId;
+    var phaseId = einstellungen && einstellungen.pipedrivePhaseId;
+
+    if (pipelineId && String(deal.pipelineId || '') !== String(pipelineId)) {
+      return { uebernehmen: false, grund: 'andere Pipeline' };
+    }
+    if (phaseId && String(deal.phaseId || '') !== String(phaseId)) {
+      return { uebernehmen: false, grund: 'andere Phase' };
+    }
+    if (deal.status && deal.status !== 'open') {
+      return { uebernehmen: false, grund: 'Deal ist nicht offen' };
+    }
+    var vorhanden = projektZuDeal(deal.id, vorhandeneProjekte);
+    if (vorhanden) {
+      return { uebernehmen: false, grund: 'Aufmaß vorhanden', projekt: vorhanden };
+    }
+    return { uebernehmen: true, grund: grund };
+  }
+
+  /* Gibt es zu diesem Deal bereits ein Aufmaß? */
+  function projektZuDeal(dealId, projekte) {
+    if (!dealId) return null;
+    var treffer = (projekte || []).filter(function (p) {
+      return p && p.pipedrive && String(p.pipedrive.dealId) === String(dealId);
+    });
+    return treffer[0] || null;
   }
 
   function organisation(einstellungen, orgId) {
@@ -318,6 +374,8 @@
     pipelines: pipelines,
     phasen: phasen,
     deals: deals,
+    istZuUebernehmen: istZuUebernehmen,
+    projektZuDeal: projektZuDeal,
     organisation: organisation,
     person: person,
     dealVollstaendig: dealVollstaendig,

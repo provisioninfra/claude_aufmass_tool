@@ -983,7 +983,8 @@
       if (!pruefErgebnis) {
         if (e.pipedrivePipelineName) {
           pdBereich.appendChild(el('p', { class: 'zart', style: { marginTop: '10px' },
-            text: 'Gewählte Pipeline: ' + e.pipedrivePipelineName }));
+            text: 'Gewählt: ' + e.pipedrivePipelineName +
+                  (e.pipedrivePhaseName ? ('  ·  Phase ' + e.pipedrivePhaseName) : '') }));
         }
         return;
       }
@@ -1016,7 +1017,9 @@
           var gewaehlt = (pruefErgebnis.pipelines || []).filter(function (pl) {
             return String(pl.id) === String(ev.target.value); })[0];
           e.pipedrivePipelineName = gewaehlt ? gewaehlt.name : '';
+          e.pipedrivePhaseId = ''; e.pipedrivePhaseName = '';   /* Phase gehört zur Pipeline */
           merken();
+          phasenLaden();
         }
       });
       auswahl.appendChild(el('option', { value: '', text: '– alle Pipelines –' }));
@@ -1024,9 +1027,64 @@
         auswahl.appendChild(el('option', { value: pl.id, text: pl.name }));
       });
       auswahl.value = e.pipedrivePipelineId || '';
+
+      var phasenBereich = el('div');
       pdBereich.appendChild(el('div', { class: 'raster', style: { marginTop: '12px' } }, [
-        A.feld('Pipeline für neue Aufmaße <span class="einheit">(z. B. Neukunden-Funnel)</span>', auswahl)
+        A.feld('Pipeline <span class="einheit">(z. B. Neukunden Funnel)</span>', auswahl)
       ]));
+      pdBereich.appendChild(phasenBereich);
+      phasenLaden();
+
+      function phasenLaden() {
+        A.leeren(phasenBereich);
+        if (!e.pipedrivePipelineId) {
+          phasenBereich.appendChild(el('p', { class: 'zart', style: { marginTop: '8px' },
+            text: 'Wählen Sie eine Pipeline, um die Phase festzulegen.' }));
+          return;
+        }
+        phasenBereich.appendChild(el('p', { class: 'zart', text: 'Phasen werden geladen …' }));
+        global.Pipedrive.phasen(e, e.pipedrivePipelineId).then(function (liste) {
+          A.leeren(phasenBereich);
+          var pa = el('select', {
+            onchange: function (ev) {
+              e.pipedrivePhaseId = ev.target.value;
+              var gew = liste.filter(function (ph) { return String(ph.id) === String(ev.target.value); })[0];
+              e.pipedrivePhaseName = gew ? gew.name : '';
+              merken();
+              regelAnzeigen();
+            }
+          });
+          pa.appendChild(el('option', { value: '', text: '– alle Phasen –' }));
+          liste.forEach(function (ph) { pa.appendChild(el('option', { value: ph.id, text: ph.name })); });
+          pa.value = e.pipedrivePhaseId || '';
+          phasenBereich.appendChild(el('div', { class: 'raster' }, [
+            A.feld('Phase <span class="einheit">(z. B. Workshop / Aufmaß v.O.)</span>', pa)
+          ]));
+          regelAnzeigen();
+
+          function regelAnzeigen() {
+            var alt2 = phasenBereich.querySelector('.regel-anzeige');
+            if (alt2) alt2.remove();
+            var kasten = el('div', { class: 'meldung info regel-anzeige', style: { marginTop: '12px' } });
+            kasten.appendChild(el('div', {}, [
+              el('b', { text: 'Wann ein Aufmaß entsteht' }),
+              el('div', { style: { marginTop: '6px', fontSize: '13.5px' }, text:
+                'Ein Deal wird zur Übernahme angeboten, wenn er in der Pipeline „' +
+                (e.pipedrivePipelineName || 'alle') + '“' +
+                (e.pipedrivePhaseName ? (' in der Phase „' + e.pipedrivePhaseName + '“') : '') +
+                ' steht, offen ist und noch kein Aufmaß dazu vorliegt. Ob er dort neu angelegt ' +
+                'oder hineingeschoben wurde, spielt keine Rolle – maßgeblich ist, wo er jetzt steht.' }),
+              !e.pipedrivePhaseId ? el('div', { style: { marginTop: '6px', fontSize: '13px' },
+                text: 'Ohne gewählte Phase werden alle offenen Deals der Pipeline angeboten.' }) : null
+            ]));
+            phasenBereich.appendChild(kasten);
+          }
+        }).catch(function (fehler) {
+          A.leeren(phasenBereich);
+          phasenBereich.appendChild(el('div', { class: 'meldung fehler', style: { marginTop: '8px' } },
+            el('div', { text: fehler.message || 'Die Phasen konnten nicht geladen werden.' })));
+        });
+      }
     }
 
     /* --- Eigene Katalogeinträge --- */
