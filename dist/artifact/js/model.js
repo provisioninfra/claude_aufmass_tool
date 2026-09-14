@@ -51,6 +51,10 @@
 
       aufmassDatum: heute(),
       bemerkung: '',
+      /* Verknüpfung zu Pipedrive, sofern das Projekt von dort stammt.
+       * Enthält nur Kennungen und den Link - niemals Zugangsdaten. */
+      pipedrive: null,
+
       erstellt: new Date().toISOString(),
       geaendert: new Date().toISOString(),
       standorte: [],      // Struktur: Standort > Gebäude > Etage/Abteilung

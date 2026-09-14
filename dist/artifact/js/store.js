@@ -124,6 +124,12 @@
     eigeneZutrittsarten: [],
     eigeneBeschlagarten: [],
     eigeneSchlossarten: [],
+    /* Pipedrive: Der Schlüssel verbleibt auf diesem Gerät und wird weder
+     * exportiert noch in Projekte oder Freigabe-Links geschrieben. */
+    pipedriveToken: '',
+    pipedriveHost: '',
+    pipedrivePipelineId: '',
+    pipedrivePipelineName: '',
     fotoQualitaet: 0.72,
     fotoMaxKante: 1280,
     letztesProjekt: ''
@@ -168,6 +174,8 @@
       typ: 'schliessanlagen-aufmass',
       version: 1,
       exportiert: new Date().toISOString(),
+      /* Ausdrücklich nur diese vier Angaben: Zugangsdaten und Schlüssel
+         dürfen eine Projektdatei niemals verlassen. */
       einstellungen: einstellungen ? {
         firma: einstellungen.firma, firmaZusatz: einstellungen.firmaZusatz,
         firmaTelefon: einstellungen.firmaTelefon, firmaEmail: einstellungen.firmaEmail
