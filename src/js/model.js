@@ -51,6 +51,12 @@
 
       aufmassDatum: heute(),
       bemerkung: '',
+
+      /* --- Angaben, die allein für die Bestellung gebraucht werden -------
+       * Die Lieferadresse wird nur geführt, wenn sie von der Objektadresse
+       * abweicht - sonst stünde dieselbe Anschrift zweimal im Dokument. */
+      lieferAdresse: '',
+      kommission: '',             // Bestellzeichen / Kommission des Lieferanten
       /* Verknüpfung zu Pipedrive, sofern das Projekt von dort stammt.
        * Enthält nur Kennungen und den Link - niemals Zugangsdaten. */
       pipedrive: null,
@@ -130,6 +136,7 @@
       kategorie: '',
       anzahl: 1,                  // identische Türen zusammenfassen
       status: 'aufgemessen',      // beim Anlegen gilt die Tür als aufgemessen
+      statusVonHand: false,       // true, sobald der Status selbst gewählt wurde
 
       /* --- System ---
        * Das System steht im Projekt. Hier wird nur bei einer Hybridanlage
@@ -158,6 +165,17 @@
       schlossBauform: '',
       schlossFunktion: '',
 
+      /* --- Einsteckschloss im Detail (freiwillig) ---
+       * Beim Bestellen eines Einsteckschlosses entscheidend, beim Aufmaß
+       * vor Ort aber nicht immer zu ermitteln. Daher nie Pflicht. */
+      schlossStulpform: '',
+      schlossStulpbreite: '',
+      schlossStulplaenge: '',
+      schlossFallenart: '',           // stand früher in der Liste der Funktionen
+      schlossRiegelausschluss: '',
+      schlossVerriegelungspunkte: '',
+      schlossNorm: '',
+
       komponenten: [],            // nur Bauteile, die sonst nirgends erfasst sind
 
       /* --- Zutritt und Anforderungen --- */
@@ -179,6 +197,11 @@
       oeffnungsrichtung: '',
       masseBemerkung: '',
 
+      /* --- Türmaße (freiwillig) --- */
+      tuerbreite: '',
+      tuerhoehe: '',
+      tuerAnschlag: '',               // gefälzt / stumpf einschlagend
+
       /* --- Bestand (Altanlage) --- */
       bestandFabrikat: '',
       bestandZylinderart: '',
@@ -192,6 +215,13 @@
       elVernetzung: '',           // offline / virtuelles Netzwerk / online
       elTuerueberwachung: false,
       elBemerkung: '',
+
+      /* --- Strom und Kabel an der Tür (freiwillig) ---
+       * Entscheidet bei elektronischen Beschlägen und Motorschlössern,
+       * ob zusätzlich verlegt werden muss. */
+      elKabeluebergang: '',
+      elTueroeffnerBestand: false,
+      elLeitungsweg: '',
 
       /* --- Notizen / Mängel --- */
       notiz: '',
@@ -231,15 +261,75 @@
       id: uid('sch'),
       kuerzel: '',
       bezeichnung: '',
-      typ: 'ez',
+      typ: 'ez',                 // Rang im Plan: GHS, HS, GS, UGS, EZ, extern
+
+      /* --- Träger: wer hält dieses Medium in der Hand? ---
+       * 'einzel' = namentlich benannte Personen, 'gruppe' = benannte Gruppe
+       * mit Mitgliederliste. Bewusst getrennt vom Rang im Plan. */
+      traegerArt: '',
+      gruppenName: '',
+      personen: [],              // [{ id, name, funktion, anzahlMedien }]
+
       anzahlMedien: 1,           // Anzahl Schlüssel / Transponder / Karten
-      person: '',
-      abteilung: '',
+      medienTyp: '',             // Art des Mediums - bestellrelevant
+      medienVonHand: false,      // true: Zahl wurde selbst eingetragen
+      person: '',                // aus früheren Fassungen, wird überführt
+      abteilung: '',             // aus früheren Fassungen, wird überführt
       bemerkung: '',
       sort: 0
     };
     if (vorgabe) { for (var k in vorgabe) { if (Object.prototype.hasOwnProperty.call(vorgabe, k)) s[k] = vorgabe[k]; } }
     return s;
+  }
+
+  /* --- Person einer Schließung -------------------------------------------- */
+  function neuePerson(vorgabe) {
+    var x = { id: uid('per'), name: '', funktion: '', anzahlMedien: 1 };
+    if (vorgabe) { for (var k in vorgabe) { if (Object.prototype.hasOwnProperty.call(vorgabe, k)) x[k] = vorgabe[k]; } }
+    return x;
+  }
+
+  /* Anzahl Medien einer Schließung.
+   * Sie ergibt sich aus der Summe der Personen - außer die Zahl wurde
+   * ausdrücklich selbst eingetragen. Dann gilt die eingetragene Zahl. */
+  function medienAnzahl(schliessung) {
+    var s = schliessung || {};
+    var personen = (s.personen || []).filter(function (x) { return x && String(x.name || '').trim(); });
+    if (s.medienVonHand || !personen.length) {
+      var n = parseInt(s.anzahlMedien, 10);
+      return (!n || n < 0) ? 0 : n;
+    }
+    return personen.reduce(function (sum, x) {
+      var n2 = parseInt(x.anzahlMedien, 10);
+      return sum + ((!n2 || n2 < 1) ? 1 : n2);
+    }, 0);
+  }
+
+  /* Die errechnete Anzahl in die Schließung zurückschreiben, damit
+   * Exporte und ältere Auswertungen dieselbe Zahl sehen. */
+  function medienAngleichen(schliessung) {
+    if (!schliessung) return 0;
+    var n = medienAnzahl(schliessung);
+    schliessung.anzahlMedien = n;
+    return n;
+  }
+
+  /* Welche Identmedien kommen in diesem Projekt überhaupt in Frage?
+   * Sie ergeben sich aus den gewählten Systemen - ein AirKey-Projekt
+   * braucht keine Auswahl über SimonsVoss-Transponder. */
+  function identmedienAuswahl(projekt, extraSysteme) {
+    var K2 = kat();
+    if (!K2) return [];
+    var aus = [], gesehen = {};
+    [projekt && projekt.systemMechanik, projekt && projekt.systemElektronik]
+      .filter(Boolean).forEach(function (sid) {
+        var sys = K2.systemById(sid, extraSysteme);
+        ((sys && sys.identmedien) || []).forEach(function (m) {
+          if (gesehen[m]) return;
+          gesehen[m] = true; aus.push(m);
+        });
+      });
+    return aus;
   }
 
   /* --- Matrix-Zugriff ----------------------------------------------------- */
@@ -296,6 +386,33 @@
   function kinderVon(projekt, parentId) {
     return projekt.standorte.filter(function (k) { return k.parentId === (parentId || null); })
       .sort(function (a, b) { return (a.sort - b.sort) || a.name.localeCompare(b.name, 'de'); });
+  }
+
+  /* Ein Knoten und alle seine Unterknoten - als Kennungsliste. */
+  function knotenMitUnter(projekt, knotenId) {
+    var ids = [knotenId], i = 0;
+    while (i < ids.length) {
+      var aktuell = ids[i++];
+      (projekt.standorte || []).forEach(function (k) {
+        if (k.parentId === aktuell && ids.indexOf(k.id) === -1) ids.push(k.id);
+      });
+    }
+    return ids;
+  }
+
+  /* Alle Türen eines Bereichs einschließlich seiner Unterbereiche, in der
+   * Reihenfolge der Gliederung. */
+  function tuerenUnter(projekt, knotenId) {
+    var ids = knotenMitUnter(projekt, knotenId);
+    var ordnung = strukturReihenfolge(projekt);
+    return (projekt.tueren || []).filter(function (t) {
+      return ids.indexOf(t.strukturId) !== -1;
+    }).sort(function (a, b) {
+      var oa = ordnung[a.strukturId] || 0, ob = ordnung[b.strukturId] || 0;
+      if (oa !== ob) return oa - ob;
+      return String(a.nummer || '').localeCompare(String(b.nummer || ''), 'de', { numeric: true }) ||
+             String(a.bezeichnung || '').localeCompare(String(b.bezeichnung || ''), 'de');
+    });
   }
 
   /* Löscht Knoten inkl. aller Unterknoten; Türen werden abgehängt (strukturId=null). */
@@ -388,16 +505,8 @@
     }
 
     /* Türen je Strukturknoten einschließlich aller Unterknoten */
-    function tuerenUnter(knotenId) {
-      var ids = [knotenId], i = 0;
-      while (i < ids.length) {
-        var aktuell = ids[i++];
-        projekt.standorte.forEach(function (k) {
-          if (k.parentId === aktuell && ids.indexOf(k.id) === -1) ids.push(k.id);
-        });
-      }
-      return projekt.tueren.filter(function (t) { return ids.indexOf(t.strukturId) !== -1; })
-                           .map(function (t) { return t.id; });
+    function tuerIdsUnter(knotenId) {
+      return tuerenUnter(projekt, knotenId).map(function (t) { return t.id; });
     }
 
     var alleTuerIds = projekt.tueren.map(function (t) { return t.id; });
@@ -413,7 +522,7 @@
       var gebaeude = projekt.standorte.filter(function (k) { return k.ebene === 'gebaeude'; });
       if (!gebaeude.length) gebaeude = kinderVon(projekt, null);
       gebaeude.forEach(function (g) {
-        var ids = tuerenUnter(g.id);
+        var ids = tuerIdsUnter(g.id);
         if (!ids.length) return;
         anlegen({ kuerzel: 'HS-' + kuerzelAus(g.name), bezeichnung: 'Hauptschlüssel ' + g.name,
                   typ: 'hs', anzahlMedien: 2 }, ids);
@@ -423,10 +532,14 @@
     /* Je Bereich bzw. Etage ein Gruppenschlüssel */
     if (optionen.proBereich) {
       projekt.standorte.filter(function (k) { return k.ebene === 'bereich'; }).forEach(function (b) {
-        var ids = tuerenUnter(b.id);
+        var ids = tuerIdsUnter(b.id);
         if (!ids.length) return;
+        /* Ein Gruppenschlüssel gehört einer Gruppe - der Bereichsname ist
+         * der naheliegende Gruppenname. Die Mitglieder trägt der Anwender
+         * nach; erfunden wird niemand. */
         anlegen({ kuerzel: 'GS-' + kuerzelAus(b.name), bezeichnung: 'Gruppe ' + b.name,
-                  typ: 'gs', anzahlMedien: 1 }, ids);
+                  typ: 'gs', traegerArt: 'gruppe', gruppenName: b.name,
+                  anzahlMedien: 1, medienVonHand: true }, ids);
       });
     }
 
@@ -552,10 +665,24 @@
      * bestimmt. Gleiche Bauteile mit unterschiedlichem Maß bleiben damit
      * getrennt, identische werden zusammengefasst - jede Zeile ist genau
      * einmal vorhanden. */
+    /* Die Maßangaben werden strukturiert geführt, damit jede Bauteilart in
+     * der Bestellliste ihre eigenen Spalten bekommt (Zylinder: Längen,
+     * Beschlag: Türstärke/Dornmaß/Entfernung/Nuss/DIN, Schloss: Dornmaß/
+     * Entfernung/Stulp). Der lesbare Text bleibt zusätzlich erhalten. */
+    function felderText(felder) {
+      var aus = [];
+      Object.keys(felder || {}).forEach(function (k) {
+        var w = felder[k];
+        if (w === undefined || w === null || String(w).trim() === '') return;
+        aus.push(k + '=' + String(w).trim());
+      });
+      return aus.sort().join(';');
+    }
+
     function addPos(b, daten) {
       var vorEin = einordnen(daten.gruppe || 'Sonstiges', daten.tuer || {});
       var schluessel = [daten.bezeichnung, daten.mass, daten.ausfuehrung, daten.hinweis,
-                        vorEin.bereich, vorEin.technik]
+                        felderText(daten.felder), vorEin.bereich, vorEin.technik]
         .map(function (x) { return String(x || ''); }).join('||');
       if (!b.positionen[schluessel]) {
         var ein = einordnen(daten.gruppe || 'Sonstiges', daten.tuer || {});
@@ -564,6 +691,7 @@
           mass: daten.mass || '',
           ausfuehrung: daten.ausfuehrung || '',
           hinweis: daten.hinweis || '',
+          felder: daten.felder || {},
           gruppe: daten.gruppe || 'Sonstiges',
           bereich: ein.bereich,
           technik: ein.technik,
@@ -593,12 +721,23 @@
           if (t.zylinderKnaufseite && t.zylinderBauform === 'Knaufzylinder') {
             zylBasis += ' (' + t.zylinderKnaufseite + ')';
           }
+          var aussen = String(t.masseAussen || '').trim();
+          var innen = String(t.masseInnen || '').trim();
+          var gesamt = '';
+          if (/^\d+([.,]\d+)?$/.test(aussen) && /^\d+([.,]\d+)?$/.test(innen)) {
+            gesamt = String(parseFloat(aussen.replace(',', '.')) + parseFloat(innen.replace(',', '.')));
+          }
           addPos(b, {
             gruppe: 'Zylinder',
             bezeichnung: zylBasis,
-            mass: (t.masseAussen || t.masseInnen)
-              ? ((t.masseAussen || '?') + '/' + (t.masseInnen || '?') + ' mm') : '',
+            mass: (aussen || innen) ? ((aussen || '?') + '/' + (innen || '?') + ' mm') : '',
             ausfuehrung: (t.zylinderAusfuehrung || []).join(', '),
+            felder: {
+              laengeAussen: aussen,
+              laengeInnen: innen,
+              gesamtlaenge: gesamt,
+              knaufseite: (t.zylinderBauform === 'Knaufzylinder') ? (t.zylinderKnaufseite || '') : ''
+            },
             menge: anzahl, tuer: t
           });
         }
@@ -609,30 +748,57 @@
           if (t.beschlagSicherheit && /Schutzbeschlag/.test(t.beschlagBauform)) {
             besBez += ' ' + t.beschlagSicherheit;
           }
+          var besFelder = {
+            bestueckung: t.beschlagBestueckung || '',
+            tuerblattstaerke: t.tuerblattstaerke || '',
+            dornmass: t.dornmass || '',
+            entfernung: t.entfernung || '',
+            vierkant: t.vierkant || '',
+            din: t.dinRichtung || ''
+          };
           var besMass = [];
-          if (t.beschlagBestueckung) besMass.push(t.beschlagBestueckung);
-          if (t.vierkant) besMass.push('VK ' + t.vierkant);
-          if (t.entfernung) besMass.push('E ' + t.entfernung);
+          if (besFelder.bestueckung) besMass.push(besFelder.bestueckung);
+          if (besFelder.tuerblattstaerke) besMass.push('TS ' + besFelder.tuerblattstaerke);
+          if (besFelder.dornmass) besMass.push('DM ' + besFelder.dornmass);
+          if (besFelder.entfernung) besMass.push('E ' + besFelder.entfernung);
+          if (besFelder.vierkant) besMass.push('VK ' + besFelder.vierkant);
+          if (besFelder.din) besMass.push(besFelder.din);
           addPos(b, {
             gruppe: 'Beschlag',
             bezeichnung: besBez,
             mass: besMass.join(' · '),
             ausfuehrung: t.beschlagAusfuehrung || '',
+            felder: besFelder,
             menge: anzahl, tuer: t
           });
         }
 
         /* --- Schloss --- */
         if (t.brauchtSchloss && t.schlossBauform) {
+          var schFelder = {
+            dornmass: t.dornmass || '',
+            entfernung: t.entfernung || '',
+            stulp: [t.schlossStulpform || '', t.schlossStulpbreite ? (t.schlossStulpbreite + ' mm') : '',
+                    t.schlossStulplaenge ? ('L ' + t.schlossStulplaenge) : '', t.stulpmass || '']
+                   .filter(Boolean).join(' '),
+            fallenart: t.schlossFallenart || '',
+            riegelausschluss: t.schlossRiegelausschluss || '',
+            verriegelungspunkte: t.schlossVerriegelungspunkte || '',
+            norm: t.schlossNorm || '',
+            din: t.dinRichtung || ''
+          };
           var schMass = [];
-          if (t.dornmass) schMass.push('DM ' + t.dornmass);
-          if (t.entfernung) schMass.push('E ' + t.entfernung);
-          if (t.stulpmass) schMass.push(t.stulpmass);
+          if (schFelder.dornmass) schMass.push('DM ' + schFelder.dornmass);
+          if (schFelder.entfernung) schMass.push('E ' + schFelder.entfernung);
+          if (schFelder.stulp) schMass.push(schFelder.stulp);
+          if (schFelder.fallenart) schMass.push(schFelder.fallenart);
+          if (schFelder.din) schMass.push(schFelder.din);
           addPos(b, {
             gruppe: 'Schloss',
             bezeichnung: t.schlossBauform,
             mass: schMass.join(' · '),
             ausfuehrung: t.schlossFunktion || '',
+            felder: schFelder,
             menge: anzahl, tuer: t
           });
         }
@@ -650,19 +816,30 @@
       }
     });
 
+    var GRUPPEN_REIHENFOLGE = ['Zylinder', 'Beschlag', 'Schloss', 'Zutrittsleser',
+                              'Systemkomponente', 'Sonstiges'];
+
     /* --- Identmedien aus dem Schließplan --- */
     var medien = [];
     projekt.schliessungen.forEach(function (s) {
-      var n = parseInt(s.anzahlMedien, 10); if (!n || n < 0) n = 0;
-      if (n > 0) {
-        medien.push({
-          kuerzel: s.kuerzel || s.bezeichnung,
-          bezeichnung: s.bezeichnung,
-          typ: s.typ,
-          person: s.person || s.abteilung || '',
-          menge: n
-        });
-      }
+      var n = medienAnzahl(s);
+      if (n <= 0) return;
+      var personen = (s.personen || []).filter(function (x) { return x && String(x.name || '').trim(); });
+      medien.push({
+        kuerzel: s.kuerzel || s.bezeichnung,
+        bezeichnung: s.bezeichnung,
+        typ: s.typ,
+        medienTyp: s.medienTyp || '',
+        traegerArt: s.traegerArt || '',
+        gruppenName: s.gruppenName || '',
+        /* Wer das Medium trägt - für die Ausgabe und die Quittierung */
+        person: (K && K.traegerText) ? K.traegerText(s) : (s.person || s.abteilung || ''),
+        personen: personen.map(function (x) {
+          var pn = parseInt(x.anzahlMedien, 10);
+          return { name: x.name, funktion: x.funktion || '', menge: (!pn || pn < 1) ? 1 : pn };
+        }),
+        menge: n
+      });
     });
 
     /* Stehen im selben System zwei Positionen mit gleicher Bezeichnung und
@@ -686,8 +863,6 @@
       });
     });
 
-    var GRUPPEN_REIHENFOLGE = ['Zylinder', 'Beschlag', 'Schloss', 'Zutrittsleser',
-                              'Systemkomponente', 'Sonstiges'];
     var listen = Object.keys(proSystem).map(function (k) {
       var b = proSystem[k];
       var positionen = Object.keys(b.positionen).map(function (pk) { return b.positionen[pk]; });
@@ -727,6 +902,18 @@
       var gruppen = Object.keys(proSys).map(function (k) {
         var g = proSys[k];
         g.summe = g.positionen.reduce(function (sum, x) { return sum + x.menge; }, 0);
+        /* Innerhalb einer Systemgruppe nach Bauteilart trennen: jede Art
+         * hat andere bestellrelevante Maße und damit andere Spalten. */
+        var proArt = {};
+        g.positionen.forEach(function (pos) {
+          var a2 = pos.gruppe || 'Sonstiges';
+          if (!proArt[a2]) proArt[a2] = { art: a2, positionen: [], summe: 0 };
+          proArt[a2].positionen.push(pos);
+          proArt[a2].summe += pos.menge;
+        });
+        g.arten = Object.keys(proArt).sort(function (a2, c2) {
+          return GRUPPEN_REIHENFOLGE.indexOf(a2) - GRUPPEN_REIHENFOLGE.indexOf(c2);
+        }).map(function (a2) { return proArt[a2]; });
         return g;
       }).sort(function (a, c) { return a.label.localeCompare(c.label, 'de'); });
       return {
@@ -785,6 +972,157 @@
     return s;
   }
 
+  /* =========================================================================
+   * Pflichtangaben einer Tür
+   * ======================================================================
+   * Eine Tür gilt als vollständig, wenn alle Angaben vorliegen, die für die
+   * Bestellung zwingend gebraucht werden. Welche das sind, hängt davon ab,
+   * welche Bauteile an der Tür überhaupt vorgesehen sind - nach einem
+   * Stoßgriff nach dem Dornmaß zu fragen wäre unsinnig.
+   *
+   * Die Prüfung blockiert nichts: Vor Ort ist ein Maß nicht immer zu
+   * bekommen. Eine unvollständige Tür lässt sich speichern, wird aber als
+   * solche gekennzeichnet und erscheint in der Liste der offenen Punkte.
+   * ====================================================================== */
+
+  /* Bauformen, bei denen die Zylinderlänge nicht zur Bestellung gehört */
+  var ZYL_OHNE_LAENGE = ['Vorhangschloss / Bügelschloss', 'Briefkastenzylinder', 'Möbelzylinder'];
+  /* Beschlagbauform ohne Drücker: kein Dornmaß, keine Entfernung, kein Vierkant */
+  var BESCHLAG_OHNE_DRUECKER = ['Stoßgriff / Ziehgriff'];
+  /* Schlossbauformen, bei denen Dornmaß und Entfernung gelten */
+  var SCHLOSS_MIT_MASSEN = ['Einsteckschloss', 'Rohrrahmenschloss',
+                            'Mehrfachverriegelung', 'Motorschloss'];
+
+  function leer(wert) {
+    if (wert === null || wert === undefined) return true;
+    return String(wert).trim() === '';
+  }
+
+  /* Liefert ALLE Pflichtangaben der Tür, jede mit dem Vermerk, ob sie
+   * fehlt. Das Formular braucht beides: welche Felder Pflicht sind (um sie
+   * zu kennzeichnen) und welche davon noch offen sind. */
+  function pflichtListe(projekt, tuer) {
+    var alle = [];
+    var t = tuer || {};
+    var p = projekt || {};
+    var K2 = kat();
+
+    function verlangen(schluessel, label, abschnitt) {
+      alle.push({ schluessel: schluessel, label: label, abschnitt: abschnitt,
+                  fehlt: leer(t[schluessel]) });
+    }
+
+    /* --- Immer --- */
+    verlangen('bezeichnung', 'Bezeichnung / Raum', 'lage');
+    var hatStruktur = (p.standorte || []).length > 0;
+    if (hatStruktur) {
+      alle.push({ schluessel: 'strukturId', label: 'Standort / Gebäude / Bereich',
+                  abschnitt: 'lage', fehlt: !t.strukturId });
+    } else {
+      verlangen('etage', 'Etage / Bereich', 'lage');
+    }
+    if (p.anlagenart === 'hybrid') {
+      verlangen('tuerTechnologie', 'Ausführung mechanisch oder elektronisch', 'bauteile');
+    }
+    alle.push({ schluessel: 'bauteile', label: 'mindestens ein Bauteil', abschnitt: 'bauteile',
+                fehlt: !t.brauchtZylinder && !t.brauchtBeschlag && !t.brauchtSchloss && !t.brauchtWandleser });
+
+    /* --- Zylinder --- */
+    if (t.brauchtZylinder) {
+      verlangen('zylinderBauform', 'Art des Zylinders (Bauform)', 'zylinder');
+      if (t.zylinderBauform && ZYL_OHNE_LAENGE.indexOf(t.zylinderBauform) === -1) {
+        verlangen('masseAussen', 'Länge außen', 'zylinder');
+        /* Beim Halbzylinder gibt es innen keine Länge zu bestellen */
+        if (t.zylinderBauform !== 'Halbzylinder') {
+          verlangen('masseInnen', 'Länge innen', 'zylinder');
+        }
+      }
+      if (t.zylinderBauform === 'Knaufzylinder') {
+        verlangen('zylinderKnaufseite', 'Knaufseite', 'zylinder');
+      }
+      verlangen('zutrittsseite', 'Von welcher Seite wird geöffnet?', 'zutritt');
+    }
+
+    /* --- Beschlag --- */
+    if (t.brauchtBeschlag) {
+      verlangen('beschlagBauform', 'Bauform des Beschlags', 'beschlag');
+      verlangen('beschlagAusfuehrung', 'Ausführung (mechanisch / elektronisch)', 'beschlag');
+      verlangen('tuerblattstaerke', 'Türblattstärke', 'beschlag');
+      var mitDruecker = BESCHLAG_OHNE_DRUECKER.indexOf(t.beschlagBauform || '') === -1;
+      if (mitDruecker) {
+        verlangen('beschlagBestueckung', 'Bestückung', 'beschlag');
+        verlangen('dornmass', 'Dornmaß', 'beschlag');
+        verlangen('entfernung', 'Entfernung', 'beschlag');
+        verlangen('vierkant', 'Vierkant / Nuss', 'beschlag');
+        verlangen('dinRichtung', 'DIN-Richtung', 'beschlag');
+      }
+    }
+
+    /* --- Schloss --- */
+    if (t.brauchtSchloss) {
+      verlangen('schlossBauform', 'Bauform des Schlosses', 'schloss');
+      if (SCHLOSS_MIT_MASSEN.indexOf(t.schlossBauform || '') !== -1) {
+        verlangen('schlossFunktion', 'Funktion des Schlosses', 'schloss');
+        verlangen('dornmass', 'Dornmaß', 'schloss');
+        verlangen('entfernung', 'Entfernung', 'schloss');
+        verlangen('dinRichtung', 'DIN-Richtung', 'schloss');
+      }
+    }
+
+    /* --- Elektronik ---
+     * Nur beim Wandleser und beim elektronischen Beschlag: Dort muss
+     * geklärt sein, woher der Strom kommt und wie angebunden wird. Ein
+     * elektronischer Zylinder arbeitet mit Batterie und braucht die
+     * Angaben nicht zwingend. */
+    var elektronisch = t.brauchtWandleser || (K2 && K2.beschlagIstElektronisch(t));
+    if (elektronisch) {
+      verlangen('elStromversorgung', 'Stromversorgung', 'elektronik');
+      verlangen('elVernetzung', 'Vernetzung', 'elektronik');
+    }
+
+    /* Dieselbe Angabe kann aus zwei Bauteilen verlangt werden (das Dornmaß
+     * gilt für Beschlag und Schloss). Sie wird dann nur einmal geführt. */
+    var gesehen = {};
+    return alle.filter(function (f) {
+      if (gesehen[f.schluessel]) return false;
+      gesehen[f.schluessel] = true;
+      return true;
+    });
+  }
+
+  /* Nur die Angaben, die noch fehlen */
+  function pflichtfelder(projekt, tuer) {
+    return pflichtListe(projekt, tuer).filter(function (f) { return f.fehlt; });
+  }
+
+  /* Nachschlagewerk für das Formular: Feldname -> Beschriftung */
+  function pflichtSchluessel(projekt, tuer) {
+    var aus = {};
+    pflichtListe(projekt, tuer).forEach(function (f) { aus[f.schluessel] = f.label; });
+    return aus;
+  }
+
+  function tuerVollstaendig(projekt, tuer) {
+    return pflichtfelder(projekt, tuer).length === 0;
+  }
+
+  /* Status aus der Vollständigkeit ableiten.
+   * Nur solange der Status nicht selbst gewählt wurde: Eine von Hand
+   * gesetzte Freigabe oder Nacharbeit wird nie überschrieben. */
+  function statusAusPruefung(projekt, tuer) {
+    if (!tuer) return;
+    if (tuer.statusVonHand) return tuer.status;
+    tuer.status = tuerVollstaendig(projekt, tuer) ? 'aufgemessen' : 'klaerung';
+    return tuer.status;
+  }
+
+  /* Alle unvollständigen Türen eines Projekts */
+  function unvollstaendigeTueren(projekt) {
+    return (projekt && projekt.tueren || []).filter(function (t) {
+      return pflichtfelder(projekt, t).length > 0;
+    });
+  }
+
   /* --- Validierung / Plausibilitätsprüfung -------------------------------- */
   function pruefeProjekt(projekt) {
     var probleme = [];
@@ -808,27 +1146,15 @@
         }
         nummern[t.nummer] = true;
       }
-      if (!t.strukturId) {
-        probleme.push({ schwere: 'info', tuerId: t.id, text: bez + ': keinem Standort/Gebäude zugeordnet' });
-      }
-      if (projekt.anlagenart === 'hybrid' && !t.tuerTechnologie) {
-        probleme.push({ schwere: 'warn', tuerId: t.id,
-          text: bez + ': Hybridanlage – Ausführung (mechanisch oder elektronisch) noch nicht festgelegt' });
-      }
-      if (t.brauchtZylinder && !t.zylinderBauform) {
-        probleme.push({ schwere: 'warn', tuerId: t.id, text: bez + ': Zylinder benötigt, aber keine Bauform gewählt' });
-      }
-      if (t.brauchtZylinder && t.zylinderBauform && !t.masseAussen && !t.masseInnen) {
-        probleme.push({ schwere: 'warn', tuerId: t.id, text: bez + ': keine Zylinderlänge erfasst' });
-      }
-      if (t.brauchtBeschlag && !t.beschlagBauform) {
-        probleme.push({ schwere: 'info', tuerId: t.id, text: bez + ': Beschlag benötigt, aber keine Bauform gewählt' });
-      }
-      if (t.brauchtSchloss && !t.schlossBauform) {
-        probleme.push({ schwere: 'info', tuerId: t.id, text: bez + ': Schloss benötigt, aber keine Bauform gewählt' });
-      }
-      if (t.brauchtZylinder && !t.zutrittsseite) {
-        probleme.push({ schwere: 'info', tuerId: t.id, text: bez + ': Zutrittsseite nicht angegeben' });
+      /* Fehlende Pflichtangaben kommen aus einer einzigen Quelle, damit
+       * Formular, Türliste und Prüfprotokoll nie auseinanderlaufen. Sie
+       * werden je Tür in einer Zeile gemeldet statt einzeln aufgezählt -
+       * sonst erschlägt das Protokoll den Leser. */
+      var fehlende = pflichtfelder(projekt, t);
+      if (fehlende.length) {
+        probleme.push({ schwere: 'warn', tuerId: t.id, art: 'pflicht',
+          text: bez + ': ' + fehlende.length + (fehlende.length === 1 ? ' Pflichtangabe fehlt – ' : ' Pflichtangaben fehlen – ') +
+                fehlende.map(function (f) { return f.label; }).join(', ') });
       }
       if (t.nacharbeit && !t.nacharbeitText) {
         probleme.push({ schwere: 'info', tuerId: t.id, text: bez + ': Nacharbeit markiert, aber nicht beschrieben' });
@@ -850,6 +1176,7 @@
 
     var kuerzel = {};
     projekt.schliessungen.forEach(function (s) {
+      var sbez = s.kuerzel || s.bezeichnung || 'Schließung';
       if (!s.kuerzel && !s.bezeichnung) {
         probleme.push({ schwere: 'warn', text: 'Schließung ohne Kürzel und Bezeichnung' });
       }
@@ -857,6 +1184,29 @@
         if (kuerzel[s.kuerzel]) probleme.push({ schwere: 'warn', text: 'Kürzel "' + s.kuerzel + '" ist doppelt vergeben' });
         kuerzel[s.kuerzel] = true;
       }
+      if (s.traegerArt === 'gruppe' && !String(s.gruppenName || '').trim()) {
+        probleme.push({ schwere: 'warn', text: sbez + ': als Gruppe gekennzeichnet, aber ohne Gruppennamen' });
+      }
+      var benannt = (s.personen || []).filter(function (x) { return x && String(x.name || '').trim(); });
+      if (s.traegerArt === 'gruppe' && !benannt.length) {
+        probleme.push({ schwere: 'info', text: sbez + ': Gruppe ohne hinterlegte Mitglieder' });
+      }
+      if (s.traegerArt === 'einzel' && !benannt.length) {
+        probleme.push({ schwere: 'info', text: sbez + ': keine Person benannt' });
+      }
+      if (!s.traegerArt && medienAnzahl(s) > 0) {
+        probleme.push({ schwere: 'info', text: sbez + ': noch nicht festgelegt, ob Einzelperson oder Gruppe' });
+      }
+      /* Zwei Personen mit demselben Namen in einer Gruppe sind fast immer
+       * ein Versehen beim Abtippen. */
+      var namen = {};
+      benannt.forEach(function (x) {
+        var n = String(x.name).trim().toLowerCase();
+        if (namen[n]) {
+          probleme.push({ schwere: 'info', text: sbez + ': "' + x.name + '" steht zweimal in der Liste' });
+        }
+        namen[n] = true;
+      });
     });
 
     if (projekt.tueren.length && projekt.schliessungen.length) {
@@ -971,7 +1321,8 @@
     else if (/haftmagnet/i.test(text)) ziel.schlossBauform = 'Haftmagnet';
     else if (/einsteckschloss|panikschloss/i.test(text)) ziel.schlossBauform = 'Einsteckschloss';
 
-    var panik = /Funktion\s*([BEDC])\b/i.exec(text);
+    /* "Panik Funktion B", aber auch kurz "Panik B" */
+    var panik = /(?:Funktion|Panik)\s*([BEDC])\b/i.exec(text);
     if (panik) {
       var zusatz = { B: 'Panik Funktion B (Umschaltfunktion)', E: 'Panik Funktion E (Wechselfunktion)',
                      D: 'Panik Funktion D (Durchgangsfunktion)', C: 'Panik Funktion C' };
@@ -980,7 +1331,11 @@
     else if (/selbstverriegelnd/i.test(text)) ziel.schlossFunktion = 'selbstverriegelnd';
     else if (/buntbart/i.test(text)) ziel.schlossFunktion = 'Buntbart';
     else if (/\bPZ\b|profilzylinder/i.test(text)) ziel.schlossFunktion = 'Profilzylinder (PZ)';
-    else if (/rollfalle/i.test(text)) ziel.schlossFunktion = 'Rollfalle';
+
+    /* Die Rollfalle ist eine Bauart der Falle, keine Funktion des Schlosses.
+     * Sie darf deshalb nicht in das Funktionsfeld geschrieben werden - dort
+     * stünde sie außerhalb der Auswahlliste. */
+    if (/rollfalle/i.test(text) && !ziel.schlossFallenart) ziel.schlossFallenart = 'Rollfalle';
   }
 
   /* Die alte gemischte Liste auf ihre drei Bedeutungen verteilen */
@@ -1032,6 +1387,15 @@
       if (i !== -1) {
         t.zylinderAusfuehrung.splice(i, 1, 'Freidreh');
       }
+    }
+
+    /* Die Rollfalle stand früher unter den Schlossfunktionen. Sie ist aber
+     * eine Bauart der Falle und keine Funktion des Schlosses - sonst müsste
+     * man sich zwischen Panikfunktion und Rollfalle entscheiden, obwohl
+     * beides zusammen vorkommt. Sie wandert deshalb zur Fallenart. */
+    if (String(t.schlossFunktion || '') === 'Rollfalle') {
+      if (!t.schlossFallenart) t.schlossFallenart = 'Rollfalle';
+      t.schlossFunktion = '';
     }
     var hatAltfelder = ('zylinderArt' in t) || ('beschlagArt' in t) ||
                        ('schlossArt' in t) || ('zutrittsarten' in t);
@@ -1109,6 +1473,47 @@
   }
 
   /* --- Migration / Normalisierung beim Import ------------------------------ */
+  /* =========================================================================
+   * Überführung einer Schließung aus einer früheren Fassung
+   * ======================================================================
+   * Früher stand im Feld "Typ" teils der Rang im Plan (GHS, HS ...) und
+   * teils, wer das Medium trägt ("Person", "Personengruppe"). Das waren
+   * zwei verschiedene Fragen in einem Feld. Jetzt trägt "typ" allein den
+   * Rang, "traegerArt" allein den Träger.
+   *
+   * Aus "Person" bzw. "Personengruppe" wird deshalb kein Rang erfunden -
+   * der Rang bleibt offen, die Angabe wandert vollständig zum Träger.
+   * Die Freitextfelder "person" und "abteilung" werden zur Personenliste.
+   * Mehrfach anwendbar, ohne Schaden anzurichten.
+   */
+  function schliessungUeberfuehren(s) {
+    if (!s || typeof s !== 'object') return s;
+
+    if (s.typ === 'person') { s.traegerArt = s.traegerArt || 'einzel'; s.typ = ''; }
+    if (s.typ === 'gruppe') {
+      s.traegerArt = s.traegerArt || 'gruppe';
+      if (!s.gruppenName) s.gruppenName = s.abteilung || s.bezeichnung || '';
+      s.typ = '';
+    }
+
+    if (!Array.isArray(s.personen)) s.personen = [];
+    var name = String(s.person || '').trim();
+    if (name && !s.personen.some(function (x) { return x && x.name === name; })) {
+      s.personen.push(neuePerson({ name: name, funktion: String(s.abteilung || '').trim() }));
+      /* Die bisherige Gesamtzahl bleibt maßgeblich: Sie stand für alle
+       * Medien dieser Schließung, nicht für diese eine Person. */
+      s.medienVonHand = true;
+    }
+    if (!s.traegerArt) {
+      if (s.personen.length) s.traegerArt = 'einzel';
+      else if (String(s.abteilung || '').trim()) {
+        s.traegerArt = 'gruppe';
+        if (!s.gruppenName) s.gruppenName = String(s.abteilung).trim();
+      }
+    }
+    return s;
+  }
+
   function migriere(projekt) {
     var vorlage = neuesProjekt();
     var out = {};
@@ -1124,6 +1529,7 @@
     anlageAusTuerenErschliessen(out);   /* Anlage aus Alttüren erschließen */
 
     var tuerVorlage = neueTuer();
+    var warSchonBekannt = !!(projekt && projekt.schemaVersion);
     out.tueren = out.tueren.map(function (t) {
       tuerUeberfuehren(t);          /* ältere Fassungen zuerst überführen */
       var neu = {};
@@ -1134,16 +1540,23 @@
       ['zylinderAusfuehrung', 'tueranforderungen', 'komponenten', 'fotos'].forEach(function (k) {
         if (!Array.isArray(neu[k])) neu[k] = [];
       });
+      /* Ein bereits vergebener Status wird nie von der neuen
+       * Vollständigkeitsprüfung überschrieben. */
+      if (warSchonBekannt && (t && t.statusVonHand === undefined)) neu.statusVonHand = true;
       return neu;
     });
 
     var schlVorlage = neueSchliessung();
     out.schliessungen = out.schliessungen.map(function (s) {
+      schliessungUeberfuehren(s);
       var neu = {};
       Object.keys(schlVorlage).forEach(function (k) {
         neu[k] = (s && s[k] !== undefined) ? s[k] : schlVorlage[k];
       });
       neu.id = s && s.id ? s.id : uid('sch');
+      if (!Array.isArray(neu.personen)) neu.personen = [];
+      neu.personen = neu.personen.filter(function (x) { return x && typeof x === 'object'; })
+        .map(function (x) { return neuePerson(x); });
       return neu;
     });
 
@@ -1171,6 +1584,16 @@
     neueTuer: neueTuer,
     naechsteLaufendeNummer: naechsteLaufendeNummer,
     neueSchliessung: neueSchliessung,
+    neuePerson: neuePerson,
+    medienAnzahl: medienAnzahl,
+    identmedienAuswahl: identmedienAuswahl,
+    medienAngleichen: medienAngleichen,
+    pflichtfelder: pflichtfelder,
+    pflichtListe: pflichtListe,
+    pflichtSchluessel: pflichtSchluessel,
+    tuerVollstaendig: tuerVollstaendig,
+    statusAusPruefung: statusAusPruefung,
+    unvollstaendigeTueren: unvollstaendigeTueren,
     tuerSystemId: tuerSystemId,
     tuerTechnologie: tuerTechnologie,
     istTuerElektronisch: istTuerElektronisch,
@@ -1180,6 +1603,9 @@
     setBerechtigung: setBerechtigung,
     matrixAufraeumen: matrixAufraeumen,
     strukturPfad: strukturPfad,
+    knotenMitUnter: knotenMitUnter,
+    tuerenUnter: tuerenUnter,
+    findeStruktur: findeStruktur,
     strukturPfadText: strukturPfadText,
     findeStruktur: findeStruktur,
     kinderVon: kinderVon,
@@ -1193,6 +1619,7 @@
     statistik: statistik,
     pruefeProjekt: pruefeProjekt,
     tuerUeberfuehren: tuerUeberfuehren,
+    schliessungUeberfuehren: schliessungUeberfuehren,
     anlageAusTuerenErschliessen: anlageAusTuerenErschliessen,
     migriere: migriere
   };

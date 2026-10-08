@@ -277,9 +277,44 @@
     'Panik Funktion E (Wechselfunktion)',
     'Panik Funktion D (Durchgangsfunktion)',
     'Panik Funktion C',
-    'Rollfalle',
     'Freilauffunktion'
   ];
+
+  /* --- Einsteckschloss im Detail (optional) ------------------------------
+   * Diese Angaben sind beim Bestellen eines Einsteckschlosses entscheidend,
+   * gehören aber nicht zur Grundauswahl. Die Fallenart stand früher in der
+   * Liste der Funktionen - sie ist jedoch eine Bauart der Falle und keine
+   * Funktion des Schlosses. Deshalb steht sie jetzt genau hier.
+   * -------------------------------------------------------------------- */
+  var STULPFORM = ['Flachstulp eckig', 'Flachstulp abgerundet', 'U-Stulp', 'Winkelstulp'];
+  var FALLENART = ['Fallenriegel (Standard)', 'Rollfalle', 'Kreuzfalle', 'Hakenfalle',
+                   'Schwenkhaken', 'Bolzenverriegelung'];
+  var SCHLOSS_NORM = ['EN 179', 'EN 1125', 'EN 12209', 'EN 14846', 'DIN 18251'];
+  var STULPBREITE = ['16', '18', '20', '22', '24', '25', '30', '40'];
+  var RIEGELAUSSCHLUSS = ['14', '16', '18', '20', '25', '28', '35', '40', '45'];
+
+  /* --- Türmaße (optional) ------------------------------------------------- */
+  var TUER_ANSCHLAG = ['gefälzt', 'stumpf einschlagend', 'unbekannt'];
+
+  /* --- Strom und Kabel an der Tür (optional) ------------------------------
+   * Entscheidet bei elektronischen Beschlägen und Motorschlössern darüber,
+   * ob zusätzlich verlegt werden muss. */
+  var KABELUEBERGANG = ['Kabelübergang vorhanden', 'Leerrohr vorhanden',
+                        'nichts vorhanden', 'unbekannt'];
+
+  /* Lesbarer Text der Einsteckschloss-Details für Listen und Ausgaben */
+  function schlossDetailText(tuer) {
+    if (!tuer || !tuer.brauchtSchloss) return '';
+    var teile = [];
+    if (tuer.schlossStulpform) teile.push(tuer.schlossStulpform);
+    if (tuer.schlossStulpbreite) teile.push('Stulp ' + tuer.schlossStulpbreite + ' mm');
+    if (tuer.schlossStulplaenge) teile.push('Stulplänge ' + tuer.schlossStulplaenge + ' mm');
+    if (tuer.schlossFallenart) teile.push(tuer.schlossFallenart);
+    if (tuer.schlossRiegelausschluss) teile.push('Riegel ' + tuer.schlossRiegelausschluss + ' mm');
+    if (tuer.schlossVerriegelungspunkte) teile.push(tuer.schlossVerriegelungspunkte + ' Verriegelungspunkte');
+    if (tuer.schlossNorm) teile.push(tuer.schlossNorm);
+    return teile.join(' · ');
+  }
 
   function schlossText(tuer) {
     if (!tuer || !tuer.brauchtSchloss) return '';
@@ -376,17 +411,51 @@
     { id: 'freigegeben',  label: 'Freigegeben',    farbe: '#1565c0' }
   ];
 
-  /* --- Schließungs-/Gruppentypen für den Schließplan ---------------------- */
+  /* --- Rang einer Schließung im Plan -------------------------------------
+   * Ausschließlich der Rang. Wer das Medium trägt, ist eine andere Frage
+   * und steht in TRAEGER_ART - früher standen "Person" und
+   * "Personengruppe" mit in dieser Liste, sodass man zweimal dasselbe
+   * wählen musste. Beides wird bei der Überführung getrennt. */
   var SCHLIESSUNG_TYPEN = [
     { id: 'ghs',   label: 'GHS (Generalhauptschlüssel)',  kuerzel: 'GHS' },
     { id: 'hs',    label: 'HS (Hauptschlüssel)',          kuerzel: 'HS'  },
     { id: 'gs',    label: 'GS (Gruppenschlüssel)',        kuerzel: 'GS'  },
     { id: 'ugs',   label: 'UGS (Untergruppenschlüssel)',  kuerzel: 'UGS' },
     { id: 'ez',    label: 'EZ (Einzelschließung)',        kuerzel: 'EZ'  },
-    { id: 'person',label: 'Person / Mitarbeiter',         kuerzel: 'P'   },
-    { id: 'gruppe',label: 'Personengruppe / Abteilung',   kuerzel: 'GR'  },
     { id: 'extern',label: 'Extern (Reinigung, Notdienst)',kuerzel: 'EXT' }
   ];
+
+  /* --- Träger einer Schließung -------------------------------------------
+   * Antwort auf die Frage "Wer bekommt dieses Medium?". Bewusst getrennt
+   * vom Typ: der Typ sagt, welchen Rang die Schließung im Plan hat
+   * (GHS, HS, GS ...), der Träger sagt, wer sie in der Hand hält.
+   * -------------------------------------------------------------------- */
+  var TRAEGER_ART = [
+    { id: 'einzel', label: 'Einzelperson(en)',
+      hinweis: 'Namentlich benannte Personen. Jede Person kann eine eigene Anzahl Medien haben.' },
+    { id: 'gruppe', label: 'Gruppe',
+      hinweis: 'Eine benannte Gruppe (z. B. Reinigung, IT). Auf den Gruppennamen tippen, um die Mitglieder zu hinterlegen.' }
+  ];
+
+  /* Kurztext zum Träger für Spaltenköpfe, Listen und PDF */
+  function traegerText(schliessung) {
+    var s = schliessung || {};
+    var personen = (s.personen || []).filter(function (x) { return x && x.name; });
+    if (s.traegerArt === 'gruppe') {
+      var name = s.gruppenName || s.abteilung || '';
+      if (!name) name = 'Gruppe';
+      return name + (personen.length ? (' (' + personen.length +
+        (personen.length === 1 ? ' Person)' : ' Personen)')) : '');
+    }
+    if (personen.length) {
+      if (personen.length <= 2) {
+        return personen.map(function (x) { return x.name; }).join(', ');
+      }
+      return personen[0].name + ' und ' + (personen.length - 1) + ' weitere';
+    }
+    /* Angaben aus einer früheren Fassung, falls noch nicht überführt */
+    return s.person || s.abteilung || '';
+  }
 
   /* --- Berechtigungswerte in der Matrix ----------------------------------- */
   var BERECHTIGUNG = [
@@ -466,7 +535,16 @@
     SCHLOSS_BAUFORM: SCHLOSS_BAUFORM,
     SCHLOSS_FUNKTION: SCHLOSS_FUNKTION,
     schlossText: schlossText,
+    /* Einsteckschloss im Detail (optional) */
+    STULPFORM: STULPFORM,
+    FALLENART: FALLENART,
+    SCHLOSS_NORM: SCHLOSS_NORM,
+    STULPBREITE: STULPBREITE,
+    RIEGELAUSSCHLUSS: RIEGELAUSSCHLUSS,
+    schlossDetailText: schlossDetailText,
     /* Tür */
+    TUER_ANSCHLAG: TUER_ANSCHLAG,
+    KABELUEBERGANG: KABELUEBERGANG,
     ZUTRITTSSEITE: ZUTRITTSSEITE,
     TUERANFORDERUNG: TUERANFORDERUNG,
     DIN_RICHTUNG: DIN_RICHTUNG,
@@ -475,6 +553,8 @@
     TUERMATERIAL: TUERMATERIAL,
     STATUS: STATUS,
     SCHLIESSUNG_TYPEN: SCHLIESSUNG_TYPEN,
+    TRAEGER_ART: TRAEGER_ART,
+    traegerText: traegerText,
     BERECHTIGUNG: BERECHTIGUNG,
     systemById: systemById,
     systemLabel: systemLabel,

@@ -138,5 +138,51 @@ pruefe(blanko.schliessungen.length === vorher,
   'erneutes Erzeugen mit "ersetzen" verdoppelt nichts',
   vorher + ' -> ' + blanko.schliessungen.length);
 
+/* --- 9. Materialliste als Dokument: Spalten und Leerfelder --------------- */
+console.log('\n== Materialliste als Bestelldokument ==');
+require('../src/js/pdf.js');
+const Reports = require('../src/js/reports.js');
+const { einstellungen } = require('./fixture.js');
+const mp = M.migriere(baueTestprojekt());
+function pdfText(optionen) {
+  return Buffer.from(Reports.materialliste(mp, einstellungen, optionen).build()).toString('latin1');
+}
+const ohneTueren = pdfText({});
+const mitTueren = pdfText({ mitTueren: true });
+
+/* Jede Bauteilart hat ihre eigenen Maßspalten */
+[['Knaufseite', 'Zylinder'], ['gesamt', 'Zylinder'], ['Nuss', 'Beschlag'],
+ ['Stulp', 'Schloss'], ['Falle', 'Schloss']].forEach(([kopf, art]) => {
+  pruefe(ohneTueren.indexOf(kopf) !== -1,
+    'die Spalte „' + kopf + '“ (' + art + ') steht im Dokument');
+});
+
+/* Artikelnummer und Preis bleiben leer - sie werden beim Lieferanten ergänzt */
+pruefe(ohneTueren.indexOf('Art.-Nr.') !== -1 && ohneTueren.indexOf('Preis') !== -1,
+  'Leerspalten für Art.-Nr. und Preis sind vorhanden');
+pruefe(/absichtlich leer/.test(ohneTueren),
+  'das Dokument sagt, warum die Spalten leer sind');
+
+/* Türzuordnung ist standardmäßig aus, bleibt aber zuschaltbar */
+pruefe(ohneTueren.indexOf('A-EG-01') === -1,
+  'ohne Zuschaltung nennt die Bestellliste keine Türnummern');
+pruefe(mitTueren.indexOf('A-EG-01') !== -1,
+  'zugeschaltet stehen die Türnummern je Position dabei');
+
+/* Ohne die Art des Mediums lässt sich nicht bestellen */
+pruefe(ohneTueren.indexOf('Art des Mediums') !== -1,
+  'die Identmedien nennen die Art des Mediums');
+const offeneMedien = ml.medien.filter(m => !m.medienTyp);
+pruefe(ohneTueren.indexOf('offen') !== -1 || offeneMedien.length === 0,
+  'fehlt die Art, steht das ausdrücklich da statt leer zu bleiben',
+  offeneMedien.length + ' ohne Angabe');
+
+/* Was oben im Kopf steht, wird unten nicht wiederholt */
+const bestellteil = ohneTueren.slice(ohneTueren.indexOf('Bestellangaben'));
+pruefe(bestellteil.indexOf('Kommission') !== -1,
+  'die Bestellangaben nennen das Bestellzeichen');
+pruefe(!/Ansprechpartner vor Ort/.test(bestellteil),
+  'Angaben aus dem Dokumentenkopf werden unten nicht wiederholt');
+
 console.log(`\nErgebnis Exportlisten: ${ok} ok, ${fehler} Fehler`);
 process.exit(fehler ? 1 : 0);

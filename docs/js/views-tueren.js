@@ -18,8 +18,8 @@
 
   /* Maßauswahl: übliche Werte als Liste, abweichende Maße über "anderes Maß".
    * Vor Ort wird so in der Regel nur getippt statt getastet. */
-  function massFeld(objekt, schluessel, beschriftung, werte, platzhalter) {
-    var behaelter = el('div', { class: 'feld' });
+  function massFeld(objekt, schluessel, beschriftung, werte, platzhalter, beiAenderung) {
+    var behaelter = el('div', { class: 'feld', 'data-feld': schluessel });
     var reinText = String(beschriftung).replace(/<[^>]*>/g, '').trim();
     var freitext = el('input', {
       type: 'number', inputmode: 'numeric', placeholder: platzhalter || 'Maß in mm',
@@ -27,6 +27,7 @@
       oninput: function (e) {
         A.eingabeSchrittMerken('Eingabe: ' + reinText);
         objekt[schluessel] = e.target.value; A.alsGeaendertMarkieren();
+        if (beiAenderung) beiAenderung();
       }
     });
     var auswahl = el('select', {
@@ -41,6 +42,7 @@
         freitext.value = e.target.value;
         freitext.classList.add('versteckt');
         A.alsGeaendertMarkieren();
+        if (beiAenderung) beiAenderung();
       }
     });
     auswahl.appendChild(el('option', { value: '', text: '– bitte wählen –' }));
@@ -84,15 +86,43 @@
     behaelter.appendChild(seite);
 
     var s = M.statistik(p);
+    var offeneTueren = M.unvollstaendigeTueren(p);
+    /* Ist nach einem Bereich gefiltert, entsteht die neue Tür gleich dort -
+     * sonst müsste man den Bereich zweimal angeben. */
+    function vorgabenAusFilter() {
+      var f2 = Zustand.tuerFilter;
+      return (f2 && f2.struktur && f2.struktur !== '__ohne__') ? { strukturId: f2.struktur } : null;
+    }
     seite.appendChild(el('div', { class: 'zeile-verteilt', style: { marginBottom: '12px' } }, [
       el('div', { class: 'fuellen' }, [
         el('h1', { text: 'Türen' }),
         el('p', { class: 'hinweis', text: s.tueren + ' Positionen  ·  ' + s.tuerenGesamtAnzahl +
-          ' Türen gesamt' + (s.nacharbeit ? '  ·  ' + s.nacharbeit + ' mit Nacharbeit' : '') })
+          ' Türen gesamt' + (s.nacharbeit ? '  ·  ' + s.nacharbeit + ' mit Nacharbeit' : '') +
+          (offeneTueren.length ? ('  ·  ' + offeneTueren.length + ' unvollständig') : '') })
       ]),
       el('button', { class: 'haupt', text: '+ Neue Tür',
-        onclick: function () { tuerBearbeiten(null, neuZeichnen); } })
+        onclick: function () { tuerBearbeiten(null, neuZeichnen, vorgabenAusFilter()); } })
     ]));
+
+    /* Offene Pflichtangaben sind der häufigste Grund, ins Büro
+     * zurückzukommen - deshalb direkt erreichbar. */
+    if (offeneTueren.length) {
+      seite.appendChild(el('div', { class: 'meldung warn', style: { marginBottom: '12px' } },
+        el('div', { class: 'zeile-verteilt' }, [
+          el('div', { class: 'fuellen' }, [
+            el('b', { text: offeneTueren.length +
+              (offeneTueren.length === 1 ? ' Tür ist unvollständig' : ' Türen sind unvollständig') }),
+            el('div', { style: { marginTop: '4px', fontSize: '13px' },
+              text: 'Es fehlen Pflichtangaben für die Bestellung.' })
+          ]),
+          el('button', { class: 'klein', text: Zustand.tuerFilter.unvollstaendig
+              ? 'Alle Türen zeigen' : 'Nur diese zeigen',
+            onclick: function () {
+              Zustand.tuerFilter.unvollstaendig = !Zustand.tuerFilter.unvollstaendig;
+              neuZeichnen();
+            } })
+        ])));
+    }
 
     /* --- Filterleiste --- */
     var f = Zustand.tuerFilter;
@@ -135,7 +165,7 @@
       el('div', { class: 'suche' }, suchfeld),
       strukturWahl, statusWahl, systemWahl,
       el('button', { class: 'klein', text: 'Filter zurücksetzen', onclick: function () {
-        Zustand.tuerFilter = { suche: '', struktur: '', status: '', system: '' };
+        Zustand.tuerFilter = { suche: '', struktur: '', status: '', system: '', unvollstaendig: false };
         neuZeichnen();
       } })
     ]));
@@ -145,6 +175,7 @@
     listeZeichnen();
 
     function passt(t) {
+      if (f.unvollstaendig && M.tuerVollstaendig(p, t)) return false;
       if (f.status && t.status !== f.status) return false;
       if (f.system && M.tuerSystemId(p, t) !== f.system) return false;
       if (f.struktur === '__ohne__' && t.strukturId) return false;
@@ -169,7 +200,7 @@
           el('h3', { text: 'Noch keine Tür erfasst' }),
           el('p', { text: 'Erfassen Sie die erste Tür. Tipp: Gliedern Sie zuerst unter „Struktur“ die Standorte und Etagen – dann lassen sich die Türen direkt zuordnen.' }),
           el('button', { class: 'haupt', text: '+ Erste Tür aufnehmen',
-            onclick: function () { tuerBearbeiten(null, neuZeichnen); } })
+            onclick: function () { tuerBearbeiten(null, neuZeichnen, vorgabenAusFilter()); } })
         ]));
         return;
       }
@@ -202,6 +233,7 @@
   function tuerZeile(t, neuZeichnen) {
     var p = Zustand.projekt;
     var status = K.statusById(t.status);
+    var fehlendeAnzahl = M.pflichtfelder(p, t).length;
     var details = [];
     var sid = M.tuerSystemId(p, t);
     if (sid) details.push(K.systemLabel(sid, eigeneListe('eigeneSysteme')));
@@ -226,6 +258,9 @@
         el('div', { class: 'marken' }, [
           (parseInt(t.anzahl, 10) || 1) > 1 ? el('span', { class: 'marke-pille blau', text: t.anzahl + '×' }) : null,
           (t.fotos || []).length ? el('span', { class: 'marke-pille foto', text: String(t.fotos.length) }) : null,
+          fehlendeAnzahl ? el('span', { class: 'marke-pille gelb',
+            title: 'Fehlt: ' + M.pflichtfelder(p, t).map(function (x) { return x.label; }).join(', '),
+            text: fehlendeAnzahl + '× Pflicht offen' }) : null,
           t.nacharbeit ? el('span', { class: 'marke-pille rot', text: 'Nacharbeit' }) : null,
           el('span', {
             class: 'marke-pille ' + (t.status === 'aufgemessen' ? 'gruen'
@@ -240,202 +275,434 @@
 
   /* =========================================================================
    * Aufmaß-Formular
-   * ====================================================================== */
-  function tuerBearbeiten(vorhandene, neuZeichnen) {
+   * ======================================================================
+   * Zwei Ansichten auf dieselben Felder:
+   *
+   *   "geführt"     - ein Schritt je Bildschirm, nur die Felder, die jetzt
+   *                   dran sind, mit Fortschrittsbalken. Gedacht für das
+   *                   Aufmaß vor Ort und für Ungeübte.
+   *   "alle Felder" - alle Abschnitte untereinander zum Nachbearbeiten.
+   *
+   * Pflichtangaben sind in beiden Ansichten gekennzeichnet. Sie blockieren
+   * nichts: Vor Ort ist ein Maß nicht immer zu bekommen. Eine unvollständige
+   * Tür wird gespeichert, erhält aber den Status "Klärung nötig" und
+   * erscheint in der Liste der offenen Punkte.
+   *
+   * vorgaben: { strukturId } - gesetzt, wenn die Tür aus einem Bereich
+   * heraus angelegt wird; der Bereich steht dann schon fest.
+   */
+  function tuerBearbeiten(vorhandene, neuZeichnen, vorgaben) {
     var p = Zustand.projekt;
     var istNeu = !vorhandene;
     /* Auf einer Kopie arbeiten, damit „Abbrechen“ wirklich verwirft */
-    var t = istNeu ? M.neueTuer(vorlageFuerNeueTuer()) : JSON.parse(JSON.stringify(vorhandene));
+    var t = istNeu ? M.neueTuer(vorlageFuerNeueTuer(vorgaben))
+                   : JSON.parse(JSON.stringify(vorhandene));
 
-    var inhalt = el('div');
-    var abschnitte = [];
+    /* Die gewählte Ansicht überlebt den Dialog - getrennt für neue und
+     * vorhandene Türen, weil beide Fälle verschieden benutzt werden. */
+    var modusSchluessel = istNeu ? 'tuerModusNeu' : 'tuerModusAlt';
+    if (!Zustand[modusSchluessel]) Zustand[modusSchluessel] = istNeu ? 'gefuehrt' : 'alle';
 
-    function abschnitt(titel, offen, kinder, zusatzGeber) {
-      var koerper = el('div', { class: 'koerper' }, kinder);
-      var zusatz = el('span', { class: 'zusatz' });
-      var d = el('details', { class: 'abschnitt', open: offen }, [
-        el('summary', {}, [el('span', { text: titel }), zusatz]),
-        koerper
-      ]);
-      abschnitte.push({ knoten: d, zusatz: zusatz, geber: zusatzGeber });
-      return d;
+    var inhalt = el('div', { class: 'tuer-formular' });
+    var modusLeiste = el('div');
+    var statusLeiste = el('div', { class: 'pflicht-leiste' });
+    var fortschritt = el('div', { class: 'schritt-fortschritt' });
+    var koerper = el('div');
+    inhalt.appendChild(modusLeiste);
+    inhalt.appendChild(statusLeiste);
+    inhalt.appendChild(fortschritt);
+    inhalt.appendChild(koerper);
+
+    /* --- Die Dateiauswahl für Fotos wird nur einmal erzeugt ------------- */
+    var fotoEingabe = el('input', {
+      type: 'file', accept: 'image/*', multiple: true, class: 'versteckt',
+      onchange: function (e) { fotosHinzufuegen(Array.prototype.slice.call(e.target.files)); e.target.value = ''; }
+    });
+    var kameraEingabe = el('input', {
+      type: 'file', accept: 'image/*', capture: 'environment', class: 'versteckt',
+      onchange: function (e) { fotosHinzufuegen(Array.prototype.slice.call(e.target.files)); e.target.value = ''; }
+    });
+
+    /* =======================================================================
+     * Abschnitte
+     * =====================================================================
+     * Jeder Abschnitt ist im geführten Ablauf ein Schritt und in der
+     * Vollansicht ein aufklappbarer Block - dieselbe Baufunktion für beides.
+     */
+    function elektronikRelevant() {
+      return M.istTuerElektronisch(p, t) || t.brauchtWandleser || K.beschlagIstElektronisch(t);
     }
-    function zusammenfassungenAktualisieren() {
-      abschnitte.forEach(function (a) { if (a.geber) a.zusatz.textContent = a.geber() || ''; });
+
+    var ABSCHNITTE = [
+      { id: 'lage',       titel: 'Türkennung und Lage',    schritt: 'Wo ist die Tür?',       immer: true,  bauen: lageBauen },
+      { id: 'bauteile',   titel: 'Anlage und Bauteile',    schritt: 'Was wird gebraucht?',   immer: true,  bauen: bauteileBauen },
+      { id: 'zylinder',   titel: 'Zylinder',               schritt: 'Zylinder',              wenn: function () { return t.brauchtZylinder; }, bauen: zylinderBauen },
+      { id: 'beschlag',   titel: 'Beschlag / Drücker',     schritt: 'Beschlag / Drücker',    wenn: function () { return t.brauchtBeschlag; }, bauen: beschlagBauen },
+      { id: 'schloss',    titel: 'Schloss',                schritt: 'Schloss',               wenn: function () { return t.brauchtSchloss; }, bauen: schlossBauen },
+      { id: 'zutritt',    titel: 'Zutritt und Anforderungen', schritt: 'Zutritt',            immer: true,  bauen: zutrittBauen },
+      { id: 'elektronik', titel: 'Elektronik und Vernetzung', schritt: 'Elektronik',         wenn: elektronikRelevant, bauen: elektronikBauen },
+      { id: 'tuerdaten',  titel: 'Türdaten',               schritt: 'Türdaten',              immer: true,  freiwillig: true, bauen: tuerdatenBauen },
+      { id: 'bestand',    titel: 'Bestand / Altanlage',    schritt: 'Bestand',               immer: true,  freiwillig: true, bauen: bestandBauen },
+      { id: 'abschluss',  titel: 'Bemerkung, Nacharbeit, Fotos', schritt: 'Bemerkung und Fotos', immer: true, bauen: abschlussBauen }
+    ];
+
+    function aktive() {
+      return ABSCHNITTE.filter(function (a) { return a.immer || (a.wenn && a.wenn()); });
     }
 
-    /* --- 1. Identifikation --- */
-    var strukturAuswahl = A.auswahlFeld(t, 'strukturId', 'Standort / Gebäude / Bereich',
-      strukturOptionen(), { leerText: '– ohne Zuordnung –' });
+    var schrittId = 'lage';
 
-    inhalt.appendChild(abschnitt('Türkennung und Lage', true, [
-      el('div', { class: 'raster' }, [
+    /* --- 1. Lage ------------------------------------------------------- */
+    function lageBauen(ziel) {
+      var optionen = strukturOptionen();
+      ziel.appendChild(el('div', { class: 'raster' }, [
         A.textFeld(t, 'nummer', 'Tür-Nr. <span class="einheit">(lfd., änderbar)</span>',
           { platzhalter: '001', inputmode: 'numeric' }),
         A.textFeld(t, 'bezeichnung', 'Bezeichnung / Raum', { platzhalter: 'z. B. Büro Empfang' }),
-        A.auswahlFeld(t, 'kategorie', 'Türkategorie', K.TUERKATEGORIEN, {
-          leerText: '– ohne Angabe –' }),
-        strukturAuswahl,
-        strukturOptionen().length ? null
-          : A.textFeld(t, 'etage', 'Etage / Bereich <span class="einheit">(Freitext)</span>'),
-        A.textFeld(t, 'anzahl', 'Anzahl baugleicher Türen', { typ: 'number', inputmode: 'numeric' }),
-        A.auswahlFeld(t, 'status', 'Status', K.STATUS, { leerText: '– offen –' })
-      ])
-    ]));
+        A.auswahlFeld(t, 'kategorie', 'Türkategorie', K.TUERKATEGORIEN, { leerText: '– ohne Angabe –' }),
+        optionen.length
+          ? A.auswahlFeld(t, 'strukturId', 'Standort / Gebäude / Bereich', optionen,
+              { leerText: '– bitte wählen –', beiAenderung: markieren })
+          : A.textFeld(t, 'etage', 'Etage / Bereich <span class="einheit">(Freitext)</span>',
+              { beiAenderung: markieren }),
+        A.textFeld(t, 'anzahl', 'Anzahl baugleicher Türen', { typ: 'number', inputmode: 'numeric' })
+      ]));
+      ziel.appendChild(statusFeldBauen());
+    }
 
-    /* --- 2. Anlage --------------------------------------------------------
-     * Das System steht im Projekt. Hier wird nur bei einer Hybridanlage
-     * entschieden, welche Seite für diese Tür gilt. */
-    var systemHinweis = el('p', { class: 'hinweis', style: { margin: '8px 0 0' } });
-    var anlageAnzeige = el('div', { class: 'zeile-verteilt' });
-    var hybridWahl = el('div');
+    /* Der Status wird aus der Vollständigkeit geführt, solange er nicht
+     * selbst gewählt wurde. Das steht ausdrücklich dort, wo er sichtbar
+     * ist - sonst wirkt eine Änderung von allein wie ein Fehler. */
+    function statusFeldBauen() {
+      var kasten = el('div', { style: { marginTop: '12px' } });
+      var auswahl = A.auswahlFeld(t, 'status', 'Status', K.STATUS, {
+        leerText: '– offen –',
+        beiAenderung: function () { t.statusVonHand = true; statusFeldNeu(); }
+      });
+      kasten.appendChild(el('div', { class: 'raster' }, [auswahl]));
+      if (t.statusVonHand) {
+        kasten.appendChild(el('div', { class: 'knopfleiste', style: { marginTop: '6px' } },
+          el('button', { class: 'klein', text: 'Status wieder automatisch führen',
+            title: 'Vollständig = Aufgemessen, unvollständig = Klärung nötig',
+            onclick: function () {
+              A.schrittMerken('Status wieder automatisch');
+              t.statusVonHand = false;
+              M.statusAusPruefung(p, t);
+              statusFeldNeu();
+            } })));
+      } else {
+        kasten.appendChild(el('p', { class: 'zart', style: { marginTop: '4px' },
+          text: 'Wird automatisch geführt: vollständig = Aufgemessen, unvollständig = Klärung nötig.' }));
+      }
+      return kasten;
+    }
+    function statusFeldNeu() { abschnittNeu('lage'); markieren(); }
 
-    function systemAbhaengigesZeichnen() {
+    /* --- 2. Anlage und Bauteile ---------------------------------------- */
+    function bauteileBauen(ziel) {
       var eigene = eigeneListe('eigeneSysteme');
       var sid = M.tuerSystemId(p, t);
-      var sys = K.systemById(sid, eigene);
 
-      A.leeren(anlageAnzeige);
       if (!p.anlagenart) {
-        anlageAnzeige.appendChild(el('div', { class: 'meldung warn', style: { margin: '0', width: '100%' } },
+        ziel.appendChild(el('div', { class: 'meldung warn', style: { marginTop: '0' } },
           el('div', {}, [
             el('b', { text: 'Für dieses Projekt ist noch keine Schließanlage festgelegt. ' }),
             'Bitte unter „Stammdaten“ die Art der Anlage und das System wählen.'
           ])));
       } else {
-        anlageAnzeige.appendChild(el('span', { class: 'marke-pille blau',
-          text: (K.ANLAGENART.filter(function (a) { return a.id === p.anlagenart; })[0] || {}).label || p.anlagenart }));
-        if (sid) {
-          anlageAnzeige.appendChild(el('span', { class: 'marke-pille', text: K.systemLabel(sid, eigene) }));
-        }
-        if (p.systemDetail) {
-          anlageAnzeige.appendChild(el('span', { class: 'zart', text: p.systemDetail }));
-        }
+        var marken = el('div', { class: 'zeile-verteilt' }, [
+          el('span', { class: 'marke-pille blau',
+            text: (K.ANLAGENART.filter(function (a) { return a.id === p.anlagenart; })[0] || {}).label || p.anlagenart }),
+          sid ? el('span', { class: 'marke-pille', text: K.systemLabel(sid, eigene) }) : null,
+          p.systemDetail ? el('span', { class: 'zart', text: p.systemDetail }) : null
+        ]);
+        ziel.appendChild(marken);
       }
 
-      /* Nur bei Hybrid ist an der Tür noch etwas zu entscheiden */
-      A.leeren(hybridWahl);
+      /* Nur bei einer Hybridanlage ist an der Tür noch etwas zu entscheiden */
       if (p.anlagenart === 'hybrid') {
-        hybridWahl.appendChild(el('div', { class: 'raster', style: { marginTop: '12px' } }, [
+        ziel.appendChild(el('div', { class: 'raster', style: { marginTop: '12px' } }, [
           A.auswahlFeld(t, 'tuerTechnologie', 'Diese Tür wird ausgeführt als', [
             { id: 'mechanik',   label: 'Mechanisch' + (p.systemMechanik ? '  –  ' + K.systemLabel(p.systemMechanik, eigene) : '') },
             { id: 'elektronik', label: 'Elektronisch' + (p.systemElektronik ? '  –  ' + K.systemLabel(p.systemElektronik, eigene) : '') }
-          ], { leerText: '– bitte wählen –', beiAenderung: function () { systemAbhaengigesZeichnen(); } })
+          ], { leerText: '– bitte wählen –', beiAenderung: function () { ansichtNeu(); } })
         ]));
       } else if (t.tuerTechnologie) {
         t.tuerTechnologie = '';   /* bei reiner Anlage gegenstandslos */
       }
 
-      systemHinweis.textContent = sys && sys.hinweis ? sys.hinweis : '';
+      var sys = K.systemById(sid, eigene);
+      if (sys && sys.hinweis) {
+        ziel.appendChild(el('p', { class: 'hinweis', style: { marginTop: '8px' }, text: sys.hinweis }));
+      }
 
-      elektronikSichtbarkeit();
-      zusammenfassungenAktualisieren();
-    }
+      ziel.appendChild(el('hr', { class: 'trenner' }));
+      ziel.appendChild(el('h3', { text: 'Welche Bauteile hat diese Tür?', style: { marginTop: '0' } }));
+      var schalter = el('div', { class: 'raster eng', 'data-feld': 'bauteile' }, [
+        A.schalterFeld(t, 'brauchtZylinder', 'Zylinder', function () { ansichtNeu(); }),
+        A.schalterFeld(t, 'brauchtBeschlag', 'Beschlag / Drücker', function () { ansichtNeu(); }),
+        A.schalterFeld(t, 'brauchtSchloss', 'Schloss', function () { ansichtNeu(); }),
+        A.schalterFeld(t, 'brauchtWandleser', 'Wandleser', function () { ansichtNeu(); })
+      ]);
+      ziel.appendChild(schalter);
 
-    inhalt.appendChild(abschnitt('Anlage', true, [
-      anlageAnzeige,
-      hybridWahl,
-      systemHinweis,
-      el('div', { class: 'raster', style: { marginTop: '12px' } }, [
+      ziel.appendChild(el('div', { class: 'raster', style: { marginTop: '12px' } }, [
         A.textFeld(t, 'systemNotiz', 'Besonderheit zu dieser Tür <span class="einheit">(nur bei Abweichung)</span>',
           { platzhalter: 'z. B. Fremdfabrikat im Bestand, Sonderausführung' })
-      ])
-    ], function () {
-      var sid = M.tuerSystemId(p, t);
-      if (!p.anlagenart) return 'Anlage noch nicht festgelegt';
-      if (p.anlagenart === 'hybrid' && !t.tuerTechnologie) return 'Ausführung noch offen';
-      return sid ? K.systemLabel(sid, eigeneListe('eigeneSysteme')) : '';
-    }));
-
-    /* --- 3. Bauteile -------------------------------------------------------
-     * Je Bauteil werden Bauform, Ausführung und Maße an genau einer Stelle
-     * erfasst. Angaben, die sich aus einer anderen ergeben, werden nicht
-     * erneut gefragt (z. B. Knaufseite nur beim Knaufzylinder). */
-    var zylinderFelder = el('div');
-    var beschlagFelder = el('div');
-    var schlossFelder = el('div');
-    var bauteilHinweis = el('div');
-
-    function bauteilFelderZeichnen() {
-      A.leeren(zylinderFelder); A.leeren(beschlagFelder); A.leeren(schlossFelder);
-
-      /* ---- Zylinder ---- */
-      if (t.brauchtZylinder) {
-        var zylRaster = el('div', { class: 'raster' }, [
-          A.auswahlFeld(t, 'zylinderBauform', 'Bauform', liste('ZYLINDER_BAUFORM', 'eigeneZylinderarten'), {
-            beiAenderung: function () { bauteilFelderZeichnen(); }
-          }),
-          A.textFeld(t, 'masseAussen', 'Länge außen <span class="einheit">mm</span>',
-            { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 35' }),
-          A.textFeld(t, 'masseInnen', 'Länge innen <span class="einheit">mm</span>',
-            { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 40' })
-        ]);
-        /* Knaufseite ist nur beim einfachen Knaufzylinder eine offene Frage */
-        if (t.zylinderBauform === 'Knaufzylinder') {
-          zylRaster.appendChild(A.auswahlFeld(t, 'zylinderKnaufseite',
-            'Knaufseite <span class="einheit">(vom mech. festen Knauf)</span>', K.KNAUFSEITE));
-        } else if (t.zylinderKnaufseite) {
-          t.zylinderKnaufseite = '';
-        }
-        zylinderFelder.appendChild(el('h3', { text: 'Zylinder', style: { marginTop: '0' } }));
-        zylinderFelder.appendChild(zylRaster);
-        zylinderFelder.appendChild(A.chipFeld(t, 'zylinderAusfuehrung',
-          'Ausführung <span class="einheit">(nur wenn zutreffend)</span>',
-          liste('ZYLINDER_AUSFUEHRUNG')));
-      }
-
-      /* ---- Beschlag ---- */
-      if (t.brauchtBeschlag) {
-        var besRaster = el('div', { class: 'raster' }, [
-          A.auswahlFeld(t, 'beschlagBauform', 'Bauform', liste('BESCHLAG_BAUFORM', 'eigeneBeschlagarten'), {
-            beiAenderung: function () { bauteilFelderZeichnen(); }
-          }),
-          A.auswahlFeld(t, 'beschlagAusfuehrung', 'Ausführung', K.BESCHLAG_AUSFUEHRUNG, {
-            beiAenderung: function () { bauteilFelderZeichnen(); elektronikSichtbarkeit(); }
-          }),
-          A.auswahlFeld(t, 'beschlagBestueckung', 'Bestückung', K.BESCHLAG_BESTUECKUNG),
-          massFeld(t, 'vierkant', 'Vierkant <span class="einheit">mm</span>', K.VIERKANT, 'z. B. 8')
-        ]);
-        /* Sicherheitsklasse nur beim Schutzbeschlag */
-        if (t.beschlagBauform === 'Schutzbeschlag') {
-          besRaster.appendChild(A.auswahlFeld(t, 'beschlagSicherheit', 'Sicherheitsklasse', K.BESCHLAG_SICHERHEIT));
-        } else if (t.beschlagSicherheit) {
-          t.beschlagSicherheit = '';
-        }
-        beschlagFelder.appendChild(el('h3', { text: 'Beschlag / Drücker' }));
-        beschlagFelder.appendChild(besRaster);
-      }
-
-      /* ---- Schloss ---- */
-      if (t.brauchtSchloss) {
-        schlossFelder.appendChild(el('h3', { text: 'Schloss' }));
-        schlossFelder.appendChild(el('div', { class: 'raster' }, [
-          A.auswahlFeld(t, 'schlossBauform', 'Bauform', liste('SCHLOSS_BAUFORM', 'eigeneSchlossarten')),
-          A.auswahlFeld(t, 'schlossFunktion', 'Funktion', K.SCHLOSS_FUNKTION),
-          A.textFeld(t, 'stulpmass', 'Stulpmaß / Stulpform')
-        ]));
-      }
-
-      /* ---- Dornmaß und Entfernung: gelten für Beschlag und Schloss
-             gemeinsam und werden deshalb nur einmal abgefragt. ---- */
-      if (t.brauchtBeschlag || t.brauchtSchloss) {
-        var wofuer = (t.brauchtBeschlag && t.brauchtSchloss) ? 'Beschlag und Schloss'
-                   : t.brauchtBeschlag ? 'Beschlag' : 'Schloss';
-        schlossFelder.appendChild(el('h3', { text: 'Maße für ' + wofuer }));
-        schlossFelder.appendChild(el('div', { class: 'raster' }, [
-          massFeld(t, 'dornmass', 'Dornmaß <span class="einheit">mm</span>', K.DORNMASS, 'z. B. 55'),
-          massFeld(t, 'entfernung', 'Entfernung <span class="einheit">mm</span>', K.ENTFERNUNG, 'z. B. 72')
-        ]));
-      }
-
-      widerspruecheZeichnen();
-      zusammenfassungenAktualisieren();
+      ]));
     }
 
-    /* Weist auf Angaben hin, die nicht zusammenpassen - statt sie ein
+    /* --- 3. Zylinder --------------------------------------------------- */
+    function zylinderBauen(ziel) {
+      var raster = el('div', { class: 'raster' }, [
+        A.auswahlFeld(t, 'zylinderBauform', 'Art des Zylinders <span class="einheit">(Bauform)</span>',
+          liste('ZYLINDER_BAUFORM', 'eigeneZylinderarten'),
+          { leerText: '– bitte wählen –', beiAenderung: function () { abschnittNeu('zylinder'); markieren(); } }),
+        A.textFeld(t, 'masseAussen', 'Länge außen <span class="einheit">mm</span>',
+          { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 35', beiAenderung: markieren }),
+        A.textFeld(t, 'masseInnen', 'Länge innen <span class="einheit">mm</span>',
+          { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 40', beiAenderung: markieren })
+      ]);
+      /* Knaufseite ist nur beim einfachen Knaufzylinder eine offene Frage */
+      if (t.zylinderBauform === 'Knaufzylinder') {
+        raster.appendChild(A.auswahlFeld(t, 'zylinderKnaufseite',
+          'Knaufseite <span class="einheit">(vom mech. festen Knauf)</span>', K.KNAUFSEITE,
+          { leerText: '– bitte wählen –', beiAenderung: markieren }));
+      } else if (t.zylinderKnaufseite) {
+        t.zylinderKnaufseite = '';
+      }
+      ziel.appendChild(raster);
+      /* Gesamtlänge mitrechnen: danach wird bestellt */
+      var gl = gesamtlaenge(t);
+      if (gl) {
+        ziel.appendChild(el('p', { class: 'zart', style: { marginTop: '4px' },
+          text: 'Gesamtlänge ' + gl + ' mm' }));
+      }
+      ziel.appendChild(A.chipFeld(t, 'zylinderAusfuehrung',
+        'Ausführung <span class="einheit">(nur wenn zutreffend)</span>',
+        liste('ZYLINDER_AUSFUEHRUNG')));
+      ziel.appendChild(widerspruecheBauen());
+    }
+
+    /* --- 4. Beschlag --------------------------------------------------- */
+    function beschlagBauen(ziel) {
+      var raster = el('div', { class: 'raster' }, [
+        A.auswahlFeld(t, 'beschlagBauform', 'Bauform', liste('BESCHLAG_BAUFORM', 'eigeneBeschlagarten'),
+          { leerText: '– bitte wählen –', beiAenderung: function () { abschnittNeu('beschlag'); markieren(); } }),
+        A.auswahlFeld(t, 'beschlagAusfuehrung', 'Ausführung', K.BESCHLAG_AUSFUEHRUNG,
+          { leerText: '– bitte wählen –', beiAenderung: function () { ansichtNeu(); } }),
+        A.auswahlFeld(t, 'beschlagBestueckung', 'Bestückung', K.BESCHLAG_BESTUECKUNG,
+          { leerText: '– bitte wählen –', beiAenderung: markieren })
+      ]);
+      /* Sicherheitsklasse nur beim Schutzbeschlag */
+      if (t.beschlagBauform === 'Schutzbeschlag') {
+        raster.appendChild(A.auswahlFeld(t, 'beschlagSicherheit', 'Sicherheitsklasse', K.BESCHLAG_SICHERHEIT));
+      } else if (t.beschlagSicherheit) {
+        t.beschlagSicherheit = '';
+      }
+      ziel.appendChild(raster);
+      ziel.appendChild(el('h3', { text: 'Maße für den Beschlag' }));
+      ziel.appendChild(masseRasterBauen());
+      ziel.appendChild(widerspruecheBauen());
+    }
+
+    /* Dornmaß, Entfernung, Vierkant, Türblattstärke und DIN gelten für
+     * Beschlag und Schloss gemeinsam. Sie werden deshalb an genau einer
+     * Stelle erfasst und in beiden Abschnitten dasselbe Raster gezeigt. */
+    function masseRasterBauen() {
+      return el('div', { class: 'raster' }, [
+        massFeld(t, 'dornmass', 'Dornmaß <span class="einheit">mm</span>', K.DORNMASS, 'z. B. 55', markieren),
+        massFeld(t, 'entfernung', 'Entfernung <span class="einheit">mm</span>', K.ENTFERNUNG, 'z. B. 72', markieren),
+        massFeld(t, 'vierkant', 'Vierkant / Nuss <span class="einheit">mm</span>', K.VIERKANT, 'z. B. 8', markieren),
+        A.textFeld(t, 'tuerblattstaerke', 'Türblattstärke <span class="einheit">mm</span>',
+          { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 68', beiAenderung: markieren }),
+        A.auswahlFeld(t, 'dinRichtung', 'DIN-Richtung', K.DIN_RICHTUNG,
+          { leerText: '– bitte wählen –', beiAenderung: markieren })
+      ]);
+    }
+
+    /* --- 5. Schloss ---------------------------------------------------- */
+    function schlossBauen(ziel) {
+      ziel.appendChild(el('div', { class: 'raster' }, [
+        A.auswahlFeld(t, 'schlossBauform', 'Bauform', liste('SCHLOSS_BAUFORM', 'eigeneSchlossarten'),
+          { leerText: '– bitte wählen –', beiAenderung: function () { abschnittNeu('schloss'); markieren(); } }),
+        A.auswahlFeld(t, 'schlossFunktion', 'Funktion', K.SCHLOSS_FUNKTION,
+          { leerText: '– bitte wählen –', beiAenderung: function () { abschnittNeu('schloss'); markieren(); } })
+      ]));
+      /* Dieselben Maße wie beim Beschlag - nur einmal erfasst */
+      if (!t.brauchtBeschlag) {
+        ziel.appendChild(el('h3', { text: 'Maße für das Schloss' }));
+        ziel.appendChild(masseRasterBauen());
+      } else {
+        ziel.appendChild(el('p', { class: 'hinweis', style: { marginTop: '10px' },
+          text: 'Dornmaß, Entfernung, Vierkant, Türblattstärke und DIN-Richtung stehen beim Beschlag – sie gelten für beide Bauteile und werden nur einmal erfasst.' }));
+      }
+
+      /* Einsteckschloss im Detail: freiwillig, aber bestellentscheidend */
+      ziel.appendChild(el('details', { class: 'abschnitt', style: { marginTop: '14px' } }, [
+        el('summary', {}, [
+          el('span', { text: 'Einsteckschloss im Detail' }),
+          el('span', { class: 'zusatz', text: K.schlossDetailText(t) ? 'ausgefüllt' : 'freiwillig' })
+        ]),
+        el('div', { class: 'koerper' }, [
+          el('div', { class: 'raster' }, [
+            A.auswahlFeld(t, 'schlossStulpform', 'Stulpform', K.STULPFORM, { leerText: '– ohne Angabe –' }),
+            massFeld(t, 'schlossStulpbreite', 'Stulpbreite <span class="einheit">mm</span>', K.STULPBREITE, 'z. B. 24'),
+            A.textFeld(t, 'schlossStulplaenge', 'Stulplänge <span class="einheit">mm</span>',
+              { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 235' }),
+            A.auswahlFeld(t, 'schlossFallenart', 'Fallenart', K.FALLENART, { leerText: '– ohne Angabe –' }),
+            massFeld(t, 'schlossRiegelausschluss', 'Riegelausschluss <span class="einheit">mm</span>',
+              K.RIEGELAUSSCHLUSS, 'z. B. 20'),
+            A.textFeld(t, 'schlossVerriegelungspunkte', 'Verriegelungspunkte',
+              { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 3' }),
+            A.auswahlFeld(t, 'schlossNorm', 'Norm / Zulassung', K.SCHLOSS_NORM, { leerText: '– ohne Angabe –' }),
+            A.textFeld(t, 'stulpmass', 'Stulpmaß / Sonstiges')
+          ])
+        ])
+      ]));
+      ziel.appendChild(widerspruecheBauen());
+    }
+
+    /* --- 6. Zutritt ---------------------------------------------------- */
+    function zutrittBauen(ziel) {
+      ziel.appendChild(el('div', { class: 'raster' }, [
+        A.auswahlFeld(t, 'zutrittsseite', 'Von welcher Seite wird geöffnet?', K.ZUTRITTSSEITE,
+          { leerText: '– bitte wählen –', beiAenderung: markieren })
+      ]));
+      var feld = A.chipFeld(t, 'tueranforderungen',
+        'Bauliche Anforderungen <span class="einheit">(mehrere möglich)</span>',
+        liste('TUERANFORDERUNG', 'eigeneZutrittsarten'));
+      /* Eine Änderung hier kann einen Widerspruch zum Schloss auflösen */
+      feld.addEventListener('click', function () { setTimeout(function () { abschnittNeu('zutritt'); }, 0); });
+      ziel.appendChild(feld);
+      ziel.appendChild(el('p', { class: 'hinweis', style: { marginTop: '10px' },
+        text: 'Bei Flucht- und Rettungswegen sowie Brand- und Rauchschutztüren sind die bauaufsichtlichen Anforderungen zu beachten; die Auswahl hier ersetzt keine Prüfung vor Ort.' }));
+      ziel.appendChild(widerspruecheBauen());
+    }
+
+    /* --- 7. Elektronik ------------------------------------------------- */
+    function elektronikBauen(ziel) {
+      ziel.appendChild(el('div', { class: 'raster' }, [
+        A.auswahlFeld(t, 'elStromversorgung', 'Stromversorgung',
+          ['Batterie', '12V vorhanden', '24V vorhanden', '230V vorhanden', 'PoE', 'muss verlegt werden'],
+          { leerText: '– bitte wählen –', beiAenderung: markieren }),
+        A.auswahlFeld(t, 'elVernetzung', 'Vernetzung',
+          ['offline (Stand-alone)', 'virtuelles Netzwerk', 'online / verkabelt', 'funkvernetzt', 'noch offen'],
+          { leerText: '– bitte wählen –', beiAenderung: markieren }),
+        A.auswahlFeld(t, 'elFunkabdeckung', 'Funkabdeckung vor Ort',
+          ['gut', 'mittel', 'schlecht', 'nicht geprüft'], { leerText: '– ohne Angabe –' }),
+        A.auswahlFeld(t, 'elKabeluebergang', 'Kabel / Leerrohr an der Tür', K.KABELUEBERGANG,
+          { leerText: '– ohne Angabe –' })
+      ]));
+      ziel.appendChild(el('div', { style: { marginTop: '10px' } }, [
+        A.schalterFeld(t, 'elTuerueberwachung', 'Türüberwachung / Türzustandsmeldung gewünscht'),
+        A.schalterFeld(t, 'elTueroeffnerBestand', 'Elektrischer Türöffner ist schon vorhanden')
+      ]));
+      ziel.appendChild(el('div', { class: 'raster', style: { marginTop: '10px' } }, [
+        A.textFeld(t, 'elLeitungsweg', 'Leitungsweg <span class="einheit">(woher kommt das Kabel?)</span>',
+          { platzhalter: 'z. B. aus Technikraum UG über Steigschacht' }),
+        A.bereichFeld(t, 'elBemerkung', 'Bemerkung Elektronik', { zeilen: 2 })
+      ]));
+    }
+
+    /* --- 8. Türdaten (freiwillig) -------------------------------------- */
+    function tuerdatenBauen(ziel) {
+      ziel.appendChild(el('p', { class: 'hinweis', style: { marginTop: '0' },
+        text: 'Freiwillig. Türblattstärke und DIN-Richtung stehen beim Bauteil und werden hier nicht erneut gefragt.' }));
+      ziel.appendChild(el('div', { class: 'raster' }, [
+        A.textFeld(t, 'tuerbreite', 'Türbreite <span class="einheit">mm</span>',
+          { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 885' }),
+        A.textFeld(t, 'tuerhoehe', 'Türhöhe <span class="einheit">mm</span>',
+          { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 2010' }),
+        A.auswahlFeld(t, 'tuerAnschlag', 'Türanschlag', K.TUER_ANSCHLAG, { leerText: '– ohne Angabe –' }),
+        A.auswahlFeld(t, 'tuermaterial', 'Türblattmaterial', K.TUERMATERIAL, { leerText: '– ohne Angabe –' }),
+        A.textFeld(t, 'profilbreite', 'Profilbreite <span class="einheit">mm</span>',
+          { typ: 'number', inputmode: 'numeric' }),
+        A.auswahlFeld(t, 'oeffnungsrichtung', 'Öffnungsrichtung', K.TUER_OEFFNUNG, { leerText: '– ohne Angabe –' }),
+        A.textFeld(t, 'bohrbild', 'Bohrbild / Lochung')
+      ]));
+      ziel.appendChild(el('div', { class: 'raster', style: { marginTop: '10px' } }, [
+        A.bereichFeld(t, 'masseBemerkung', 'Bemerkung zu den Maßen', { zeilen: 2 })
+      ]));
+    }
+
+    /* --- 9. Bestand (freiwillig) --------------------------------------- */
+    function bestandBauen(ziel) {
+      ziel.appendChild(el('div', { class: 'raster' }, [
+        A.textFeld(t, 'bestandFabrikat', 'Vorhandenes Fabrikat', { platzhalter: 'z. B. EVVA, Kaba, ABUS' }),
+        A.textFeld(t, 'bestandZylinderart', 'Vorhandene Zylinderart'),
+        A.textFeld(t, 'bestandLaenge', 'Vorhandene Länge', { platzhalter: 'z. B. 30/35' }),
+        A.textFeld(t, 'bestandAnzahlSchluessel', 'Anzahl vorhandener Schlüssel',
+          { typ: 'number', inputmode: 'numeric' })
+      ]));
+      ziel.appendChild(el('div', { class: 'raster', style: { marginTop: '10px' } }, [
+        A.bereichFeld(t, 'bestandBemerkung', 'Bemerkung zum Bestand', { zeilen: 2 })
+      ]));
+    }
+
+    /* --- 10. Bemerkung, Nacharbeit, Fotos ------------------------------ */
+    function abschlussBauen(ziel) {
+      ziel.appendChild(el('div', { class: 'raster' }, [
+        A.bereichFeld(t, 'notiz', 'Bemerkung zur Tür', { zeilen: 3 })
+      ]));
+      ziel.appendChild(el('div', { style: { marginTop: '10px' } }, [
+        A.schalterFeld(t, 'nacharbeit', 'Nacharbeit erforderlich',
+          function () { abschnittNeu('abschluss'); })
+      ]));
+      if (t.nacharbeit) {
+        ziel.appendChild(el('div', { class: 'raster', style: { marginTop: '10px' } }, [
+          A.bereichFeld(t, 'nacharbeitText', 'Was ist nachzuarbeiten?', {
+            zeilen: 3, platzhalter: 'z. B. Maß fehlt, Rücksprache mit Kunde nötig, Tür war verschlossen …'
+          })
+        ]));
+      }
+      ziel.appendChild(el('hr', { class: 'trenner' }));
+      ziel.appendChild(el('h3', { text: 'Fotos', style: { marginTop: '0' } }));
+      ziel.appendChild(el('div', { class: 'knopfleiste', style: { marginBottom: '12px' } }, [
+        el('button', { class: 'haupt', text: '📷 Foto aufnehmen',
+          onclick: function () { kameraEingabe.click(); } }),
+        el('button', { text: 'Aus Mediathek wählen', onclick: function () { fotoEingabe.click(); } }),
+        fotoEingabe, kameraEingabe
+      ]));
+      var raster = el('div', { class: 'foto-raster' });
+      (t.fotos || []).forEach(function (foto, index) {
+        raster.appendChild(el('div', { class: 'foto-karte' }, [
+          el('img', { src: foto.dataUrl, alt: foto.beschriftung || 'Türfoto', loading: 'lazy' }),
+          el('div', { class: 'unten' }, [
+            el('input', { type: 'text', value: foto.beschriftung || '', placeholder: 'Beschriftung',
+              oninput: function (e) { foto.beschriftung = e.target.value; } }),
+            el('button', { class: 'gefahr klein', text: 'Entfernen', onclick: function () {
+              t.fotos.splice(index, 1); abschnittNeu('abschluss');
+            } })
+          ])
+        ]));
+      });
+      if (!(t.fotos || []).length) {
+        raster.appendChild(el('p', { class: 'zart', text: 'Noch keine Fotos zu dieser Tür.' }));
+      }
+      ziel.appendChild(raster);
+    }
+
+    function fotosHinzufuegen(dateien) {
+      if (!dateien.length) return;
+      var eins = Zustand.einstellungen || {};
+      A.toast(dateien.length === 1 ? 'Foto wird verarbeitet …' : dateien.length + ' Fotos werden verarbeitet …');
+      Promise.all(dateien.map(function (d) {
+        return Store.fotoVerarbeiten(d, eins.fotoMaxKante || 1280, eins.fotoQualitaet || 0.72)
+          .then(function (foto) { t.fotos.push(foto); return true; })
+          .catch(function (fehler) { A.toast(fehler.message, 'fehler'); return false; });
+      })).then(function (ergebnisse) {
+        var erfolgreich = ergebnisse.filter(Boolean).length;
+        if (erfolgreich) A.toast(erfolgreich + ' Foto(s) hinzugefügt.', 'ok');
+        abschnittNeu('abschluss');
+      });
+    }
+
+    /* --- Widersprüche --------------------------------------------------
+     * Weist auf Angaben hin, die nicht zusammenpassen - statt sie ein
      * zweites Mal abzufragen. */
-    function widerspruecheZeichnen() {
-      A.leeren(bauteilHinweis);
+    function widerspruecheBauen() {
+      var kasten = el('div');
       var meldungen = [];
       var istFlucht = (t.tueranforderungen || []).indexOf('Flucht- und Rettungsweg') !== -1;
 
@@ -451,222 +718,199 @@
       if (t.zylinderBauform === 'Halbzylinder' && t.masseInnen && parseInt(t.masseInnen, 10) > 15) {
         meldungen.push('Bei einem Halbzylinder ist die Innenlänge üblicherweise 10 mm.');
       }
-      if (!t.brauchtZylinder && !t.brauchtBeschlag && !t.brauchtSchloss && !t.brauchtWandleser) {
-        meldungen.push('Für diese Tür ist noch kein Bauteil vorgesehen.');
-      }
-      if (!meldungen.length) return;
       meldungen.forEach(function (m) {
-        bauteilHinweis.appendChild(el('div', { class: 'meldung warn', style: { marginTop: '12px' } },
+        kasten.appendChild(el('div', { class: 'meldung warn', style: { marginTop: '12px' } },
           el('div', { text: m })));
       });
+      return kasten;
     }
 
-    inhalt.appendChild(abschnitt('Bauteile', true, [
-      el('div', { class: 'raster eng' }, [
-        A.schalterFeld(t, 'brauchtZylinder', 'Zylinder', function () { bauteilFelderZeichnen(); }),
-        A.schalterFeld(t, 'brauchtBeschlag', 'Beschlag / Drücker', function () { bauteilFelderZeichnen(); }),
-        A.schalterFeld(t, 'brauchtSchloss', 'Schloss', function () { bauteilFelderZeichnen(); }),
-        A.schalterFeld(t, 'brauchtWandleser', 'Wandleser', function () {
-          bauteilFelderZeichnen(); elektronikSichtbarkeit();
-        })
-      ]),
-      el('hr', { class: 'trenner' }),
-      zylinderFelder, beschlagFelder, schlossFelder, bauteilHinweis
-    ], function () {
-      var teile = [];
-      if (t.brauchtZylinder) teile.push(K.zylinderText(t) || 'Zylinder');
-      if (t.brauchtBeschlag) teile.push(K.beschlagText(t) || 'Beschlag');
-      if (t.brauchtSchloss) teile.push(K.schlossText(t) || 'Schloss');
-      if (t.brauchtWandleser) teile.push('Wandleser');
-      return teile.join('  ·  ') || 'kein Bauteil gewählt';
-    }));
+    /* =======================================================================
+     * Pflichtangaben kennzeichnen
+     * =====================================================================
+     * Eine Quelle für alles: dieselbe Prüfung, die Türliste, Prüfprotokoll
+     * und Materialliste verwenden. Gekennzeichnet wird jedes Pflichtfeld,
+     * rot umrandet nur die noch offenen.
+     */
+    function markieren() {
+      var pflicht = M.pflichtSchluessel(p, t);
+      var offen = {};
+      M.pflichtfelder(p, t).forEach(function (f) { offen[f.schluessel] = f.label; });
 
-    /* --- 4. Zutritt und bauliche Anforderungen -----------------------------
-     * Zwei getrennte Fragen. Zylinderfunktionen wie Freidreh oder
-     * Not- und Gefahrenfunktion stehen allein bei der Zylinderausführung. */
-    inhalt.appendChild(abschnitt('Zutritt und Anforderungen', true, [
-      el('div', { class: 'raster' }, [
-        A.auswahlFeld(t, 'zutrittsseite', 'Von welcher Seite wird geöffnet?', K.ZUTRITTSSEITE)
-      ]),
-      (function () {
-        var feld = A.chipFeld(t, 'tueranforderungen',
-          'Bauliche Anforderungen <span class="einheit">(mehrere möglich)</span>',
-          liste('TUERANFORDERUNG', 'eigeneZutrittsarten'));
-        /* Änderungen hier können einen Widerspruch zum Schloss auflösen */
-        feld.addEventListener('click', function () { setTimeout(widerspruecheZeichnen, 0); });
-        return feld;
-      })(),
-      el('p', { class: 'hinweis', style: { marginTop: '10px' },
-        text: 'Bei Flucht- und Rettungswegen sowie Brand- und Rauchschutztüren sind die bauaufsichtlichen Anforderungen zu beachten; die Auswahl hier ersetzt keine Prüfung vor Ort.' })
-    ], function () {
-      var teile = [];
-      if (t.zutrittsseite) teile.push(t.zutrittsseite);
-      if ((t.tueranforderungen || []).length) teile.push(t.tueranforderungen.length + ' Anforderung(en)');
-      return teile.join('  ·  ');
-    }));
-
-    /* --- 5. Türblatt und Rahmen --------------------------------------------
-     * Dornmaß, Entfernung und Vierkant stehen beim jeweiligen Bauteil und
-     * werden hier nicht wiederholt. */
-    inhalt.appendChild(abschnitt('Türblatt und Rahmen', false, [
-      el('div', { class: 'raster' }, [
-        A.textFeld(t, 'tuerblattstaerke', 'Türblattstärke <span class="einheit">mm</span>', { typ: 'number', inputmode: 'numeric' }),
-        A.textFeld(t, 'profilbreite', 'Profilbreite <span class="einheit">mm</span>', { typ: 'number', inputmode: 'numeric' }),
-        A.auswahlFeld(t, 'tuermaterial', 'Türblattmaterial', K.TUERMATERIAL),
-        A.auswahlFeld(t, 'dinRichtung', 'DIN-Richtung', K.DIN_RICHTUNG),
-        A.auswahlFeld(t, 'oeffnungsrichtung', 'Öffnungsrichtung', K.TUER_OEFFNUNG),
-        A.textFeld(t, 'bohrbild', 'Bohrbild / Lochung')
-      ]),
-      el('div', { class: 'raster', style: { marginTop: '10px' } }, [
-        A.bereichFeld(t, 'masseBemerkung', 'Bemerkung zu den Maßen', { zeilen: 2 })
-      ])
-    ], function () {
-      var v = [t.tuerblattstaerke && t.tuerblattstaerke + ' mm', t.dinRichtung].filter(Boolean);
-      return v.join(', ');
-    }));
-
-    /* --- 6. Bestand --- */
-    inhalt.appendChild(abschnitt('Bestand / Altanlage', false, [
-      el('div', { class: 'raster' }, [
-        A.textFeld(t, 'bestandFabrikat', 'Vorhandenes Fabrikat', { platzhalter: 'z. B. EVVA, Kaba, ABUS' }),
-        A.textFeld(t, 'bestandZylinderart', 'Vorhandene Zylinderart'),
-        A.textFeld(t, 'bestandLaenge', 'Vorhandene Länge', { platzhalter: 'z. B. 30/35' }),
-        A.textFeld(t, 'bestandAnzahlSchluessel', 'Anzahl vorhandener Schlüssel', { typ: 'number', inputmode: 'numeric' })
-      ]),
-      el('div', { class: 'raster', style: { marginTop: '10px' } }, [
-        A.bereichFeld(t, 'bestandBemerkung', 'Bemerkung zum Bestand', { zeilen: 2 })
-      ])
-    ], function () { return t.bestandFabrikat || ''; }));
-
-    /* --- 7. Elektronik -----------------------------------------------------
-     * Wird nur angezeigt, wenn das gewählte System überhaupt elektronisch
-     * ist - bei reiner Mechanik gäbe es hier nichts zu entscheiden. */
-    var elektronikAbschnitt = abschnitt('Elektronik und Vernetzung', false, [
-      el('div', { class: 'raster' }, [
-        A.auswahlFeld(t, 'elFunkabdeckung', 'Funkabdeckung vor Ort',
-          ['gut', 'mittel', 'schlecht', 'nicht geprüft']),
-        A.auswahlFeld(t, 'elStromversorgung', 'Stromversorgung',
-          ['Batterie', '12V vorhanden', '24V vorhanden', '230V vorhanden', 'PoE', 'muss verlegt werden']),
-        A.auswahlFeld(t, 'elVernetzung', 'Vernetzung',
-          ['offline (Stand-alone)', 'virtuelles Netzwerk', 'online / verkabelt', 'funkvernetzt', 'noch offen'])
-      ]),
-      el('div', { style: { marginTop: '10px' } }, [
-        A.schalterFeld(t, 'elTuerueberwachung', 'Türüberwachung / Türzustandsmeldung gewünscht')
-      ]),
-      el('div', { class: 'raster', style: { marginTop: '10px' } }, [
-        A.bereichFeld(t, 'elBemerkung', 'Bemerkung Elektronik', { zeilen: 2 })
-      ])
-    ], function () { return t.elVernetzung || ''; });
-    inhalt.appendChild(elektronikAbschnitt);
-
-    function elektronikSichtbarkeit() {
-      if (!elektronikAbschnitt) return;   /* wird beim Aufbau noch nicht gebraucht */
-      var zeigen = M.istTuerElektronisch(p, t) || t.brauchtWandleser ||
-                   K.beschlagIstElektronisch(t);
-      elektronikAbschnitt.style.display = zeigen ? '' : 'none';
-    }
-
-    /* --- 8. Bemerkungen und Nacharbeit --- */
-    var nacharbeitFeld = el('div');
-    function nacharbeitZeichnen() {
-      A.leeren(nacharbeitFeld);
-      if (t.nacharbeit) {
-        nacharbeitFeld.appendChild(el('div', { class: 'raster' }, [
-          A.bereichFeld(t, 'nacharbeitText', 'Was ist nachzuarbeiten?', {
-            zeilen: 3, platzhalter: 'z. B. Maß fehlt, Rücksprache mit Kunde nötig, Tür war verschlossen …'
-          })
-        ]));
-      }
-      zusammenfassungenAktualisieren();
-    }
-    inhalt.appendChild(abschnitt('Bemerkungen und Nacharbeit', true, [
-      el('div', { class: 'raster' }, [
-        A.bereichFeld(t, 'notiz', 'Bemerkung zur Tür', { zeilen: 3 })
-      ]),
-      el('div', { style: { marginTop: '10px' } }, [
-        A.schalterFeld(t, 'nacharbeit', 'Nacharbeit erforderlich', function () { nacharbeitZeichnen(); })
-      ]),
-      nacharbeitFeld
-    ], function () { return t.nacharbeit ? 'Nacharbeit offen' : ''; }));
-    nacharbeitZeichnen();
-
-    /* --- 9. Fotos --- */
-    var fotoRaster = el('div', { class: 'foto-raster' });
-    var fotoEingabe = el('input', {
-      type: 'file', accept: 'image/*', multiple: true, class: 'versteckt',
-      onchange: function (e) { fotosHinzufuegen(Array.prototype.slice.call(e.target.files)); e.target.value = ''; }
-    });
-    var kameraEingabe = el('input', {
-      type: 'file', accept: 'image/*', capture: 'environment', class: 'versteckt',
-      onchange: function (e) { fotosHinzufuegen(Array.prototype.slice.call(e.target.files)); e.target.value = ''; }
-    });
-
-    function fotosHinzufuegen(dateien) {
-      if (!dateien.length) return;
-      var eins = Zustand.einstellungen || {};
-      A.toast(dateien.length === 1 ? 'Foto wird verarbeitet …' : dateien.length + ' Fotos werden verarbeitet …');
-      var aufgaben = dateien.map(function (d) {
-        return Store.fotoVerarbeiten(d, eins.fotoMaxKante || 1280, eins.fotoQualitaet || 0.72)
-          .then(function (foto) { t.fotos.push(foto); return true; })
-          .catch(function (fehler) { A.toast(fehler.message, 'fehler'); return false; });
+      Array.prototype.forEach.call(inhalt.querySelectorAll('[data-feld]'), function (knoten) {
+        var k = knoten.getAttribute('data-feld');
+        var istPflicht = Object.prototype.hasOwnProperty.call(pflicht, k);
+        knoten.classList.toggle('pflicht', istPflicht);
+        knoten.classList.toggle('pflicht-offen', istPflicht && !!offen[k]);
       });
-      Promise.all(aufgaben).then(function (ergebnisse) {
-        var erfolgreich = ergebnisse.filter(Boolean).length;
-        if (erfolgreich) A.toast(erfolgreich + ' Foto(s) hinzugefügt.', 'ok');
-        fotosZeichnen();
-      });
-    }
 
-    function fotosZeichnen() {
-      A.leeren(fotoRaster);
-      (t.fotos || []).forEach(function (foto, index) {
-        var beschriftung = el('input', {
-          type: 'text', value: foto.beschriftung || '', placeholder: 'Beschriftung',
-          oninput: function (e) { foto.beschriftung = e.target.value; }
+      A.leeren(statusLeiste);
+      var fehlende = M.pflichtfelder(p, t);
+      if (!fehlende.length) {
+        statusLeiste.className = 'pflicht-leiste fertig';
+        statusLeiste.appendChild(el('span', { class: 'zeichen', text: '✓' }));
+        statusLeiste.appendChild(el('span', { text: 'Alle Pflichtangaben vorhanden' }));
+      } else {
+        statusLeiste.className = 'pflicht-leiste offen';
+        statusLeiste.appendChild(el('span', { class: 'zeichen', text: '!' }));
+        statusLeiste.appendChild(el('span', { class: 'fuellen', text:
+          fehlende.length + (fehlende.length === 1 ? ' Pflichtangabe fehlt' : ' Pflichtangaben fehlen') +
+          '  ·  Speichern ist möglich' }));
+        var chips = el('span', { class: 'chips' });
+        fehlende.slice(0, 8).forEach(function (f) {
+          chips.appendChild(el('button', {
+            type: 'button', class: 'chip klein', text: f.label,
+            title: 'Zu dieser Angabe springen',
+            onclick: function () { zuAbschnitt(f.abschnitt, f.schluessel); }
+          }));
         });
-        fotoRaster.appendChild(el('div', { class: 'foto-karte' }, [
-          el('img', { src: foto.dataUrl, alt: foto.beschriftung || 'Türfoto', loading: 'lazy' }),
-          el('div', { class: 'unten' }, [
-            beschriftung,
-            el('button', { class: 'gefahr klein', text: 'Entfernen', onclick: function () {
-              t.fotos.splice(index, 1); fotosZeichnen();
-            } })
-          ])
-        ]));
-      });
-      if (!t.fotos.length) {
-        fotoRaster.appendChild(el('p', { class: 'zart', text: 'Noch keine Fotos zu dieser Tür.' }));
+        statusLeiste.appendChild(chips);
       }
-      zusammenfassungenAktualisieren();
+      fortschrittZeichnen();
     }
 
-    inhalt.appendChild(abschnitt('Fotos', false, [
-      el('div', { class: 'knopfleiste', style: { marginBottom: '12px' } }, [
-        el('button', { class: 'haupt', text: '📷 Foto aufnehmen',
-          onclick: function () { kameraEingabe.click(); } }),
-        el('button', { text: 'Aus Mediathek wählen', onclick: function () { fotoEingabe.click(); } }),
-        fotoEingabe, kameraEingabe
-      ]),
-      fotoRaster
-    ], function () { return (t.fotos || []).length ? t.fotos.length + ' Foto(s)' : ''; }));
-    fotosZeichnen();
+    /* Zu einer fehlenden Angabe springen - im geführten Ablauf wechselt
+     * dafür der Schritt, in der Vollansicht wird der Block aufgeklappt. */
+    function zuAbschnitt(abschnittId, feldName) {
+      var vorhanden = aktive().filter(function (a) { return a.id === abschnittId; })[0];
+      if (!vorhanden) return;
+      if (Zustand[modusSchluessel] === 'gefuehrt') {
+        schrittId = abschnittId;
+        ansichtNeu();
+      }
+      setTimeout(function () {
+        var ziel = inhalt.querySelector('[data-abschnitt="' + abschnittId + '"]');
+        if (ziel && ziel.tagName === 'DETAILS') ziel.open = true;
+        var feldKnoten = feldName ? inhalt.querySelector('[data-feld="' + feldName + '"]') : null;
+        var scrollZiel = feldKnoten || ziel;
+        if (scrollZiel && scrollZiel.scrollIntoView) {
+          scrollZiel.scrollIntoView({ block: 'center' });
+        }
+        var eingabe = feldKnoten && feldKnoten.querySelector('input, select, textarea');
+        if (eingabe) eingabe.focus();
+      }, 30);
+    }
 
-    /* Erstaufbau: erst jetzt stehen alle Abschnitte bereit */
-    systemAbhaengigesZeichnen();
-    bauteilFelderZeichnen();
-    elektronikSichtbarkeit();
-    zusammenfassungenAktualisieren();
+    /* =======================================================================
+     * Aufbau der Ansicht
+     * ==================================================================== */
+    function modusLeisteZeichnen() {
+      A.leeren(modusLeiste);
+      var gefuehrt = Zustand[modusSchluessel] === 'gefuehrt';
+      modusLeiste.appendChild(el('div', { class: 'modus-leiste' }, [
+        el('div', { class: 'umschalter', role: 'tablist' }, [
+          el('button', { type: 'button', class: gefuehrt ? 'aktiv' : '', text: 'Schritt für Schritt',
+            'aria-pressed': gefuehrt ? 'true' : 'false',
+            onclick: function () { Zustand[modusSchluessel] = 'gefuehrt'; ansichtNeu(); } }),
+          el('button', { type: 'button', class: gefuehrt ? '' : 'aktiv', text: 'Alle Felder',
+            'aria-pressed': gefuehrt ? 'false' : 'true',
+            onclick: function () { Zustand[modusSchluessel] = 'alle'; ansichtNeu(); } })
+        ])
+      ]));
+    }
 
-    /* --- Dialog --- */
-    function neuZeichnenFormular() { /* Platzhalter: gezielte Teilaktualisierungen genügen */ }
+    function fortschrittZeichnen() {
+      A.leeren(fortschritt);
+      if (Zustand[modusSchluessel] !== 'gefuehrt') return;
+      var liste2 = aktive();
+      var index = 0;
+      liste2.forEach(function (a, i) { if (a.id === schrittId) index = i; });
+      fortschritt.appendChild(el('div', { class: 'zeile-verteilt' }, [
+        el('div', { class: 'fuellen' }, [
+          el('b', { text: 'Schritt ' + (index + 1) + ' von ' + liste2.length }),
+          el('span', { class: 'zart', text: '  ·  ' + liste2[index].schritt +
+            (liste2[index].freiwillig ? '  (freiwillig)' : '') })
+        ])
+      ]));
+      var balken = el('div', { class: 'balken' });
+      liste2.forEach(function (a, i) {
+        var fehltHier = M.pflichtfelder(p, t).some(function (f) { return f.abschnitt === a.id; });
+        balken.appendChild(el('button', {
+          type: 'button',
+          class: 'stufe' + (i === index ? ' aktiv' : '') + (fehltHier ? ' offen' : '') +
+                 (i < index ? ' erledigt' : ''),
+          title: a.schritt + (fehltHier ? ' – Pflichtangabe fehlt' : ''),
+          'aria-label': a.schritt,
+          onclick: function () { schrittId = a.id; ansichtNeu(); }
+        }));
+      });
+      fortschritt.appendChild(balken);
+    }
 
+    /* Einen einzelnen Abschnitt neu aufbauen - ohne den Rest anzurühren,
+     * damit laufende Eingaben nicht verloren gehen. */
+    function abschnittNeu(id) {
+      var huelle = inhalt.querySelector('[data-abschnitt="' + id + '"]');
+      if (!huelle) return;
+      var ziel = huelle.classList.contains('abschnitt')
+        ? huelle.querySelector('.koerper') : huelle;
+      if (!ziel) return;
+      A.leeren(ziel);
+      var def = ABSCHNITTE.filter(function (a) { return a.id === id; })[0];
+      if (def) def.bauen(ziel);
+      markieren();
+    }
+
+    function ansichtNeu() {
+      A.leeren(koerper);
+      var liste2 = aktive();
+      if (!liste2.filter(function (a) { return a.id === schrittId; }).length) {
+        schrittId = liste2[0].id;
+      }
+      if (Zustand[modusSchluessel] === 'gefuehrt') {
+        var def = liste2.filter(function (a) { return a.id === schrittId; })[0];
+        var huelle = el('div', { class: 'schritt', 'data-abschnitt': def.id }, [
+          el('h2', { text: def.schritt, style: { marginTop: '0' } })
+        ]);
+        var ziel = el('div');
+        huelle.appendChild(ziel);
+        def.bauen(ziel);
+        koerper.appendChild(huelle);
+      } else {
+        liste2.forEach(function (a) {
+          var inner = el('div', { class: 'koerper' });
+          var block = el('details', {
+            class: 'abschnitt', 'data-abschnitt': a.id,
+            open: !a.freiwillig
+          }, [
+            el('summary', {}, [
+              el('span', { text: a.titel }),
+              el('span', { class: 'zusatz', text: a.freiwillig ? 'freiwillig' : '' })
+            ]),
+            inner
+          ]);
+          a.bauen(inner);
+          koerper.appendChild(block);
+        });
+      }
+      if (!istNeu) {
+        koerper.appendChild(el('div', { class: 'weitere-aktionen' }, [
+          el('span', { class: 'zart fuellen', text: 'Weitere Aktionen zu dieser Tür' }),
+          el('button', { class: 'klein', text: 'Duplizieren', onclick: duplizieren }),
+          el('button', { class: 'klein gefahr', text: 'Löschen', onclick: loeschen })
+        ]));
+      }
+      modusLeisteZeichnen();
+      markieren();
+      fussZeichnen();
+    }
+
+    /* =======================================================================
+     * Speichern
+     * ==================================================================== */
     function uebernehmen(undWeiter) {
       if (!t.nummer && !t.bezeichnung) {
         A.toast('Bitte mindestens Türnummer oder Bezeichnung angeben.', 'fehler');
+        zuAbschnitt('lage', 'bezeichnung');
         return false;
       }
       t.anzahl = Math.max(1, parseInt(t.anzahl, 10) || 1);
       t.geaendert = new Date().toISOString();
+      /* Status aus der Vollständigkeit führen, solange er nicht selbst
+       * gewählt wurde. */
+      M.statusAusPruefung(p, t);
+      var fehlende = M.pflichtfelder(p, t);
+
       A.schrittMerken(istNeu ? ('Tür ' + (t.nummer || t.bezeichnung) + ' angelegt')
                              : ('Tür ' + (t.nummer || t.bezeichnung) + ' geändert'));
       if (istNeu) {
@@ -677,68 +921,122 @@
       }
       A.alsGeaendertMarkieren();
       A.speichern();
+
+      var meldung = fehlende.length
+        ? ('Gespeichert – ' + fehlende.length +
+           (fehlende.length === 1 ? ' Pflichtangabe fehlt noch.' : ' Pflichtangaben fehlen noch.'))
+        : 'Tür gespeichert.';
       if (undWeiter) {
-        A.toast('Tür gespeichert. Nächste Tür …', 'ok');
+        A.toast(meldung + ' Nächste Tür …', fehlende.length ? 'warn' : 'ok');
         neuZeichnen();
-        setTimeout(function () { tuerBearbeiten(null, neuZeichnen); }, 120);
+        setTimeout(function () { tuerBearbeiten(null, neuZeichnen, vorgaben); }, 120);
         return true;
       }
-      A.toast('Tür gespeichert.', 'ok');
+      A.toast(meldung, fehlende.length ? 'warn' : 'ok');
       neuZeichnen();
       return true;
     }
 
-    var knoepfe = [];
-    if (!istNeu) {
-      knoepfe.push({ text: 'Duplizieren', aktion: function (schliessen) {
-        A.schrittMerken('Tür dupliziert');
-        var kopie = JSON.parse(JSON.stringify(t));
-        kopie.id = M.uid('tur');
-        kopie.nummer = naechsteNummer(t.nummer);
-        kopie.fotos = [];
-        p.tueren.push(kopie);
-        A.alsGeaendertMarkieren(); A.speichern(); neuZeichnen();
-        schliessen();
-        setTimeout(function () { tuerBearbeiten(kopie, neuZeichnen); }, 100);
-        return false;
-      } });
-      knoepfe.push({ text: 'Löschen', klasse: 'gefahr', aktion: function (schliessen) {
-        A.bestaetigen('Tür löschen?', 'Die Tür „' + (t.nummer || t.bezeichnung) +
-          '“ wird gelöscht, samt Fotos und Berechtigungen im Schließplan.').then(function (ja) {
-          if (!ja) return;
-          A.schrittMerken('Tür ' + (t.nummer || t.bezeichnung) + ' gelöscht');
-          p.tueren = p.tueren.filter(function (x) { return x.id !== t.id; });
-          M.matrixAufraeumen(p);
-          A.alsGeaendertMarkieren(); A.speichern(); neuZeichnen();
-          A.toast('Tür gelöscht.');
-          schliessen();
-        });
-        return false;
-      } });
-    }
-    knoepfe.push({ fuellen: true });
-    knoepfe.push({ text: 'Abbrechen' });
-    if (istNeu) {
-      knoepfe.push({ text: 'Speichern & nächste', aktion: function (schliessen) {
-        if (uebernehmen(true)) schliessen();
-        return false;
-      } });
-    }
-    knoepfe.push({ text: istNeu ? 'Tür speichern' : 'Änderungen übernehmen', klasse: 'haupt',
-      aktion: function (schliessen) { if (uebernehmen(false)) schliessen(); return false; } });
-
-    A.dialogOeffnen({
+    /* =======================================================================
+     * Dialog samt Fußzeile
+     * ==================================================================== */
+    var dlg = A.dialogOeffnen({
       titel: istNeu ? 'Neue Tür aufnehmen'
         : 'Tür bearbeiten: ' + (t.nummer || t.bezeichnung || ''),
-      inhalt: inhalt, knoepfe: knoepfe
+      inhalt: inhalt,
+      knoepfe: [{ text: 'Abbrechen' }]
     });
+    var fuss = dlg.kasten.querySelector('.fuss');
+
+    function fussZeichnen() {
+      if (!fuss) return;
+      A.leeren(fuss);
+      var gefuehrt = Zustand[modusSchluessel] === 'gefuehrt';
+      var liste2 = aktive();
+      var index = 0;
+      liste2.forEach(function (a, i) { if (a.id === schrittId) index = i; });
+
+      function knopf(eigenschaften) { fuss.appendChild(el('button', eigenschaften)); }
+
+      /* Duplizieren und Löschen stehen am Ende des Formulars, nicht in der
+       * Daumenzone: Dort ist der Platz für das gedacht, was ständig
+       * gebraucht wird - und ein versehentliches Löschen wäre teuer. */
+      fuss.appendChild(el('div', { class: 'fuellen' }));
+
+      if (gefuehrt) {
+        knopf({ text: '← Zurück', disabled: index === 0,
+          onclick: function () { schrittId = liste2[index - 1].id; ansichtNeu(); } });
+        if (index < liste2.length - 1) {
+          knopf({ class: 'haupt', text: 'Weiter →',
+            onclick: function () { schrittId = liste2[index + 1].id; ansichtNeu(); } });
+          /* Dieselbe Beschriftung wie am Ende: Wer vor Ort abbrechen muss,
+           * soll nicht raten, welcher Knopf die Tür sichert. */
+          knopf({ class: 'klein', text: istNeu ? 'Tür speichern' : 'Änderungen übernehmen',
+            onclick: function () { if (uebernehmen(false)) dlg.schliessen(); } });
+        } else {
+          if (istNeu) {
+            knopf({ text: 'Speichern & nächste',
+              onclick: function () { if (uebernehmen(true)) dlg.schliessen(); } });
+          }
+          knopf({ class: 'haupt', text: istNeu ? 'Tür speichern' : 'Änderungen übernehmen',
+            onclick: function () { if (uebernehmen(false)) dlg.schliessen(); } });
+        }
+      } else {
+        knopf({ text: 'Abbrechen', onclick: function () { dlg.schliessen(); } });
+        if (istNeu) {
+          knopf({ text: 'Speichern & nächste',
+            onclick: function () { if (uebernehmen(true)) dlg.schliessen(); } });
+        }
+        knopf({ class: 'haupt', text: istNeu ? 'Tür speichern' : 'Änderungen übernehmen',
+          onclick: function () { if (uebernehmen(false)) dlg.schliessen(); } });
+      }
+    }
+
+    function duplizieren() {
+      A.schrittMerken('Tür dupliziert');
+      var kopie = JSON.parse(JSON.stringify(t));
+      kopie.id = M.uid('tur');
+      kopie.nummer = naechsteNummer(t.nummer) || M.naechsteLaufendeNummer(p);
+      kopie.fotos = [];
+      p.tueren.push(kopie);
+      A.alsGeaendertMarkieren(); A.speichern(); neuZeichnen();
+      dlg.schliessen();
+      setTimeout(function () { tuerBearbeiten(kopie, neuZeichnen, vorgaben); }, 100);
+    }
+
+    function loeschen() {
+      A.bestaetigen('Tür löschen?', 'Die Tür „' + (t.nummer || t.bezeichnung) +
+        '“ wird gelöscht, samt Fotos und Berechtigungen im Schließplan.').then(function (ja) {
+        if (!ja) return;
+        A.schrittMerken('Tür ' + (t.nummer || t.bezeichnung) + ' gelöscht');
+        p.tueren = p.tueren.filter(function (x) { return x.id !== t.id; });
+        M.matrixAufraeumen(p);
+        A.alsGeaendertMarkieren(); A.speichern(); neuZeichnen();
+        A.toast('Tür gelöscht.');
+        dlg.schliessen();
+      });
+    }
+
+    ansichtNeu();
+  }
+
+  /* Gesamtlänge eines Zylinders, sofern beide Maße vorliegen. */
+  function gesamtlaenge(t) {
+    var a = parseFloat(String(t.masseAussen || '').replace(',', '.'));
+    var i = parseFloat(String(t.masseInnen || '').replace(',', '.'));
+    if (!isFinite(a) || !isFinite(i)) return '';
+    return String(Math.round((a + i) * 10) / 10);
   }
 
   /* Eine neue Tür beginnt bewusst leer: Es werden keine Angaben der zuvor
    * erfassten Tür übernommen. Vorbelegt wird allein die laufende Nummer und
    * der Status; alles andere wird bewusst gewählt. */
-  function vorlageFuerNeueTuer() {
-    return { nummer: M.naechsteLaufendeNummer(Zustand.projekt), status: 'aufgemessen' };
+  function vorlageFuerNeueTuer(vorgaben) {
+    var v = { nummer: M.naechsteLaufendeNummer(Zustand.projekt), status: 'aufgemessen' };
+    /* Wird die Tür aus einem Bereich heraus angelegt, steht der Bereich
+     * schon fest und muss nicht erneut gewählt werden. */
+    if (vorgaben && vorgaben.strukturId) v.strukturId = vorgaben.strukturId;
+    return v;
   }
 
   /* "A-EG-01" -> "A-EG-02"; ohne Ziffer am Ende bleibt das Feld leer. */
@@ -755,6 +1053,7 @@
   global.ViewsTueren = {
     ansichtTueren: ansichtTueren,
     tuerBearbeiten: tuerBearbeiten,
+    tuerZeile: tuerZeile,
     strukturOptionen: strukturOptionen,
     naechsteNummer: naechsteNummer,
     vorlageFuerNeueTuer: vorlageFuerNeueTuer,

@@ -638,6 +638,25 @@
       }
     }
 
+    /* --- Angaben, die nur die Bestellung braucht ------------------------
+     * Die Lieferadresse bleibt leer, solange geliefert wird, wo das Objekt
+     * steht - sie erscheint in der Materialliste nur dann, wenn sie
+     * abweicht. So steht dieselbe Anschrift nie zweimal im Dokument. */
+    seite.appendChild(el('div', { class: 'karte' }, [
+      el('h2', { text: 'Bestellangaben' }),
+      el('p', { class: 'hinweis',
+        text: 'Diese Angaben erscheinen in der Materialliste als Bestellgrundlage.' }),
+      el('div', { class: 'raster' }, [
+        A.textFeld(p, 'kommission', 'Kommission / Bestellzeichen',
+          { platzhalter: 'z. B. KOMM-2026-4711' })
+      ]),
+      el('div', { class: 'raster', style: { marginTop: '12px' } }, [
+        A.bereichFeld(p, 'lieferAdresse',
+          'Lieferadresse <span class="einheit">(nur wenn abweichend von der Objektadresse)</span>',
+          { zeilen: 3, platzhalter: 'Firma\nStraße und Hausnummer\nPLZ Ort' })
+      ])
+    ]));
+
     seite.appendChild(el('div', { class: 'karte' }, [
       el('h2', { text: 'Ansprechpartner vor Ort' }),
       el('div', { class: 'raster' }, [
@@ -702,14 +721,159 @@
     seite.appendChild(el('div', { class: 'karte' }, liste));
   }
 
-  function tuerenImKnoten(knotenId) {
+  /* =========================================================================
+   * Bereichsansicht: Türen eines Standorts, Gebäudes oder Bereichs
+   * ======================================================================
+   * Entsteht durch Antippen eines Eintrags in der Gliederung. Gezeigt werden
+   * die Türen dieses Eintrags einschließlich seiner Unterbereiche, nach
+   * Unterbereich gruppiert. Eine neue Tür entsteht hier bereits mit dem
+   * richtigen Bereich - er muss nicht erneut gewählt werden.
+   */
+  function bereichOeffnen(knotenId, neuZeichnen) {
+    Zustand.bereichId = knotenId;
+    global.App.wechseln('bereich');
+  }
+
+  function ansichtBereich(behaelter, neuZeichnen) {
     var p = Zustand.projekt;
-    var ids = [knotenId], i = 0;
-    while (i < ids.length) {
-      var aktuell = ids[i++];
-      p.standorte.forEach(function (k) { if (k.parentId === aktuell) ids.push(k.id); });
+    var seite = el('div', { class: 'seite' });
+    behaelter.appendChild(seite);
+
+    var knoten = M.findeStruktur(p, Zustand.bereichId);
+    if (!knoten) {
+      seite.appendChild(el('div', { class: 'leer' }, [
+        el('h3', { text: 'Der Bereich ist nicht mehr vorhanden' }),
+        el('p', { text: 'Er wurde vermutlich gelöscht oder umgehängt.' }),
+        el('button', { class: 'haupt', text: '← Zurück zur Struktur',
+          onclick: function () { zurueckZurStruktur(); } })
+      ]));
+      return;
     }
-    return p.tueren.filter(function (t) { return ids.indexOf(t.strukturId) !== -1; }).length;
+
+    var konfig = EBENEN[knoten.ebene] || EBENEN.bereich;
+    var pfad = M.strukturPfad(p, knoten.id);
+    var tueren = M.tuerenUnter(p, knoten.id);
+    var unterbereiche = M.kinderVon(p, knoten.id);
+    var gesamtAnzahl = tueren.reduce(function (sum, t) {
+      return sum + (parseInt(t.anzahl, 10) || 1); }, 0);
+    var offene = tueren.filter(function (t) { return !M.tuerVollstaendig(p, t); });
+
+    /* --- Kopf mit Zurück-Knopf und Pfad --- */
+    seite.appendChild(el('div', { class: 'bereich-kopf' }, [
+      el('button', { class: 'zurueck-zeile', text: '← Zurück zur Struktur',
+        onclick: function () { zurueckZurStruktur(); } }),
+      el('div', { class: 'pfad' }, pfad.map(function (k, i) {
+        return el('span', {}, [
+          i > 0 ? el('span', { class: 'teiler', text: '›' }) : null,
+          k.id === knoten.id
+            ? el('b', { text: k.name || '(ohne Namen)' })
+            : el('button', { class: 'pfad-knopf', text: k.name || '(ohne Namen)',
+                onclick: function () { bereichOeffnen(k.id, neuZeichnen); } })
+        ]);
+      }))
+    ]));
+
+    seite.appendChild(el('div', { class: 'zeile-verteilt', style: { marginBottom: '12px' } }, [
+      el('div', { class: 'fuellen' }, [
+        el('h1', { text: knoten.name || '(ohne Namen)' }),
+        el('p', { class: 'hinweis', text: konfig.label + '  ·  ' +
+          tueren.length + (tueren.length === 1 ? ' Position' : ' Positionen') +
+          '  ·  ' + gesamtAnzahl + (gesamtAnzahl === 1 ? ' Tür' : ' Türen') +
+          (offene.length ? ('  ·  ' + offene.length + ' unvollständig') : '') })
+      ]),
+      el('button', { class: 'haupt', text: '+ Neue Tür hier',
+        onclick: function () { VT().tuerBearbeiten(null, neuZeichnen, { strukturId: knoten.id }); } })
+    ]));
+
+    /* --- Unterbereiche zum Weiterklicken --- */
+    if (unterbereiche.length) {
+      var kacheln = el('div', { class: 'bereich-kacheln' });
+      unterbereiche.forEach(function (k) {
+        var n = M.tuerenUnter(p, k.id);
+        kacheln.appendChild(el('button', { class: 'bereich-kachel',
+          onclick: function () { bereichOeffnen(k.id, neuZeichnen); } }, [
+          el('span', { class: 'name', text: k.name || '(ohne Namen)' }),
+          el('span', { class: 'zahl', text: n.length + (n.length === 1 ? ' Position' : ' Positionen') })
+        ]));
+      });
+      kacheln.appendChild(el('button', { class: 'bereich-kachel neu',
+        onclick: function () { knotenAnlegen(konfig.kind, knoten.id, neuZeichnen); } }, [
+        el('span', { class: 'name', text: '+ ' + konfig.kindLabel }),
+        el('span', { class: 'zahl', text: 'neu anlegen' })
+      ]));
+      seite.appendChild(el('div', { class: 'karte' }, [
+        el('h2', { text: 'Unterbereiche' }),
+        kacheln
+      ]));
+    }
+
+    /* --- Türen dieses Bereichs --- */
+    if (!tueren.length) {
+      seite.appendChild(el('div', { class: 'leer' }, [
+        el('h3', { text: 'Noch keine Tür in diesem Bereich' }),
+        el('p', { text: 'Jede hier aufgenommene Tür ist „' + (knoten.name || 'diesem Bereich') +
+          '“ bereits zugeordnet.' }),
+        el('button', { class: 'haupt', text: '+ Erste Tür hier aufnehmen',
+          onclick: function () { VT().tuerBearbeiten(null, neuZeichnen, { strukturId: knoten.id }); } })
+      ]));
+      return;
+    }
+
+    /* Nach Unterbereich gruppieren, damit die Herkunft sichtbar bleibt */
+    var gruppen = [], index = {};
+    tueren.forEach(function (t) {
+      var key = t.strukturId || '__ohne__';
+      if (!index[key]) {
+        /* Der Pfad wird nur bis zum geöffneten Bereich gezeigt - das
+         * Gebäude steht schon in der Überschrift darüber. */
+        var titel;
+        if (key === knoten.id) {
+          titel = 'Direkt in ' + (knoten.name || 'diesem Bereich');
+        } else {
+          var teil = M.strukturPfad(p, key);
+          var ab = 0;
+          teil.forEach(function (k, i) { if (k.id === knoten.id) ab = i + 1; });
+          titel = teil.slice(ab).map(function (k) { return k.name; }).join(' › ');
+        }
+        index[key] = { key: key, titel: titel, tueren: [] };
+        gruppen.push(index[key]);
+      }
+      index[key].tueren.push(t);
+    });
+    /* Der eigene Bereich zuerst, danach die Unterbereiche in Gliederungsfolge */
+    var ordnung = M.strukturReihenfolge(p);
+    gruppen.sort(function (a, b) {
+      if (a.key === knoten.id) return -1;
+      if (b.key === knoten.id) return 1;
+      return (ordnung[a.key] || 0) - (ordnung[b.key] || 0);
+    });
+
+    gruppen.forEach(function (g) {
+      var anzahl = g.tueren.reduce(function (sum, t) {
+        return sum + (parseInt(t.anzahl, 10) || 1); }, 0);
+      var liste = el('div', { class: 'tuer-liste' });
+      g.tueren.forEach(function (t) { liste.appendChild(VT().tuerZeile(t, neuZeichnen)); });
+      seite.appendChild(el('div', { class: 'tuer-gruppe' }, [
+        el('div', { class: 'kopfzeile' }, [
+          el('span', { text: g.titel }),
+          el('span', { class: 'anzahl', text: g.tueren.length + ' Pos.  ·  ' + anzahl +
+            (anzahl === 1 ? ' Tür' : ' Türen') })
+        ]),
+        liste
+      ]));
+    });
+  }
+
+  function zurueckZurStruktur() {
+    Zustand.bereichId = null;
+    global.App.wechseln('struktur');
+  }
+
+  /* Die Türansicht lädt nach dieser Datei - erst zur Laufzeit nachschlagen. */
+  function VT() { return global.ViewsTueren; }
+
+  function tuerenImKnoten(knotenId) {
+    return M.tuerenUnter(Zustand.projekt, knotenId).length;
   }
 
   function knotenZeichnen(knoten, neuZeichnen) {
@@ -732,11 +896,22 @@
       neuZeichnen();
     }
 
+    /* Der Namensbereich ist ein eigener Knopf: Auf dem Telefon nehmen die
+     * Aktionen rechts fast die ganze Zeile ein - ein Antippen der Zeile
+     * würde dort fast immer einen der Knöpfe treffen. */
+    var oeffnen = function () { bereichOeffnen(knoten.id, neuZeichnen); };
     var eintrag = el('li', {}, [
-      el('div', { class: 'knoten' }, [
-        el('span', { class: 'ebene-marke', text: konfig.label }),
-        el('span', { class: 'name', text: knoten.name || '(ohne Namen)' }),
-        anzahl ? el('span', { class: 'tuerzahl', text: anzahl + (anzahl === 1 ? ' Tür' : ' Türen') }) : null,
+      /* Auch der freie Platz der Zeile öffnet den Bereich - aber nur er:
+       * "e.target === this" greift genau dann, wenn weder der Namensknopf
+       * noch eine der Aktionen getroffen wurde. */
+      el('div', { class: 'knoten', onclick: function (e) { if (e.target === this) oeffnen(); } }, [
+        el('button', { class: 'knoten-haupt', onclick: oeffnen,
+                       title: 'Türen in „' + (knoten.name || 'diesem Bereich') + '“ zeigen' }, [
+          el('span', { class: 'ebene-marke', text: konfig.label }),
+          el('span', { class: 'name', text: knoten.name || '(ohne Namen)' }),
+          anzahl ? el('span', { class: 'tuerzahl', text: anzahl + (anzahl === 1 ? ' Tür' : ' Türen') }) : null,
+          el('span', { class: 'oeffnen-pfeil', text: '›' })
+        ]),
         el('div', { class: 'aktionen' }, [
           el('button', { class: 'klein nur-symbol', title: 'Nach oben', text: '↑',
             disabled: index <= 0, onclick: function () { verschieben(-1); } }),
@@ -808,6 +983,9 @@
     standortAnlegen: standortAnlegen,
     ansichtStammdaten: ansichtStammdaten,
     ansichtStruktur: ansichtStruktur,
+    ansichtBereich: ansichtBereich,
+    bereichOeffnen: bereichOeffnen,
+    zurueckZurStruktur: zurueckZurStruktur,
     datumKurz: datumKurz, kb: kb
   };
 })(typeof window !== 'undefined' ? window : globalThis);

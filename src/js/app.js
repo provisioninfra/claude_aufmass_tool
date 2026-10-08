@@ -153,7 +153,8 @@
     projekt: null,
     einstellungen: null,
     ansicht: 'projekte',
-    tuerFilter: { suche: '', struktur: '', status: '', system: '' },
+    bereichId: null,      // gewählter Bereich in der Bereichsansicht
+    tuerFilter: { suche: '', struktur: '', status: '', system: '', unvollstaendig: false },
     ungesichert: false,
     speichertGerade: false
   };
@@ -225,10 +226,15 @@
   /* =========================================================================
    * Formularbausteine
    * ====================================================================== */
-  function feld(beschriftung, eingabeKnoten, breit) {
-    return el('div', { class: 'feld' + (breit ? ' voll' : '') }, [
+  /* Ein Formularfeld. Der Feldname wird als data-feld hinterlegt: Daran
+   * erkennt das Türformular, welche Felder Pflicht sind, ohne jedes Feld
+   * einzeln zu kennen. */
+  function feld(beschriftung, eingabeKnoten, breit, schluessel) {
+    var knoten = el('div', { class: 'feld' + (breit ? ' voll' : '') }, [
       el('label', { html: beschriftung }), eingabeKnoten
     ]);
+    if (schluessel) knoten.setAttribute('data-feld', schluessel);
+    return knoten;
   }
 
   function textFeld(objekt, schluessel, beschriftung, optionen) {
@@ -246,7 +252,7 @@
         alsGeaendertMarkieren();
       }
     });
-    return feld(beschriftung, eingabe, optionen.breit);
+    return feld(beschriftung, eingabe, optionen.breit, schluessel);
   }
 
   function bereichFeld(objekt, schluessel, beschriftung, optionen) {
@@ -260,7 +266,7 @@
       }
     });
     eingabe.value = objekt[schluessel] || '';
-    return feld(beschriftung, eingabe, optionen.breit !== false);
+    return feld(beschriftung, eingabe, optionen.breit !== false, schluessel);
   }
 
   function auswahlFeld(objekt, schluessel, beschriftung, optionen, konfig) {
@@ -280,7 +286,7 @@
       auswahl.appendChild(el('option', { value: wert, text: text }));
     });
     auswahl.value = objekt[schluessel] || '';
-    return feld(beschriftung, auswahl, konfig.breit);
+    return feld(beschriftung, auswahl, konfig.breit, schluessel);
   }
 
   function schalterFeld(objekt, schluessel, beschriftung, beiAenderung) {
@@ -293,7 +299,7 @@
         alsGeaendertMarkieren();
       }
     });
-    return el('label', { class: 'schalter' }, [
+    return el('label', { class: 'schalter', 'data-feld': schluessel }, [
       eingabe, el('span', { class: 'bahn' }), el('span', { class: 'beschriftung', text: beschriftung })
     ]);
   }
@@ -317,7 +323,8 @@
       behaelter.appendChild(chip);
     });
     /* Beschriftung als HTML, damit Zusätze wie <span class="einheit"> wirken */
-    return el('div', { class: 'feld voll' }, [el('label', { html: beschriftung }), behaelter]);
+    return el('div', { class: 'feld voll', 'data-feld': schluessel },
+      [el('label', { html: beschriftung }), behaelter]);
   }
 
   /* Ein Projekt zum Bearbeiten öffnen. Erst damit ist ein Projekt aktiv;
@@ -325,8 +332,9 @@
   function projektOeffnenIntern(projekt, ansicht) {
     Zustand.projekt = projekt;
     Zustand.ungesichert = false;
+    Zustand.bereichId = null;
     if (ansicht) Zustand.ansicht = ansicht;
-    Zustand.tuerFilter = { suche: '', struktur: '', status: '', system: '' };
+    Zustand.tuerFilter = { suche: '', struktur: '', status: '', system: '', unvollstaendig: false };
     if (global.Verlauf) global.Verlauf.beginnen(projekt);
   }
 
@@ -337,6 +345,7 @@
     return (offen ? speichern() : Promise.resolve()).then(function () {
       Zustand.projekt = null;
       Zustand.ungesichert = false;
+      Zustand.bereichId = null;
       clearTimeout(speicherTimer);
       if (global.Verlauf) global.Verlauf.beenden();
       return offen;

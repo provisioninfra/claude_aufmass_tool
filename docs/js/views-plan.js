@@ -123,10 +123,11 @@
     var kopfZeile = el('tr', {}, [el('th', { class: 'ecke', text: 'Tür / Schließung' })]);
     schliessungen.forEach(function (s) {
       var titel = (s.kuerzel ? s.kuerzel + ' ' : '') + (s.bezeichnung || '');
+      var traeger = K.traegerText(s);
       kopfZeile.appendChild(el('th', {
         class: 'spaltenkopf' + (entfernenAn.wert ? ' entfernbar' : ''),
         title: entfernenAn.wert ? ('Schließung „' + titel + '“ entfernen')
-                                : (titel + (s.person ? ' – ' + s.person : '')),
+                                : (titel + (traeger ? ' – ' + traeger : '')),
         onclick: function () {
           if (entfernenAn.wert) schliessungEntfernen(s);
           else schliessungBearbeiten(s, neuZeichnen);
@@ -136,7 +137,7 @@
         el('span', { class: 'dreh', text: titel || '–' }),
         entfernenAn.wert
           ? el('span', { class: 'entfernen-zeichen', text: '✕' })
-          : el('span', { class: 'medien', text: (parseInt(s.anzahlMedien, 10) || 0) + '×' })
+          : el('span', { class: 'medien', text: M.medienAnzahl(s) + '×' })
       ]));
     });
     tabelle.appendChild(el('thead', {}, kopfZeile));
@@ -565,22 +566,209 @@
     });
   }
 
+  /* =========================================================================
+   * Personen einer Schließung
+   * ======================================================================
+   * Eine Schließung wird entweder von namentlich benannten Einzelpersonen
+   * oder von einer Gruppe getragen. Die Liste ist in beiden Fällen dieselbe;
+   * bei einer Gruppe heißen die Einträge Mitglieder.
+   *
+   * Aus der Summe der Personen ergibt sich die Anzahl der Medien - außer
+   * die Zahl wurde ausdrücklich selbst eingetragen.
+   */
+  function personenListeBauen(s, beiAenderung) {
+    var behaelter = el('div');
+
+    function zeichnen() {
+      A.leeren(behaelter);
+      var liste = el('div', { class: 'person-liste' });
+      (s.personen || []).forEach(function (person, index) {
+        liste.appendChild(el('div', { class: 'person-zeile' }, [
+          A.textFeld(person, 'name', (index + 1) + '. Name',
+            { platzhalter: 'z. B. Herr Özdemir', beiAenderung: melden }),
+          A.textFeld(person, 'funktion', 'Funktion / Abteilung',
+            { platzhalter: 'z. B. Hausmeister' }),
+          A.textFeld(person, 'anzahlMedien', 'Medien',
+            { typ: 'number', inputmode: 'numeric', beiAenderung: melden }),
+          el('button', {
+            class: 'klein gefahr nur-symbol entfernen', text: '✕',
+            title: 'Person entfernen',
+            onclick: function () {
+              A.schrittMerken('Person entfernt: ' + (person.name || 'ohne Namen'));
+              s.personen.splice(index, 1);
+              melden(); zeichnen();
+            }
+          })
+        ]));
+      });
+      if (!(s.personen || []).length) {
+        liste.appendChild(el('p', { class: 'zart',
+          text: s.traegerArt === 'gruppe'
+            ? 'Noch keine Mitglieder hinterlegt.'
+            : 'Noch keine Person benannt.' }));
+      }
+      behaelter.appendChild(liste);
+      behaelter.appendChild(el('div', { class: 'knopfleiste', style: { marginTop: '10px' } },
+        el('button', { text: s.traegerArt === 'gruppe' ? '+ Mitglied' : '+ Person',
+          onclick: function () {
+            A.schrittMerken('Person hinzugefügt');
+            if (!Array.isArray(s.personen)) s.personen = [];
+            s.personen.push(M.neuePerson());
+            melden(); zeichnen();
+            /* Gleich in das neue Namensfeld springen */
+            setTimeout(function () {
+              var felder = behaelter.querySelectorAll('.person-zeile input');
+              var letzte = felder[(s.personen.length - 1) * 3];
+              if (letzte) letzte.focus();
+            }, 30);
+          } })));
+    }
+
+    function melden() {
+      A.alsGeaendertMarkieren();
+      if (beiAenderung) beiAenderung();
+    }
+
+    zeichnen();
+    return behaelter;
+  }
+
   /* --- Schließung anlegen / bearbeiten ------------------------------------ */
   function schliessungBearbeiten(vorhandene, neuZeichnen) {
     var p = Zustand.projekt;
     var istNeu = !vorhandene;
     var s = istNeu ? M.neueSchliessung({ sort: p.schliessungen.length })
                    : JSON.parse(JSON.stringify(vorhandene));
+    if (!Array.isArray(s.personen)) s.personen = [];
 
-    var inhalt = el('div', { class: 'raster' }, [
+    var inhalt = el('div');
+    var traegerBereich = el('div');
+    var medienBereich = el('div');
+
+    inhalt.appendChild(el('div', { class: 'raster' }, [
       A.textFeld(s, 'kuerzel', 'Kürzel', { platzhalter: 'z. B. GHS, HS-A, VW' }),
       A.textFeld(s, 'bezeichnung', 'Bezeichnung', { platzhalter: 'z. B. Generalhauptschlüssel' }),
-      A.auswahlFeld(s, 'typ', 'Typ', K.SCHLIESSUNG_TYPEN, { leerText: '– bitte wählen –' }),
-      A.textFeld(s, 'anzahlMedien', 'Anzahl Schlüssel / Medien', { typ: 'number', inputmode: 'numeric' }),
-      A.textFeld(s, 'person', 'Person'),
-      A.textFeld(s, 'abteilung', 'Abteilung / Bereich'),
+      A.auswahlFeld(s, 'typ', 'Rang im Plan', K.SCHLIESSUNG_TYPEN, { leerText: '– ohne Angabe –' })
+    ]));
+
+    inhalt.appendChild(el('hr', { class: 'trenner' }));
+    inhalt.appendChild(el('h3', { text: 'Wer bekommt dieses Medium?', style: { marginTop: '0' } }));
+    inhalt.appendChild(el('div', { class: 'raster' }, [
+      A.auswahlFeld(s, 'traegerArt', 'Träger', K.TRAEGER_ART,
+        { leerText: '– noch offen –', beiAenderung: function () { traegerZeichnen(); } })
+    ]));
+    inhalt.appendChild(traegerBereich);
+    inhalt.appendChild(medienBereich);
+    inhalt.appendChild(el('div', { class: 'raster', style: { marginTop: '14px' } }, [
       A.bereichFeld(s, 'bemerkung', 'Bemerkung', { zeilen: 2 })
-    ]);
+    ]));
+
+    function traegerZeichnen() {
+      A.leeren(traegerBereich);
+      var art = K.TRAEGER_ART.filter(function (a) { return a.id === s.traegerArt; })[0];
+      if (art) {
+        traegerBereich.appendChild(el('p', { class: 'hinweis', style: { marginTop: '8px' },
+          text: art.hinweis }));
+      }
+
+      if (s.traegerArt === 'gruppe') {
+        traegerBereich.appendChild(el('div', { class: 'raster', style: { marginTop: '10px' } }, [
+          A.textFeld(s, 'gruppenName', 'Gruppenname',
+            { platzhalter: 'z. B. Reinigung, IT, Hausmeisterei',
+              beiAenderung: function () { gruppenKnopfAktualisieren(); } })
+        ]));
+        /* Auf den Gruppennamen tippen öffnet die Mitgliederliste */
+        var knopf = el('button', { class: 'gruppen-knopf', style: { marginTop: '10px' },
+          onclick: function () { mitgliederDialog(); } });
+        traegerBereich.appendChild(knopf);
+        gruppenKnopfAktualisieren();
+
+        function gruppenKnopfAktualisieren() {
+          var benannt = (s.personen || []).filter(function (x) { return x && String(x.name || '').trim(); });
+          A.leeren(knopf);
+          knopf.appendChild(el('span', { class: 'name',
+            text: s.gruppenName ? ('Gruppe „' + s.gruppenName + '“') : 'Gruppe (noch ohne Namen)' }));
+          knopf.appendChild(el('span', { class: 'zahl', text: benannt.length
+            ? (benannt.length + (benannt.length === 1 ? ' Mitglied' : ' Mitglieder')) 
+            : 'Mitglieder hinterlegen' }));
+          knopf.appendChild(el('span', { class: 'oeffnen-pfeil', text: '›' }));
+        }
+      } else if (s.traegerArt === 'einzel') {
+        traegerBereich.appendChild(el('h3', { text: 'Personen' }));
+        traegerBereich.appendChild(personenListeBauen(s, function () { medienZeichnen(); }));
+      }
+      medienZeichnen();
+    }
+
+    /* Mitgliederliste einer Gruppe in einem eigenen Dialog: vor Ort ist das
+     * ein eigener Arbeitsschritt und soll den Rest nicht verdecken. */
+    function mitgliederDialog() {
+      var innen = el('div');
+      innen.appendChild(el('p', { class: 'hinweis', style: { marginTop: '0' },
+        text: 'Die Mitglieder dieser Gruppe. Die Anzahl der Medien ergibt sich aus der Summe – ' +
+              'je Person lässt sich eine eigene Anzahl eintragen.' }));
+      innen.appendChild(personenListeBauen(s, function () { medienZeichnen(); }));
+      A.dialogOeffnen({
+        titel: s.gruppenName ? ('Mitglieder: ' + s.gruppenName) : 'Mitglieder der Gruppe',
+        inhalt: innen,
+        knoepfe: [{ fuellen: true }, { text: 'Fertig', klasse: 'haupt' }],
+        beimSchliessen: function () { traegerZeichnen(); }
+      });
+    }
+
+    /* Anzahl der Medien: errechnet oder selbst eingetragen. Beides ist
+     * zulässig, aber es muss sichtbar sein, welches gerade gilt. */
+    function medienZeichnen() {
+      A.leeren(medienBereich);
+      var benannt = (s.personen || []).filter(function (x) { return x && String(x.name || '').trim(); });
+      var errechnet = benannt.reduce(function (sum, x) {
+        var n = parseInt(x.anzahlMedien, 10);
+        return sum + ((!n || n < 1) ? 1 : n);
+      }, 0);
+      var automatisch = !s.medienVonHand && benannt.length > 0;
+
+      medienBereich.appendChild(el('hr', { class: 'trenner' }));
+      /* Ohne die Art des Mediums lässt sich nicht bestellen: 40 Stück
+       * wovon? Die Auswahl ergibt sich aus den Systemen des Projekts. */
+      var medienArten = M.identmedienAuswahl(p,
+        (Zustand.einstellungen && Zustand.einstellungen.eigeneSysteme) || []);
+      medienBereich.appendChild(el('div', { class: 'raster' }, [
+        medienArten.length
+          ? A.auswahlFeld(s, 'medienTyp', 'Art des Mediums', medienArten,
+              { leerText: '– noch offen –' })
+          : A.textFeld(s, 'medienTyp', 'Art des Mediums',
+              { platzhalter: 'z. B. Schlüssel, Transponder, Karte' })
+      ]));
+      if (automatisch) {
+        s.anzahlMedien = errechnet;
+        medienBereich.appendChild(el('div', { class: 'feld' }, [
+          el('label', { html: 'Anzahl Schlüssel / Medien <span class="einheit">(automatisch aus der Personenliste)</span>' }),
+          el('input', { type: 'text', value: String(errechnet), readonly: true })
+        ]));
+        medienBereich.appendChild(el('div', { class: 'knopfleiste', style: { marginTop: '8px' } },
+          el('button', { class: 'klein', text: 'Anzahl von Hand eintragen', onclick: function () {
+            A.schrittMerken('Medienanzahl von Hand');
+            s.medienVonHand = true; A.alsGeaendertMarkieren(); medienZeichnen();
+          } })));
+      } else {
+        medienBereich.appendChild(el('div', { class: 'raster' }, [
+          A.textFeld(s, 'anzahlMedien', 'Anzahl Schlüssel / Medien',
+            { typ: 'number', inputmode: 'numeric',
+              beiAenderung: function () { s.medienVonHand = true; } })
+        ]));
+        if (benannt.length) {
+          medienBereich.appendChild(el('div', { class: 'knopfleiste', style: { marginTop: '8px' } },
+            el('button', { class: 'klein', text: 'Wieder automatisch (' + errechnet + ')',
+              title: 'Anzahl aus der Personenliste errechnen',
+              onclick: function () {
+                A.schrittMerken('Medienanzahl wieder automatisch');
+                s.medienVonHand = false; A.alsGeaendertMarkieren(); medienZeichnen();
+              } })));
+        }
+      }
+    }
+
+    traegerZeichnen();
 
     var knoepfe = [];
     if (!istNeu) {
@@ -603,9 +791,19 @@
     knoepfe.push({ text: 'Abbrechen' });
     knoepfe.push({ text: istNeu ? 'Anlegen' : 'Übernehmen', klasse: 'haupt', aktion: function (schliessen) {
       if (!s.kuerzel && !s.bezeichnung) { A.toast('Bitte Kürzel oder Bezeichnung angeben.', 'fehler'); return false; }
+      if (s.traegerArt === 'gruppe' && !String(s.gruppenName || '').trim()) {
+        A.toast('Bitte einen Gruppennamen angeben.', 'fehler'); return false;
+      }
       A.schrittMerken(istNeu ? ('Schließung ' + (s.kuerzel || s.bezeichnung) + ' angelegt')
                              : ('Schließung ' + (s.kuerzel || s.bezeichnung) + ' geändert'));
-      s.anzahlMedien = Math.max(0, parseInt(s.anzahlMedien, 10) || 0);
+      /* Namenlose Einträge werden nicht mitgeschleppt */
+      s.personen = (s.personen || []).filter(function (x) { return x && String(x.name || '').trim(); })
+        .map(function (x) {
+          var n = parseInt(x.anzahlMedien, 10);
+          x.anzahlMedien = (!n || n < 1) ? 1 : n;
+          return x;
+        });
+      M.medienAngleichen(s);
       if (istNeu) p.schliessungen.push(s);
       else {
         var i = p.schliessungen.findIndex(function (x) { return x.id === s.id; });
@@ -632,7 +830,8 @@
       if (!sortiert.length) { inhalt.appendChild(el('p', { class: 'zart', text: 'Keine Schließungen vorhanden.' })); return; }
       var tab = el('table');
       tab.appendChild(el('thead', {}, el('tr', {}, [
-        el('th', { text: 'Kürzel' }), el('th', { text: 'Bezeichnung' }), el('th', { text: 'Typ' }),
+        el('th', { text: 'Kürzel' }), el('th', { text: 'Bezeichnung' }),
+        el('th', { text: 'Rang im Plan' }), el('th', { text: 'Träger' }),
         el('th', { class: 'zahl', text: 'Medien' }), el('th', { text: 'Reihenfolge' })
       ])));
       var tb = el('tbody');
@@ -642,7 +841,9 @@
           el('td', { onclick: function () { schliessungBearbeiten(s, neuZeichnen); }, text: s.kuerzel || '—' }),
           el('td', { onclick: function () { schliessungBearbeiten(s, neuZeichnen); }, text: s.bezeichnung || '' }),
           el('td', { text: typ ? typ.label : (s.typ || '') }),
-          el('td', { class: 'zahl', text: String(s.anzahlMedien || 0) }),
+          el('td', { onclick: function () { schliessungBearbeiten(s, neuZeichnen); },
+                     text: K.traegerText(s) || '– noch offen –' }),
+          el('td', { class: 'zahl', text: String(M.medienAnzahl(s)) }),
           el('td', {}, el('div', { class: 'knopfleiste' }, [
             el('button', { class: 'klein nur-symbol', text: '↑', disabled: index === 0, onclick: function () {
               A.schrittMerken('Reihenfolge der Schließungen geändert');
@@ -711,6 +912,11 @@
     /* --- PDF-Ausgaben --- */
     var detailMitFotos = { wert: true };
     var fotoSchalter = A.schalterFeld(detailMitFotos, 'wert', 'Fotos in das Datenblatt übernehmen');
+    /* Standardmäßig aus: ohne die Türspalte bleibt mehr Platz für die
+     * Maßspalten, und das ist beim Bestellen das Wichtigere. */
+    var materialMitTueren = { wert: false };
+    var tuerSchalter = A.schalterFeld(materialMitTueren, 'wert',
+      'Türnummern je Position mit ausgeben');
 
     seite.appendChild(el('div', { class: 'karte' }, [
       el('h2', { text: 'PDF-Ausgaben' }),
@@ -727,8 +933,11 @@
           'Zutrittsmatrix Türen × Schließungen im Querformat, inklusive Legende und Schließungsübersicht.',
           function () { pdfErzeugen(function () { return Reports.schliessplan(p, eins); }, 'Kreuzschliessplan'); }),
         exportKarte('Materialliste',
-          'Aggregierte Stückliste je System als Grundlage für Angebot und Bestellung.',
-          function () { pdfErzeugen(function () { return Reports.materialliste(p, eins); }, 'Materialliste'); }),
+          'Bestellgrundlage, gegliedert nach Gewerk und Hersteller. Jede Bauteilart mit ' +
+          'ihren eigenen Maßspalten; Artikelnummer und Preis bleiben zum Ausfüllen frei.',
+          function () { pdfErzeugen(function () {
+            return Reports.materialliste(p, eins, { mitTueren: materialMitTueren.wert });
+          }, 'Materialliste'); }, tuerSchalter),
         exportKarte('Prüfprotokoll',
           'Alle Vollständigkeitshinweise als Abarbeitungsliste für das Büro.',
           function () { pdfErzeugen(function () { return Reports.pruefprotokoll(p, eins); }, 'Pruefprotokoll'); })

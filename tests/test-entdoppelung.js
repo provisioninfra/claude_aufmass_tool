@@ -18,7 +18,12 @@ const listen = {
   SCHLOSS_BAUFORM: K.SCHLOSS_BAUFORM,
   SCHLOSS_FUNKTION: K.SCHLOSS_FUNKTION,
   ZUTRITTSSEITE: K.ZUTRITTSSEITE,
-  TUERANFORDERUNG: K.TUERANFORDERUNG
+  TUERANFORDERUNG: K.TUERANFORDERUNG,
+  STULPFORM: K.STULPFORM,
+  FALLENART: K.FALLENART,
+  SCHLOSS_NORM: K.SCHLOSS_NORM,
+  TUER_ANSCHLAG: K.TUER_ANSCHLAG,
+  KABELUEBERGANG: K.KABELUEBERGANG
 };
 
 /* Begriffe, die jeweils genau einer Liste gehören dürfen */
@@ -37,7 +42,13 @@ const EIGENTUEMER = {
   'einsteckschloss': 'SCHLOSS_BAUFORM',
   'rohrrahmen': 'SCHLOSS_BAUFORM',
   'brandschutz': 'TUERANFORDERUNG',
-  'rauchschutz': 'TUERANFORDERUNG'
+  'rauchschutz': 'TUERANFORDERUNG',
+  /* Die Rollfalle ist eine Bauart der Falle und keine Funktion des
+     Schlosses - sonst müsste man sich zwischen Panikfunktion und
+     Rollfalle entscheiden, obwohl beides zusammen vorkommt. */
+  'rollfalle': 'FALLENART',
+  'stulp': 'STULPFORM',
+  'leerrohr': 'KABELUEBERGANG'
 };
 
 let verstoesse = [];
@@ -232,6 +243,171 @@ const altAusf = { zylinderAusfuehrung: ['Freidreh / Komfort'], brauchtZylinder: 
 M.tuerUeberfuehren(altAusf);
 pruefe(altAusf.zylinderAusfuehrung.includes('Freidreh'),
   'frühere Sammelbezeichnung wird aufgelöst', JSON.stringify(altAusf.zylinderAusfuehrung));
+
+console.log('\n== Rang im Plan und Träger sind zwei Fragen ==');
+/* Früher stand "Person" und "Personengruppe" mit in der Typenliste. Dann
+   musste man zweimal dasselbe wählen: den Rang und wer das Medium trägt. */
+const typBegriffe = K.SCHLIESSUNG_TYPEN.map(x => x.label.toLowerCase());
+pruefe(!typBegriffe.some(x => /person|gruppe\b/.test(x) && !/gruppenschlüssel|untergruppen/.test(x)),
+  'der Rang im Plan enthält keine Angabe zum Träger',
+  typBegriffe.filter(x => /person|gruppe\b/.test(x)).join(', '));
+pruefe(K.TRAEGER_ART.map(x => x.id).join(',') === 'einzel,gruppe',
+  'der Träger ist eine eigene Frage mit genau zwei Antworten');
+
+/* Die Überführung erfindet keinen Rang, sondern lässt ihn offen */
+const altPerson = { id: 's1', kuerzel: 'HM', bezeichnung: 'Hausmeister', typ: 'person',
+                    anzahlMedien: 2, person: 'Herr Özdemir', abteilung: 'Facility' };
+M.schliessungUeberfuehren(altPerson);
+pruefe(altPerson.traegerArt === 'einzel' && altPerson.typ === '',
+  'aus "Person" wird der Träger, der Rang bleibt offen statt erfunden',
+  JSON.stringify({ typ: altPerson.typ, traeger: altPerson.traegerArt }));
+pruefe(altPerson.personen.length === 1 && altPerson.personen[0].name === 'Herr Özdemir' &&
+       altPerson.personen[0].funktion === 'Facility',
+  'Name und Abteilung werden zur Personenliste', JSON.stringify(altPerson.personen));
+pruefe(M.medienAnzahl(altPerson) === 2,
+  'die bisherige Gesamtzahl der Medien bleibt maßgeblich', String(M.medienAnzahl(altPerson)));
+
+const altGruppe = { id: 's2', kuerzel: 'IT', bezeichnung: 'IT-Abteilung', typ: 'gruppe',
+                    anzahlMedien: 4, abteilung: 'EDV' };
+M.schliessungUeberfuehren(altGruppe);
+pruefe(altGruppe.traegerArt === 'gruppe' && altGruppe.gruppenName === 'EDV',
+  'aus "Personengruppe" wird eine benannte Gruppe', JSON.stringify(altGruppe.gruppenName));
+/* Zweimal überführen darf nichts verdoppeln */
+M.schliessungUeberfuehren(altPerson);
+pruefe(altPerson.personen.length === 1, 'erneute Überführung verdoppelt keine Person');
+
+console.log('\n== Rollfalle gehört zur Falle, nicht zur Funktion ==');
+pruefe(!K.SCHLOSS_FUNKTION.includes('Rollfalle'),
+  'die Rollfalle steht nicht mehr unter den Funktionen');
+pruefe(K.FALLENART.includes('Rollfalle'), 'die Rollfalle steht unter den Fallenarten');
+const altRolle = { brauchtSchloss: true, schlossBauform: 'Einsteckschloss', schlossFunktion: 'Rollfalle' };
+M.tuerUeberfuehren(altRolle);
+pruefe(altRolle.schlossFallenart === 'Rollfalle' && altRolle.schlossFunktion === '',
+  'eine früher als Funktion erfasste Rollfalle wandert zur Fallenart',
+  JSON.stringify(altRolle));
+
+/* Nach der Überführung muss jeder Wert in seiner Auswahlliste stehen -
+   sonst zeigt das Formular ein leeres Feld, obwohl Daten vorhanden sind. */
+const altTexte = ['Einsteckschloss Rollfalle', 'Einsteckschloss Panik B',
+                  'Einsteckschloss Panik Funktion E', 'Rohrrahmenschloss Rollfalle Panik D',
+                  'Panikschloss selbstverriegelnd', 'Einsteckschloss Buntbart'];
+const ungueltig = [];
+altTexte.forEach(txt => {
+  const t = { schlossArt: txt, zutrittsarten: [] };
+  M.tuerUeberfuehren(t);
+  if (t.schlossFunktion && !K.SCHLOSS_FUNKTION.includes(t.schlossFunktion)) {
+    ungueltig.push(txt + ' -> Funktion "' + t.schlossFunktion + '"');
+  }
+  if (t.schlossFallenart && !K.FALLENART.includes(t.schlossFallenart)) {
+    ungueltig.push(txt + ' -> Fallenart "' + t.schlossFallenart + '"');
+  }
+  if (t.schlossBauform && !K.SCHLOSS_BAUFORM.includes(t.schlossBauform)) {
+    ungueltig.push(txt + ' -> Bauform "' + t.schlossBauform + '"');
+  }
+});
+pruefe(ungueltig.length === 0,
+  'jede überführte Angabe steht in ihrer Auswahlliste', ungueltig.join('\n         -> '));
+
+/* Funktion und Fallenart schließen sich nicht aus */
+const beides = { schlossArt: 'Rohrrahmenschloss Rollfalle Panik D', zutrittsarten: [] };
+M.tuerUeberfuehren(beides);
+pruefe(/Panik Funktion D/.test(beides.schlossFunktion) && beides.schlossFallenart === 'Rollfalle',
+  'Panikfunktion und Rollfalle bleiben beide erhalten',
+  JSON.stringify({ f: beides.schlossFunktion, r: beides.schlossFallenart }));
+
+console.log('\n== Pflichtangaben kommen aus einer Quelle ==');
+const pProj = M.neuesProjekt('Pflicht');
+pProj.anlagenart = 'mechanik'; pProj.systemMechanik = 'evva-4ks';
+const standort = M.neuerStrukturknoten('standort', 'Standort');
+pProj.standorte.push(standort);
+const pTuer = M.neueTuer({ nummer: '001' });
+pProj.tueren.push(pTuer);
+const fehlen1 = M.pflichtfelder(pProj, pTuer).map(x => x.schluessel);
+pruefe(fehlen1.includes('bezeichnung') && fehlen1.includes('strukturId') &&
+       fehlen1.includes('zylinderBauform') && fehlen1.includes('zutrittsseite'),
+  'die Pflichtangaben eines Zylinders werden benannt', fehlen1.join(', '));
+pruefe(!fehlen1.includes('schlossBauform') && !fehlen1.includes('beschlagBauform'),
+  'nach abgewählten Bauteilen wird nicht gefragt', fehlen1.join(', '));
+/* Die Längen hängen an der Bauform: Beim Briefkastenzylinder gibt es keine.
+   Deshalb werden sie erst verlangt, wenn die Bauform bekannt ist. */
+pruefe(!fehlen1.includes('masseAussen'),
+  'ohne bekannte Bauform wird noch keine Länge verlangt', fehlen1.join(', '));
+pTuer.zylinderBauform = 'Doppelzylinder';
+const fehlen2 = M.pflichtfelder(pProj, pTuer).map(x => x.schluessel);
+pruefe(fehlen2.includes('masseAussen') && fehlen2.includes('masseInnen'),
+  'mit der Bauform werden beide Längen zur Pflicht', fehlen2.join(', '));
+
+/* Der Bestellbezug: ohne Längen kein Zylinder - außer dort, wo es keine gibt */
+pTuer.zylinderBauform = 'Briefkastenzylinder';
+pruefe(!M.pflichtfelder(pProj, pTuer).some(x => x.schluessel === 'masseAussen'),
+  'beim Briefkastenzylinder wird keine Länge verlangt');
+pTuer.zylinderBauform = 'Halbzylinder';
+const halb = M.pflichtfelder(pProj, pTuer).map(x => x.schluessel);
+pruefe(halb.includes('masseAussen') && !halb.includes('masseInnen'),
+  'beim Halbzylinder wird nur die Außenlänge verlangt', halb.join(', '));
+
+/* Status folgt der Vollständigkeit, überschreibt aber keine eigene Wahl */
+M.statusAusPruefung(pProj, pTuer);
+pruefe(pTuer.status === 'klaerung', 'unvollständige Tür wird auf „Klärung nötig“ gesetzt', pTuer.status);
+pTuer.bezeichnung = 'Tür'; pTuer.strukturId = standort.id; pTuer.masseAussen = '30';
+pTuer.zutrittsseite = 'nur außen';
+M.statusAusPruefung(pProj, pTuer);
+pruefe(pTuer.status === 'aufgemessen', 'vollständige Tür gilt als aufgemessen', pTuer.status);
+pTuer.statusVonHand = true; pTuer.status = 'freigegeben'; pTuer.masseAussen = '';
+M.statusAusPruefung(pProj, pTuer);
+pruefe(pTuer.status === 'freigegeben', 'ein selbst gewählter Status wird nicht überschrieben', pTuer.status);
+
+/* Freiwillige Felder bleiben freiwillig */
+const freiwillig = ['schlossStulpform', 'schlossFallenart', 'schlossNorm', 'schlossRiegelausschluss',
+                    'tuerbreite', 'tuerhoehe', 'tuerAnschlag', 'elKabeluebergang',
+                    'elLeitungsweg', 'bestandFabrikat', 'bohrbild', 'profilbreite', 'notiz'];
+const alleTuer = M.neueTuer({ brauchtZylinder: true, brauchtBeschlag: true, brauchtSchloss: true,
+                              brauchtWandleser: true, schlossBauform: 'Einsteckschloss',
+                              beschlagAusfuehrung: 'beidseitig elektronisch' });
+const pflichtNamen = Object.keys(M.pflichtSchluessel(pProj, alleTuer));
+const falsch = freiwillig.filter(k => pflichtNamen.includes(k));
+pruefe(falsch.length === 0, 'kein freiwilliges Feld wird zur Pflicht', falsch.join(', '));
+
+console.log('\n== Materialliste: eigene Maßspalten je Bauteilart ==');
+const { baueTestprojekt } = require('./fixture.js');
+const mp = M.migriere(baueTestprojekt());
+const ml = M.materialliste(mp);
+const zylPos = ml.systeme.flatMap(x => x.positionen).filter(x => x.gruppe === 'Zylinder')
+  .filter(x => x.felder.laengeAussen);
+pruefe(zylPos.every(x => x.felder.laengeAussen && x.felder.gesamtlaenge),
+  'jeder Zylinder führt Außenlänge und Gesamtlänge getrennt',
+  zylPos.filter(x => !x.felder.gesamtlaenge).map(x => x.bezeichnung).join(', '));
+const summe = zylPos[0];
+pruefe(Number(summe.felder.gesamtlaenge) ===
+       Number(summe.felder.laengeAussen) + Number(summe.felder.laengeInnen),
+  'die Gesamtlänge ist die Summe der beiden Längen',
+  JSON.stringify(summe.felder));
+const besPos = ml.systeme.flatMap(x => x.positionen).filter(x => x.gruppe === 'Beschlag');
+pruefe(besPos.every(x => x.felder && 'dornmass' in x.felder && 'vierkant' in x.felder &&
+                         'tuerblattstaerke' in x.felder && 'din' in x.felder),
+  'jeder Beschlag führt Türstärke, Dornmaß, Entfernung, Nuss und DIN einzeln');
+const schlossPos = ml.systeme.flatMap(x => x.positionen).filter(x => x.gruppe === 'Schloss');
+pruefe(schlossPos.every(x => x.felder && 'stulp' in x.felder && 'fallenart' in x.felder),
+  'jedes Schloss führt Stulp und Fallenart einzeln');
+/* Jede Systemgruppe ist nach Bauteilart getrennt - sonst passen die
+   Spalten nicht zum Inhalt */
+const arten = ml.gliederung.flatMap(a => a.gruppen).flatMap(g => g.arten || []);
+pruefe(arten.length > 0 && arten.every(a => a.positionen.every(x => x.gruppe === a.art)),
+  'in jeder Spaltengruppe steht nur eine Bauteilart (' + arten.length + ' Gruppen)');
+
+/* Zwei Beschläge mit gleicher Bezeichnung, aber anderer DIN-Richtung sind
+   verschiedene Artikel und dürfen nicht zusammenfallen */
+const probe = M.neuesProjekt('DIN');
+probe.anlagenart = 'mechanik'; probe.systemMechanik = 'evva-4ks';
+['DIN links', 'DIN rechts'].forEach((din, i) => {
+  probe.tueren.push(M.neueTuer({ nummer: '00' + (i + 1), brauchtZylinder: false,
+    brauchtBeschlag: true, beschlagBauform: 'Rosettengarnitur',
+    beschlagBestueckung: 'Drücker / Drücker', dornmass: '55', entfernung: '72',
+    vierkant: '8', tuerblattstaerke: '40', dinRichtung: din }));
+});
+const dinListe = M.materialliste(probe).systeme.flatMap(x => x.positionen);
+pruefe(dinListe.length === 2, 'Beschläge mit anderer DIN-Richtung bleiben getrennt',
+  dinListe.map(x => x.bezeichnung + ' ' + x.felder.din + ' = ' + x.menge).join(' | '));
 
 console.log(`\nErgebnis: ${ok} ok, ${fehler} Fehler`);
 process.exit(fehler ? 1 : 0);

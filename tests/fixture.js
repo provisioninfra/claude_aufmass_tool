@@ -117,19 +117,34 @@ function baueTestprojekt(opt = {}) {
   ];
   tueren.forEach(t => p.tueren.push(M.neueTuer(t)));
 
+  /* Rang im Plan (typ) und Träger (traegerArt) sind zwei verschiedene
+     Angaben. Bei Gruppen entsteht die Medienzahl aus den Mitgliedern. */
+  const person = (name, funktion, medien) => ({ name, funktion: funktion || '', anzahlMedien: medien || 1 });
   const schliessungen = [
-    { kuerzel:'GHS', bezeichnung:'Generalhauptschlüssel', typ:'ghs', anzahlMedien:3, person:'Geschäftsführung', abteilung:'GL' },
-    { kuerzel:'HS-A', bezeichnung:'Hauptschlüssel Haus A', typ:'hs', anzahlMedien:2, person:'Objektleitung' },
-    { kuerzel:'HS-B', bezeichnung:'Hauptschlüssel Haus B', typ:'hs', anzahlMedien:2, person:'Technik' },
-    { kuerzel:'HM', bezeichnung:'Hausmeister', typ:'person', anzahlMedien:2, person:'Herr Özdemir', abteilung:'Facility' },
-    { kuerzel:'IT', bezeichnung:'IT-Abteilung', typ:'gruppe', anzahlMedien:4, abteilung:'EDV' },
-    { kuerzel:'VW', bezeichnung:'Verwaltung', typ:'gruppe', anzahlMedien:11, abteilung:'Verwaltung' },
-    { kuerzel:'REIN', bezeichnung:'Reinigungsfirma Glanz GmbH', typ:'extern', anzahlMedien:5, bemerkung:'Mo–Fr 18–22 Uhr' },
-    { kuerzel:'NOT', bezeichnung:'Notdienst / Feuerwehr', typ:'extern', anzahlMedien:1, bemerkung:'Schlüsseldepot' },
+    { kuerzel:'GHS', bezeichnung:'Generalhauptschlüssel', typ:'ghs', traegerArt:'einzel', medienTyp:'Schlüssel',
+      personen:[person('Frau Dr. Schäfer','Geschäftsführung',2), person('Herr Baumann','Prokura',1)] },
+    { kuerzel:'HS-A', bezeichnung:'Hauptschlüssel Haus A', typ:'hs', traegerArt:'einzel',
+      personen:[person('Herr Lorenz','Objektleitung',2)] },
+    { kuerzel:'HS-B', bezeichnung:'Hauptschlüssel Haus B', typ:'hs', traegerArt:'einzel',
+      personen:[person('Herr Kraus','Technik',2)] },
+    { kuerzel:'HM', bezeichnung:'Hausmeister', typ:'ez', traegerArt:'einzel',
+      personen:[person('Herr Özdemir','Facility',2)] },
+    { kuerzel:'IT', bezeichnung:'IT-Abteilung', typ:'gs', traegerArt:'gruppe', gruppenName:'EDV', medienTyp:'Karte',
+      personen:[person('Frau Weiß','Systemadministration'), person('Herr Tran','Netzwerk'),
+                person('Frau Köhler','Support'), person('Herr Adler','Support')] },
+    { kuerzel:'VW', bezeichnung:'Verwaltung', typ:'gs', traegerArt:'gruppe', gruppenName:'Verwaltung',
+      anzahlMedien:11, medienVonHand:true,
+      personen:[person('Frau Berg','Buchhaltung'), person('Herr Imholz','Einkauf')] },
+    { kuerzel:'REIN', bezeichnung:'Reinigungsfirma Glanz GmbH', typ:'extern', traegerArt:'gruppe',
+      gruppenName:'Reinigung Glanz', anzahlMedien:5, medienVonHand:true, bemerkung:'Mo–Fr 18–22 Uhr' },
+    { kuerzel:'NOT', bezeichnung:'Notdienst / Feuerwehr', typ:'extern', traegerArt:'gruppe',
+      gruppenName:'Feuerwehr / Schlüsseldepot', anzahlMedien:1, medienVonHand:true, bemerkung:'Schlüsseldepot' },
     { kuerzel:'EZ-GL', bezeichnung:'Einzelschließung GL-Büro', typ:'ez', anzahlMedien:2 },
     { kuerzel:'EZ-ARCH', bezeichnung:'Einzelschließung Archiv', typ:'ez', anzahlMedien:2 },
-    { kuerzel:'MP-01', bezeichnung:'Mietpartei 01', typ:'ez', anzahlMedien:3 },
-    { kuerzel:'MP-02', bezeichnung:'Mietpartei 02', typ:'ez', anzahlMedien:3 }
+    { kuerzel:'MP-01', bezeichnung:'Mietpartei 01', typ:'ez', traegerArt:'einzel',
+      personen:[person('Familie Richter','Mietpartei',3)] },
+    { kuerzel:'MP-02', bezeichnung:'Mietpartei 02', typ:'ez', traegerArt:'einzel',
+      personen:[person('Herr Pohl','Mietpartei',3)] }
   ];
   schliessungen.forEach((s, i) => p.schliessungen.push(M.neueSchliessung(Object.assign({ sort: i }, s))));
 

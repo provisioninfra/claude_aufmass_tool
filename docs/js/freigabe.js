@@ -131,8 +131,13 @@
       frist: optionen.frist || '',
       firma: optionen.firma || '',
       t: tueren.map(function (t) { return [t.id, t.nr, t.bez, t.bereich]; }),
+      /* Der vierte Wert nennt den Träger: bei einer Gruppe deren Name mit
+       * Mitgliederzahl, bei Einzelpersonen die Namen. Der Kunde erkennt so,
+       * wofür die Spalte steht. Das Format bleibt unverändert. */
       s: schliessungen.map(function (s) {
-        return [s.id, s.kuerzel || '', s.bezeichnung || '', s.person || s.abteilung || ''];
+        var K2 = global.Katalog;
+        var traeger = K2 && K2.traegerText ? K2.traegerText(s) : (s.person || s.abteilung || '');
+        return [s.id, s.kuerzel || '', s.bezeichnung || '', traeger];
       }),
       m: packen(matrix),
       e: packen(maske)

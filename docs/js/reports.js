@@ -445,7 +445,17 @@
       ['Entfernung', t.entfernung ? t.entfernung + ' mm' : ''],
       ['Vierkant', t.vierkant ? t.vierkant + ' mm' : ''],
       ['Profilbreite', t.profilbreite],
+      ['Türbreite', t.tuerbreite ? t.tuerbreite + ' mm' : ''],
+      ['Türhöhe', t.tuerhoehe ? t.tuerhoehe + ' mm' : ''],
+      ['Türanschlag', t.tuerAnschlag],
       ['Stulpmaß', t.stulpmass],
+      ['Stulpform', t.schlossStulpform],
+      ['Stulpbreite', t.schlossStulpbreite ? t.schlossStulpbreite + ' mm' : ''],
+      ['Stulplänge', t.schlossStulplaenge ? t.schlossStulplaenge + ' mm' : ''],
+      ['Fallenart', t.schlossFallenart],
+      ['Riegelausschluss', t.schlossRiegelausschluss ? t.schlossRiegelausschluss + ' mm' : ''],
+      ['Verriegelungspunkte', t.schlossVerriegelungspunkte],
+      ['Norm / Zulassung Schloss', t.schlossNorm],
       ['Bohrbild', t.bohrbild],
       ['Türmaterial', t.tuermaterial],
       ['Besonderheit zur Tür', t.systemNotiz, true],
@@ -459,7 +469,16 @@
       ['Stromversorgung', t.elStromversorgung],
       ['Vernetzung', t.elVernetzung],
       ['Türüberwachung', t.elTuerueberwachung ? 'ja' : ''],
-      ['Elektronik-Bemerkung', t.elBemerkung, true]
+      ['Kabel / Leerrohr', t.elKabeluebergang],
+      ['Türöffner im Bestand', t.elTueroeffnerBestand ? 'ja' : ''],
+      ['Leitungsweg', t.elLeitungsweg, true],
+      ['Elektronik-Bemerkung', t.elBemerkung, true],
+      /* Fehlende Pflichtangaben stehen im Datenblatt, damit beim Nach-
+       * arbeiten im Büro nicht erst gesucht werden muss. */
+      ['Pflichtangaben offen', (function () {
+          var f2 = M.pflichtfelder ? M.pflichtfelder(projekt, t) : [];
+          return f2.length ? f2.map(function (x2) { return x2.label; }).join(', ') : '';
+        })(), true]
     ].filter(function (f) { return txt(f[1]) && txt(f[1]) !== '–' || f[0] === 'System'; });
 
     var spaltenAnzahl = 3;
@@ -716,7 +735,7 @@
         var text = doc.kuerzen(kopfTexte[i] || '–', kopfHoehe - medienZeile - 4, 7, true);
         doc.textRotiert(text, cx + spaltenBreite / 2 + 2.4, y + kopfHoehe - medienZeile - 2,
                         { size: 7, bold: true });
-        var anz = parseInt(s.anzahlMedien, 10);
+        var anz = M.medienAnzahl ? M.medienAnzahl(s) : parseInt(s.anzahlMedien, 10);
         if (anz > 0) {
           doc.text(String(anz), cx + spaltenBreite / 2, y + kopfHoehe - medienZeile + 0.1,
                    { size: 5.6, align: 'center', color: FARBE.grau });
@@ -808,17 +827,33 @@
 
     doc.text('Schließungen im Detail', x, doc.y, { size: 9, bold: true, color: FARBE.akzent });
     doc.y += 5;
+    /* Die Personen stehen namentlich mit ihrer Anzahl: Daraus ergibt sich
+     * die Medienzahl, und bei der Ausgabe der Schlüssel ist ablesbar, wer
+     * welches Medium erhält. */
     var spalten = [
-      { titel: 'Kürzel', breite: b * 0.09, key: 'kuerzel', bold: true },
-      { titel: 'Bezeichnung', breite: b * 0.26, key: 'bezeichnung' },
-      { titel: 'Typ', breite: b * 0.19, render: function (s) {
+      { titel: 'Kürzel', breite: b * 0.08, key: 'kuerzel', bold: true },
+      { titel: 'Bezeichnung', breite: b * 0.20, key: 'bezeichnung' },
+      { titel: 'Rang im Plan', breite: b * 0.15, render: function (s) {
           var t = K.SCHLIESSUNG_TYPEN.filter(function (x2) { return x2.id === s.typ; })[0];
           return t ? t.label : txt(s.typ); } },
-      { titel: 'Person', breite: b * 0.16, key: 'person' },
-      { titel: 'Abteilung', breite: b * 0.14, key: 'abteilung' },
+      { titel: 'Träger', breite: b * 0.09, render: function (s) {
+          var a = K.TRAEGER_ART.filter(function (x2) { return x2.id === s.traegerArt; })[0];
+          return a ? a.label : ''; } },
+      { titel: 'Person(en) / Gruppe', breite: b * 0.33, maxLines: 6, render: function (s) {
+          var personen = (s.personen || []).filter(function (x2) { return x2 && x2.name; });
+          var liste2 = personen.map(function (x2) {
+            var n = parseInt(x2.anzahlMedien, 10); if (!n || n < 1) n = 1;
+            return x2.name + (x2.funktion ? (' (' + x2.funktion + ')') : '') + (n > 1 ? (' ' + n + '×') : '');
+          }).join(', ');
+          if (s.traegerArt === 'gruppe') {
+            return 'Gruppe ' + (s.gruppenName || '–') +
+              (liste2 ? (': ' + liste2) : ' – keine Mitglieder hinterlegt');
+          }
+          return liste2 || txt(s.person || s.abteilung);
+        } },
       { titel: 'Medien', breite: b * 0.06, align: 'center', render: function (s) {
-          return String(s.anzahlMedien || 0); } },
-      { titel: 'Bemerkung', breite: b * 0.10, key: 'bemerkung' }
+          return String(M.medienAnzahl ? M.medienAnzahl(s) : (s.anzahlMedien || 0)); } },
+      { titel: 'Art', breite: b * 0.09, size: 7, key: 'medienTyp' }
     ];
     tabelle(doc, spalten, schliessungen.slice(), { size: 7.4 });
   }
@@ -828,7 +863,9 @@
    * ====================================================================== */
   function materialliste(projekt, einstellungen, optionen) {
     optionen = optionen || {};
-    var mitTueren = optionen.mitTueren !== false;
+    /* Die Türzuordnung ist standardmäßig aus: Die Bestellliste bleibt damit
+     * schmal und die Maßspalten gut lesbar. Im Export zuschaltbar. */
+    var mitTueren = optionen.mitTueren === true;
     var doc = new PDF.Doc({
       format: 'a4', orientation: 'landscape',
       titel: 'Materialliste ' + (projekt.kunde || projekt.name),
@@ -848,31 +885,98 @@
       return doc;
     }
 
-    /* Die Liste ist nach Gewerk und Technik gegliedert: die Bauteile der
-     * Schließanlage getrennt von der Türtechnik, jeweils mechanisch und
-     * elektronisch. So lässt sich je Lieferant bestellen. */
+    /* =======================================================================
+     * Spaltensatz je Bauteilart
+     * =====================================================================
+     * Ein Zylinder wird über seine Längen bestellt, ein Beschlag über
+     * Türstärke, Dornmaß, Entfernung und Nuss, ein Einsteckschloss über
+     * Dornmaß, Entfernung, Stulp und Falle. Eine gemeinsame Spalte "Maß"
+     * müsste alles in einen Text pressen - deshalb bekommt jede Art ihren
+     * eigenen Spaltensatz. Artikelnummer und Preis bleiben leer: Sie werden
+     * beim Lieferanten eingetragen, das Werkzeug erfindet sie nicht.
+     * ------------------------------------------------------------------- */
     var pos = 0;
-    var spalten = [
-      { titel: 'Pos.', breite: b * 0.045, align: 'center',
-        render: function (x) { if (x.__gruppe) return ''; pos++; return String(pos); } },
-      { titel: 'Art', breite: b * 0.095, size: 7.2, color: FARBE.grau,
-        render: function (x) { return x.__ersteDerGruppe ? txt(x.gruppe) : ''; } },
-      { titel: 'Bezeichnung', breite: b * 0.245, key: 'bezeichnung', bold: true },
-      { titel: 'Maß / Ausprägung', breite: b * 0.185, key: 'mass' },
-      { titel: 'Ausführung', breite: b * 0.165, key: 'ausfuehrung' },
-      { titel: 'Menge', breite: b * 0.075, align: 'right', bold: true,
-        render: function (x) { return String(x.menge) + ' Stk'; } }
-    ];
-    if (mitTueren) {
-      spalten.push({ titel: 'Türen', breite: b * 0.19, size: 6.8, color: FARBE.grau, maxLines: 3,
-        render: function (x) { return (x.tueren || []).join(', '); } });
-    } else {
-      spalten[2].breite += b * 0.19;
+    function f(x, name) { return txt((x.felder || {})[name]); }
+
+    /* Breiten als Gewichte: der Satz stimmt unabhängig davon, welche
+     * zusätzlichen Spalten gerade mitlaufen. */
+    function spaltenBauen(spec) {
+      var summe = spec.reduce(function (sum, c) { return sum + c.w; }, 0);
+      return spec.map(function (c) {
+        var k = {};
+        Object.keys(c).forEach(function (n) { if (n !== 'w') k[n] = c[n]; });
+        k.breite = b * c.w / summe;
+        return k;
+      });
     }
+    var spaltePos = { titel: 'Pos.', w: 4, align: 'center',
+      render: function () { pos++; return String(pos); } };
+    var spalteMenge = { titel: 'Menge', w: 7, align: 'right', bold: true,
+      render: function (x) { return String(x.menge) + ' Stk'; } };
+    /* Bewusst leer: handschriftlich oder beim Lieferanten auszufüllen */
+    var spalteArtNr = { titel: 'Art.-Nr.', w: 12, render: function () { return ''; } };
+    var spaltePreis = { titel: 'Preis', w: 8, align: 'right', render: function () { return ''; } };
+    var spalteTueren = { titel: 'Türen', w: 15, size: 6.8, color: FARBE.grau, maxLines: 3,
+      render: function (x) { return (x.tueren || []).join(', '); } };
+
+    function satzFuer(art) {
+      var mitte;
+      if (art === 'Zylinder') {
+        mitte = [
+          { titel: 'Bezeichnung', w: 22, key: 'bezeichnung', bold: true },
+          { titel: 'Ausführung', w: 18, key: 'ausfuehrung' },
+          { titel: 'außen', w: 6, align: 'right', render: function (x) { return f(x, 'laengeAussen'); } },
+          { titel: 'innen', w: 6, align: 'right', render: function (x) { return f(x, 'laengeInnen'); } },
+          { titel: 'gesamt', w: 6.5, align: 'right', render: function (x) { return f(x, 'gesamtlaenge'); } },
+          { titel: 'Knaufseite', w: 10, size: 7, render: function (x) { return f(x, 'knaufseite'); } }
+        ];
+      } else if (art === 'Beschlag') {
+        mitte = [
+          { titel: 'Bezeichnung', w: 18, key: 'bezeichnung', bold: true },
+          { titel: 'Ausführung', w: 14, key: 'ausfuehrung' },
+          { titel: 'Bestückung', w: 12, size: 7, render: function (x) { return f(x, 'bestueckung'); } },
+          { titel: 'TS', w: 4.5, align: 'right', render: function (x) { return f(x, 'tuerblattstaerke'); } },
+          { titel: 'DM', w: 4.5, align: 'right', render: function (x) { return f(x, 'dornmass'); } },
+          { titel: 'E', w: 4.5, align: 'right', render: function (x) { return f(x, 'entfernung'); } },
+          { titel: 'Nuss', w: 5, align: 'right', render: function (x) { return f(x, 'vierkant'); } },
+          { titel: 'DIN', w: 8, size: 7, render: function (x) { return f(x, 'din'); } }
+        ];
+      } else if (art === 'Schloss') {
+        mitte = [
+          { titel: 'Bezeichnung', w: 16, key: 'bezeichnung', bold: true },
+          { titel: 'Funktion', w: 16, key: 'ausfuehrung' },
+          { titel: 'DM', w: 4.5, align: 'right', render: function (x) { return f(x, 'dornmass'); } },
+          { titel: 'E', w: 4.5, align: 'right', render: function (x) { return f(x, 'entfernung'); } },
+          { titel: 'DIN', w: 7.5, size: 7, render: function (x) { return f(x, 'din'); } },
+          { titel: 'Stulp', w: 11, size: 7, render: function (x) { return f(x, 'stulp'); } },
+          { titel: 'Falle', w: 8.5, size: 7, render: function (x) { return f(x, 'fallenart'); } },
+          { titel: 'Detail', w: 10, size: 6.8, render: function (x) {
+              return [f(x, 'riegelausschluss') ? ('Riegel ' + f(x, 'riegelausschluss') + ' mm') : '',
+                      f(x, 'verriegelungspunkte') ? (f(x, 'verriegelungspunkte') + ' Pkt.') : '',
+                      f(x, 'norm')].filter(Boolean).join(' · '); } }
+        ];
+      } else {
+        mitte = [
+          { titel: 'Bezeichnung', w: 30, key: 'bezeichnung', bold: true },
+          { titel: 'Ausführung', w: 22, key: 'ausfuehrung' },
+          { titel: 'Hinweis', w: 16, size: 7, color: FARBE.grau, key: 'hinweis' }
+        ];
+      }
+      var spec = [spaltePos].concat(mitte, [spalteMenge, spalteArtNr, spaltePreis]);
+      if (mitTueren) spec = spec.concat([spalteTueren]);
+      return spaltenBauen(spec);
+    }
+
+    /* Einheitenzeile unter dem Tabellenkopf, damit "DM 65" eindeutig ist */
+    var EINHEIT_HINWEIS = {
+      Zylinder: 'Längen in mm, ab Mitte Schraubloch (außen/innen).',
+      Beschlag: 'TS = Türblattstärke, DM = Dornmaß, E = Entfernung, Nuss = Vierkant – alle Maße in mm.',
+      Schloss: 'DM = Dornmaß, E = Entfernung, Stulp = Stulpform/-breite/-länge – alle Maße in mm.'
+    };
 
     liste.gliederung.forEach(function (abschnitt, index) {
       if (index > 0) doc.y += 4;
-      doc.platzPruefen(26);
+      doc.platzPruefen(30);
 
       /* Abschnittsüberschrift */
       doc.rechteck(doc.rand.links, doc.y, b, 9, { fill: FARBE.akzent });
@@ -883,17 +987,30 @@
       doc.text(abschnitt.hinweis, doc.rand.links + 1, doc.y + 1, { size: 7, color: FARBE.hellgrau });
       doc.y += 5.5;
 
-      var zeilen = [];
-      abschnitt.gruppen.forEach(function (g) {
-        zeilen.push({ __gruppe: g.label, __gruppeRechts: g.summe + ' Stück' });
-        var letzteGruppe = null;
-        g.positionen.forEach(function (p2) {
-          p2.__ersteDerGruppe = (p2.gruppe !== letzteGruppe);
-          letzteGruppe = p2.gruppe;
-          zeilen.push(p2);
+      abschnitt.gruppen.forEach(function (g, gi) {
+        if (gi > 0) doc.y += 3;
+        doc.platzPruefen(22);
+        /* System bzw. Hersteller: danach wird bestellt */
+        doc.rechteck(doc.rand.links, doc.y, b, 6.6, { fill: '#dce6f2', stroke: FARBE.linie, width: 0.25 });
+        doc.text(g.label, doc.rand.links + 2, doc.y + 1.4, { size: 8.4, bold: true, color: FARBE.akzent });
+        doc.text(g.summe + ' Stück', doc.rand.links + b - 2, doc.y + 1.6,
+                 { size: 7.4, align: 'right', color: FARBE.grau });
+        doc.y += 6.6 + 2;
+
+        (g.arten || []).forEach(function (art, ai) {
+          if (ai > 0) doc.y += 3;
+          doc.platzPruefen(20);
+          doc.text(art.art + '  ·  ' + art.summe + ' Stück', doc.rand.links + 1, doc.y,
+                   { size: 8, bold: true, color: FARBE.text });
+          doc.y += 4;
+          if (EINHEIT_HINWEIS[art.art]) {
+            doc.text(EINHEIT_HINWEIS[art.art], doc.rand.links + 1, doc.y,
+                     { size: 6.6, color: FARBE.hellgrau });
+            doc.y += 3.4;
+          }
+          tabelle(doc, satzFuer(art.art), art.positionen.slice(), { size: 7.8 });
         });
       });
-      tabelle(doc, spalten, zeilen, { size: 8 });
     });
 
     /* --- Zwischensummen je Gewerk --- */
@@ -924,16 +1041,38 @@
       doc.text('Identmedien / Schlüssel aus dem Schließplan', doc.rand.links, doc.y,
                { size: 10, bold: true, color: FARBE.akzent });
       doc.y += 6;
-      var medienSpalten = [
-        { titel: 'Kürzel', breite: b * 0.12, key: 'kuerzel', bold: true },
-        { titel: 'Bezeichnung', breite: b * 0.34, key: 'bezeichnung' },
-        { titel: 'Typ', breite: b * 0.22, render: function (m) {
+      var medienSpalten = spaltenBauen([
+        { titel: 'Kürzel', w: 9, key: 'kuerzel', bold: true },
+        { titel: 'Bezeichnung', w: 20, key: 'bezeichnung' },
+        { titel: 'Rang im Plan', w: 15, size: 7, render: function (m) {
             var t = K.SCHLIESSUNG_TYPEN.filter(function (x2) { return x2.id === m.typ; })[0];
             return t ? t.label : txt(m.typ); } },
-        { titel: 'Person / Bereich', breite: b * 0.22, key: 'person' },
-        { titel: 'Anzahl', breite: b * 0.10, align: 'right', bold: true,
-          render: function (m) { return String(m.menge) + ' Stk'; } }
-      ];
+        { titel: 'Träger', w: 10, size: 7, render: function (m) {
+            var a = K.TRAEGER_ART.filter(function (x2) { return x2.id === m.traegerArt; })[0];
+            return a ? a.label : ''; } },
+        /* Namentlich, mit eigener Anzahl - daraus entsteht die Summe */
+        { titel: 'Person(en) / Gruppe', w: 28, size: 7, maxLines: 6, render: function (m) {
+            if (m.traegerArt === 'gruppe') {
+              var kopf = m.gruppenName ? ('Gruppe ' + m.gruppenName) : 'Gruppe';
+              if (!m.personen.length) return kopf + ' (keine Mitglieder hinterlegt)';
+              return kopf + ': ' + m.personen.map(function (x) {
+                return x.name + (x.funktion ? (' (' + x.funktion + ')') : '') +
+                       (x.menge > 1 ? (' ' + x.menge + '×') : '');
+              }).join(', ');
+            }
+            if (!m.personen.length) return txt(m.person);
+            return m.personen.map(function (x) {
+              return x.name + (x.funktion ? (' (' + x.funktion + ')') : '') +
+                     (x.menge > 1 ? (' ' + x.menge + '×') : '');
+            }).join(', ');
+          } },
+        { titel: 'Art des Mediums', w: 14, size: 7,
+          render: function (m) { return txt(m.medienTyp) || '– offen –'; } },
+        { titel: 'Anzahl', w: 7, align: 'right', bold: true,
+          render: function (m) { return String(m.menge) + ' Stk'; } },
+        { titel: 'Art.-Nr.', w: 11, render: function () { return ''; } },
+        { titel: 'Preis', w: 8, align: 'right', render: function () { return ''; } }
+      ]);
       tabelle(doc, medienSpalten, liste.medien.slice(), { size: 8 });
       doc.y += 2;
       doc.platzPruefen(10);
@@ -946,32 +1085,48 @@
 
     /* --- Angaben zur Anlage, die für die Bestellung gebraucht werden --- */
     doc.platzPruefen(30);
-    doc.text('Angaben für die Bestellung', doc.rand.links, doc.y,
+    doc.text('Bestellangaben und Umfang', doc.rand.links, doc.y,
              { size: 10, bold: true, color: FARBE.akzent });
     doc.y += 6;
+    /* Hier steht ausschließlich, was nicht schon im Kopfblock dieses
+     * Dokuments steht. Kunde, Objekt, Adresse, Ansprechpartner, Anlagen-Nr.
+     * und die Systeme sind dort bereits aufgeführt - sie noch einmal zu
+     * wiederholen würde die Bestellung nur unübersichtlich machen. */
+    var vollstaendig = M.unvollstaendigeTueren ? M.unvollstaendigeTueren(projekt).length : 0;
+    var zeilenAnzahl = 0;
+    liste.gliederung.forEach(function (ab) {
+      ab.gruppen.forEach(function (g) { zeilenAnzahl += g.positionen.length; });
+    });
     var anlage = [
-      ['Art der Anlage', (K.ANLAGENART.filter(function (a) { return a.id === projekt.anlagenart; })[0] || {}).label || '–'],
-      ['Mechanisches System', projekt.systemMechanik ? K.systemLabel(projekt.systemMechanik, einstellungen && einstellungen.eigeneSysteme) : '–'],
-      ['Elektronisches System', projekt.systemElektronik ? K.systemLabel(projekt.systemElektronik, einstellungen && einstellungen.eigeneSysteme) : '–'],
-      ['Detail zur Anlage', projekt.systemDetail || '–'],
-      ['Anlagen-Nr.', projekt.anlagenNr || '–'],
-      ['Schließungen im Plan', String(projekt.schliessungen.length)]
+      ['Kommission / Bestellzeichen', projekt.kommission || '–'],
+      ['Lieferadresse', projekt.lieferAdresse
+        ? String(projekt.lieferAdresse).replace(/\s*\n\s*/g, ', ')
+        : 'wie Objektadresse im Kopf'],
+      ['Türpositionen im Aufmaß', String(projekt.tueren.length) +
+        (vollstaendig ? ('  ·  ' + vollstaendig + ' unvollständig') : '  ·  alle vollständig')],
+      ['Positionen in dieser Liste', String(zeilenAnzahl)],
+      ['Schließungen im Plan', String(projekt.schliessungen.length)],
+      ['Identmedien gesamt', String(liste.gesamtMedien) + ' Stück']
     ];
     var sp = b / 3;
-    anlage.forEach(function (f, i) {
+    anlage.forEach(function (feld, i) {
       var spalte = i % 3, zeile = Math.floor(i / 3);
       var fx = doc.rand.links + spalte * sp, fy = doc.y + zeile * 9;
-      doc.text(f[0], fx, fy, { size: 6.8, color: FARBE.hellgrau });
-      doc.textBlock(txt(f[1]), fx, fy + 3.2, sp - 4, { size: 8.5, bold: true, maxLines: 1 });
+      doc.text(feld[0], fx, fy, { size: 6.8, color: FARBE.hellgrau });
+      doc.textBlock(txt(feld[1]), fx, fy + 3.2, sp - 4, { size: 8.5, bold: true, maxLines: 1 });
     });
     doc.y += Math.ceil(anlage.length / 3) * 9 + 4;
 
-    doc.platzPruefen(16);
-    doc.textBlock('Hinweis: Die Mengen ergeben sich rechnerisch aus dem Aufmaß. ' +
+    doc.platzPruefen(20);
+    var schluss = 'Hinweis: Die Mengen ergeben sich rechnerisch aus dem Aufmaß. ' +
       'Zylinderlängen, Beschläge und Panikfunktionen sind vor Bestellung gegen die ' +
       'tatsächlichen Türmaße und die geltenden Brandschutz- bzw. Fluchtweganforderungen zu prüfen. ' +
-      'Artikelnummern und Preise sind in dieser Liste nicht enthalten.',
-      doc.rand.links, doc.y, b, { size: 7.5, color: FARBE.hellgrau });
+      'Die Spalten Art.-Nr. und Preis sind absichtlich leer – sie werden beim Lieferanten ergänzt.';
+    if (vollstaendig) {
+      schluss += ' Achtung: Bei ' + vollstaendig + ' Türposition(en) fehlen noch Pflichtangaben; ' +
+        'die betroffenen Zeilen sind in den Maßspalten leer. Einzelheiten im Prüfprotokoll.';
+    }
+    doc.textBlock(schluss, doc.rand.links, doc.y, b, { size: 7.5, color: FARBE.hellgrau });
 
     return doc;
   }

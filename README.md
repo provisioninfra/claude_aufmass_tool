@@ -9,7 +9,12 @@ Installation und ohne Internetverbindung.
 * **Aufmaß vor Ort** – alle für Schließanlagen relevanten Angaben je Tür,
   inklusive Fotos direkt aus der iPad-Kamera
 * **Gliederung** nach Standort → Gebäude → Etage/Bereich; die Reihenfolge
-  bestimmt die Gruppierung in allen PDF-Ausgaben
+  bestimmt die Gruppierung in allen PDF-Ausgaben. Ein Antippen öffnet den
+  Bereich: dort stehen nur dessen Türen, und eine neue Tür ist ihm bereits
+  zugeordnet
+* **Geführtes Türformular** – ein Schritt je Bildschirm für das Aufmaß vor
+  Ort, umschaltbar auf alle Felder für das Büro; Pflichtangaben sind
+  gekennzeichnet, blockieren aber nichts
 * **Kreuzschließplan** – Zutrittsmatrix Türen × Schließungen, direkt auf dem
   Aufmaß aufbauend
 * **PDF-Ausgaben** auf Knopfdruck: Türliste (kompakt und ausführlich),
@@ -215,18 +220,104 @@ ein Hauptschlüssel, je Bereich ein Gruppenschlüssel und auf Wunsch je Tür ein
 Einzelschließung – die Berechtigungen werden gleich mitgesetzt. Vorab wird
 angezeigt, wie viele Schließungen entstehen.
 
+## Türen je Bereich erfassen
+
+In der Gliederung öffnet ein Antippen den jeweiligen Standort, das Gebäude
+oder den Bereich. Dort stehen nur dessen Türen – nach Unterbereich gruppiert,
+einschließlich der Türen in den Unterbereichen – sowie Kacheln zum
+Weiterklicken. *+ Neue Tür hier* legt die Tür an, der Bereich ist bereits
+eingetragen. *← Zurück zur Struktur* führt in die Gliederung zurück.
+
+Wer stattdessen in der Türliste nach einem Bereich filtert, bekommt neue
+Türen ebenfalls gleich diesem Bereich zugeordnet – derselbe Gedanke, zweiter
+Weg.
+
+## Pflichtangaben an der Tür
+
+Pflicht ist, was für die Bestellung zwingend gebraucht wird. Welche Angaben
+das sind, hängt davon ab, welche Bauteile die Tür hat:
+
+| Gilt wann | Pflicht |
+|---|---|
+| immer | Bezeichnung/Raum · Standort/Gebäude/Bereich · mindestens ein Bauteil · bei Hybridanlage: mechanisch oder elektronisch |
+| Zylinder | Art (Bauform) · Länge außen · Länge innen · Knaufseite beim Knaufzylinder · Zutrittsseite |
+| Beschlag | Bauform · Ausführung · Bestückung · Dornmaß · Entfernung · Vierkant/Nuss · Türblattstärke · DIN-Richtung |
+| Schloss | Bauform · Funktion · Dornmaß · Entfernung · DIN-Richtung |
+| Wandleser oder elektronischer Beschlag | Stromversorgung · Vernetzung |
+
+Die Liste denkt mit: Beim Briefkastenzylinder wird keine Länge verlangt, beim
+Halbzylinder nur die Außenlänge, beim Stoßgriff kein Dornmaß. Die Längen
+werden erst verlangt, wenn die Bauform feststeht – vorher ist nicht
+entscheidbar, ob es überhaupt welche gibt.
+
+**Gesperrt wird nichts.** Vor Ort ist ein Maß nicht immer zu bekommen; die Tür
+lässt sich jederzeit speichern. Sie erhält dann den Status *Klärung nötig*,
+wird in der Türliste gekennzeichnet und steht im Prüfprotokoll. Sobald alle
+Angaben vorliegen, springt der Status auf *Aufgemessen*. Wer den Status selbst
+wählt, behält ihn – die automatische Führung lässt sich im Formular
+wiederherstellen.
+
+Einsteckschloss-Details, Türmaße, Zarge und Kabelweg sind ausdrücklich
+freiwillig und nie Pflicht.
+
+## Personen und Gruppen im Schließplan
+
+Jede Schließung beantwortet zwei verschiedene Fragen getrennt:
+
+* **Rang im Plan** – GHS, HS, GS, UGS, EZ oder extern
+* **Träger** – Einzelperson(en) oder eine Gruppe
+
+Bei Einzelpersonen steht die Namensliste direkt im Dialog. Bei einer Gruppe
+wird der Gruppenname eingetragen; ein Tippen auf den Gruppennamen öffnet die
+Mitgliederliste. Je Person lassen sich Funktion/Abteilung und eine eigene
+Anzahl Medien hinterlegen.
+
+**Die Anzahl der Medien ergibt sich aus der Summe der Personen** und wird
+mitgeführt, solange sie nicht ausdrücklich von Hand eingetragen wurde; das
+Feld sagt, welches davon gerade gilt.
+
+Früher standen „Person“ und „Personengruppe“ mit in der Typenliste – man
+musste zweimal dasselbe wählen. Die Überführung trennt das: Der Träger wird
+übernommen, der Rang bleibt offen statt erfunden zu werden.
+
 ## Materialliste als Bestellgrundlage
 
-Die Materialliste führt je Position Art, Bezeichnung, Maß, Ausführung, Menge
-und die zugehörigen Türen. Gleiche Bauteile werden zusammengefasst, bei
-unterschiedlichem Maß oder unterschiedlicher Ausführung aber getrennt gehalten
-– die Zeile ohne Zusatz wird dann ausdrücklich als *Standardausführung*
-benannt, damit zwei ähnliche Zeilen nicht wie eine Doppelung wirken.
+Die Liste ist nach Gewerk (Schließanlage / Türtechnik), darin nach Technik
+(Mechanik / Elektronik), darin nach Hersteller und schließlich nach
+Bauteilart gegliedert. **Jede Bauteilart hat eigene Maßspalten**, weil jede
+über andere Maße bestellt wird:
 
-`tests/test-exportlisten.js` prüft mit 19 Nachweisen, dass keine Position
-doppelt erscheint, kein Bauteil über zwei Wege in die Liste gelangt und die
-Mengen mit dem Aufmaß übereinstimmen. Artikelnummern und Preise sind bewusst
-nicht enthalten.
+| Bauteilart | Spalten |
+|---|---|
+| Zylinder | Länge außen · Länge innen · Gesamtlänge · Knaufseite |
+| Beschlag | Bestückung · Türblattstärke · Dornmaß · Entfernung · Nuss · DIN |
+| Schloss | Funktion · Dornmaß · Entfernung · DIN · Stulp · Falle · Riegel/Punkte/Norm |
+
+Dazu je Zeile **Art.-Nr.** und **Preis** als Leerspalten zum Ausfüllen beim
+Lieferanten – das Werkzeug erfindet keine Artikelnummern. Die Türnummern je
+Position sind im Export zuschaltbar, standardmäßig aus, damit die Maßspalten
+Platz haben.
+
+Die Identmedien aus dem Schließplan stehen mit Rang, Träger, den
+namentlichen Personen samt Anzahl und der **Art des Mediums** (Schlüssel,
+Transponder, Karte …) – die Auswahl ergibt sich aus den Systemen des
+Projekts. Fehlt sie, steht dort ausdrücklich „– offen –“ statt einer Lücke.
+
+Unter *Stammdaten → Bestellangaben* lassen sich Kommission/Bestellzeichen und
+eine abweichende Lieferadresse pflegen. Beides erscheint am Ende der
+Materialliste; was bereits im Dokumentenkopf steht (Kunde, Objekt, Adresse,
+Ansprechpartner, Anlagen-Nr., System), wird dort nicht wiederholt.
+
+Gleiche Bauteile werden zusammengefasst, bei unterschiedlichem Maß oder
+unterschiedlicher Ausführung aber getrennt gehalten – die Zeile ohne Zusatz
+wird dann ausdrücklich als *Standardausführung* benannt, damit zwei ähnliche
+Zeilen nicht wie eine Doppelung wirken. Zwei Beschläge, die sich nur in der
+DIN-Richtung unterscheiden, bleiben zwei Artikel.
+
+`tests/test-exportlisten.js` prüft mit 32 Nachweisen, dass keine Position
+doppelt erscheint, kein Bauteil über zwei Wege in die Liste gelangt, die
+Mengen mit dem Aufmaß übereinstimmen und die Spalten im erzeugten Dokument
+tatsächlich stehen.
 
 ## Unterstützte Systeme
 
@@ -344,6 +435,9 @@ Die Testreihen prüfen:
 | `test-robustheit.js` | leere und fehlerhafte Projekte, Grenzwerte, 300 Türen × 40 Schließungen, verwaiste Matrixeinträge, Importfehler |
 | `test-reports.js` | Erzeugung aller PDF-Ausgaben inklusive Randfälle |
 | `test-e2e.js` | vollständiger Durchlauf im echten Browser: Projekt anlegen, Struktur, Türen, Matrix, PDF-Download, Neuladen, Import, iPad- und Telefonbreite |
+| `test-bereich-gruppen.js` | Bereich aus der Gliederung öffnen und dort Türen erfassen, Pflichtangaben und ihre Folgen für den Status, freiwillige Felder, Einzelpersonen und Gruppen samt errechneter Medienanzahl |
+| `test-exportlisten.js` | Materialliste: keine Doppelungen, Mengen stimmen mit dem Aufmaß überein, eigene Maßspalten je Bauteilart und die Leerspalten im erzeugten Dokument |
+| `test-bedienung.js` | Größe aller Bedienelemente (≥ 44 px), Schriftgröße der Eingabefelder (≥ 16 px gegen das Hineinzoomen auf iOS), Daumenzone, kein seitliches Scrollen |
 | `test-standalone.js` | Einzeldatei aus `dist/`: startet per `file://`, stellt nachweislich keine einzige Netzanfrage |
 | `test-ueberall.js` | Einzeldatei per Doppelklick, von einer Website und als Einbettung — je mit Datenerhalt nach dem Neuladen |
 | `test-offline-pwa.js` | Laden über http, Netz trennen, Neustart ohne Verbindung, Erfassen und PDF-Erzeugung im Offline-Zustand |

@@ -328,9 +328,18 @@ td.zahl, th.zahl { text-align: right; font-variant-numeric: tabular-nums; }
 .knoten {
   display: flex; align-items: center; gap: 9px; padding: 8px 11px;
   background: var(--flaeche); border: 1px solid var(--rand);
-  border-radius: var(--radius-klein); min-height: 42px;
+  border-radius: var(--radius-klein); min-height: 42px; flex-wrap: wrap;
 }
-.knoten .name { flex: 1; font-weight: 600; font-size: 14px; min-width: 0; }
+/* Der Namensbereich ist der Weg in die Bereichsansicht und muss überall
+   als Ganzes treffbar sein - auch wenn rechts fünf Aktionen stehen. */
+.knoten .knoten-haupt {
+  flex: 1 1 180px; min-width: 0; display: flex; align-items: center; gap: 9px;
+  background: none; border: 0; padding: 4px 0; min-height: var(--tap);
+  text-align: left; color: inherit; font: inherit; border-radius: var(--radius-klein);
+}
+.knoten .knoten-haupt:hover { background: var(--akzent-bg); }
+.knoten .name { flex: 1; font-weight: 600; font-size: 14px; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .knoten .ebene-marke {
   font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
   color: var(--text-zart); padding: 2px 7px; background: var(--flaeche-3); border-radius: 4px;
@@ -447,8 +456,11 @@ table.matrix td.tuername.entfernbar { background: rgba(179,38,30,.06); }
   display: flex; gap: 10px; padding: 14px 18px; border-top: 1px solid var(--rand);
   position: sticky; bottom: 0; background: var(--flaeche); border-radius: 0 0 14px 14px;
   padding-bottom: max(14px, env(safe-area-inset-bottom));
+  /* Auf dem Telefon passen nicht alle Knöpfe nebeneinander. Sie brechen um,
+     statt die Fußzeile seitlich scrollen zu lassen. */
+  flex-wrap: wrap;
 }
-.dialog > .fuss .fuellen { flex: 1; }
+.dialog > .fuss .fuellen { flex: 1 1 0; min-width: 0; }
 .dialog > .fuss button { min-height: var(--tap-gross); }
 .dialog > .fuss button.haupt { flex: 1 1 auto; min-width: 44%; font-size: 16px; }
 
@@ -608,13 +620,152 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
   .karte, .tuer-liste { box-shadow: none; break-inside: avoid; }
 }
 
+/* =============================================================================
+   Türformular: geführter Ablauf und Pflichtangaben
+   ========================================================================== */
+.modus-leiste { display: flex; margin-bottom: 14px; }
+.modus-leiste .umschalter {
+  display: flex; gap: 0; border: 1px solid var(--rand); border-radius: var(--radius-klein);
+  overflow: hidden; width: 100%;
+}
+.modus-leiste .umschalter button {
+  flex: 1; border: 0; border-radius: 0; background: var(--flaeche-2);
+  min-height: var(--tap); font-size: 14.5px; font-weight: 600; color: var(--text-schwach);
+}
+.modus-leiste .umschalter button + button { border-left: 1px solid var(--rand); }
+.modus-leiste .umschalter button.aktiv { background: var(--akzent); color: #fff; }
+
+/* Kopfzeile mit dem Stand der Pflichtangaben */
+.pflicht-leiste {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 9px;
+  padding: 10px 13px; border-radius: var(--radius-klein); margin-bottom: 12px;
+  font-size: 14px; border: 1px solid var(--rand);
+}
+.pflicht-leiste .fuellen { flex: 1 1 auto; }
+.pflicht-leiste .zeichen {
+  width: 24px; height: 24px; border-radius: 50%; display: inline-flex;
+  align-items: center; justify-content: center; font-weight: 700; flex: none;
+}
+.pflicht-leiste.fertig { background: rgba(31,122,61,.10); border-color: rgba(31,122,61,.35); color: var(--gruen); }
+.pflicht-leiste.fertig .zeichen { background: var(--gruen); color: #fff; }
+.pflicht-leiste.offen { background: rgba(179,114,30,.12); border-color: rgba(179,114,30,.40); color: var(--gelb); }
+.pflicht-leiste.offen .zeichen { background: var(--gelb); color: #fff; }
+.pflicht-leiste .chips { flex-basis: 100%; }
+.pflicht-leiste .chip {
+  min-height: var(--tap); padding: 8px 12px; font-size: 14px;
+  background: var(--flaeche); border-color: var(--gelb); color: var(--gelb);
+}
+
+/* Fortschritt im geführten Ablauf */
+.schritt-fortschritt { margin-bottom: 14px; }
+.schritt-fortschritt .balken { display: flex; gap: 4px; }
+/* Die Stufen sind auch Sprungziele. Der sichtbare Balken bleibt schmal, die
+   Fingerfläche ist die ganze Zeilenhöhe - sonst wäre er nicht treffbar. */
+.schritt-fortschritt .stufe {
+  flex: 1; min-height: var(--tap); padding: 0; border: 0; background: none;
+  display: flex; align-items: center; cursor: pointer; border-radius: 0;
+}
+.schritt-fortschritt .stufe::after {
+  content: ''; display: block; width: 100%; height: 8px;
+  border-radius: 4px; background: var(--rand);
+}
+.schritt-fortschritt .stufe.erledigt::after { background: var(--akzent-hell); }
+.schritt-fortschritt .stufe.aktiv::after { background: var(--akzent); height: 12px; }
+.schritt-fortschritt .stufe.offen::after { background: var(--gelb); }
+.schritt { padding-bottom: 4px; }
+.schritt > h2 { border: 0; padding: 0; margin-bottom: 14px; font-size: 18px; }
+
+/* Pflichtfelder kennzeichnen. Die Kennzeichnung sperrt nichts - sie zeigt
+   nur, was für die Bestellung gebraucht wird. */
+.feld.pflicht > label::after {
+  content: ' Pflicht'; font-size: 10.5px; font-weight: 700; letter-spacing: .3px;
+  color: var(--gelb); text-transform: uppercase;
+}
+.feld.pflicht-offen > input,
+.feld.pflicht-offen > select,
+.feld.pflicht-offen > textarea { border-color: var(--gelb); background: rgba(179,114,30,.05); }
+.feld.pflicht-offen > label::after { content: ' fehlt'; color: var(--rot); }
+.raster.eng.pflicht-offen {
+  border: 1px solid var(--gelb); border-radius: var(--radius-klein);
+  padding: 8px; background: rgba(179,114,30,.05);
+}
+
+/* =============================================================================
+   Bereichsansicht: Türen eines Standorts, Gebäudes oder Bereichs
+   ========================================================================== */
+.knoten .oeffnen-pfeil { color: var(--text-zart); font-size: 19px; line-height: 1; flex: none; }
+@media (max-width: 560px) {
+  /* Auf dem Telefon rutschen die Aktionen in die zweite Zeile, damit der
+     Namensbereich über die ganze Breite treffbar bleibt. */
+  .knoten .knoten-haupt { flex: 1 1 100%; }
+  .knoten .aktionen { flex: 1 1 100%; justify-content: flex-end; }
+}
+
+.bereich-kopf { margin-bottom: 10px; }
+.bereich-kopf .zurueck-zeile {
+  background: none; border: 0; padding: 8px 0; color: var(--akzent);
+  font-size: 15px; font-weight: 600; min-height: var(--tap);
+}
+.bereich-kopf .pfad {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
+  font-size: 13px; color: var(--text-schwach);
+}
+.bereich-kopf .pfad .teiler { color: var(--text-zart); padding: 0 4px; }
+.bereich-kopf .pfad .pfad-knopf {
+  background: none; border: 0; padding: 4px 2px; min-height: 32px;
+  color: var(--text-schwach); font-size: 13px; text-decoration: underline;
+}
+
+.bereich-kacheln { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.bereich-kachel {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+  text-align: left; min-height: var(--tap-gross); padding: 11px 13px;
+  background: var(--flaeche-2); border: 1px solid var(--rand); border-radius: var(--radius-klein);
+}
+.bereich-kachel:hover { border-color: var(--akzent); background: var(--akzent-bg); }
+.bereich-kachel .name { font-weight: 600; font-size: 14.5px; }
+.bereich-kachel .zahl { font-size: 12px; color: var(--text-schwach); }
+.bereich-kachel.neu { border-style: dashed; color: var(--akzent); }
+
+/* =============================================================================
+   Personen und Gruppen einer Schließung
+   ========================================================================== */
+.person-liste { display: flex; flex-direction: column; gap: 8px; }
+.person-zeile {
+  display: grid; grid-template-columns: 1fr 1fr 86px auto; gap: 8px; align-items: end;
+  padding: 9px; border: 1px solid var(--rand-zart); border-radius: var(--radius-klein);
+  background: var(--flaeche-2);
+}
+.person-zeile .nr {
+  font-size: 12px; color: var(--text-zart); font-weight: 700;
+}
+.gruppen-knopf {
+  display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
+  min-height: var(--tap-gross); background: var(--flaeche-2);
+}
+.gruppen-knopf .name { font-weight: 700; font-size: 15px; flex: 1; }
+.gruppen-knopf .zahl { font-size: 13px; color: var(--text-schwach); }
+
+@media (max-width: 560px) {
+  .person-zeile { grid-template-columns: 1fr 1fr; }
+  .person-zeile .entfernen { grid-column: 2; justify-self: end; }
+}
+
+/* Seltene Aktionen am Fuß des Türformulars - bewusst nicht in der
+   Daumenzone, damit dort nur steht, was ständig gebraucht wird. */
+.weitere-aktionen {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 9px;
+  margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--rand-zart);
+}
+.weitere-aktionen .fuellen { flex: 1 1 auto; font-size: 13px; }
+
 </style>
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiByb2xlPSJpbWciIGFyaWEtbGFiZWw9IkF1Zm1hw58tVG9vbCI+CiAgPHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSI5NiIgZmlsbD0iIzFhNGI4YyIvPgogIDwhLS0gVMO8cmJsYXR0IC0tPgogIDxyZWN0IHg9IjExMiIgeT0iOTYiIHdpZHRoPSIxOTYiIGhlaWdodD0iMzIwIiByeD0iOCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmZmZmIiBzdHJva2Utd2lkdGg9IjIyIi8+CiAgPCEtLSBaeWxpbmRlciAvIFNjaGzDvHNzZWxsb2NoIC0tPgogIDxjaXJjbGUgY3g9IjI2MiIgY3k9IjI1MiIgcj0iMjAiIGZpbGw9IiNmZmZmZmYiLz4KICA8cmVjdCB4PSIyNTMiIHk9IjI2MiIgd2lkdGg9IjE4IiBoZWlnaHQ9IjQyIiByeD0iNiIgZmlsbD0iI2ZmZmZmZiIvPgogIDwhLS0gTWHDn3BmZWlsIHJlY2h0cyAtLT4KICA8cGF0aCBkPSJNMzY4IDEyMCB2MjcyIiBzdHJva2U9IiM4Y2JjZjUiIHN0cm9rZS13aWR0aD0iMTYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgogIDxwYXRoIGQ9Ik0zNDggMTQ2IGwyMCAtMjYgbDIwIDI2IiBmaWxsPSJub25lIiBzdHJva2U9IiM4Y2JjZjUiIHN0cm9rZS13aWR0aD0iMTYiCiAgICAgICAgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+CiAgPHBhdGggZD0iTTM0OCAzNjYgbDIwIDI2IGwyMCAtMjYiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzhjYmNmNSIgc3Ryb2tlLXdpZHRoPSIxNiIKICAgICAgICBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KPC9zdmc+Cg==" type="image/svg+xml">
 <link rel="apple-touch-icon" sizes="180x180" href="data:image/png;base64,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">
 <link rel="icon" type="image/png" sizes="192x192" href="data:image/png;base64,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">
 <!-- Eigenständige Fassung: enthält Programm und Gestaltung vollständig.
      Kann lokal gespeichert und ohne Internetverbindung geöffnet werden.
-     Erzeugt am 2026-09-14 -->
+     Erzeugt am 2026-10-08 -->
 </head>
 <body>
 <div id="app">
@@ -904,9 +1055,44 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     'Panik Funktion E (Wechselfunktion)',
     'Panik Funktion D (Durchgangsfunktion)',
     'Panik Funktion C',
-    'Rollfalle',
     'Freilauffunktion'
   ];
+
+  /* --- Einsteckschloss im Detail (optional) ------------------------------
+   * Diese Angaben sind beim Bestellen eines Einsteckschlosses entscheidend,
+   * gehören aber nicht zur Grundauswahl. Die Fallenart stand früher in der
+   * Liste der Funktionen - sie ist jedoch eine Bauart der Falle und keine
+   * Funktion des Schlosses. Deshalb steht sie jetzt genau hier.
+   * -------------------------------------------------------------------- */
+  var STULPFORM = ['Flachstulp eckig', 'Flachstulp abgerundet', 'U-Stulp', 'Winkelstulp'];
+  var FALLENART = ['Fallenriegel (Standard)', 'Rollfalle', 'Kreuzfalle', 'Hakenfalle',
+                   'Schwenkhaken', 'Bolzenverriegelung'];
+  var SCHLOSS_NORM = ['EN 179', 'EN 1125', 'EN 12209', 'EN 14846', 'DIN 18251'];
+  var STULPBREITE = ['16', '18', '20', '22', '24', '25', '30', '40'];
+  var RIEGELAUSSCHLUSS = ['14', '16', '18', '20', '25', '28', '35', '40', '45'];
+
+  /* --- Türmaße (optional) ------------------------------------------------- */
+  var TUER_ANSCHLAG = ['gefälzt', 'stumpf einschlagend', 'unbekannt'];
+
+  /* --- Strom und Kabel an der Tür (optional) ------------------------------
+   * Entscheidet bei elektronischen Beschlägen und Motorschlössern darüber,
+   * ob zusätzlich verlegt werden muss. */
+  var KABELUEBERGANG = ['Kabelübergang vorhanden', 'Leerrohr vorhanden',
+                        'nichts vorhanden', 'unbekannt'];
+
+  /* Lesbarer Text der Einsteckschloss-Details für Listen und Ausgaben */
+  function schlossDetailText(tuer) {
+    if (!tuer || !tuer.brauchtSchloss) return '';
+    var teile = [];
+    if (tuer.schlossStulpform) teile.push(tuer.schlossStulpform);
+    if (tuer.schlossStulpbreite) teile.push('Stulp ' + tuer.schlossStulpbreite + ' mm');
+    if (tuer.schlossStulplaenge) teile.push('Stulplänge ' + tuer.schlossStulplaenge + ' mm');
+    if (tuer.schlossFallenart) teile.push(tuer.schlossFallenart);
+    if (tuer.schlossRiegelausschluss) teile.push('Riegel ' + tuer.schlossRiegelausschluss + ' mm');
+    if (tuer.schlossVerriegelungspunkte) teile.push(tuer.schlossVerriegelungspunkte + ' Verriegelungspunkte');
+    if (tuer.schlossNorm) teile.push(tuer.schlossNorm);
+    return teile.join(' · ');
+  }
 
   function schlossText(tuer) {
     if (!tuer || !tuer.brauchtSchloss) return '';
@@ -1003,17 +1189,51 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     { id: 'freigegeben',  label: 'Freigegeben',    farbe: '#1565c0' }
   ];
 
-  /* --- Schließungs-/Gruppentypen für den Schließplan ---------------------- */
+  /* --- Rang einer Schließung im Plan -------------------------------------
+   * Ausschließlich der Rang. Wer das Medium trägt, ist eine andere Frage
+   * und steht in TRAEGER_ART - früher standen "Person" und
+   * "Personengruppe" mit in dieser Liste, sodass man zweimal dasselbe
+   * wählen musste. Beides wird bei der Überführung getrennt. */
   var SCHLIESSUNG_TYPEN = [
     { id: 'ghs',   label: 'GHS (Generalhauptschlüssel)',  kuerzel: 'GHS' },
     { id: 'hs',    label: 'HS (Hauptschlüssel)',          kuerzel: 'HS'  },
     { id: 'gs',    label: 'GS (Gruppenschlüssel)',        kuerzel: 'GS'  },
     { id: 'ugs',   label: 'UGS (Untergruppenschlüssel)',  kuerzel: 'UGS' },
     { id: 'ez',    label: 'EZ (Einzelschließung)',        kuerzel: 'EZ'  },
-    { id: 'person',label: 'Person / Mitarbeiter',         kuerzel: 'P'   },
-    { id: 'gruppe',label: 'Personengruppe / Abteilung',   kuerzel: 'GR'  },
     { id: 'extern',label: 'Extern (Reinigung, Notdienst)',kuerzel: 'EXT' }
   ];
+
+  /* --- Träger einer Schließung -------------------------------------------
+   * Antwort auf die Frage "Wer bekommt dieses Medium?". Bewusst getrennt
+   * vom Typ: der Typ sagt, welchen Rang die Schließung im Plan hat
+   * (GHS, HS, GS ...), der Träger sagt, wer sie in der Hand hält.
+   * -------------------------------------------------------------------- */
+  var TRAEGER_ART = [
+    { id: 'einzel', label: 'Einzelperson(en)',
+      hinweis: 'Namentlich benannte Personen. Jede Person kann eine eigene Anzahl Medien haben.' },
+    { id: 'gruppe', label: 'Gruppe',
+      hinweis: 'Eine benannte Gruppe (z. B. Reinigung, IT). Auf den Gruppennamen tippen, um die Mitglieder zu hinterlegen.' }
+  ];
+
+  /* Kurztext zum Träger für Spaltenköpfe, Listen und PDF */
+  function traegerText(schliessung) {
+    var s = schliessung || {};
+    var personen = (s.personen || []).filter(function (x) { return x && x.name; });
+    if (s.traegerArt === 'gruppe') {
+      var name = s.gruppenName || s.abteilung || '';
+      if (!name) name = 'Gruppe';
+      return name + (personen.length ? (' (' + personen.length +
+        (personen.length === 1 ? ' Person)' : ' Personen)')) : '');
+    }
+    if (personen.length) {
+      if (personen.length <= 2) {
+        return personen.map(function (x) { return x.name; }).join(', ');
+      }
+      return personen[0].name + ' und ' + (personen.length - 1) + ' weitere';
+    }
+    /* Angaben aus einer früheren Fassung, falls noch nicht überführt */
+    return s.person || s.abteilung || '';
+  }
 
   /* --- Berechtigungswerte in der Matrix ----------------------------------- */
   var BERECHTIGUNG = [
@@ -1093,7 +1313,16 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     SCHLOSS_BAUFORM: SCHLOSS_BAUFORM,
     SCHLOSS_FUNKTION: SCHLOSS_FUNKTION,
     schlossText: schlossText,
+    /* Einsteckschloss im Detail (optional) */
+    STULPFORM: STULPFORM,
+    FALLENART: FALLENART,
+    SCHLOSS_NORM: SCHLOSS_NORM,
+    STULPBREITE: STULPBREITE,
+    RIEGELAUSSCHLUSS: RIEGELAUSSCHLUSS,
+    schlossDetailText: schlossDetailText,
     /* Tür */
+    TUER_ANSCHLAG: TUER_ANSCHLAG,
+    KABELUEBERGANG: KABELUEBERGANG,
     ZUTRITTSSEITE: ZUTRITTSSEITE,
     TUERANFORDERUNG: TUERANFORDERUNG,
     DIN_RICHTUNG: DIN_RICHTUNG,
@@ -1102,6 +1331,8 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     TUERMATERIAL: TUERMATERIAL,
     STATUS: STATUS,
     SCHLIESSUNG_TYPEN: SCHLIESSUNG_TYPEN,
+    TRAEGER_ART: TRAEGER_ART,
+    traegerText: traegerText,
     BERECHTIGUNG: BERECHTIGUNG,
     systemById: systemById,
     systemLabel: systemLabel,
@@ -1169,6 +1400,12 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
 
       aufmassDatum: heute(),
       bemerkung: '',
+
+      /* --- Angaben, die allein für die Bestellung gebraucht werden -------
+       * Die Lieferadresse wird nur geführt, wenn sie von der Objektadresse
+       * abweicht - sonst stünde dieselbe Anschrift zweimal im Dokument. */
+      lieferAdresse: '',
+      kommission: '',             // Bestellzeichen / Kommission des Lieferanten
       /* Verknüpfung zu Pipedrive, sofern das Projekt von dort stammt.
        * Enthält nur Kennungen und den Link - niemals Zugangsdaten. */
       pipedrive: null,
@@ -1248,6 +1485,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       kategorie: '',
       anzahl: 1,                  // identische Türen zusammenfassen
       status: 'aufgemessen',      // beim Anlegen gilt die Tür als aufgemessen
+      statusVonHand: false,       // true, sobald der Status selbst gewählt wurde
 
       /* --- System ---
        * Das System steht im Projekt. Hier wird nur bei einer Hybridanlage
@@ -1276,6 +1514,17 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       schlossBauform: '',
       schlossFunktion: '',
 
+      /* --- Einsteckschloss im Detail (freiwillig) ---
+       * Beim Bestellen eines Einsteckschlosses entscheidend, beim Aufmaß
+       * vor Ort aber nicht immer zu ermitteln. Daher nie Pflicht. */
+      schlossStulpform: '',
+      schlossStulpbreite: '',
+      schlossStulplaenge: '',
+      schlossFallenart: '',           // stand früher in der Liste der Funktionen
+      schlossRiegelausschluss: '',
+      schlossVerriegelungspunkte: '',
+      schlossNorm: '',
+
       komponenten: [],            // nur Bauteile, die sonst nirgends erfasst sind
 
       /* --- Zutritt und Anforderungen --- */
@@ -1297,6 +1546,11 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       oeffnungsrichtung: '',
       masseBemerkung: '',
 
+      /* --- Türmaße (freiwillig) --- */
+      tuerbreite: '',
+      tuerhoehe: '',
+      tuerAnschlag: '',               // gefälzt / stumpf einschlagend
+
       /* --- Bestand (Altanlage) --- */
       bestandFabrikat: '',
       bestandZylinderart: '',
@@ -1310,6 +1564,13 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       elVernetzung: '',           // offline / virtuelles Netzwerk / online
       elTuerueberwachung: false,
       elBemerkung: '',
+
+      /* --- Strom und Kabel an der Tür (freiwillig) ---
+       * Entscheidet bei elektronischen Beschlägen und Motorschlössern,
+       * ob zusätzlich verlegt werden muss. */
+      elKabeluebergang: '',
+      elTueroeffnerBestand: false,
+      elLeitungsweg: '',
 
       /* --- Notizen / Mängel --- */
       notiz: '',
@@ -1349,15 +1610,75 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       id: uid('sch'),
       kuerzel: '',
       bezeichnung: '',
-      typ: 'ez',
+      typ: 'ez',                 // Rang im Plan: GHS, HS, GS, UGS, EZ, extern
+
+      /* --- Träger: wer hält dieses Medium in der Hand? ---
+       * 'einzel' = namentlich benannte Personen, 'gruppe' = benannte Gruppe
+       * mit Mitgliederliste. Bewusst getrennt vom Rang im Plan. */
+      traegerArt: '',
+      gruppenName: '',
+      personen: [],              // [{ id, name, funktion, anzahlMedien }]
+
       anzahlMedien: 1,           // Anzahl Schlüssel / Transponder / Karten
-      person: '',
-      abteilung: '',
+      medienTyp: '',             // Art des Mediums - bestellrelevant
+      medienVonHand: false,      // true: Zahl wurde selbst eingetragen
+      person: '',                // aus früheren Fassungen, wird überführt
+      abteilung: '',             // aus früheren Fassungen, wird überführt
       bemerkung: '',
       sort: 0
     };
     if (vorgabe) { for (var k in vorgabe) { if (Object.prototype.hasOwnProperty.call(vorgabe, k)) s[k] = vorgabe[k]; } }
     return s;
+  }
+
+  /* --- Person einer Schließung -------------------------------------------- */
+  function neuePerson(vorgabe) {
+    var x = { id: uid('per'), name: '', funktion: '', anzahlMedien: 1 };
+    if (vorgabe) { for (var k in vorgabe) { if (Object.prototype.hasOwnProperty.call(vorgabe, k)) x[k] = vorgabe[k]; } }
+    return x;
+  }
+
+  /* Anzahl Medien einer Schließung.
+   * Sie ergibt sich aus der Summe der Personen - außer die Zahl wurde
+   * ausdrücklich selbst eingetragen. Dann gilt die eingetragene Zahl. */
+  function medienAnzahl(schliessung) {
+    var s = schliessung || {};
+    var personen = (s.personen || []).filter(function (x) { return x && String(x.name || '').trim(); });
+    if (s.medienVonHand || !personen.length) {
+      var n = parseInt(s.anzahlMedien, 10);
+      return (!n || n < 0) ? 0 : n;
+    }
+    return personen.reduce(function (sum, x) {
+      var n2 = parseInt(x.anzahlMedien, 10);
+      return sum + ((!n2 || n2 < 1) ? 1 : n2);
+    }, 0);
+  }
+
+  /* Die errechnete Anzahl in die Schließung zurückschreiben, damit
+   * Exporte und ältere Auswertungen dieselbe Zahl sehen. */
+  function medienAngleichen(schliessung) {
+    if (!schliessung) return 0;
+    var n = medienAnzahl(schliessung);
+    schliessung.anzahlMedien = n;
+    return n;
+  }
+
+  /* Welche Identmedien kommen in diesem Projekt überhaupt in Frage?
+   * Sie ergeben sich aus den gewählten Systemen - ein AirKey-Projekt
+   * braucht keine Auswahl über SimonsVoss-Transponder. */
+  function identmedienAuswahl(projekt, extraSysteme) {
+    var K2 = kat();
+    if (!K2) return [];
+    var aus = [], gesehen = {};
+    [projekt && projekt.systemMechanik, projekt && projekt.systemElektronik]
+      .filter(Boolean).forEach(function (sid) {
+        var sys = K2.systemById(sid, extraSysteme);
+        ((sys && sys.identmedien) || []).forEach(function (m) {
+          if (gesehen[m]) return;
+          gesehen[m] = true; aus.push(m);
+        });
+      });
+    return aus;
   }
 
   /* --- Matrix-Zugriff ----------------------------------------------------- */
@@ -1414,6 +1735,33 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
   function kinderVon(projekt, parentId) {
     return projekt.standorte.filter(function (k) { return k.parentId === (parentId || null); })
       .sort(function (a, b) { return (a.sort - b.sort) || a.name.localeCompare(b.name, 'de'); });
+  }
+
+  /* Ein Knoten und alle seine Unterknoten - als Kennungsliste. */
+  function knotenMitUnter(projekt, knotenId) {
+    var ids = [knotenId], i = 0;
+    while (i < ids.length) {
+      var aktuell = ids[i++];
+      (projekt.standorte || []).forEach(function (k) {
+        if (k.parentId === aktuell && ids.indexOf(k.id) === -1) ids.push(k.id);
+      });
+    }
+    return ids;
+  }
+
+  /* Alle Türen eines Bereichs einschließlich seiner Unterbereiche, in der
+   * Reihenfolge der Gliederung. */
+  function tuerenUnter(projekt, knotenId) {
+    var ids = knotenMitUnter(projekt, knotenId);
+    var ordnung = strukturReihenfolge(projekt);
+    return (projekt.tueren || []).filter(function (t) {
+      return ids.indexOf(t.strukturId) !== -1;
+    }).sort(function (a, b) {
+      var oa = ordnung[a.strukturId] || 0, ob = ordnung[b.strukturId] || 0;
+      if (oa !== ob) return oa - ob;
+      return String(a.nummer || '').localeCompare(String(b.nummer || ''), 'de', { numeric: true }) ||
+             String(a.bezeichnung || '').localeCompare(String(b.bezeichnung || ''), 'de');
+    });
   }
 
   /* Löscht Knoten inkl. aller Unterknoten; Türen werden abgehängt (strukturId=null). */
@@ -1506,16 +1854,8 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     }
 
     /* Türen je Strukturknoten einschließlich aller Unterknoten */
-    function tuerenUnter(knotenId) {
-      var ids = [knotenId], i = 0;
-      while (i < ids.length) {
-        var aktuell = ids[i++];
-        projekt.standorte.forEach(function (k) {
-          if (k.parentId === aktuell && ids.indexOf(k.id) === -1) ids.push(k.id);
-        });
-      }
-      return projekt.tueren.filter(function (t) { return ids.indexOf(t.strukturId) !== -1; })
-                           .map(function (t) { return t.id; });
+    function tuerIdsUnter(knotenId) {
+      return tuerenUnter(projekt, knotenId).map(function (t) { return t.id; });
     }
 
     var alleTuerIds = projekt.tueren.map(function (t) { return t.id; });
@@ -1531,7 +1871,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       var gebaeude = projekt.standorte.filter(function (k) { return k.ebene === 'gebaeude'; });
       if (!gebaeude.length) gebaeude = kinderVon(projekt, null);
       gebaeude.forEach(function (g) {
-        var ids = tuerenUnter(g.id);
+        var ids = tuerIdsUnter(g.id);
         if (!ids.length) return;
         anlegen({ kuerzel: 'HS-' + kuerzelAus(g.name), bezeichnung: 'Hauptschlüssel ' + g.name,
                   typ: 'hs', anzahlMedien: 2 }, ids);
@@ -1541,10 +1881,14 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     /* Je Bereich bzw. Etage ein Gruppenschlüssel */
     if (optionen.proBereich) {
       projekt.standorte.filter(function (k) { return k.ebene === 'bereich'; }).forEach(function (b) {
-        var ids = tuerenUnter(b.id);
+        var ids = tuerIdsUnter(b.id);
         if (!ids.length) return;
+        /* Ein Gruppenschlüssel gehört einer Gruppe - der Bereichsname ist
+         * der naheliegende Gruppenname. Die Mitglieder trägt der Anwender
+         * nach; erfunden wird niemand. */
         anlegen({ kuerzel: 'GS-' + kuerzelAus(b.name), bezeichnung: 'Gruppe ' + b.name,
-                  typ: 'gs', anzahlMedien: 1 }, ids);
+                  typ: 'gs', traegerArt: 'gruppe', gruppenName: b.name,
+                  anzahlMedien: 1, medienVonHand: true }, ids);
       });
     }
 
@@ -1670,10 +2014,24 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
      * bestimmt. Gleiche Bauteile mit unterschiedlichem Maß bleiben damit
      * getrennt, identische werden zusammengefasst - jede Zeile ist genau
      * einmal vorhanden. */
+    /* Die Maßangaben werden strukturiert geführt, damit jede Bauteilart in
+     * der Bestellliste ihre eigenen Spalten bekommt (Zylinder: Längen,
+     * Beschlag: Türstärke/Dornmaß/Entfernung/Nuss/DIN, Schloss: Dornmaß/
+     * Entfernung/Stulp). Der lesbare Text bleibt zusätzlich erhalten. */
+    function felderText(felder) {
+      var aus = [];
+      Object.keys(felder || {}).forEach(function (k) {
+        var w = felder[k];
+        if (w === undefined || w === null || String(w).trim() === '') return;
+        aus.push(k + '=' + String(w).trim());
+      });
+      return aus.sort().join(';');
+    }
+
     function addPos(b, daten) {
       var vorEin = einordnen(daten.gruppe || 'Sonstiges', daten.tuer || {});
       var schluessel = [daten.bezeichnung, daten.mass, daten.ausfuehrung, daten.hinweis,
-                        vorEin.bereich, vorEin.technik]
+                        felderText(daten.felder), vorEin.bereich, vorEin.technik]
         .map(function (x) { return String(x || ''); }).join('||');
       if (!b.positionen[schluessel]) {
         var ein = einordnen(daten.gruppe || 'Sonstiges', daten.tuer || {});
@@ -1682,6 +2040,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
           mass: daten.mass || '',
           ausfuehrung: daten.ausfuehrung || '',
           hinweis: daten.hinweis || '',
+          felder: daten.felder || {},
           gruppe: daten.gruppe || 'Sonstiges',
           bereich: ein.bereich,
           technik: ein.technik,
@@ -1711,12 +2070,23 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
           if (t.zylinderKnaufseite && t.zylinderBauform === 'Knaufzylinder') {
             zylBasis += ' (' + t.zylinderKnaufseite + ')';
           }
+          var aussen = String(t.masseAussen || '').trim();
+          var innen = String(t.masseInnen || '').trim();
+          var gesamt = '';
+          if (/^\d+([.,]\d+)?$/.test(aussen) && /^\d+([.,]\d+)?$/.test(innen)) {
+            gesamt = String(parseFloat(aussen.replace(',', '.')) + parseFloat(innen.replace(',', '.')));
+          }
           addPos(b, {
             gruppe: 'Zylinder',
             bezeichnung: zylBasis,
-            mass: (t.masseAussen || t.masseInnen)
-              ? ((t.masseAussen || '?') + '/' + (t.masseInnen || '?') + ' mm') : '',
+            mass: (aussen || innen) ? ((aussen || '?') + '/' + (innen || '?') + ' mm') : '',
             ausfuehrung: (t.zylinderAusfuehrung || []).join(', '),
+            felder: {
+              laengeAussen: aussen,
+              laengeInnen: innen,
+              gesamtlaenge: gesamt,
+              knaufseite: (t.zylinderBauform === 'Knaufzylinder') ? (t.zylinderKnaufseite || '') : ''
+            },
             menge: anzahl, tuer: t
           });
         }
@@ -1727,30 +2097,57 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
           if (t.beschlagSicherheit && /Schutzbeschlag/.test(t.beschlagBauform)) {
             besBez += ' ' + t.beschlagSicherheit;
           }
+          var besFelder = {
+            bestueckung: t.beschlagBestueckung || '',
+            tuerblattstaerke: t.tuerblattstaerke || '',
+            dornmass: t.dornmass || '',
+            entfernung: t.entfernung || '',
+            vierkant: t.vierkant || '',
+            din: t.dinRichtung || ''
+          };
           var besMass = [];
-          if (t.beschlagBestueckung) besMass.push(t.beschlagBestueckung);
-          if (t.vierkant) besMass.push('VK ' + t.vierkant);
-          if (t.entfernung) besMass.push('E ' + t.entfernung);
+          if (besFelder.bestueckung) besMass.push(besFelder.bestueckung);
+          if (besFelder.tuerblattstaerke) besMass.push('TS ' + besFelder.tuerblattstaerke);
+          if (besFelder.dornmass) besMass.push('DM ' + besFelder.dornmass);
+          if (besFelder.entfernung) besMass.push('E ' + besFelder.entfernung);
+          if (besFelder.vierkant) besMass.push('VK ' + besFelder.vierkant);
+          if (besFelder.din) besMass.push(besFelder.din);
           addPos(b, {
             gruppe: 'Beschlag',
             bezeichnung: besBez,
             mass: besMass.join(' · '),
             ausfuehrung: t.beschlagAusfuehrung || '',
+            felder: besFelder,
             menge: anzahl, tuer: t
           });
         }
 
         /* --- Schloss --- */
         if (t.brauchtSchloss && t.schlossBauform) {
+          var schFelder = {
+            dornmass: t.dornmass || '',
+            entfernung: t.entfernung || '',
+            stulp: [t.schlossStulpform || '', t.schlossStulpbreite ? (t.schlossStulpbreite + ' mm') : '',
+                    t.schlossStulplaenge ? ('L ' + t.schlossStulplaenge) : '', t.stulpmass || '']
+                   .filter(Boolean).join(' '),
+            fallenart: t.schlossFallenart || '',
+            riegelausschluss: t.schlossRiegelausschluss || '',
+            verriegelungspunkte: t.schlossVerriegelungspunkte || '',
+            norm: t.schlossNorm || '',
+            din: t.dinRichtung || ''
+          };
           var schMass = [];
-          if (t.dornmass) schMass.push('DM ' + t.dornmass);
-          if (t.entfernung) schMass.push('E ' + t.entfernung);
-          if (t.stulpmass) schMass.push(t.stulpmass);
+          if (schFelder.dornmass) schMass.push('DM ' + schFelder.dornmass);
+          if (schFelder.entfernung) schMass.push('E ' + schFelder.entfernung);
+          if (schFelder.stulp) schMass.push(schFelder.stulp);
+          if (schFelder.fallenart) schMass.push(schFelder.fallenart);
+          if (schFelder.din) schMass.push(schFelder.din);
           addPos(b, {
             gruppe: 'Schloss',
             bezeichnung: t.schlossBauform,
             mass: schMass.join(' · '),
             ausfuehrung: t.schlossFunktion || '',
+            felder: schFelder,
             menge: anzahl, tuer: t
           });
         }
@@ -1768,19 +2165,30 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       }
     });
 
+    var GRUPPEN_REIHENFOLGE = ['Zylinder', 'Beschlag', 'Schloss', 'Zutrittsleser',
+                              'Systemkomponente', 'Sonstiges'];
+
     /* --- Identmedien aus dem Schließplan --- */
     var medien = [];
     projekt.schliessungen.forEach(function (s) {
-      var n = parseInt(s.anzahlMedien, 10); if (!n || n < 0) n = 0;
-      if (n > 0) {
-        medien.push({
-          kuerzel: s.kuerzel || s.bezeichnung,
-          bezeichnung: s.bezeichnung,
-          typ: s.typ,
-          person: s.person || s.abteilung || '',
-          menge: n
-        });
-      }
+      var n = medienAnzahl(s);
+      if (n <= 0) return;
+      var personen = (s.personen || []).filter(function (x) { return x && String(x.name || '').trim(); });
+      medien.push({
+        kuerzel: s.kuerzel || s.bezeichnung,
+        bezeichnung: s.bezeichnung,
+        typ: s.typ,
+        medienTyp: s.medienTyp || '',
+        traegerArt: s.traegerArt || '',
+        gruppenName: s.gruppenName || '',
+        /* Wer das Medium trägt - für die Ausgabe und die Quittierung */
+        person: (K && K.traegerText) ? K.traegerText(s) : (s.person || s.abteilung || ''),
+        personen: personen.map(function (x) {
+          var pn = parseInt(x.anzahlMedien, 10);
+          return { name: x.name, funktion: x.funktion || '', menge: (!pn || pn < 1) ? 1 : pn };
+        }),
+        menge: n
+      });
     });
 
     /* Stehen im selben System zwei Positionen mit gleicher Bezeichnung und
@@ -1804,8 +2212,6 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       });
     });
 
-    var GRUPPEN_REIHENFOLGE = ['Zylinder', 'Beschlag', 'Schloss', 'Zutrittsleser',
-                              'Systemkomponente', 'Sonstiges'];
     var listen = Object.keys(proSystem).map(function (k) {
       var b = proSystem[k];
       var positionen = Object.keys(b.positionen).map(function (pk) { return b.positionen[pk]; });
@@ -1845,6 +2251,18 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       var gruppen = Object.keys(proSys).map(function (k) {
         var g = proSys[k];
         g.summe = g.positionen.reduce(function (sum, x) { return sum + x.menge; }, 0);
+        /* Innerhalb einer Systemgruppe nach Bauteilart trennen: jede Art
+         * hat andere bestellrelevante Maße und damit andere Spalten. */
+        var proArt = {};
+        g.positionen.forEach(function (pos) {
+          var a2 = pos.gruppe || 'Sonstiges';
+          if (!proArt[a2]) proArt[a2] = { art: a2, positionen: [], summe: 0 };
+          proArt[a2].positionen.push(pos);
+          proArt[a2].summe += pos.menge;
+        });
+        g.arten = Object.keys(proArt).sort(function (a2, c2) {
+          return GRUPPEN_REIHENFOLGE.indexOf(a2) - GRUPPEN_REIHENFOLGE.indexOf(c2);
+        }).map(function (a2) { return proArt[a2]; });
         return g;
       }).sort(function (a, c) { return a.label.localeCompare(c.label, 'de'); });
       return {
@@ -1903,6 +2321,157 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     return s;
   }
 
+  /* =========================================================================
+   * Pflichtangaben einer Tür
+   * ======================================================================
+   * Eine Tür gilt als vollständig, wenn alle Angaben vorliegen, die für die
+   * Bestellung zwingend gebraucht werden. Welche das sind, hängt davon ab,
+   * welche Bauteile an der Tür überhaupt vorgesehen sind - nach einem
+   * Stoßgriff nach dem Dornmaß zu fragen wäre unsinnig.
+   *
+   * Die Prüfung blockiert nichts: Vor Ort ist ein Maß nicht immer zu
+   * bekommen. Eine unvollständige Tür lässt sich speichern, wird aber als
+   * solche gekennzeichnet und erscheint in der Liste der offenen Punkte.
+   * ====================================================================== */
+
+  /* Bauformen, bei denen die Zylinderlänge nicht zur Bestellung gehört */
+  var ZYL_OHNE_LAENGE = ['Vorhangschloss / Bügelschloss', 'Briefkastenzylinder', 'Möbelzylinder'];
+  /* Beschlagbauform ohne Drücker: kein Dornmaß, keine Entfernung, kein Vierkant */
+  var BESCHLAG_OHNE_DRUECKER = ['Stoßgriff / Ziehgriff'];
+  /* Schlossbauformen, bei denen Dornmaß und Entfernung gelten */
+  var SCHLOSS_MIT_MASSEN = ['Einsteckschloss', 'Rohrrahmenschloss',
+                            'Mehrfachverriegelung', 'Motorschloss'];
+
+  function leer(wert) {
+    if (wert === null || wert === undefined) return true;
+    return String(wert).trim() === '';
+  }
+
+  /* Liefert ALLE Pflichtangaben der Tür, jede mit dem Vermerk, ob sie
+   * fehlt. Das Formular braucht beides: welche Felder Pflicht sind (um sie
+   * zu kennzeichnen) und welche davon noch offen sind. */
+  function pflichtListe(projekt, tuer) {
+    var alle = [];
+    var t = tuer || {};
+    var p = projekt || {};
+    var K2 = kat();
+
+    function verlangen(schluessel, label, abschnitt) {
+      alle.push({ schluessel: schluessel, label: label, abschnitt: abschnitt,
+                  fehlt: leer(t[schluessel]) });
+    }
+
+    /* --- Immer --- */
+    verlangen('bezeichnung', 'Bezeichnung / Raum', 'lage');
+    var hatStruktur = (p.standorte || []).length > 0;
+    if (hatStruktur) {
+      alle.push({ schluessel: 'strukturId', label: 'Standort / Gebäude / Bereich',
+                  abschnitt: 'lage', fehlt: !t.strukturId });
+    } else {
+      verlangen('etage', 'Etage / Bereich', 'lage');
+    }
+    if (p.anlagenart === 'hybrid') {
+      verlangen('tuerTechnologie', 'Ausführung mechanisch oder elektronisch', 'bauteile');
+    }
+    alle.push({ schluessel: 'bauteile', label: 'mindestens ein Bauteil', abschnitt: 'bauteile',
+                fehlt: !t.brauchtZylinder && !t.brauchtBeschlag && !t.brauchtSchloss && !t.brauchtWandleser });
+
+    /* --- Zylinder --- */
+    if (t.brauchtZylinder) {
+      verlangen('zylinderBauform', 'Art des Zylinders (Bauform)', 'zylinder');
+      if (t.zylinderBauform && ZYL_OHNE_LAENGE.indexOf(t.zylinderBauform) === -1) {
+        verlangen('masseAussen', 'Länge außen', 'zylinder');
+        /* Beim Halbzylinder gibt es innen keine Länge zu bestellen */
+        if (t.zylinderBauform !== 'Halbzylinder') {
+          verlangen('masseInnen', 'Länge innen', 'zylinder');
+        }
+      }
+      if (t.zylinderBauform === 'Knaufzylinder') {
+        verlangen('zylinderKnaufseite', 'Knaufseite', 'zylinder');
+      }
+      verlangen('zutrittsseite', 'Von welcher Seite wird geöffnet?', 'zutritt');
+    }
+
+    /* --- Beschlag --- */
+    if (t.brauchtBeschlag) {
+      verlangen('beschlagBauform', 'Bauform des Beschlags', 'beschlag');
+      verlangen('beschlagAusfuehrung', 'Ausführung (mechanisch / elektronisch)', 'beschlag');
+      verlangen('tuerblattstaerke', 'Türblattstärke', 'beschlag');
+      var mitDruecker = BESCHLAG_OHNE_DRUECKER.indexOf(t.beschlagBauform || '') === -1;
+      if (mitDruecker) {
+        verlangen('beschlagBestueckung', 'Bestückung', 'beschlag');
+        verlangen('dornmass', 'Dornmaß', 'beschlag');
+        verlangen('entfernung', 'Entfernung', 'beschlag');
+        verlangen('vierkant', 'Vierkant / Nuss', 'beschlag');
+        verlangen('dinRichtung', 'DIN-Richtung', 'beschlag');
+      }
+    }
+
+    /* --- Schloss --- */
+    if (t.brauchtSchloss) {
+      verlangen('schlossBauform', 'Bauform des Schlosses', 'schloss');
+      if (SCHLOSS_MIT_MASSEN.indexOf(t.schlossBauform || '') !== -1) {
+        verlangen('schlossFunktion', 'Funktion des Schlosses', 'schloss');
+        verlangen('dornmass', 'Dornmaß', 'schloss');
+        verlangen('entfernung', 'Entfernung', 'schloss');
+        verlangen('dinRichtung', 'DIN-Richtung', 'schloss');
+      }
+    }
+
+    /* --- Elektronik ---
+     * Nur beim Wandleser und beim elektronischen Beschlag: Dort muss
+     * geklärt sein, woher der Strom kommt und wie angebunden wird. Ein
+     * elektronischer Zylinder arbeitet mit Batterie und braucht die
+     * Angaben nicht zwingend. */
+    var elektronisch = t.brauchtWandleser || (K2 && K2.beschlagIstElektronisch(t));
+    if (elektronisch) {
+      verlangen('elStromversorgung', 'Stromversorgung', 'elektronik');
+      verlangen('elVernetzung', 'Vernetzung', 'elektronik');
+    }
+
+    /* Dieselbe Angabe kann aus zwei Bauteilen verlangt werden (das Dornmaß
+     * gilt für Beschlag und Schloss). Sie wird dann nur einmal geführt. */
+    var gesehen = {};
+    return alle.filter(function (f) {
+      if (gesehen[f.schluessel]) return false;
+      gesehen[f.schluessel] = true;
+      return true;
+    });
+  }
+
+  /* Nur die Angaben, die noch fehlen */
+  function pflichtfelder(projekt, tuer) {
+    return pflichtListe(projekt, tuer).filter(function (f) { return f.fehlt; });
+  }
+
+  /* Nachschlagewerk für das Formular: Feldname -> Beschriftung */
+  function pflichtSchluessel(projekt, tuer) {
+    var aus = {};
+    pflichtListe(projekt, tuer).forEach(function (f) { aus[f.schluessel] = f.label; });
+    return aus;
+  }
+
+  function tuerVollstaendig(projekt, tuer) {
+    return pflichtfelder(projekt, tuer).length === 0;
+  }
+
+  /* Status aus der Vollständigkeit ableiten.
+   * Nur solange der Status nicht selbst gewählt wurde: Eine von Hand
+   * gesetzte Freigabe oder Nacharbeit wird nie überschrieben. */
+  function statusAusPruefung(projekt, tuer) {
+    if (!tuer) return;
+    if (tuer.statusVonHand) return tuer.status;
+    tuer.status = tuerVollstaendig(projekt, tuer) ? 'aufgemessen' : 'klaerung';
+    return tuer.status;
+  }
+
+  /* Alle unvollständigen Türen eines Projekts */
+  function unvollstaendigeTueren(projekt) {
+    return (projekt && projekt.tueren || []).filter(function (t) {
+      return pflichtfelder(projekt, t).length > 0;
+    });
+  }
+
   /* --- Validierung / Plausibilitätsprüfung -------------------------------- */
   function pruefeProjekt(projekt) {
     var probleme = [];
@@ -1926,27 +2495,15 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
         }
         nummern[t.nummer] = true;
       }
-      if (!t.strukturId) {
-        probleme.push({ schwere: 'info', tuerId: t.id, text: bez + ': keinem Standort/Gebäude zugeordnet' });
-      }
-      if (projekt.anlagenart === 'hybrid' && !t.tuerTechnologie) {
-        probleme.push({ schwere: 'warn', tuerId: t.id,
-          text: bez + ': Hybridanlage – Ausführung (mechanisch oder elektronisch) noch nicht festgelegt' });
-      }
-      if (t.brauchtZylinder && !t.zylinderBauform) {
-        probleme.push({ schwere: 'warn', tuerId: t.id, text: bez + ': Zylinder benötigt, aber keine Bauform gewählt' });
-      }
-      if (t.brauchtZylinder && t.zylinderBauform && !t.masseAussen && !t.masseInnen) {
-        probleme.push({ schwere: 'warn', tuerId: t.id, text: bez + ': keine Zylinderlänge erfasst' });
-      }
-      if (t.brauchtBeschlag && !t.beschlagBauform) {
-        probleme.push({ schwere: 'info', tuerId: t.id, text: bez + ': Beschlag benötigt, aber keine Bauform gewählt' });
-      }
-      if (t.brauchtSchloss && !t.schlossBauform) {
-        probleme.push({ schwere: 'info', tuerId: t.id, text: bez + ': Schloss benötigt, aber keine Bauform gewählt' });
-      }
-      if (t.brauchtZylinder && !t.zutrittsseite) {
-        probleme.push({ schwere: 'info', tuerId: t.id, text: bez + ': Zutrittsseite nicht angegeben' });
+      /* Fehlende Pflichtangaben kommen aus einer einzigen Quelle, damit
+       * Formular, Türliste und Prüfprotokoll nie auseinanderlaufen. Sie
+       * werden je Tür in einer Zeile gemeldet statt einzeln aufgezählt -
+       * sonst erschlägt das Protokoll den Leser. */
+      var fehlende = pflichtfelder(projekt, t);
+      if (fehlende.length) {
+        probleme.push({ schwere: 'warn', tuerId: t.id, art: 'pflicht',
+          text: bez + ': ' + fehlende.length + (fehlende.length === 1 ? ' Pflichtangabe fehlt – ' : ' Pflichtangaben fehlen – ') +
+                fehlende.map(function (f) { return f.label; }).join(', ') });
       }
       if (t.nacharbeit && !t.nacharbeitText) {
         probleme.push({ schwere: 'info', tuerId: t.id, text: bez + ': Nacharbeit markiert, aber nicht beschrieben' });
@@ -1968,6 +2525,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
 
     var kuerzel = {};
     projekt.schliessungen.forEach(function (s) {
+      var sbez = s.kuerzel || s.bezeichnung || 'Schließung';
       if (!s.kuerzel && !s.bezeichnung) {
         probleme.push({ schwere: 'warn', text: 'Schließung ohne Kürzel und Bezeichnung' });
       }
@@ -1975,6 +2533,29 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
         if (kuerzel[s.kuerzel]) probleme.push({ schwere: 'warn', text: 'Kürzel "' + s.kuerzel + '" ist doppelt vergeben' });
         kuerzel[s.kuerzel] = true;
       }
+      if (s.traegerArt === 'gruppe' && !String(s.gruppenName || '').trim()) {
+        probleme.push({ schwere: 'warn', text: sbez + ': als Gruppe gekennzeichnet, aber ohne Gruppennamen' });
+      }
+      var benannt = (s.personen || []).filter(function (x) { return x && String(x.name || '').trim(); });
+      if (s.traegerArt === 'gruppe' && !benannt.length) {
+        probleme.push({ schwere: 'info', text: sbez + ': Gruppe ohne hinterlegte Mitglieder' });
+      }
+      if (s.traegerArt === 'einzel' && !benannt.length) {
+        probleme.push({ schwere: 'info', text: sbez + ': keine Person benannt' });
+      }
+      if (!s.traegerArt && medienAnzahl(s) > 0) {
+        probleme.push({ schwere: 'info', text: sbez + ': noch nicht festgelegt, ob Einzelperson oder Gruppe' });
+      }
+      /* Zwei Personen mit demselben Namen in einer Gruppe sind fast immer
+       * ein Versehen beim Abtippen. */
+      var namen = {};
+      benannt.forEach(function (x) {
+        var n = String(x.name).trim().toLowerCase();
+        if (namen[n]) {
+          probleme.push({ schwere: 'info', text: sbez + ': "' + x.name + '" steht zweimal in der Liste' });
+        }
+        namen[n] = true;
+      });
     });
 
     if (projekt.tueren.length && projekt.schliessungen.length) {
@@ -2089,7 +2670,8 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     else if (/haftmagnet/i.test(text)) ziel.schlossBauform = 'Haftmagnet';
     else if (/einsteckschloss|panikschloss/i.test(text)) ziel.schlossBauform = 'Einsteckschloss';
 
-    var panik = /Funktion\s*([BEDC])\b/i.exec(text);
+    /* "Panik Funktion B", aber auch kurz "Panik B" */
+    var panik = /(?:Funktion|Panik)\s*([BEDC])\b/i.exec(text);
     if (panik) {
       var zusatz = { B: 'Panik Funktion B (Umschaltfunktion)', E: 'Panik Funktion E (Wechselfunktion)',
                      D: 'Panik Funktion D (Durchgangsfunktion)', C: 'Panik Funktion C' };
@@ -2098,7 +2680,11 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     else if (/selbstverriegelnd/i.test(text)) ziel.schlossFunktion = 'selbstverriegelnd';
     else if (/buntbart/i.test(text)) ziel.schlossFunktion = 'Buntbart';
     else if (/\bPZ\b|profilzylinder/i.test(text)) ziel.schlossFunktion = 'Profilzylinder (PZ)';
-    else if (/rollfalle/i.test(text)) ziel.schlossFunktion = 'Rollfalle';
+
+    /* Die Rollfalle ist eine Bauart der Falle, keine Funktion des Schlosses.
+     * Sie darf deshalb nicht in das Funktionsfeld geschrieben werden - dort
+     * stünde sie außerhalb der Auswahlliste. */
+    if (/rollfalle/i.test(text) && !ziel.schlossFallenart) ziel.schlossFallenart = 'Rollfalle';
   }
 
   /* Die alte gemischte Liste auf ihre drei Bedeutungen verteilen */
@@ -2150,6 +2736,15 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       if (i !== -1) {
         t.zylinderAusfuehrung.splice(i, 1, 'Freidreh');
       }
+    }
+
+    /* Die Rollfalle stand früher unter den Schlossfunktionen. Sie ist aber
+     * eine Bauart der Falle und keine Funktion des Schlosses - sonst müsste
+     * man sich zwischen Panikfunktion und Rollfalle entscheiden, obwohl
+     * beides zusammen vorkommt. Sie wandert deshalb zur Fallenart. */
+    if (String(t.schlossFunktion || '') === 'Rollfalle') {
+      if (!t.schlossFallenart) t.schlossFallenart = 'Rollfalle';
+      t.schlossFunktion = '';
     }
     var hatAltfelder = ('zylinderArt' in t) || ('beschlagArt' in t) ||
                        ('schlossArt' in t) || ('zutrittsarten' in t);
@@ -2227,6 +2822,47 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
   }
 
   /* --- Migration / Normalisierung beim Import ------------------------------ */
+  /* =========================================================================
+   * Überführung einer Schließung aus einer früheren Fassung
+   * ======================================================================
+   * Früher stand im Feld "Typ" teils der Rang im Plan (GHS, HS ...) und
+   * teils, wer das Medium trägt ("Person", "Personengruppe"). Das waren
+   * zwei verschiedene Fragen in einem Feld. Jetzt trägt "typ" allein den
+   * Rang, "traegerArt" allein den Träger.
+   *
+   * Aus "Person" bzw. "Personengruppe" wird deshalb kein Rang erfunden -
+   * der Rang bleibt offen, die Angabe wandert vollständig zum Träger.
+   * Die Freitextfelder "person" und "abteilung" werden zur Personenliste.
+   * Mehrfach anwendbar, ohne Schaden anzurichten.
+   */
+  function schliessungUeberfuehren(s) {
+    if (!s || typeof s !== 'object') return s;
+
+    if (s.typ === 'person') { s.traegerArt = s.traegerArt || 'einzel'; s.typ = ''; }
+    if (s.typ === 'gruppe') {
+      s.traegerArt = s.traegerArt || 'gruppe';
+      if (!s.gruppenName) s.gruppenName = s.abteilung || s.bezeichnung || '';
+      s.typ = '';
+    }
+
+    if (!Array.isArray(s.personen)) s.personen = [];
+    var name = String(s.person || '').trim();
+    if (name && !s.personen.some(function (x) { return x && x.name === name; })) {
+      s.personen.push(neuePerson({ name: name, funktion: String(s.abteilung || '').trim() }));
+      /* Die bisherige Gesamtzahl bleibt maßgeblich: Sie stand für alle
+       * Medien dieser Schließung, nicht für diese eine Person. */
+      s.medienVonHand = true;
+    }
+    if (!s.traegerArt) {
+      if (s.personen.length) s.traegerArt = 'einzel';
+      else if (String(s.abteilung || '').trim()) {
+        s.traegerArt = 'gruppe';
+        if (!s.gruppenName) s.gruppenName = String(s.abteilung).trim();
+      }
+    }
+    return s;
+  }
+
   function migriere(projekt) {
     var vorlage = neuesProjekt();
     var out = {};
@@ -2242,6 +2878,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     anlageAusTuerenErschliessen(out);   /* Anlage aus Alttüren erschließen */
 
     var tuerVorlage = neueTuer();
+    var warSchonBekannt = !!(projekt && projekt.schemaVersion);
     out.tueren = out.tueren.map(function (t) {
       tuerUeberfuehren(t);          /* ältere Fassungen zuerst überführen */
       var neu = {};
@@ -2252,16 +2889,23 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       ['zylinderAusfuehrung', 'tueranforderungen', 'komponenten', 'fotos'].forEach(function (k) {
         if (!Array.isArray(neu[k])) neu[k] = [];
       });
+      /* Ein bereits vergebener Status wird nie von der neuen
+       * Vollständigkeitsprüfung überschrieben. */
+      if (warSchonBekannt && (t && t.statusVonHand === undefined)) neu.statusVonHand = true;
       return neu;
     });
 
     var schlVorlage = neueSchliessung();
     out.schliessungen = out.schliessungen.map(function (s) {
+      schliessungUeberfuehren(s);
       var neu = {};
       Object.keys(schlVorlage).forEach(function (k) {
         neu[k] = (s && s[k] !== undefined) ? s[k] : schlVorlage[k];
       });
       neu.id = s && s.id ? s.id : uid('sch');
+      if (!Array.isArray(neu.personen)) neu.personen = [];
+      neu.personen = neu.personen.filter(function (x) { return x && typeof x === 'object'; })
+        .map(function (x) { return neuePerson(x); });
       return neu;
     });
 
@@ -2289,6 +2933,16 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     neueTuer: neueTuer,
     naechsteLaufendeNummer: naechsteLaufendeNummer,
     neueSchliessung: neueSchliessung,
+    neuePerson: neuePerson,
+    medienAnzahl: medienAnzahl,
+    identmedienAuswahl: identmedienAuswahl,
+    medienAngleichen: medienAngleichen,
+    pflichtfelder: pflichtfelder,
+    pflichtListe: pflichtListe,
+    pflichtSchluessel: pflichtSchluessel,
+    tuerVollstaendig: tuerVollstaendig,
+    statusAusPruefung: statusAusPruefung,
+    unvollstaendigeTueren: unvollstaendigeTueren,
     tuerSystemId: tuerSystemId,
     tuerTechnologie: tuerTechnologie,
     istTuerElektronisch: istTuerElektronisch,
@@ -2298,6 +2952,9 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     setBerechtigung: setBerechtigung,
     matrixAufraeumen: matrixAufraeumen,
     strukturPfad: strukturPfad,
+    knotenMitUnter: knotenMitUnter,
+    tuerenUnter: tuerenUnter,
+    findeStruktur: findeStruktur,
     strukturPfadText: strukturPfadText,
     findeStruktur: findeStruktur,
     kinderVon: kinderVon,
@@ -2311,6 +2968,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     statistik: statistik,
     pruefeProjekt: pruefeProjekt,
     tuerUeberfuehren: tuerUeberfuehren,
+    schliessungUeberfuehren: schliessungUeberfuehren,
     anlageAusTuerenErschliessen: anlageAusTuerenErschliessen,
     migriere: migriere
   };
@@ -3409,7 +4067,17 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       ['Entfernung', t.entfernung ? t.entfernung + ' mm' : ''],
       ['Vierkant', t.vierkant ? t.vierkant + ' mm' : ''],
       ['Profilbreite', t.profilbreite],
+      ['Türbreite', t.tuerbreite ? t.tuerbreite + ' mm' : ''],
+      ['Türhöhe', t.tuerhoehe ? t.tuerhoehe + ' mm' : ''],
+      ['Türanschlag', t.tuerAnschlag],
       ['Stulpmaß', t.stulpmass],
+      ['Stulpform', t.schlossStulpform],
+      ['Stulpbreite', t.schlossStulpbreite ? t.schlossStulpbreite + ' mm' : ''],
+      ['Stulplänge', t.schlossStulplaenge ? t.schlossStulplaenge + ' mm' : ''],
+      ['Fallenart', t.schlossFallenart],
+      ['Riegelausschluss', t.schlossRiegelausschluss ? t.schlossRiegelausschluss + ' mm' : ''],
+      ['Verriegelungspunkte', t.schlossVerriegelungspunkte],
+      ['Norm / Zulassung Schloss', t.schlossNorm],
       ['Bohrbild', t.bohrbild],
       ['Türmaterial', t.tuermaterial],
       ['Besonderheit zur Tür', t.systemNotiz, true],
@@ -3423,7 +4091,16 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       ['Stromversorgung', t.elStromversorgung],
       ['Vernetzung', t.elVernetzung],
       ['Türüberwachung', t.elTuerueberwachung ? 'ja' : ''],
-      ['Elektronik-Bemerkung', t.elBemerkung, true]
+      ['Kabel / Leerrohr', t.elKabeluebergang],
+      ['Türöffner im Bestand', t.elTueroeffnerBestand ? 'ja' : ''],
+      ['Leitungsweg', t.elLeitungsweg, true],
+      ['Elektronik-Bemerkung', t.elBemerkung, true],
+      /* Fehlende Pflichtangaben stehen im Datenblatt, damit beim Nach-
+       * arbeiten im Büro nicht erst gesucht werden muss. */
+      ['Pflichtangaben offen', (function () {
+          var f2 = M.pflichtfelder ? M.pflichtfelder(projekt, t) : [];
+          return f2.length ? f2.map(function (x2) { return x2.label; }).join(', ') : '';
+        })(), true]
     ].filter(function (f) { return txt(f[1]) && txt(f[1]) !== '–' || f[0] === 'System'; });
 
     var spaltenAnzahl = 3;
@@ -3680,7 +4357,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
         var text = doc.kuerzen(kopfTexte[i] || '–', kopfHoehe - medienZeile - 4, 7, true);
         doc.textRotiert(text, cx + spaltenBreite / 2 + 2.4, y + kopfHoehe - medienZeile - 2,
                         { size: 7, bold: true });
-        var anz = parseInt(s.anzahlMedien, 10);
+        var anz = M.medienAnzahl ? M.medienAnzahl(s) : parseInt(s.anzahlMedien, 10);
         if (anz > 0) {
           doc.text(String(anz), cx + spaltenBreite / 2, y + kopfHoehe - medienZeile + 0.1,
                    { size: 5.6, align: 'center', color: FARBE.grau });
@@ -3772,17 +4449,33 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
 
     doc.text('Schließungen im Detail', x, doc.y, { size: 9, bold: true, color: FARBE.akzent });
     doc.y += 5;
+    /* Die Personen stehen namentlich mit ihrer Anzahl: Daraus ergibt sich
+     * die Medienzahl, und bei der Ausgabe der Schlüssel ist ablesbar, wer
+     * welches Medium erhält. */
     var spalten = [
-      { titel: 'Kürzel', breite: b * 0.09, key: 'kuerzel', bold: true },
-      { titel: 'Bezeichnung', breite: b * 0.26, key: 'bezeichnung' },
-      { titel: 'Typ', breite: b * 0.19, render: function (s) {
+      { titel: 'Kürzel', breite: b * 0.08, key: 'kuerzel', bold: true },
+      { titel: 'Bezeichnung', breite: b * 0.20, key: 'bezeichnung' },
+      { titel: 'Rang im Plan', breite: b * 0.15, render: function (s) {
           var t = K.SCHLIESSUNG_TYPEN.filter(function (x2) { return x2.id === s.typ; })[0];
           return t ? t.label : txt(s.typ); } },
-      { titel: 'Person', breite: b * 0.16, key: 'person' },
-      { titel: 'Abteilung', breite: b * 0.14, key: 'abteilung' },
+      { titel: 'Träger', breite: b * 0.09, render: function (s) {
+          var a = K.TRAEGER_ART.filter(function (x2) { return x2.id === s.traegerArt; })[0];
+          return a ? a.label : ''; } },
+      { titel: 'Person(en) / Gruppe', breite: b * 0.33, maxLines: 6, render: function (s) {
+          var personen = (s.personen || []).filter(function (x2) { return x2 && x2.name; });
+          var liste2 = personen.map(function (x2) {
+            var n = parseInt(x2.anzahlMedien, 10); if (!n || n < 1) n = 1;
+            return x2.name + (x2.funktion ? (' (' + x2.funktion + ')') : '') + (n > 1 ? (' ' + n + '×') : '');
+          }).join(', ');
+          if (s.traegerArt === 'gruppe') {
+            return 'Gruppe ' + (s.gruppenName || '–') +
+              (liste2 ? (': ' + liste2) : ' – keine Mitglieder hinterlegt');
+          }
+          return liste2 || txt(s.person || s.abteilung);
+        } },
       { titel: 'Medien', breite: b * 0.06, align: 'center', render: function (s) {
-          return String(s.anzahlMedien || 0); } },
-      { titel: 'Bemerkung', breite: b * 0.10, key: 'bemerkung' }
+          return String(M.medienAnzahl ? M.medienAnzahl(s) : (s.anzahlMedien || 0)); } },
+      { titel: 'Art', breite: b * 0.09, size: 7, key: 'medienTyp' }
     ];
     tabelle(doc, spalten, schliessungen.slice(), { size: 7.4 });
   }
@@ -3792,7 +4485,9 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
    * ====================================================================== */
   function materialliste(projekt, einstellungen, optionen) {
     optionen = optionen || {};
-    var mitTueren = optionen.mitTueren !== false;
+    /* Die Türzuordnung ist standardmäßig aus: Die Bestellliste bleibt damit
+     * schmal und die Maßspalten gut lesbar. Im Export zuschaltbar. */
+    var mitTueren = optionen.mitTueren === true;
     var doc = new PDF.Doc({
       format: 'a4', orientation: 'landscape',
       titel: 'Materialliste ' + (projekt.kunde || projekt.name),
@@ -3812,31 +4507,98 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       return doc;
     }
 
-    /* Die Liste ist nach Gewerk und Technik gegliedert: die Bauteile der
-     * Schließanlage getrennt von der Türtechnik, jeweils mechanisch und
-     * elektronisch. So lässt sich je Lieferant bestellen. */
+    /* =======================================================================
+     * Spaltensatz je Bauteilart
+     * =====================================================================
+     * Ein Zylinder wird über seine Längen bestellt, ein Beschlag über
+     * Türstärke, Dornmaß, Entfernung und Nuss, ein Einsteckschloss über
+     * Dornmaß, Entfernung, Stulp und Falle. Eine gemeinsame Spalte "Maß"
+     * müsste alles in einen Text pressen - deshalb bekommt jede Art ihren
+     * eigenen Spaltensatz. Artikelnummer und Preis bleiben leer: Sie werden
+     * beim Lieferanten eingetragen, das Werkzeug erfindet sie nicht.
+     * ------------------------------------------------------------------- */
     var pos = 0;
-    var spalten = [
-      { titel: 'Pos.', breite: b * 0.045, align: 'center',
-        render: function (x) { if (x.__gruppe) return ''; pos++; return String(pos); } },
-      { titel: 'Art', breite: b * 0.095, size: 7.2, color: FARBE.grau,
-        render: function (x) { return x.__ersteDerGruppe ? txt(x.gruppe) : ''; } },
-      { titel: 'Bezeichnung', breite: b * 0.245, key: 'bezeichnung', bold: true },
-      { titel: 'Maß / Ausprägung', breite: b * 0.185, key: 'mass' },
-      { titel: 'Ausführung', breite: b * 0.165, key: 'ausfuehrung' },
-      { titel: 'Menge', breite: b * 0.075, align: 'right', bold: true,
-        render: function (x) { return String(x.menge) + ' Stk'; } }
-    ];
-    if (mitTueren) {
-      spalten.push({ titel: 'Türen', breite: b * 0.19, size: 6.8, color: FARBE.grau, maxLines: 3,
-        render: function (x) { return (x.tueren || []).join(', '); } });
-    } else {
-      spalten[2].breite += b * 0.19;
+    function f(x, name) { return txt((x.felder || {})[name]); }
+
+    /* Breiten als Gewichte: der Satz stimmt unabhängig davon, welche
+     * zusätzlichen Spalten gerade mitlaufen. */
+    function spaltenBauen(spec) {
+      var summe = spec.reduce(function (sum, c) { return sum + c.w; }, 0);
+      return spec.map(function (c) {
+        var k = {};
+        Object.keys(c).forEach(function (n) { if (n !== 'w') k[n] = c[n]; });
+        k.breite = b * c.w / summe;
+        return k;
+      });
     }
+    var spaltePos = { titel: 'Pos.', w: 4, align: 'center',
+      render: function () { pos++; return String(pos); } };
+    var spalteMenge = { titel: 'Menge', w: 7, align: 'right', bold: true,
+      render: function (x) { return String(x.menge) + ' Stk'; } };
+    /* Bewusst leer: handschriftlich oder beim Lieferanten auszufüllen */
+    var spalteArtNr = { titel: 'Art.-Nr.', w: 12, render: function () { return ''; } };
+    var spaltePreis = { titel: 'Preis', w: 8, align: 'right', render: function () { return ''; } };
+    var spalteTueren = { titel: 'Türen', w: 15, size: 6.8, color: FARBE.grau, maxLines: 3,
+      render: function (x) { return (x.tueren || []).join(', '); } };
+
+    function satzFuer(art) {
+      var mitte;
+      if (art === 'Zylinder') {
+        mitte = [
+          { titel: 'Bezeichnung', w: 22, key: 'bezeichnung', bold: true },
+          { titel: 'Ausführung', w: 18, key: 'ausfuehrung' },
+          { titel: 'außen', w: 6, align: 'right', render: function (x) { return f(x, 'laengeAussen'); } },
+          { titel: 'innen', w: 6, align: 'right', render: function (x) { return f(x, 'laengeInnen'); } },
+          { titel: 'gesamt', w: 6.5, align: 'right', render: function (x) { return f(x, 'gesamtlaenge'); } },
+          { titel: 'Knaufseite', w: 10, size: 7, render: function (x) { return f(x, 'knaufseite'); } }
+        ];
+      } else if (art === 'Beschlag') {
+        mitte = [
+          { titel: 'Bezeichnung', w: 18, key: 'bezeichnung', bold: true },
+          { titel: 'Ausführung', w: 14, key: 'ausfuehrung' },
+          { titel: 'Bestückung', w: 12, size: 7, render: function (x) { return f(x, 'bestueckung'); } },
+          { titel: 'TS', w: 4.5, align: 'right', render: function (x) { return f(x, 'tuerblattstaerke'); } },
+          { titel: 'DM', w: 4.5, align: 'right', render: function (x) { return f(x, 'dornmass'); } },
+          { titel: 'E', w: 4.5, align: 'right', render: function (x) { return f(x, 'entfernung'); } },
+          { titel: 'Nuss', w: 5, align: 'right', render: function (x) { return f(x, 'vierkant'); } },
+          { titel: 'DIN', w: 8, size: 7, render: function (x) { return f(x, 'din'); } }
+        ];
+      } else if (art === 'Schloss') {
+        mitte = [
+          { titel: 'Bezeichnung', w: 16, key: 'bezeichnung', bold: true },
+          { titel: 'Funktion', w: 16, key: 'ausfuehrung' },
+          { titel: 'DM', w: 4.5, align: 'right', render: function (x) { return f(x, 'dornmass'); } },
+          { titel: 'E', w: 4.5, align: 'right', render: function (x) { return f(x, 'entfernung'); } },
+          { titel: 'DIN', w: 7.5, size: 7, render: function (x) { return f(x, 'din'); } },
+          { titel: 'Stulp', w: 11, size: 7, render: function (x) { return f(x, 'stulp'); } },
+          { titel: 'Falle', w: 8.5, size: 7, render: function (x) { return f(x, 'fallenart'); } },
+          { titel: 'Detail', w: 10, size: 6.8, render: function (x) {
+              return [f(x, 'riegelausschluss') ? ('Riegel ' + f(x, 'riegelausschluss') + ' mm') : '',
+                      f(x, 'verriegelungspunkte') ? (f(x, 'verriegelungspunkte') + ' Pkt.') : '',
+                      f(x, 'norm')].filter(Boolean).join(' · '); } }
+        ];
+      } else {
+        mitte = [
+          { titel: 'Bezeichnung', w: 30, key: 'bezeichnung', bold: true },
+          { titel: 'Ausführung', w: 22, key: 'ausfuehrung' },
+          { titel: 'Hinweis', w: 16, size: 7, color: FARBE.grau, key: 'hinweis' }
+        ];
+      }
+      var spec = [spaltePos].concat(mitte, [spalteMenge, spalteArtNr, spaltePreis]);
+      if (mitTueren) spec = spec.concat([spalteTueren]);
+      return spaltenBauen(spec);
+    }
+
+    /* Einheitenzeile unter dem Tabellenkopf, damit "DM 65" eindeutig ist */
+    var EINHEIT_HINWEIS = {
+      Zylinder: 'Längen in mm, ab Mitte Schraubloch (außen/innen).',
+      Beschlag: 'TS = Türblattstärke, DM = Dornmaß, E = Entfernung, Nuss = Vierkant – alle Maße in mm.',
+      Schloss: 'DM = Dornmaß, E = Entfernung, Stulp = Stulpform/-breite/-länge – alle Maße in mm.'
+    };
 
     liste.gliederung.forEach(function (abschnitt, index) {
       if (index > 0) doc.y += 4;
-      doc.platzPruefen(26);
+      doc.platzPruefen(30);
 
       /* Abschnittsüberschrift */
       doc.rechteck(doc.rand.links, doc.y, b, 9, { fill: FARBE.akzent });
@@ -3847,17 +4609,30 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       doc.text(abschnitt.hinweis, doc.rand.links + 1, doc.y + 1, { size: 7, color: FARBE.hellgrau });
       doc.y += 5.5;
 
-      var zeilen = [];
-      abschnitt.gruppen.forEach(function (g) {
-        zeilen.push({ __gruppe: g.label, __gruppeRechts: g.summe + ' Stück' });
-        var letzteGruppe = null;
-        g.positionen.forEach(function (p2) {
-          p2.__ersteDerGruppe = (p2.gruppe !== letzteGruppe);
-          letzteGruppe = p2.gruppe;
-          zeilen.push(p2);
+      abschnitt.gruppen.forEach(function (g, gi) {
+        if (gi > 0) doc.y += 3;
+        doc.platzPruefen(22);
+        /* System bzw. Hersteller: danach wird bestellt */
+        doc.rechteck(doc.rand.links, doc.y, b, 6.6, { fill: '#dce6f2', stroke: FARBE.linie, width: 0.25 });
+        doc.text(g.label, doc.rand.links + 2, doc.y + 1.4, { size: 8.4, bold: true, color: FARBE.akzent });
+        doc.text(g.summe + ' Stück', doc.rand.links + b - 2, doc.y + 1.6,
+                 { size: 7.4, align: 'right', color: FARBE.grau });
+        doc.y += 6.6 + 2;
+
+        (g.arten || []).forEach(function (art, ai) {
+          if (ai > 0) doc.y += 3;
+          doc.platzPruefen(20);
+          doc.text(art.art + '  ·  ' + art.summe + ' Stück', doc.rand.links + 1, doc.y,
+                   { size: 8, bold: true, color: FARBE.text });
+          doc.y += 4;
+          if (EINHEIT_HINWEIS[art.art]) {
+            doc.text(EINHEIT_HINWEIS[art.art], doc.rand.links + 1, doc.y,
+                     { size: 6.6, color: FARBE.hellgrau });
+            doc.y += 3.4;
+          }
+          tabelle(doc, satzFuer(art.art), art.positionen.slice(), { size: 7.8 });
         });
       });
-      tabelle(doc, spalten, zeilen, { size: 8 });
     });
 
     /* --- Zwischensummen je Gewerk --- */
@@ -3888,16 +4663,38 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       doc.text('Identmedien / Schlüssel aus dem Schließplan', doc.rand.links, doc.y,
                { size: 10, bold: true, color: FARBE.akzent });
       doc.y += 6;
-      var medienSpalten = [
-        { titel: 'Kürzel', breite: b * 0.12, key: 'kuerzel', bold: true },
-        { titel: 'Bezeichnung', breite: b * 0.34, key: 'bezeichnung' },
-        { titel: 'Typ', breite: b * 0.22, render: function (m) {
+      var medienSpalten = spaltenBauen([
+        { titel: 'Kürzel', w: 9, key: 'kuerzel', bold: true },
+        { titel: 'Bezeichnung', w: 20, key: 'bezeichnung' },
+        { titel: 'Rang im Plan', w: 15, size: 7, render: function (m) {
             var t = K.SCHLIESSUNG_TYPEN.filter(function (x2) { return x2.id === m.typ; })[0];
             return t ? t.label : txt(m.typ); } },
-        { titel: 'Person / Bereich', breite: b * 0.22, key: 'person' },
-        { titel: 'Anzahl', breite: b * 0.10, align: 'right', bold: true,
-          render: function (m) { return String(m.menge) + ' Stk'; } }
-      ];
+        { titel: 'Träger', w: 10, size: 7, render: function (m) {
+            var a = K.TRAEGER_ART.filter(function (x2) { return x2.id === m.traegerArt; })[0];
+            return a ? a.label : ''; } },
+        /* Namentlich, mit eigener Anzahl - daraus entsteht die Summe */
+        { titel: 'Person(en) / Gruppe', w: 28, size: 7, maxLines: 6, render: function (m) {
+            if (m.traegerArt === 'gruppe') {
+              var kopf = m.gruppenName ? ('Gruppe ' + m.gruppenName) : 'Gruppe';
+              if (!m.personen.length) return kopf + ' (keine Mitglieder hinterlegt)';
+              return kopf + ': ' + m.personen.map(function (x) {
+                return x.name + (x.funktion ? (' (' + x.funktion + ')') : '') +
+                       (x.menge > 1 ? (' ' + x.menge + '×') : '');
+              }).join(', ');
+            }
+            if (!m.personen.length) return txt(m.person);
+            return m.personen.map(function (x) {
+              return x.name + (x.funktion ? (' (' + x.funktion + ')') : '') +
+                     (x.menge > 1 ? (' ' + x.menge + '×') : '');
+            }).join(', ');
+          } },
+        { titel: 'Art des Mediums', w: 14, size: 7,
+          render: function (m) { return txt(m.medienTyp) || '– offen –'; } },
+        { titel: 'Anzahl', w: 7, align: 'right', bold: true,
+          render: function (m) { return String(m.menge) + ' Stk'; } },
+        { titel: 'Art.-Nr.', w: 11, render: function () { return ''; } },
+        { titel: 'Preis', w: 8, align: 'right', render: function () { return ''; } }
+      ]);
       tabelle(doc, medienSpalten, liste.medien.slice(), { size: 8 });
       doc.y += 2;
       doc.platzPruefen(10);
@@ -3910,32 +4707,48 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
 
     /* --- Angaben zur Anlage, die für die Bestellung gebraucht werden --- */
     doc.platzPruefen(30);
-    doc.text('Angaben für die Bestellung', doc.rand.links, doc.y,
+    doc.text('Bestellangaben und Umfang', doc.rand.links, doc.y,
              { size: 10, bold: true, color: FARBE.akzent });
     doc.y += 6;
+    /* Hier steht ausschließlich, was nicht schon im Kopfblock dieses
+     * Dokuments steht. Kunde, Objekt, Adresse, Ansprechpartner, Anlagen-Nr.
+     * und die Systeme sind dort bereits aufgeführt - sie noch einmal zu
+     * wiederholen würde die Bestellung nur unübersichtlich machen. */
+    var vollstaendig = M.unvollstaendigeTueren ? M.unvollstaendigeTueren(projekt).length : 0;
+    var zeilenAnzahl = 0;
+    liste.gliederung.forEach(function (ab) {
+      ab.gruppen.forEach(function (g) { zeilenAnzahl += g.positionen.length; });
+    });
     var anlage = [
-      ['Art der Anlage', (K.ANLAGENART.filter(function (a) { return a.id === projekt.anlagenart; })[0] || {}).label || '–'],
-      ['Mechanisches System', projekt.systemMechanik ? K.systemLabel(projekt.systemMechanik, einstellungen && einstellungen.eigeneSysteme) : '–'],
-      ['Elektronisches System', projekt.systemElektronik ? K.systemLabel(projekt.systemElektronik, einstellungen && einstellungen.eigeneSysteme) : '–'],
-      ['Detail zur Anlage', projekt.systemDetail || '–'],
-      ['Anlagen-Nr.', projekt.anlagenNr || '–'],
-      ['Schließungen im Plan', String(projekt.schliessungen.length)]
+      ['Kommission / Bestellzeichen', projekt.kommission || '–'],
+      ['Lieferadresse', projekt.lieferAdresse
+        ? String(projekt.lieferAdresse).replace(/\s*\n\s*/g, ', ')
+        : 'wie Objektadresse im Kopf'],
+      ['Türpositionen im Aufmaß', String(projekt.tueren.length) +
+        (vollstaendig ? ('  ·  ' + vollstaendig + ' unvollständig') : '  ·  alle vollständig')],
+      ['Positionen in dieser Liste', String(zeilenAnzahl)],
+      ['Schließungen im Plan', String(projekt.schliessungen.length)],
+      ['Identmedien gesamt', String(liste.gesamtMedien) + ' Stück']
     ];
     var sp = b / 3;
-    anlage.forEach(function (f, i) {
+    anlage.forEach(function (feld, i) {
       var spalte = i % 3, zeile = Math.floor(i / 3);
       var fx = doc.rand.links + spalte * sp, fy = doc.y + zeile * 9;
-      doc.text(f[0], fx, fy, { size: 6.8, color: FARBE.hellgrau });
-      doc.textBlock(txt(f[1]), fx, fy + 3.2, sp - 4, { size: 8.5, bold: true, maxLines: 1 });
+      doc.text(feld[0], fx, fy, { size: 6.8, color: FARBE.hellgrau });
+      doc.textBlock(txt(feld[1]), fx, fy + 3.2, sp - 4, { size: 8.5, bold: true, maxLines: 1 });
     });
     doc.y += Math.ceil(anlage.length / 3) * 9 + 4;
 
-    doc.platzPruefen(16);
-    doc.textBlock('Hinweis: Die Mengen ergeben sich rechnerisch aus dem Aufmaß. ' +
+    doc.platzPruefen(20);
+    var schluss = 'Hinweis: Die Mengen ergeben sich rechnerisch aus dem Aufmaß. ' +
       'Zylinderlängen, Beschläge und Panikfunktionen sind vor Bestellung gegen die ' +
       'tatsächlichen Türmaße und die geltenden Brandschutz- bzw. Fluchtweganforderungen zu prüfen. ' +
-      'Artikelnummern und Preise sind in dieser Liste nicht enthalten.',
-      doc.rand.links, doc.y, b, { size: 7.5, color: FARBE.hellgrau });
+      'Die Spalten Art.-Nr. und Preis sind absichtlich leer – sie werden beim Lieferanten ergänzt.';
+    if (vollstaendig) {
+      schluss += ' Achtung: Bei ' + vollstaendig + ' Türposition(en) fehlen noch Pflichtangaben; ' +
+        'die betroffenen Zeilen sind in den Maßspalten leer. Einzelheiten im Prüfprotokoll.';
+    }
+    doc.textBlock(schluss, doc.rand.links, doc.y, b, { size: 7.5, color: FARBE.hellgrau });
 
     return doc;
   }
@@ -4640,8 +5453,13 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       frist: optionen.frist || '',
       firma: optionen.firma || '',
       t: tueren.map(function (t) { return [t.id, t.nr, t.bez, t.bereich]; }),
+      /* Der vierte Wert nennt den Träger: bei einer Gruppe deren Name mit
+       * Mitgliederzahl, bei Einzelpersonen die Namen. Der Kunde erkennt so,
+       * wofür die Spalte steht. Das Format bleibt unverändert. */
       s: schliessungen.map(function (s) {
-        return [s.id, s.kuerzel || '', s.bezeichnung || '', s.person || s.abteilung || ''];
+        var K2 = global.Katalog;
+        var traeger = K2 && K2.traegerText ? K2.traegerText(s) : (s.person || s.abteilung || '');
+        return [s.id, s.kuerzel || '', s.bezeichnung || '', traeger];
       }),
       m: packen(matrix),
       e: packen(maske)
@@ -5465,7 +6283,8 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     projekt: null,
     einstellungen: null,
     ansicht: 'projekte',
-    tuerFilter: { suche: '', struktur: '', status: '', system: '' },
+    bereichId: null,      // gewählter Bereich in der Bereichsansicht
+    tuerFilter: { suche: '', struktur: '', status: '', system: '', unvollstaendig: false },
     ungesichert: false,
     speichertGerade: false
   };
@@ -5537,10 +6356,15 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
   /* =========================================================================
    * Formularbausteine
    * ====================================================================== */
-  function feld(beschriftung, eingabeKnoten, breit) {
-    return el('div', { class: 'feld' + (breit ? ' voll' : '') }, [
+  /* Ein Formularfeld. Der Feldname wird als data-feld hinterlegt: Daran
+   * erkennt das Türformular, welche Felder Pflicht sind, ohne jedes Feld
+   * einzeln zu kennen. */
+  function feld(beschriftung, eingabeKnoten, breit, schluessel) {
+    var knoten = el('div', { class: 'feld' + (breit ? ' voll' : '') }, [
       el('label', { html: beschriftung }), eingabeKnoten
     ]);
+    if (schluessel) knoten.setAttribute('data-feld', schluessel);
+    return knoten;
   }
 
   function textFeld(objekt, schluessel, beschriftung, optionen) {
@@ -5558,7 +6382,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
         alsGeaendertMarkieren();
       }
     });
-    return feld(beschriftung, eingabe, optionen.breit);
+    return feld(beschriftung, eingabe, optionen.breit, schluessel);
   }
 
   function bereichFeld(objekt, schluessel, beschriftung, optionen) {
@@ -5572,7 +6396,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       }
     });
     eingabe.value = objekt[schluessel] || '';
-    return feld(beschriftung, eingabe, optionen.breit !== false);
+    return feld(beschriftung, eingabe, optionen.breit !== false, schluessel);
   }
 
   function auswahlFeld(objekt, schluessel, beschriftung, optionen, konfig) {
@@ -5592,7 +6416,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       auswahl.appendChild(el('option', { value: wert, text: text }));
     });
     auswahl.value = objekt[schluessel] || '';
-    return feld(beschriftung, auswahl, konfig.breit);
+    return feld(beschriftung, auswahl, konfig.breit, schluessel);
   }
 
   function schalterFeld(objekt, schluessel, beschriftung, beiAenderung) {
@@ -5605,7 +6429,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
         alsGeaendertMarkieren();
       }
     });
-    return el('label', { class: 'schalter' }, [
+    return el('label', { class: 'schalter', 'data-feld': schluessel }, [
       eingabe, el('span', { class: 'bahn' }), el('span', { class: 'beschriftung', text: beschriftung })
     ]);
   }
@@ -5629,7 +6453,8 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       behaelter.appendChild(chip);
     });
     /* Beschriftung als HTML, damit Zusätze wie <span class="einheit"> wirken */
-    return el('div', { class: 'feld voll' }, [el('label', { html: beschriftung }), behaelter]);
+    return el('div', { class: 'feld voll', 'data-feld': schluessel },
+      [el('label', { html: beschriftung }), behaelter]);
   }
 
   /* Ein Projekt zum Bearbeiten öffnen. Erst damit ist ein Projekt aktiv;
@@ -5637,8 +6462,9 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
   function projektOeffnenIntern(projekt, ansicht) {
     Zustand.projekt = projekt;
     Zustand.ungesichert = false;
+    Zustand.bereichId = null;
     if (ansicht) Zustand.ansicht = ansicht;
-    Zustand.tuerFilter = { suche: '', struktur: '', status: '', system: '' };
+    Zustand.tuerFilter = { suche: '', struktur: '', status: '', system: '', unvollstaendig: false };
     if (global.Verlauf) global.Verlauf.beginnen(projekt);
   }
 
@@ -5649,6 +6475,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     return (offen ? speichern() : Promise.resolve()).then(function () {
       Zustand.projekt = null;
       Zustand.ungesichert = false;
+      Zustand.bereichId = null;
       clearTimeout(speicherTimer);
       if (global.Verlauf) global.Verlauf.beenden();
       return offen;
@@ -6331,6 +7158,25 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       }
     }
 
+    /* --- Angaben, die nur die Bestellung braucht ------------------------
+     * Die Lieferadresse bleibt leer, solange geliefert wird, wo das Objekt
+     * steht - sie erscheint in der Materialliste nur dann, wenn sie
+     * abweicht. So steht dieselbe Anschrift nie zweimal im Dokument. */
+    seite.appendChild(el('div', { class: 'karte' }, [
+      el('h2', { text: 'Bestellangaben' }),
+      el('p', { class: 'hinweis',
+        text: 'Diese Angaben erscheinen in der Materialliste als Bestellgrundlage.' }),
+      el('div', { class: 'raster' }, [
+        A.textFeld(p, 'kommission', 'Kommission / Bestellzeichen',
+          { platzhalter: 'z. B. KOMM-2026-4711' })
+      ]),
+      el('div', { class: 'raster', style: { marginTop: '12px' } }, [
+        A.bereichFeld(p, 'lieferAdresse',
+          'Lieferadresse <span class="einheit">(nur wenn abweichend von der Objektadresse)</span>',
+          { zeilen: 3, platzhalter: 'Firma\nStraße und Hausnummer\nPLZ Ort' })
+      ])
+    ]));
+
     seite.appendChild(el('div', { class: 'karte' }, [
       el('h2', { text: 'Ansprechpartner vor Ort' }),
       el('div', { class: 'raster' }, [
@@ -6395,14 +7241,159 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     seite.appendChild(el('div', { class: 'karte' }, liste));
   }
 
-  function tuerenImKnoten(knotenId) {
+  /* =========================================================================
+   * Bereichsansicht: Türen eines Standorts, Gebäudes oder Bereichs
+   * ======================================================================
+   * Entsteht durch Antippen eines Eintrags in der Gliederung. Gezeigt werden
+   * die Türen dieses Eintrags einschließlich seiner Unterbereiche, nach
+   * Unterbereich gruppiert. Eine neue Tür entsteht hier bereits mit dem
+   * richtigen Bereich - er muss nicht erneut gewählt werden.
+   */
+  function bereichOeffnen(knotenId, neuZeichnen) {
+    Zustand.bereichId = knotenId;
+    global.App.wechseln('bereich');
+  }
+
+  function ansichtBereich(behaelter, neuZeichnen) {
     var p = Zustand.projekt;
-    var ids = [knotenId], i = 0;
-    while (i < ids.length) {
-      var aktuell = ids[i++];
-      p.standorte.forEach(function (k) { if (k.parentId === aktuell) ids.push(k.id); });
+    var seite = el('div', { class: 'seite' });
+    behaelter.appendChild(seite);
+
+    var knoten = M.findeStruktur(p, Zustand.bereichId);
+    if (!knoten) {
+      seite.appendChild(el('div', { class: 'leer' }, [
+        el('h3', { text: 'Der Bereich ist nicht mehr vorhanden' }),
+        el('p', { text: 'Er wurde vermutlich gelöscht oder umgehängt.' }),
+        el('button', { class: 'haupt', text: '← Zurück zur Struktur',
+          onclick: function () { zurueckZurStruktur(); } })
+      ]));
+      return;
     }
-    return p.tueren.filter(function (t) { return ids.indexOf(t.strukturId) !== -1; }).length;
+
+    var konfig = EBENEN[knoten.ebene] || EBENEN.bereich;
+    var pfad = M.strukturPfad(p, knoten.id);
+    var tueren = M.tuerenUnter(p, knoten.id);
+    var unterbereiche = M.kinderVon(p, knoten.id);
+    var gesamtAnzahl = tueren.reduce(function (sum, t) {
+      return sum + (parseInt(t.anzahl, 10) || 1); }, 0);
+    var offene = tueren.filter(function (t) { return !M.tuerVollstaendig(p, t); });
+
+    /* --- Kopf mit Zurück-Knopf und Pfad --- */
+    seite.appendChild(el('div', { class: 'bereich-kopf' }, [
+      el('button', { class: 'zurueck-zeile', text: '← Zurück zur Struktur',
+        onclick: function () { zurueckZurStruktur(); } }),
+      el('div', { class: 'pfad' }, pfad.map(function (k, i) {
+        return el('span', {}, [
+          i > 0 ? el('span', { class: 'teiler', text: '›' }) : null,
+          k.id === knoten.id
+            ? el('b', { text: k.name || '(ohne Namen)' })
+            : el('button', { class: 'pfad-knopf', text: k.name || '(ohne Namen)',
+                onclick: function () { bereichOeffnen(k.id, neuZeichnen); } })
+        ]);
+      }))
+    ]));
+
+    seite.appendChild(el('div', { class: 'zeile-verteilt', style: { marginBottom: '12px' } }, [
+      el('div', { class: 'fuellen' }, [
+        el('h1', { text: knoten.name || '(ohne Namen)' }),
+        el('p', { class: 'hinweis', text: konfig.label + '  ·  ' +
+          tueren.length + (tueren.length === 1 ? ' Position' : ' Positionen') +
+          '  ·  ' + gesamtAnzahl + (gesamtAnzahl === 1 ? ' Tür' : ' Türen') +
+          (offene.length ? ('  ·  ' + offene.length + ' unvollständig') : '') })
+      ]),
+      el('button', { class: 'haupt', text: '+ Neue Tür hier',
+        onclick: function () { VT().tuerBearbeiten(null, neuZeichnen, { strukturId: knoten.id }); } })
+    ]));
+
+    /* --- Unterbereiche zum Weiterklicken --- */
+    if (unterbereiche.length) {
+      var kacheln = el('div', { class: 'bereich-kacheln' });
+      unterbereiche.forEach(function (k) {
+        var n = M.tuerenUnter(p, k.id);
+        kacheln.appendChild(el('button', { class: 'bereich-kachel',
+          onclick: function () { bereichOeffnen(k.id, neuZeichnen); } }, [
+          el('span', { class: 'name', text: k.name || '(ohne Namen)' }),
+          el('span', { class: 'zahl', text: n.length + (n.length === 1 ? ' Position' : ' Positionen') })
+        ]));
+      });
+      kacheln.appendChild(el('button', { class: 'bereich-kachel neu',
+        onclick: function () { knotenAnlegen(konfig.kind, knoten.id, neuZeichnen); } }, [
+        el('span', { class: 'name', text: '+ ' + konfig.kindLabel }),
+        el('span', { class: 'zahl', text: 'neu anlegen' })
+      ]));
+      seite.appendChild(el('div', { class: 'karte' }, [
+        el('h2', { text: 'Unterbereiche' }),
+        kacheln
+      ]));
+    }
+
+    /* --- Türen dieses Bereichs --- */
+    if (!tueren.length) {
+      seite.appendChild(el('div', { class: 'leer' }, [
+        el('h3', { text: 'Noch keine Tür in diesem Bereich' }),
+        el('p', { text: 'Jede hier aufgenommene Tür ist „' + (knoten.name || 'diesem Bereich') +
+          '“ bereits zugeordnet.' }),
+        el('button', { class: 'haupt', text: '+ Erste Tür hier aufnehmen',
+          onclick: function () { VT().tuerBearbeiten(null, neuZeichnen, { strukturId: knoten.id }); } })
+      ]));
+      return;
+    }
+
+    /* Nach Unterbereich gruppieren, damit die Herkunft sichtbar bleibt */
+    var gruppen = [], index = {};
+    tueren.forEach(function (t) {
+      var key = t.strukturId || '__ohne__';
+      if (!index[key]) {
+        /* Der Pfad wird nur bis zum geöffneten Bereich gezeigt - das
+         * Gebäude steht schon in der Überschrift darüber. */
+        var titel;
+        if (key === knoten.id) {
+          titel = 'Direkt in ' + (knoten.name || 'diesem Bereich');
+        } else {
+          var teil = M.strukturPfad(p, key);
+          var ab = 0;
+          teil.forEach(function (k, i) { if (k.id === knoten.id) ab = i + 1; });
+          titel = teil.slice(ab).map(function (k) { return k.name; }).join(' › ');
+        }
+        index[key] = { key: key, titel: titel, tueren: [] };
+        gruppen.push(index[key]);
+      }
+      index[key].tueren.push(t);
+    });
+    /* Der eigene Bereich zuerst, danach die Unterbereiche in Gliederungsfolge */
+    var ordnung = M.strukturReihenfolge(p);
+    gruppen.sort(function (a, b) {
+      if (a.key === knoten.id) return -1;
+      if (b.key === knoten.id) return 1;
+      return (ordnung[a.key] || 0) - (ordnung[b.key] || 0);
+    });
+
+    gruppen.forEach(function (g) {
+      var anzahl = g.tueren.reduce(function (sum, t) {
+        return sum + (parseInt(t.anzahl, 10) || 1); }, 0);
+      var liste = el('div', { class: 'tuer-liste' });
+      g.tueren.forEach(function (t) { liste.appendChild(VT().tuerZeile(t, neuZeichnen)); });
+      seite.appendChild(el('div', { class: 'tuer-gruppe' }, [
+        el('div', { class: 'kopfzeile' }, [
+          el('span', { text: g.titel }),
+          el('span', { class: 'anzahl', text: g.tueren.length + ' Pos.  ·  ' + anzahl +
+            (anzahl === 1 ? ' Tür' : ' Türen') })
+        ]),
+        liste
+      ]));
+    });
+  }
+
+  function zurueckZurStruktur() {
+    Zustand.bereichId = null;
+    global.App.wechseln('struktur');
+  }
+
+  /* Die Türansicht lädt nach dieser Datei - erst zur Laufzeit nachschlagen. */
+  function VT() { return global.ViewsTueren; }
+
+  function tuerenImKnoten(knotenId) {
+    return M.tuerenUnter(Zustand.projekt, knotenId).length;
   }
 
   function knotenZeichnen(knoten, neuZeichnen) {
@@ -6425,11 +7416,22 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       neuZeichnen();
     }
 
+    /* Der Namensbereich ist ein eigener Knopf: Auf dem Telefon nehmen die
+     * Aktionen rechts fast die ganze Zeile ein - ein Antippen der Zeile
+     * würde dort fast immer einen der Knöpfe treffen. */
+    var oeffnen = function () { bereichOeffnen(knoten.id, neuZeichnen); };
     var eintrag = el('li', {}, [
-      el('div', { class: 'knoten' }, [
-        el('span', { class: 'ebene-marke', text: konfig.label }),
-        el('span', { class: 'name', text: knoten.name || '(ohne Namen)' }),
-        anzahl ? el('span', { class: 'tuerzahl', text: anzahl + (anzahl === 1 ? ' Tür' : ' Türen') }) : null,
+      /* Auch der freie Platz der Zeile öffnet den Bereich - aber nur er:
+       * "e.target === this" greift genau dann, wenn weder der Namensknopf
+       * noch eine der Aktionen getroffen wurde. */
+      el('div', { class: 'knoten', onclick: function (e) { if (e.target === this) oeffnen(); } }, [
+        el('button', { class: 'knoten-haupt', onclick: oeffnen,
+                       title: 'Türen in „' + (knoten.name || 'diesem Bereich') + '“ zeigen' }, [
+          el('span', { class: 'ebene-marke', text: konfig.label }),
+          el('span', { class: 'name', text: knoten.name || '(ohne Namen)' }),
+          anzahl ? el('span', { class: 'tuerzahl', text: anzahl + (anzahl === 1 ? ' Tür' : ' Türen') }) : null,
+          el('span', { class: 'oeffnen-pfeil', text: '›' })
+        ]),
         el('div', { class: 'aktionen' }, [
           el('button', { class: 'klein nur-symbol', title: 'Nach oben', text: '↑',
             disabled: index <= 0, onclick: function () { verschieben(-1); } }),
@@ -6501,6 +7503,9 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     standortAnlegen: standortAnlegen,
     ansichtStammdaten: ansichtStammdaten,
     ansichtStruktur: ansichtStruktur,
+    ansichtBereich: ansichtBereich,
+    bereichOeffnen: bereichOeffnen,
+    zurueckZurStruktur: zurueckZurStruktur,
     datumKurz: datumKurz, kb: kb
   };
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -6527,8 +7532,8 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
 
   /* Maßauswahl: übliche Werte als Liste, abweichende Maße über "anderes Maß".
    * Vor Ort wird so in der Regel nur getippt statt getastet. */
-  function massFeld(objekt, schluessel, beschriftung, werte, platzhalter) {
-    var behaelter = el('div', { class: 'feld' });
+  function massFeld(objekt, schluessel, beschriftung, werte, platzhalter, beiAenderung) {
+    var behaelter = el('div', { class: 'feld', 'data-feld': schluessel });
     var reinText = String(beschriftung).replace(/<[^>]*>/g, '').trim();
     var freitext = el('input', {
       type: 'number', inputmode: 'numeric', placeholder: platzhalter || 'Maß in mm',
@@ -6536,6 +7541,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       oninput: function (e) {
         A.eingabeSchrittMerken('Eingabe: ' + reinText);
         objekt[schluessel] = e.target.value; A.alsGeaendertMarkieren();
+        if (beiAenderung) beiAenderung();
       }
     });
     var auswahl = el('select', {
@@ -6550,6 +7556,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
         freitext.value = e.target.value;
         freitext.classList.add('versteckt');
         A.alsGeaendertMarkieren();
+        if (beiAenderung) beiAenderung();
       }
     });
     auswahl.appendChild(el('option', { value: '', text: '– bitte wählen –' }));
@@ -6593,15 +7600,43 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     behaelter.appendChild(seite);
 
     var s = M.statistik(p);
+    var offeneTueren = M.unvollstaendigeTueren(p);
+    /* Ist nach einem Bereich gefiltert, entsteht die neue Tür gleich dort -
+     * sonst müsste man den Bereich zweimal angeben. */
+    function vorgabenAusFilter() {
+      var f2 = Zustand.tuerFilter;
+      return (f2 && f2.struktur && f2.struktur !== '__ohne__') ? { strukturId: f2.struktur } : null;
+    }
     seite.appendChild(el('div', { class: 'zeile-verteilt', style: { marginBottom: '12px' } }, [
       el('div', { class: 'fuellen' }, [
         el('h1', { text: 'Türen' }),
         el('p', { class: 'hinweis', text: s.tueren + ' Positionen  ·  ' + s.tuerenGesamtAnzahl +
-          ' Türen gesamt' + (s.nacharbeit ? '  ·  ' + s.nacharbeit + ' mit Nacharbeit' : '') })
+          ' Türen gesamt' + (s.nacharbeit ? '  ·  ' + s.nacharbeit + ' mit Nacharbeit' : '') +
+          (offeneTueren.length ? ('  ·  ' + offeneTueren.length + ' unvollständig') : '') })
       ]),
       el('button', { class: 'haupt', text: '+ Neue Tür',
-        onclick: function () { tuerBearbeiten(null, neuZeichnen); } })
+        onclick: function () { tuerBearbeiten(null, neuZeichnen, vorgabenAusFilter()); } })
     ]));
+
+    /* Offene Pflichtangaben sind der häufigste Grund, ins Büro
+     * zurückzukommen - deshalb direkt erreichbar. */
+    if (offeneTueren.length) {
+      seite.appendChild(el('div', { class: 'meldung warn', style: { marginBottom: '12px' } },
+        el('div', { class: 'zeile-verteilt' }, [
+          el('div', { class: 'fuellen' }, [
+            el('b', { text: offeneTueren.length +
+              (offeneTueren.length === 1 ? ' Tür ist unvollständig' : ' Türen sind unvollständig') }),
+            el('div', { style: { marginTop: '4px', fontSize: '13px' },
+              text: 'Es fehlen Pflichtangaben für die Bestellung.' })
+          ]),
+          el('button', { class: 'klein', text: Zustand.tuerFilter.unvollstaendig
+              ? 'Alle Türen zeigen' : 'Nur diese zeigen',
+            onclick: function () {
+              Zustand.tuerFilter.unvollstaendig = !Zustand.tuerFilter.unvollstaendig;
+              neuZeichnen();
+            } })
+        ])));
+    }
 
     /* --- Filterleiste --- */
     var f = Zustand.tuerFilter;
@@ -6644,7 +7679,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       el('div', { class: 'suche' }, suchfeld),
       strukturWahl, statusWahl, systemWahl,
       el('button', { class: 'klein', text: 'Filter zurücksetzen', onclick: function () {
-        Zustand.tuerFilter = { suche: '', struktur: '', status: '', system: '' };
+        Zustand.tuerFilter = { suche: '', struktur: '', status: '', system: '', unvollstaendig: false };
         neuZeichnen();
       } })
     ]));
@@ -6654,6 +7689,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     listeZeichnen();
 
     function passt(t) {
+      if (f.unvollstaendig && M.tuerVollstaendig(p, t)) return false;
       if (f.status && t.status !== f.status) return false;
       if (f.system && M.tuerSystemId(p, t) !== f.system) return false;
       if (f.struktur === '__ohne__' && t.strukturId) return false;
@@ -6678,7 +7714,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
           el('h3', { text: 'Noch keine Tür erfasst' }),
           el('p', { text: 'Erfassen Sie die erste Tür. Tipp: Gliedern Sie zuerst unter „Struktur“ die Standorte und Etagen – dann lassen sich die Türen direkt zuordnen.' }),
           el('button', { class: 'haupt', text: '+ Erste Tür aufnehmen',
-            onclick: function () { tuerBearbeiten(null, neuZeichnen); } })
+            onclick: function () { tuerBearbeiten(null, neuZeichnen, vorgabenAusFilter()); } })
         ]));
         return;
       }
@@ -6711,6 +7747,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
   function tuerZeile(t, neuZeichnen) {
     var p = Zustand.projekt;
     var status = K.statusById(t.status);
+    var fehlendeAnzahl = M.pflichtfelder(p, t).length;
     var details = [];
     var sid = M.tuerSystemId(p, t);
     if (sid) details.push(K.systemLabel(sid, eigeneListe('eigeneSysteme')));
@@ -6735,6 +7772,9 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
         el('div', { class: 'marken' }, [
           (parseInt(t.anzahl, 10) || 1) > 1 ? el('span', { class: 'marke-pille blau', text: t.anzahl + '×' }) : null,
           (t.fotos || []).length ? el('span', { class: 'marke-pille foto', text: String(t.fotos.length) }) : null,
+          fehlendeAnzahl ? el('span', { class: 'marke-pille gelb',
+            title: 'Fehlt: ' + M.pflichtfelder(p, t).map(function (x) { return x.label; }).join(', '),
+            text: fehlendeAnzahl + '× Pflicht offen' }) : null,
           t.nacharbeit ? el('span', { class: 'marke-pille rot', text: 'Nacharbeit' }) : null,
           el('span', {
             class: 'marke-pille ' + (t.status === 'aufgemessen' ? 'gruen'
@@ -6749,202 +7789,434 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
 
   /* =========================================================================
    * Aufmaß-Formular
-   * ====================================================================== */
-  function tuerBearbeiten(vorhandene, neuZeichnen) {
+   * ======================================================================
+   * Zwei Ansichten auf dieselben Felder:
+   *
+   *   "geführt"     - ein Schritt je Bildschirm, nur die Felder, die jetzt
+   *                   dran sind, mit Fortschrittsbalken. Gedacht für das
+   *                   Aufmaß vor Ort und für Ungeübte.
+   *   "alle Felder" - alle Abschnitte untereinander zum Nachbearbeiten.
+   *
+   * Pflichtangaben sind in beiden Ansichten gekennzeichnet. Sie blockieren
+   * nichts: Vor Ort ist ein Maß nicht immer zu bekommen. Eine unvollständige
+   * Tür wird gespeichert, erhält aber den Status "Klärung nötig" und
+   * erscheint in der Liste der offenen Punkte.
+   *
+   * vorgaben: { strukturId } - gesetzt, wenn die Tür aus einem Bereich
+   * heraus angelegt wird; der Bereich steht dann schon fest.
+   */
+  function tuerBearbeiten(vorhandene, neuZeichnen, vorgaben) {
     var p = Zustand.projekt;
     var istNeu = !vorhandene;
     /* Auf einer Kopie arbeiten, damit „Abbrechen“ wirklich verwirft */
-    var t = istNeu ? M.neueTuer(vorlageFuerNeueTuer()) : JSON.parse(JSON.stringify(vorhandene));
+    var t = istNeu ? M.neueTuer(vorlageFuerNeueTuer(vorgaben))
+                   : JSON.parse(JSON.stringify(vorhandene));
 
-    var inhalt = el('div');
-    var abschnitte = [];
+    /* Die gewählte Ansicht überlebt den Dialog - getrennt für neue und
+     * vorhandene Türen, weil beide Fälle verschieden benutzt werden. */
+    var modusSchluessel = istNeu ? 'tuerModusNeu' : 'tuerModusAlt';
+    if (!Zustand[modusSchluessel]) Zustand[modusSchluessel] = istNeu ? 'gefuehrt' : 'alle';
 
-    function abschnitt(titel, offen, kinder, zusatzGeber) {
-      var koerper = el('div', { class: 'koerper' }, kinder);
-      var zusatz = el('span', { class: 'zusatz' });
-      var d = el('details', { class: 'abschnitt', open: offen }, [
-        el('summary', {}, [el('span', { text: titel }), zusatz]),
-        koerper
-      ]);
-      abschnitte.push({ knoten: d, zusatz: zusatz, geber: zusatzGeber });
-      return d;
+    var inhalt = el('div', { class: 'tuer-formular' });
+    var modusLeiste = el('div');
+    var statusLeiste = el('div', { class: 'pflicht-leiste' });
+    var fortschritt = el('div', { class: 'schritt-fortschritt' });
+    var koerper = el('div');
+    inhalt.appendChild(modusLeiste);
+    inhalt.appendChild(statusLeiste);
+    inhalt.appendChild(fortschritt);
+    inhalt.appendChild(koerper);
+
+    /* --- Die Dateiauswahl für Fotos wird nur einmal erzeugt ------------- */
+    var fotoEingabe = el('input', {
+      type: 'file', accept: 'image/*', multiple: true, class: 'versteckt',
+      onchange: function (e) { fotosHinzufuegen(Array.prototype.slice.call(e.target.files)); e.target.value = ''; }
+    });
+    var kameraEingabe = el('input', {
+      type: 'file', accept: 'image/*', capture: 'environment', class: 'versteckt',
+      onchange: function (e) { fotosHinzufuegen(Array.prototype.slice.call(e.target.files)); e.target.value = ''; }
+    });
+
+    /* =======================================================================
+     * Abschnitte
+     * =====================================================================
+     * Jeder Abschnitt ist im geführten Ablauf ein Schritt und in der
+     * Vollansicht ein aufklappbarer Block - dieselbe Baufunktion für beides.
+     */
+    function elektronikRelevant() {
+      return M.istTuerElektronisch(p, t) || t.brauchtWandleser || K.beschlagIstElektronisch(t);
     }
-    function zusammenfassungenAktualisieren() {
-      abschnitte.forEach(function (a) { if (a.geber) a.zusatz.textContent = a.geber() || ''; });
+
+    var ABSCHNITTE = [
+      { id: 'lage',       titel: 'Türkennung und Lage',    schritt: 'Wo ist die Tür?',       immer: true,  bauen: lageBauen },
+      { id: 'bauteile',   titel: 'Anlage und Bauteile',    schritt: 'Was wird gebraucht?',   immer: true,  bauen: bauteileBauen },
+      { id: 'zylinder',   titel: 'Zylinder',               schritt: 'Zylinder',              wenn: function () { return t.brauchtZylinder; }, bauen: zylinderBauen },
+      { id: 'beschlag',   titel: 'Beschlag / Drücker',     schritt: 'Beschlag / Drücker',    wenn: function () { return t.brauchtBeschlag; }, bauen: beschlagBauen },
+      { id: 'schloss',    titel: 'Schloss',                schritt: 'Schloss',               wenn: function () { return t.brauchtSchloss; }, bauen: schlossBauen },
+      { id: 'zutritt',    titel: 'Zutritt und Anforderungen', schritt: 'Zutritt',            immer: true,  bauen: zutrittBauen },
+      { id: 'elektronik', titel: 'Elektronik und Vernetzung', schritt: 'Elektronik',         wenn: elektronikRelevant, bauen: elektronikBauen },
+      { id: 'tuerdaten',  titel: 'Türdaten',               schritt: 'Türdaten',              immer: true,  freiwillig: true, bauen: tuerdatenBauen },
+      { id: 'bestand',    titel: 'Bestand / Altanlage',    schritt: 'Bestand',               immer: true,  freiwillig: true, bauen: bestandBauen },
+      { id: 'abschluss',  titel: 'Bemerkung, Nacharbeit, Fotos', schritt: 'Bemerkung und Fotos', immer: true, bauen: abschlussBauen }
+    ];
+
+    function aktive() {
+      return ABSCHNITTE.filter(function (a) { return a.immer || (a.wenn && a.wenn()); });
     }
 
-    /* --- 1. Identifikation --- */
-    var strukturAuswahl = A.auswahlFeld(t, 'strukturId', 'Standort / Gebäude / Bereich',
-      strukturOptionen(), { leerText: '– ohne Zuordnung –' });
+    var schrittId = 'lage';
 
-    inhalt.appendChild(abschnitt('Türkennung und Lage', true, [
-      el('div', { class: 'raster' }, [
+    /* --- 1. Lage ------------------------------------------------------- */
+    function lageBauen(ziel) {
+      var optionen = strukturOptionen();
+      ziel.appendChild(el('div', { class: 'raster' }, [
         A.textFeld(t, 'nummer', 'Tür-Nr. <span class="einheit">(lfd., änderbar)</span>',
           { platzhalter: '001', inputmode: 'numeric' }),
         A.textFeld(t, 'bezeichnung', 'Bezeichnung / Raum', { platzhalter: 'z. B. Büro Empfang' }),
-        A.auswahlFeld(t, 'kategorie', 'Türkategorie', K.TUERKATEGORIEN, {
-          leerText: '– ohne Angabe –' }),
-        strukturAuswahl,
-        strukturOptionen().length ? null
-          : A.textFeld(t, 'etage', 'Etage / Bereich <span class="einheit">(Freitext)</span>'),
-        A.textFeld(t, 'anzahl', 'Anzahl baugleicher Türen', { typ: 'number', inputmode: 'numeric' }),
-        A.auswahlFeld(t, 'status', 'Status', K.STATUS, { leerText: '– offen –' })
-      ])
-    ]));
+        A.auswahlFeld(t, 'kategorie', 'Türkategorie', K.TUERKATEGORIEN, { leerText: '– ohne Angabe –' }),
+        optionen.length
+          ? A.auswahlFeld(t, 'strukturId', 'Standort / Gebäude / Bereich', optionen,
+              { leerText: '– bitte wählen –', beiAenderung: markieren })
+          : A.textFeld(t, 'etage', 'Etage / Bereich <span class="einheit">(Freitext)</span>',
+              { beiAenderung: markieren }),
+        A.textFeld(t, 'anzahl', 'Anzahl baugleicher Türen', { typ: 'number', inputmode: 'numeric' })
+      ]));
+      ziel.appendChild(statusFeldBauen());
+    }
 
-    /* --- 2. Anlage --------------------------------------------------------
-     * Das System steht im Projekt. Hier wird nur bei einer Hybridanlage
-     * entschieden, welche Seite für diese Tür gilt. */
-    var systemHinweis = el('p', { class: 'hinweis', style: { margin: '8px 0 0' } });
-    var anlageAnzeige = el('div', { class: 'zeile-verteilt' });
-    var hybridWahl = el('div');
+    /* Der Status wird aus der Vollständigkeit geführt, solange er nicht
+     * selbst gewählt wurde. Das steht ausdrücklich dort, wo er sichtbar
+     * ist - sonst wirkt eine Änderung von allein wie ein Fehler. */
+    function statusFeldBauen() {
+      var kasten = el('div', { style: { marginTop: '12px' } });
+      var auswahl = A.auswahlFeld(t, 'status', 'Status', K.STATUS, {
+        leerText: '– offen –',
+        beiAenderung: function () { t.statusVonHand = true; statusFeldNeu(); }
+      });
+      kasten.appendChild(el('div', { class: 'raster' }, [auswahl]));
+      if (t.statusVonHand) {
+        kasten.appendChild(el('div', { class: 'knopfleiste', style: { marginTop: '6px' } },
+          el('button', { class: 'klein', text: 'Status wieder automatisch führen',
+            title: 'Vollständig = Aufgemessen, unvollständig = Klärung nötig',
+            onclick: function () {
+              A.schrittMerken('Status wieder automatisch');
+              t.statusVonHand = false;
+              M.statusAusPruefung(p, t);
+              statusFeldNeu();
+            } })));
+      } else {
+        kasten.appendChild(el('p', { class: 'zart', style: { marginTop: '4px' },
+          text: 'Wird automatisch geführt: vollständig = Aufgemessen, unvollständig = Klärung nötig.' }));
+      }
+      return kasten;
+    }
+    function statusFeldNeu() { abschnittNeu('lage'); markieren(); }
 
-    function systemAbhaengigesZeichnen() {
+    /* --- 2. Anlage und Bauteile ---------------------------------------- */
+    function bauteileBauen(ziel) {
       var eigene = eigeneListe('eigeneSysteme');
       var sid = M.tuerSystemId(p, t);
-      var sys = K.systemById(sid, eigene);
 
-      A.leeren(anlageAnzeige);
       if (!p.anlagenart) {
-        anlageAnzeige.appendChild(el('div', { class: 'meldung warn', style: { margin: '0', width: '100%' } },
+        ziel.appendChild(el('div', { class: 'meldung warn', style: { marginTop: '0' } },
           el('div', {}, [
             el('b', { text: 'Für dieses Projekt ist noch keine Schließanlage festgelegt. ' }),
             'Bitte unter „Stammdaten“ die Art der Anlage und das System wählen.'
           ])));
       } else {
-        anlageAnzeige.appendChild(el('span', { class: 'marke-pille blau',
-          text: (K.ANLAGENART.filter(function (a) { return a.id === p.anlagenart; })[0] || {}).label || p.anlagenart }));
-        if (sid) {
-          anlageAnzeige.appendChild(el('span', { class: 'marke-pille', text: K.systemLabel(sid, eigene) }));
-        }
-        if (p.systemDetail) {
-          anlageAnzeige.appendChild(el('span', { class: 'zart', text: p.systemDetail }));
-        }
+        var marken = el('div', { class: 'zeile-verteilt' }, [
+          el('span', { class: 'marke-pille blau',
+            text: (K.ANLAGENART.filter(function (a) { return a.id === p.anlagenart; })[0] || {}).label || p.anlagenart }),
+          sid ? el('span', { class: 'marke-pille', text: K.systemLabel(sid, eigene) }) : null,
+          p.systemDetail ? el('span', { class: 'zart', text: p.systemDetail }) : null
+        ]);
+        ziel.appendChild(marken);
       }
 
-      /* Nur bei Hybrid ist an der Tür noch etwas zu entscheiden */
-      A.leeren(hybridWahl);
+      /* Nur bei einer Hybridanlage ist an der Tür noch etwas zu entscheiden */
       if (p.anlagenart === 'hybrid') {
-        hybridWahl.appendChild(el('div', { class: 'raster', style: { marginTop: '12px' } }, [
+        ziel.appendChild(el('div', { class: 'raster', style: { marginTop: '12px' } }, [
           A.auswahlFeld(t, 'tuerTechnologie', 'Diese Tür wird ausgeführt als', [
             { id: 'mechanik',   label: 'Mechanisch' + (p.systemMechanik ? '  –  ' + K.systemLabel(p.systemMechanik, eigene) : '') },
             { id: 'elektronik', label: 'Elektronisch' + (p.systemElektronik ? '  –  ' + K.systemLabel(p.systemElektronik, eigene) : '') }
-          ], { leerText: '– bitte wählen –', beiAenderung: function () { systemAbhaengigesZeichnen(); } })
+          ], { leerText: '– bitte wählen –', beiAenderung: function () { ansichtNeu(); } })
         ]));
       } else if (t.tuerTechnologie) {
         t.tuerTechnologie = '';   /* bei reiner Anlage gegenstandslos */
       }
 
-      systemHinweis.textContent = sys && sys.hinweis ? sys.hinweis : '';
+      var sys = K.systemById(sid, eigene);
+      if (sys && sys.hinweis) {
+        ziel.appendChild(el('p', { class: 'hinweis', style: { marginTop: '8px' }, text: sys.hinweis }));
+      }
 
-      elektronikSichtbarkeit();
-      zusammenfassungenAktualisieren();
-    }
+      ziel.appendChild(el('hr', { class: 'trenner' }));
+      ziel.appendChild(el('h3', { text: 'Welche Bauteile hat diese Tür?', style: { marginTop: '0' } }));
+      var schalter = el('div', { class: 'raster eng', 'data-feld': 'bauteile' }, [
+        A.schalterFeld(t, 'brauchtZylinder', 'Zylinder', function () { ansichtNeu(); }),
+        A.schalterFeld(t, 'brauchtBeschlag', 'Beschlag / Drücker', function () { ansichtNeu(); }),
+        A.schalterFeld(t, 'brauchtSchloss', 'Schloss', function () { ansichtNeu(); }),
+        A.schalterFeld(t, 'brauchtWandleser', 'Wandleser', function () { ansichtNeu(); })
+      ]);
+      ziel.appendChild(schalter);
 
-    inhalt.appendChild(abschnitt('Anlage', true, [
-      anlageAnzeige,
-      hybridWahl,
-      systemHinweis,
-      el('div', { class: 'raster', style: { marginTop: '12px' } }, [
+      ziel.appendChild(el('div', { class: 'raster', style: { marginTop: '12px' } }, [
         A.textFeld(t, 'systemNotiz', 'Besonderheit zu dieser Tür <span class="einheit">(nur bei Abweichung)</span>',
           { platzhalter: 'z. B. Fremdfabrikat im Bestand, Sonderausführung' })
-      ])
-    ], function () {
-      var sid = M.tuerSystemId(p, t);
-      if (!p.anlagenart) return 'Anlage noch nicht festgelegt';
-      if (p.anlagenart === 'hybrid' && !t.tuerTechnologie) return 'Ausführung noch offen';
-      return sid ? K.systemLabel(sid, eigeneListe('eigeneSysteme')) : '';
-    }));
-
-    /* --- 3. Bauteile -------------------------------------------------------
-     * Je Bauteil werden Bauform, Ausführung und Maße an genau einer Stelle
-     * erfasst. Angaben, die sich aus einer anderen ergeben, werden nicht
-     * erneut gefragt (z. B. Knaufseite nur beim Knaufzylinder). */
-    var zylinderFelder = el('div');
-    var beschlagFelder = el('div');
-    var schlossFelder = el('div');
-    var bauteilHinweis = el('div');
-
-    function bauteilFelderZeichnen() {
-      A.leeren(zylinderFelder); A.leeren(beschlagFelder); A.leeren(schlossFelder);
-
-      /* ---- Zylinder ---- */
-      if (t.brauchtZylinder) {
-        var zylRaster = el('div', { class: 'raster' }, [
-          A.auswahlFeld(t, 'zylinderBauform', 'Bauform', liste('ZYLINDER_BAUFORM', 'eigeneZylinderarten'), {
-            beiAenderung: function () { bauteilFelderZeichnen(); }
-          }),
-          A.textFeld(t, 'masseAussen', 'Länge außen <span class="einheit">mm</span>',
-            { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 35' }),
-          A.textFeld(t, 'masseInnen', 'Länge innen <span class="einheit">mm</span>',
-            { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 40' })
-        ]);
-        /* Knaufseite ist nur beim einfachen Knaufzylinder eine offene Frage */
-        if (t.zylinderBauform === 'Knaufzylinder') {
-          zylRaster.appendChild(A.auswahlFeld(t, 'zylinderKnaufseite',
-            'Knaufseite <span class="einheit">(vom mech. festen Knauf)</span>', K.KNAUFSEITE));
-        } else if (t.zylinderKnaufseite) {
-          t.zylinderKnaufseite = '';
-        }
-        zylinderFelder.appendChild(el('h3', { text: 'Zylinder', style: { marginTop: '0' } }));
-        zylinderFelder.appendChild(zylRaster);
-        zylinderFelder.appendChild(A.chipFeld(t, 'zylinderAusfuehrung',
-          'Ausführung <span class="einheit">(nur wenn zutreffend)</span>',
-          liste('ZYLINDER_AUSFUEHRUNG')));
-      }
-
-      /* ---- Beschlag ---- */
-      if (t.brauchtBeschlag) {
-        var besRaster = el('div', { class: 'raster' }, [
-          A.auswahlFeld(t, 'beschlagBauform', 'Bauform', liste('BESCHLAG_BAUFORM', 'eigeneBeschlagarten'), {
-            beiAenderung: function () { bauteilFelderZeichnen(); }
-          }),
-          A.auswahlFeld(t, 'beschlagAusfuehrung', 'Ausführung', K.BESCHLAG_AUSFUEHRUNG, {
-            beiAenderung: function () { bauteilFelderZeichnen(); elektronikSichtbarkeit(); }
-          }),
-          A.auswahlFeld(t, 'beschlagBestueckung', 'Bestückung', K.BESCHLAG_BESTUECKUNG),
-          massFeld(t, 'vierkant', 'Vierkant <span class="einheit">mm</span>', K.VIERKANT, 'z. B. 8')
-        ]);
-        /* Sicherheitsklasse nur beim Schutzbeschlag */
-        if (t.beschlagBauform === 'Schutzbeschlag') {
-          besRaster.appendChild(A.auswahlFeld(t, 'beschlagSicherheit', 'Sicherheitsklasse', K.BESCHLAG_SICHERHEIT));
-        } else if (t.beschlagSicherheit) {
-          t.beschlagSicherheit = '';
-        }
-        beschlagFelder.appendChild(el('h3', { text: 'Beschlag / Drücker' }));
-        beschlagFelder.appendChild(besRaster);
-      }
-
-      /* ---- Schloss ---- */
-      if (t.brauchtSchloss) {
-        schlossFelder.appendChild(el('h3', { text: 'Schloss' }));
-        schlossFelder.appendChild(el('div', { class: 'raster' }, [
-          A.auswahlFeld(t, 'schlossBauform', 'Bauform', liste('SCHLOSS_BAUFORM', 'eigeneSchlossarten')),
-          A.auswahlFeld(t, 'schlossFunktion', 'Funktion', K.SCHLOSS_FUNKTION),
-          A.textFeld(t, 'stulpmass', 'Stulpmaß / Stulpform')
-        ]));
-      }
-
-      /* ---- Dornmaß und Entfernung: gelten für Beschlag und Schloss
-             gemeinsam und werden deshalb nur einmal abgefragt. ---- */
-      if (t.brauchtBeschlag || t.brauchtSchloss) {
-        var wofuer = (t.brauchtBeschlag && t.brauchtSchloss) ? 'Beschlag und Schloss'
-                   : t.brauchtBeschlag ? 'Beschlag' : 'Schloss';
-        schlossFelder.appendChild(el('h3', { text: 'Maße für ' + wofuer }));
-        schlossFelder.appendChild(el('div', { class: 'raster' }, [
-          massFeld(t, 'dornmass', 'Dornmaß <span class="einheit">mm</span>', K.DORNMASS, 'z. B. 55'),
-          massFeld(t, 'entfernung', 'Entfernung <span class="einheit">mm</span>', K.ENTFERNUNG, 'z. B. 72')
-        ]));
-      }
-
-      widerspruecheZeichnen();
-      zusammenfassungenAktualisieren();
+      ]));
     }
 
-    /* Weist auf Angaben hin, die nicht zusammenpassen - statt sie ein
+    /* --- 3. Zylinder --------------------------------------------------- */
+    function zylinderBauen(ziel) {
+      var raster = el('div', { class: 'raster' }, [
+        A.auswahlFeld(t, 'zylinderBauform', 'Art des Zylinders <span class="einheit">(Bauform)</span>',
+          liste('ZYLINDER_BAUFORM', 'eigeneZylinderarten'),
+          { leerText: '– bitte wählen –', beiAenderung: function () { abschnittNeu('zylinder'); markieren(); } }),
+        A.textFeld(t, 'masseAussen', 'Länge außen <span class="einheit">mm</span>',
+          { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 35', beiAenderung: markieren }),
+        A.textFeld(t, 'masseInnen', 'Länge innen <span class="einheit">mm</span>',
+          { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 40', beiAenderung: markieren })
+      ]);
+      /* Knaufseite ist nur beim einfachen Knaufzylinder eine offene Frage */
+      if (t.zylinderBauform === 'Knaufzylinder') {
+        raster.appendChild(A.auswahlFeld(t, 'zylinderKnaufseite',
+          'Knaufseite <span class="einheit">(vom mech. festen Knauf)</span>', K.KNAUFSEITE,
+          { leerText: '– bitte wählen –', beiAenderung: markieren }));
+      } else if (t.zylinderKnaufseite) {
+        t.zylinderKnaufseite = '';
+      }
+      ziel.appendChild(raster);
+      /* Gesamtlänge mitrechnen: danach wird bestellt */
+      var gl = gesamtlaenge(t);
+      if (gl) {
+        ziel.appendChild(el('p', { class: 'zart', style: { marginTop: '4px' },
+          text: 'Gesamtlänge ' + gl + ' mm' }));
+      }
+      ziel.appendChild(A.chipFeld(t, 'zylinderAusfuehrung',
+        'Ausführung <span class="einheit">(nur wenn zutreffend)</span>',
+        liste('ZYLINDER_AUSFUEHRUNG')));
+      ziel.appendChild(widerspruecheBauen());
+    }
+
+    /* --- 4. Beschlag --------------------------------------------------- */
+    function beschlagBauen(ziel) {
+      var raster = el('div', { class: 'raster' }, [
+        A.auswahlFeld(t, 'beschlagBauform', 'Bauform', liste('BESCHLAG_BAUFORM', 'eigeneBeschlagarten'),
+          { leerText: '– bitte wählen –', beiAenderung: function () { abschnittNeu('beschlag'); markieren(); } }),
+        A.auswahlFeld(t, 'beschlagAusfuehrung', 'Ausführung', K.BESCHLAG_AUSFUEHRUNG,
+          { leerText: '– bitte wählen –', beiAenderung: function () { ansichtNeu(); } }),
+        A.auswahlFeld(t, 'beschlagBestueckung', 'Bestückung', K.BESCHLAG_BESTUECKUNG,
+          { leerText: '– bitte wählen –', beiAenderung: markieren })
+      ]);
+      /* Sicherheitsklasse nur beim Schutzbeschlag */
+      if (t.beschlagBauform === 'Schutzbeschlag') {
+        raster.appendChild(A.auswahlFeld(t, 'beschlagSicherheit', 'Sicherheitsklasse', K.BESCHLAG_SICHERHEIT));
+      } else if (t.beschlagSicherheit) {
+        t.beschlagSicherheit = '';
+      }
+      ziel.appendChild(raster);
+      ziel.appendChild(el('h3', { text: 'Maße für den Beschlag' }));
+      ziel.appendChild(masseRasterBauen());
+      ziel.appendChild(widerspruecheBauen());
+    }
+
+    /* Dornmaß, Entfernung, Vierkant, Türblattstärke und DIN gelten für
+     * Beschlag und Schloss gemeinsam. Sie werden deshalb an genau einer
+     * Stelle erfasst und in beiden Abschnitten dasselbe Raster gezeigt. */
+    function masseRasterBauen() {
+      return el('div', { class: 'raster' }, [
+        massFeld(t, 'dornmass', 'Dornmaß <span class="einheit">mm</span>', K.DORNMASS, 'z. B. 55', markieren),
+        massFeld(t, 'entfernung', 'Entfernung <span class="einheit">mm</span>', K.ENTFERNUNG, 'z. B. 72', markieren),
+        massFeld(t, 'vierkant', 'Vierkant / Nuss <span class="einheit">mm</span>', K.VIERKANT, 'z. B. 8', markieren),
+        A.textFeld(t, 'tuerblattstaerke', 'Türblattstärke <span class="einheit">mm</span>',
+          { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 68', beiAenderung: markieren }),
+        A.auswahlFeld(t, 'dinRichtung', 'DIN-Richtung', K.DIN_RICHTUNG,
+          { leerText: '– bitte wählen –', beiAenderung: markieren })
+      ]);
+    }
+
+    /* --- 5. Schloss ---------------------------------------------------- */
+    function schlossBauen(ziel) {
+      ziel.appendChild(el('div', { class: 'raster' }, [
+        A.auswahlFeld(t, 'schlossBauform', 'Bauform', liste('SCHLOSS_BAUFORM', 'eigeneSchlossarten'),
+          { leerText: '– bitte wählen –', beiAenderung: function () { abschnittNeu('schloss'); markieren(); } }),
+        A.auswahlFeld(t, 'schlossFunktion', 'Funktion', K.SCHLOSS_FUNKTION,
+          { leerText: '– bitte wählen –', beiAenderung: function () { abschnittNeu('schloss'); markieren(); } })
+      ]));
+      /* Dieselben Maße wie beim Beschlag - nur einmal erfasst */
+      if (!t.brauchtBeschlag) {
+        ziel.appendChild(el('h3', { text: 'Maße für das Schloss' }));
+        ziel.appendChild(masseRasterBauen());
+      } else {
+        ziel.appendChild(el('p', { class: 'hinweis', style: { marginTop: '10px' },
+          text: 'Dornmaß, Entfernung, Vierkant, Türblattstärke und DIN-Richtung stehen beim Beschlag – sie gelten für beide Bauteile und werden nur einmal erfasst.' }));
+      }
+
+      /* Einsteckschloss im Detail: freiwillig, aber bestellentscheidend */
+      ziel.appendChild(el('details', { class: 'abschnitt', style: { marginTop: '14px' } }, [
+        el('summary', {}, [
+          el('span', { text: 'Einsteckschloss im Detail' }),
+          el('span', { class: 'zusatz', text: K.schlossDetailText(t) ? 'ausgefüllt' : 'freiwillig' })
+        ]),
+        el('div', { class: 'koerper' }, [
+          el('div', { class: 'raster' }, [
+            A.auswahlFeld(t, 'schlossStulpform', 'Stulpform', K.STULPFORM, { leerText: '– ohne Angabe –' }),
+            massFeld(t, 'schlossStulpbreite', 'Stulpbreite <span class="einheit">mm</span>', K.STULPBREITE, 'z. B. 24'),
+            A.textFeld(t, 'schlossStulplaenge', 'Stulplänge <span class="einheit">mm</span>',
+              { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 235' }),
+            A.auswahlFeld(t, 'schlossFallenart', 'Fallenart', K.FALLENART, { leerText: '– ohne Angabe –' }),
+            massFeld(t, 'schlossRiegelausschluss', 'Riegelausschluss <span class="einheit">mm</span>',
+              K.RIEGELAUSSCHLUSS, 'z. B. 20'),
+            A.textFeld(t, 'schlossVerriegelungspunkte', 'Verriegelungspunkte',
+              { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 3' }),
+            A.auswahlFeld(t, 'schlossNorm', 'Norm / Zulassung', K.SCHLOSS_NORM, { leerText: '– ohne Angabe –' }),
+            A.textFeld(t, 'stulpmass', 'Stulpmaß / Sonstiges')
+          ])
+        ])
+      ]));
+      ziel.appendChild(widerspruecheBauen());
+    }
+
+    /* --- 6. Zutritt ---------------------------------------------------- */
+    function zutrittBauen(ziel) {
+      ziel.appendChild(el('div', { class: 'raster' }, [
+        A.auswahlFeld(t, 'zutrittsseite', 'Von welcher Seite wird geöffnet?', K.ZUTRITTSSEITE,
+          { leerText: '– bitte wählen –', beiAenderung: markieren })
+      ]));
+      var feld = A.chipFeld(t, 'tueranforderungen',
+        'Bauliche Anforderungen <span class="einheit">(mehrere möglich)</span>',
+        liste('TUERANFORDERUNG', 'eigeneZutrittsarten'));
+      /* Eine Änderung hier kann einen Widerspruch zum Schloss auflösen */
+      feld.addEventListener('click', function () { setTimeout(function () { abschnittNeu('zutritt'); }, 0); });
+      ziel.appendChild(feld);
+      ziel.appendChild(el('p', { class: 'hinweis', style: { marginTop: '10px' },
+        text: 'Bei Flucht- und Rettungswegen sowie Brand- und Rauchschutztüren sind die bauaufsichtlichen Anforderungen zu beachten; die Auswahl hier ersetzt keine Prüfung vor Ort.' }));
+      ziel.appendChild(widerspruecheBauen());
+    }
+
+    /* --- 7. Elektronik ------------------------------------------------- */
+    function elektronikBauen(ziel) {
+      ziel.appendChild(el('div', { class: 'raster' }, [
+        A.auswahlFeld(t, 'elStromversorgung', 'Stromversorgung',
+          ['Batterie', '12V vorhanden', '24V vorhanden', '230V vorhanden', 'PoE', 'muss verlegt werden'],
+          { leerText: '– bitte wählen –', beiAenderung: markieren }),
+        A.auswahlFeld(t, 'elVernetzung', 'Vernetzung',
+          ['offline (Stand-alone)', 'virtuelles Netzwerk', 'online / verkabelt', 'funkvernetzt', 'noch offen'],
+          { leerText: '– bitte wählen –', beiAenderung: markieren }),
+        A.auswahlFeld(t, 'elFunkabdeckung', 'Funkabdeckung vor Ort',
+          ['gut', 'mittel', 'schlecht', 'nicht geprüft'], { leerText: '– ohne Angabe –' }),
+        A.auswahlFeld(t, 'elKabeluebergang', 'Kabel / Leerrohr an der Tür', K.KABELUEBERGANG,
+          { leerText: '– ohne Angabe –' })
+      ]));
+      ziel.appendChild(el('div', { style: { marginTop: '10px' } }, [
+        A.schalterFeld(t, 'elTuerueberwachung', 'Türüberwachung / Türzustandsmeldung gewünscht'),
+        A.schalterFeld(t, 'elTueroeffnerBestand', 'Elektrischer Türöffner ist schon vorhanden')
+      ]));
+      ziel.appendChild(el('div', { class: 'raster', style: { marginTop: '10px' } }, [
+        A.textFeld(t, 'elLeitungsweg', 'Leitungsweg <span class="einheit">(woher kommt das Kabel?)</span>',
+          { platzhalter: 'z. B. aus Technikraum UG über Steigschacht' }),
+        A.bereichFeld(t, 'elBemerkung', 'Bemerkung Elektronik', { zeilen: 2 })
+      ]));
+    }
+
+    /* --- 8. Türdaten (freiwillig) -------------------------------------- */
+    function tuerdatenBauen(ziel) {
+      ziel.appendChild(el('p', { class: 'hinweis', style: { marginTop: '0' },
+        text: 'Freiwillig. Türblattstärke und DIN-Richtung stehen beim Bauteil und werden hier nicht erneut gefragt.' }));
+      ziel.appendChild(el('div', { class: 'raster' }, [
+        A.textFeld(t, 'tuerbreite', 'Türbreite <span class="einheit">mm</span>',
+          { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 885' }),
+        A.textFeld(t, 'tuerhoehe', 'Türhöhe <span class="einheit">mm</span>',
+          { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 2010' }),
+        A.auswahlFeld(t, 'tuerAnschlag', 'Türanschlag', K.TUER_ANSCHLAG, { leerText: '– ohne Angabe –' }),
+        A.auswahlFeld(t, 'tuermaterial', 'Türblattmaterial', K.TUERMATERIAL, { leerText: '– ohne Angabe –' }),
+        A.textFeld(t, 'profilbreite', 'Profilbreite <span class="einheit">mm</span>',
+          { typ: 'number', inputmode: 'numeric' }),
+        A.auswahlFeld(t, 'oeffnungsrichtung', 'Öffnungsrichtung', K.TUER_OEFFNUNG, { leerText: '– ohne Angabe –' }),
+        A.textFeld(t, 'bohrbild', 'Bohrbild / Lochung')
+      ]));
+      ziel.appendChild(el('div', { class: 'raster', style: { marginTop: '10px' } }, [
+        A.bereichFeld(t, 'masseBemerkung', 'Bemerkung zu den Maßen', { zeilen: 2 })
+      ]));
+    }
+
+    /* --- 9. Bestand (freiwillig) --------------------------------------- */
+    function bestandBauen(ziel) {
+      ziel.appendChild(el('div', { class: 'raster' }, [
+        A.textFeld(t, 'bestandFabrikat', 'Vorhandenes Fabrikat', { platzhalter: 'z. B. EVVA, Kaba, ABUS' }),
+        A.textFeld(t, 'bestandZylinderart', 'Vorhandene Zylinderart'),
+        A.textFeld(t, 'bestandLaenge', 'Vorhandene Länge', { platzhalter: 'z. B. 30/35' }),
+        A.textFeld(t, 'bestandAnzahlSchluessel', 'Anzahl vorhandener Schlüssel',
+          { typ: 'number', inputmode: 'numeric' })
+      ]));
+      ziel.appendChild(el('div', { class: 'raster', style: { marginTop: '10px' } }, [
+        A.bereichFeld(t, 'bestandBemerkung', 'Bemerkung zum Bestand', { zeilen: 2 })
+      ]));
+    }
+
+    /* --- 10. Bemerkung, Nacharbeit, Fotos ------------------------------ */
+    function abschlussBauen(ziel) {
+      ziel.appendChild(el('div', { class: 'raster' }, [
+        A.bereichFeld(t, 'notiz', 'Bemerkung zur Tür', { zeilen: 3 })
+      ]));
+      ziel.appendChild(el('div', { style: { marginTop: '10px' } }, [
+        A.schalterFeld(t, 'nacharbeit', 'Nacharbeit erforderlich',
+          function () { abschnittNeu('abschluss'); })
+      ]));
+      if (t.nacharbeit) {
+        ziel.appendChild(el('div', { class: 'raster', style: { marginTop: '10px' } }, [
+          A.bereichFeld(t, 'nacharbeitText', 'Was ist nachzuarbeiten?', {
+            zeilen: 3, platzhalter: 'z. B. Maß fehlt, Rücksprache mit Kunde nötig, Tür war verschlossen …'
+          })
+        ]));
+      }
+      ziel.appendChild(el('hr', { class: 'trenner' }));
+      ziel.appendChild(el('h3', { text: 'Fotos', style: { marginTop: '0' } }));
+      ziel.appendChild(el('div', { class: 'knopfleiste', style: { marginBottom: '12px' } }, [
+        el('button', { class: 'haupt', text: '📷 Foto aufnehmen',
+          onclick: function () { kameraEingabe.click(); } }),
+        el('button', { text: 'Aus Mediathek wählen', onclick: function () { fotoEingabe.click(); } }),
+        fotoEingabe, kameraEingabe
+      ]));
+      var raster = el('div', { class: 'foto-raster' });
+      (t.fotos || []).forEach(function (foto, index) {
+        raster.appendChild(el('div', { class: 'foto-karte' }, [
+          el('img', { src: foto.dataUrl, alt: foto.beschriftung || 'Türfoto', loading: 'lazy' }),
+          el('div', { class: 'unten' }, [
+            el('input', { type: 'text', value: foto.beschriftung || '', placeholder: 'Beschriftung',
+              oninput: function (e) { foto.beschriftung = e.target.value; } }),
+            el('button', { class: 'gefahr klein', text: 'Entfernen', onclick: function () {
+              t.fotos.splice(index, 1); abschnittNeu('abschluss');
+            } })
+          ])
+        ]));
+      });
+      if (!(t.fotos || []).length) {
+        raster.appendChild(el('p', { class: 'zart', text: 'Noch keine Fotos zu dieser Tür.' }));
+      }
+      ziel.appendChild(raster);
+    }
+
+    function fotosHinzufuegen(dateien) {
+      if (!dateien.length) return;
+      var eins = Zustand.einstellungen || {};
+      A.toast(dateien.length === 1 ? 'Foto wird verarbeitet …' : dateien.length + ' Fotos werden verarbeitet …');
+      Promise.all(dateien.map(function (d) {
+        return Store.fotoVerarbeiten(d, eins.fotoMaxKante || 1280, eins.fotoQualitaet || 0.72)
+          .then(function (foto) { t.fotos.push(foto); return true; })
+          .catch(function (fehler) { A.toast(fehler.message, 'fehler'); return false; });
+      })).then(function (ergebnisse) {
+        var erfolgreich = ergebnisse.filter(Boolean).length;
+        if (erfolgreich) A.toast(erfolgreich + ' Foto(s) hinzugefügt.', 'ok');
+        abschnittNeu('abschluss');
+      });
+    }
+
+    /* --- Widersprüche --------------------------------------------------
+     * Weist auf Angaben hin, die nicht zusammenpassen - statt sie ein
      * zweites Mal abzufragen. */
-    function widerspruecheZeichnen() {
-      A.leeren(bauteilHinweis);
+    function widerspruecheBauen() {
+      var kasten = el('div');
       var meldungen = [];
       var istFlucht = (t.tueranforderungen || []).indexOf('Flucht- und Rettungsweg') !== -1;
 
@@ -6960,222 +8232,199 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       if (t.zylinderBauform === 'Halbzylinder' && t.masseInnen && parseInt(t.masseInnen, 10) > 15) {
         meldungen.push('Bei einem Halbzylinder ist die Innenlänge üblicherweise 10 mm.');
       }
-      if (!t.brauchtZylinder && !t.brauchtBeschlag && !t.brauchtSchloss && !t.brauchtWandleser) {
-        meldungen.push('Für diese Tür ist noch kein Bauteil vorgesehen.');
-      }
-      if (!meldungen.length) return;
       meldungen.forEach(function (m) {
-        bauteilHinweis.appendChild(el('div', { class: 'meldung warn', style: { marginTop: '12px' } },
+        kasten.appendChild(el('div', { class: 'meldung warn', style: { marginTop: '12px' } },
           el('div', { text: m })));
       });
+      return kasten;
     }
 
-    inhalt.appendChild(abschnitt('Bauteile', true, [
-      el('div', { class: 'raster eng' }, [
-        A.schalterFeld(t, 'brauchtZylinder', 'Zylinder', function () { bauteilFelderZeichnen(); }),
-        A.schalterFeld(t, 'brauchtBeschlag', 'Beschlag / Drücker', function () { bauteilFelderZeichnen(); }),
-        A.schalterFeld(t, 'brauchtSchloss', 'Schloss', function () { bauteilFelderZeichnen(); }),
-        A.schalterFeld(t, 'brauchtWandleser', 'Wandleser', function () {
-          bauteilFelderZeichnen(); elektronikSichtbarkeit();
-        })
-      ]),
-      el('hr', { class: 'trenner' }),
-      zylinderFelder, beschlagFelder, schlossFelder, bauteilHinweis
-    ], function () {
-      var teile = [];
-      if (t.brauchtZylinder) teile.push(K.zylinderText(t) || 'Zylinder');
-      if (t.brauchtBeschlag) teile.push(K.beschlagText(t) || 'Beschlag');
-      if (t.brauchtSchloss) teile.push(K.schlossText(t) || 'Schloss');
-      if (t.brauchtWandleser) teile.push('Wandleser');
-      return teile.join('  ·  ') || 'kein Bauteil gewählt';
-    }));
+    /* =======================================================================
+     * Pflichtangaben kennzeichnen
+     * =====================================================================
+     * Eine Quelle für alles: dieselbe Prüfung, die Türliste, Prüfprotokoll
+     * und Materialliste verwenden. Gekennzeichnet wird jedes Pflichtfeld,
+     * rot umrandet nur die noch offenen.
+     */
+    function markieren() {
+      var pflicht = M.pflichtSchluessel(p, t);
+      var offen = {};
+      M.pflichtfelder(p, t).forEach(function (f) { offen[f.schluessel] = f.label; });
 
-    /* --- 4. Zutritt und bauliche Anforderungen -----------------------------
-     * Zwei getrennte Fragen. Zylinderfunktionen wie Freidreh oder
-     * Not- und Gefahrenfunktion stehen allein bei der Zylinderausführung. */
-    inhalt.appendChild(abschnitt('Zutritt und Anforderungen', true, [
-      el('div', { class: 'raster' }, [
-        A.auswahlFeld(t, 'zutrittsseite', 'Von welcher Seite wird geöffnet?', K.ZUTRITTSSEITE)
-      ]),
-      (function () {
-        var feld = A.chipFeld(t, 'tueranforderungen',
-          'Bauliche Anforderungen <span class="einheit">(mehrere möglich)</span>',
-          liste('TUERANFORDERUNG', 'eigeneZutrittsarten'));
-        /* Änderungen hier können einen Widerspruch zum Schloss auflösen */
-        feld.addEventListener('click', function () { setTimeout(widerspruecheZeichnen, 0); });
-        return feld;
-      })(),
-      el('p', { class: 'hinweis', style: { marginTop: '10px' },
-        text: 'Bei Flucht- und Rettungswegen sowie Brand- und Rauchschutztüren sind die bauaufsichtlichen Anforderungen zu beachten; die Auswahl hier ersetzt keine Prüfung vor Ort.' })
-    ], function () {
-      var teile = [];
-      if (t.zutrittsseite) teile.push(t.zutrittsseite);
-      if ((t.tueranforderungen || []).length) teile.push(t.tueranforderungen.length + ' Anforderung(en)');
-      return teile.join('  ·  ');
-    }));
-
-    /* --- 5. Türblatt und Rahmen --------------------------------------------
-     * Dornmaß, Entfernung und Vierkant stehen beim jeweiligen Bauteil und
-     * werden hier nicht wiederholt. */
-    inhalt.appendChild(abschnitt('Türblatt und Rahmen', false, [
-      el('div', { class: 'raster' }, [
-        A.textFeld(t, 'tuerblattstaerke', 'Türblattstärke <span class="einheit">mm</span>', { typ: 'number', inputmode: 'numeric' }),
-        A.textFeld(t, 'profilbreite', 'Profilbreite <span class="einheit">mm</span>', { typ: 'number', inputmode: 'numeric' }),
-        A.auswahlFeld(t, 'tuermaterial', 'Türblattmaterial', K.TUERMATERIAL),
-        A.auswahlFeld(t, 'dinRichtung', 'DIN-Richtung', K.DIN_RICHTUNG),
-        A.auswahlFeld(t, 'oeffnungsrichtung', 'Öffnungsrichtung', K.TUER_OEFFNUNG),
-        A.textFeld(t, 'bohrbild', 'Bohrbild / Lochung')
-      ]),
-      el('div', { class: 'raster', style: { marginTop: '10px' } }, [
-        A.bereichFeld(t, 'masseBemerkung', 'Bemerkung zu den Maßen', { zeilen: 2 })
-      ])
-    ], function () {
-      var v = [t.tuerblattstaerke && t.tuerblattstaerke + ' mm', t.dinRichtung].filter(Boolean);
-      return v.join(', ');
-    }));
-
-    /* --- 6. Bestand --- */
-    inhalt.appendChild(abschnitt('Bestand / Altanlage', false, [
-      el('div', { class: 'raster' }, [
-        A.textFeld(t, 'bestandFabrikat', 'Vorhandenes Fabrikat', { platzhalter: 'z. B. EVVA, Kaba, ABUS' }),
-        A.textFeld(t, 'bestandZylinderart', 'Vorhandene Zylinderart'),
-        A.textFeld(t, 'bestandLaenge', 'Vorhandene Länge', { platzhalter: 'z. B. 30/35' }),
-        A.textFeld(t, 'bestandAnzahlSchluessel', 'Anzahl vorhandener Schlüssel', { typ: 'number', inputmode: 'numeric' })
-      ]),
-      el('div', { class: 'raster', style: { marginTop: '10px' } }, [
-        A.bereichFeld(t, 'bestandBemerkung', 'Bemerkung zum Bestand', { zeilen: 2 })
-      ])
-    ], function () { return t.bestandFabrikat || ''; }));
-
-    /* --- 7. Elektronik -----------------------------------------------------
-     * Wird nur angezeigt, wenn das gewählte System überhaupt elektronisch
-     * ist - bei reiner Mechanik gäbe es hier nichts zu entscheiden. */
-    var elektronikAbschnitt = abschnitt('Elektronik und Vernetzung', false, [
-      el('div', { class: 'raster' }, [
-        A.auswahlFeld(t, 'elFunkabdeckung', 'Funkabdeckung vor Ort',
-          ['gut', 'mittel', 'schlecht', 'nicht geprüft']),
-        A.auswahlFeld(t, 'elStromversorgung', 'Stromversorgung',
-          ['Batterie', '12V vorhanden', '24V vorhanden', '230V vorhanden', 'PoE', 'muss verlegt werden']),
-        A.auswahlFeld(t, 'elVernetzung', 'Vernetzung',
-          ['offline (Stand-alone)', 'virtuelles Netzwerk', 'online / verkabelt', 'funkvernetzt', 'noch offen'])
-      ]),
-      el('div', { style: { marginTop: '10px' } }, [
-        A.schalterFeld(t, 'elTuerueberwachung', 'Türüberwachung / Türzustandsmeldung gewünscht')
-      ]),
-      el('div', { class: 'raster', style: { marginTop: '10px' } }, [
-        A.bereichFeld(t, 'elBemerkung', 'Bemerkung Elektronik', { zeilen: 2 })
-      ])
-    ], function () { return t.elVernetzung || ''; });
-    inhalt.appendChild(elektronikAbschnitt);
-
-    function elektronikSichtbarkeit() {
-      if (!elektronikAbschnitt) return;   /* wird beim Aufbau noch nicht gebraucht */
-      var zeigen = M.istTuerElektronisch(p, t) || t.brauchtWandleser ||
-                   K.beschlagIstElektronisch(t);
-      elektronikAbschnitt.style.display = zeigen ? '' : 'none';
-    }
-
-    /* --- 8. Bemerkungen und Nacharbeit --- */
-    var nacharbeitFeld = el('div');
-    function nacharbeitZeichnen() {
-      A.leeren(nacharbeitFeld);
-      if (t.nacharbeit) {
-        nacharbeitFeld.appendChild(el('div', { class: 'raster' }, [
-          A.bereichFeld(t, 'nacharbeitText', 'Was ist nachzuarbeiten?', {
-            zeilen: 3, platzhalter: 'z. B. Maß fehlt, Rücksprache mit Kunde nötig, Tür war verschlossen …'
-          })
-        ]));
-      }
-      zusammenfassungenAktualisieren();
-    }
-    inhalt.appendChild(abschnitt('Bemerkungen und Nacharbeit', true, [
-      el('div', { class: 'raster' }, [
-        A.bereichFeld(t, 'notiz', 'Bemerkung zur Tür', { zeilen: 3 })
-      ]),
-      el('div', { style: { marginTop: '10px' } }, [
-        A.schalterFeld(t, 'nacharbeit', 'Nacharbeit erforderlich', function () { nacharbeitZeichnen(); })
-      ]),
-      nacharbeitFeld
-    ], function () { return t.nacharbeit ? 'Nacharbeit offen' : ''; }));
-    nacharbeitZeichnen();
-
-    /* --- 9. Fotos --- */
-    var fotoRaster = el('div', { class: 'foto-raster' });
-    var fotoEingabe = el('input', {
-      type: 'file', accept: 'image/*', multiple: true, class: 'versteckt',
-      onchange: function (e) { fotosHinzufuegen(Array.prototype.slice.call(e.target.files)); e.target.value = ''; }
-    });
-    var kameraEingabe = el('input', {
-      type: 'file', accept: 'image/*', capture: 'environment', class: 'versteckt',
-      onchange: function (e) { fotosHinzufuegen(Array.prototype.slice.call(e.target.files)); e.target.value = ''; }
-    });
-
-    function fotosHinzufuegen(dateien) {
-      if (!dateien.length) return;
-      var eins = Zustand.einstellungen || {};
-      A.toast(dateien.length === 1 ? 'Foto wird verarbeitet …' : dateien.length + ' Fotos werden verarbeitet …');
-      var aufgaben = dateien.map(function (d) {
-        return Store.fotoVerarbeiten(d, eins.fotoMaxKante || 1280, eins.fotoQualitaet || 0.72)
-          .then(function (foto) { t.fotos.push(foto); return true; })
-          .catch(function (fehler) { A.toast(fehler.message, 'fehler'); return false; });
+      Array.prototype.forEach.call(inhalt.querySelectorAll('[data-feld]'), function (knoten) {
+        var k = knoten.getAttribute('data-feld');
+        var istPflicht = Object.prototype.hasOwnProperty.call(pflicht, k);
+        knoten.classList.toggle('pflicht', istPflicht);
+        knoten.classList.toggle('pflicht-offen', istPflicht && !!offen[k]);
       });
-      Promise.all(aufgaben).then(function (ergebnisse) {
-        var erfolgreich = ergebnisse.filter(Boolean).length;
-        if (erfolgreich) A.toast(erfolgreich + ' Foto(s) hinzugefügt.', 'ok');
-        fotosZeichnen();
-      });
-    }
 
-    function fotosZeichnen() {
-      A.leeren(fotoRaster);
-      (t.fotos || []).forEach(function (foto, index) {
-        var beschriftung = el('input', {
-          type: 'text', value: foto.beschriftung || '', placeholder: 'Beschriftung',
-          oninput: function (e) { foto.beschriftung = e.target.value; }
+      A.leeren(statusLeiste);
+      var fehlende = M.pflichtfelder(p, t);
+      if (!fehlende.length) {
+        statusLeiste.className = 'pflicht-leiste fertig';
+        statusLeiste.appendChild(el('span', { class: 'zeichen', text: '✓' }));
+        statusLeiste.appendChild(el('span', { text: 'Alle Pflichtangaben vorhanden' }));
+      } else {
+        statusLeiste.className = 'pflicht-leiste offen';
+        statusLeiste.appendChild(el('span', { class: 'zeichen', text: '!' }));
+        statusLeiste.appendChild(el('span', { class: 'fuellen', text:
+          fehlende.length + (fehlende.length === 1 ? ' Pflichtangabe fehlt' : ' Pflichtangaben fehlen') +
+          '  ·  Speichern ist möglich' }));
+        var chips = el('span', { class: 'chips' });
+        fehlende.slice(0, 8).forEach(function (f) {
+          chips.appendChild(el('button', {
+            type: 'button', class: 'chip klein', text: f.label,
+            title: 'Zu dieser Angabe springen',
+            onclick: function () { zuAbschnitt(f.abschnitt, f.schluessel); }
+          }));
         });
-        fotoRaster.appendChild(el('div', { class: 'foto-karte' }, [
-          el('img', { src: foto.dataUrl, alt: foto.beschriftung || 'Türfoto', loading: 'lazy' }),
-          el('div', { class: 'unten' }, [
-            beschriftung,
-            el('button', { class: 'gefahr klein', text: 'Entfernen', onclick: function () {
-              t.fotos.splice(index, 1); fotosZeichnen();
-            } })
-          ])
-        ]));
-      });
-      if (!t.fotos.length) {
-        fotoRaster.appendChild(el('p', { class: 'zart', text: 'Noch keine Fotos zu dieser Tür.' }));
+        statusLeiste.appendChild(chips);
       }
-      zusammenfassungenAktualisieren();
+      fortschrittZeichnen();
     }
 
-    inhalt.appendChild(abschnitt('Fotos', false, [
-      el('div', { class: 'knopfleiste', style: { marginBottom: '12px' } }, [
-        el('button', { class: 'haupt', text: '📷 Foto aufnehmen',
-          onclick: function () { kameraEingabe.click(); } }),
-        el('button', { text: 'Aus Mediathek wählen', onclick: function () { fotoEingabe.click(); } }),
-        fotoEingabe, kameraEingabe
-      ]),
-      fotoRaster
-    ], function () { return (t.fotos || []).length ? t.fotos.length + ' Foto(s)' : ''; }));
-    fotosZeichnen();
+    /* Zu einer fehlenden Angabe springen - im geführten Ablauf wechselt
+     * dafür der Schritt, in der Vollansicht wird der Block aufgeklappt. */
+    function zuAbschnitt(abschnittId, feldName) {
+      var vorhanden = aktive().filter(function (a) { return a.id === abschnittId; })[0];
+      if (!vorhanden) return;
+      if (Zustand[modusSchluessel] === 'gefuehrt') {
+        schrittId = abschnittId;
+        ansichtNeu();
+      }
+      setTimeout(function () {
+        var ziel = inhalt.querySelector('[data-abschnitt="' + abschnittId + '"]');
+        if (ziel && ziel.tagName === 'DETAILS') ziel.open = true;
+        var feldKnoten = feldName ? inhalt.querySelector('[data-feld="' + feldName + '"]') : null;
+        var scrollZiel = feldKnoten || ziel;
+        if (scrollZiel && scrollZiel.scrollIntoView) {
+          scrollZiel.scrollIntoView({ block: 'center' });
+        }
+        var eingabe = feldKnoten && feldKnoten.querySelector('input, select, textarea');
+        if (eingabe) eingabe.focus();
+      }, 30);
+    }
 
-    /* Erstaufbau: erst jetzt stehen alle Abschnitte bereit */
-    systemAbhaengigesZeichnen();
-    bauteilFelderZeichnen();
-    elektronikSichtbarkeit();
-    zusammenfassungenAktualisieren();
+    /* =======================================================================
+     * Aufbau der Ansicht
+     * ==================================================================== */
+    function modusLeisteZeichnen() {
+      A.leeren(modusLeiste);
+      var gefuehrt = Zustand[modusSchluessel] === 'gefuehrt';
+      modusLeiste.appendChild(el('div', { class: 'modus-leiste' }, [
+        el('div', { class: 'umschalter', role: 'tablist' }, [
+          el('button', { type: 'button', class: gefuehrt ? 'aktiv' : '', text: 'Schritt für Schritt',
+            'aria-pressed': gefuehrt ? 'true' : 'false',
+            onclick: function () { Zustand[modusSchluessel] = 'gefuehrt'; ansichtNeu(); } }),
+          el('button', { type: 'button', class: gefuehrt ? '' : 'aktiv', text: 'Alle Felder',
+            'aria-pressed': gefuehrt ? 'false' : 'true',
+            onclick: function () { Zustand[modusSchluessel] = 'alle'; ansichtNeu(); } })
+        ])
+      ]));
+    }
 
-    /* --- Dialog --- */
-    function neuZeichnenFormular() { /* Platzhalter: gezielte Teilaktualisierungen genügen */ }
+    function fortschrittZeichnen() {
+      A.leeren(fortschritt);
+      if (Zustand[modusSchluessel] !== 'gefuehrt') return;
+      var liste2 = aktive();
+      var index = 0;
+      liste2.forEach(function (a, i) { if (a.id === schrittId) index = i; });
+      fortschritt.appendChild(el('div', { class: 'zeile-verteilt' }, [
+        el('div', { class: 'fuellen' }, [
+          el('b', { text: 'Schritt ' + (index + 1) + ' von ' + liste2.length }),
+          el('span', { class: 'zart', text: '  ·  ' + liste2[index].schritt +
+            (liste2[index].freiwillig ? '  (freiwillig)' : '') })
+        ])
+      ]));
+      var balken = el('div', { class: 'balken' });
+      liste2.forEach(function (a, i) {
+        var fehltHier = M.pflichtfelder(p, t).some(function (f) { return f.abschnitt === a.id; });
+        balken.appendChild(el('button', {
+          type: 'button',
+          class: 'stufe' + (i === index ? ' aktiv' : '') + (fehltHier ? ' offen' : '') +
+                 (i < index ? ' erledigt' : ''),
+          title: a.schritt + (fehltHier ? ' – Pflichtangabe fehlt' : ''),
+          'aria-label': a.schritt,
+          onclick: function () { schrittId = a.id; ansichtNeu(); }
+        }));
+      });
+      fortschritt.appendChild(balken);
+    }
 
+    /* Einen einzelnen Abschnitt neu aufbauen - ohne den Rest anzurühren,
+     * damit laufende Eingaben nicht verloren gehen. */
+    function abschnittNeu(id) {
+      var huelle = inhalt.querySelector('[data-abschnitt="' + id + '"]');
+      if (!huelle) return;
+      var ziel = huelle.classList.contains('abschnitt')
+        ? huelle.querySelector('.koerper') : huelle;
+      if (!ziel) return;
+      A.leeren(ziel);
+      var def = ABSCHNITTE.filter(function (a) { return a.id === id; })[0];
+      if (def) def.bauen(ziel);
+      markieren();
+    }
+
+    function ansichtNeu() {
+      A.leeren(koerper);
+      var liste2 = aktive();
+      if (!liste2.filter(function (a) { return a.id === schrittId; }).length) {
+        schrittId = liste2[0].id;
+      }
+      if (Zustand[modusSchluessel] === 'gefuehrt') {
+        var def = liste2.filter(function (a) { return a.id === schrittId; })[0];
+        var huelle = el('div', { class: 'schritt', 'data-abschnitt': def.id }, [
+          el('h2', { text: def.schritt, style: { marginTop: '0' } })
+        ]);
+        var ziel = el('div');
+        huelle.appendChild(ziel);
+        def.bauen(ziel);
+        koerper.appendChild(huelle);
+      } else {
+        liste2.forEach(function (a) {
+          var inner = el('div', { class: 'koerper' });
+          var block = el('details', {
+            class: 'abschnitt', 'data-abschnitt': a.id,
+            open: !a.freiwillig
+          }, [
+            el('summary', {}, [
+              el('span', { text: a.titel }),
+              el('span', { class: 'zusatz', text: a.freiwillig ? 'freiwillig' : '' })
+            ]),
+            inner
+          ]);
+          a.bauen(inner);
+          koerper.appendChild(block);
+        });
+      }
+      if (!istNeu) {
+        koerper.appendChild(el('div', { class: 'weitere-aktionen' }, [
+          el('span', { class: 'zart fuellen', text: 'Weitere Aktionen zu dieser Tür' }),
+          el('button', { class: 'klein', text: 'Duplizieren', onclick: duplizieren }),
+          el('button', { class: 'klein gefahr', text: 'Löschen', onclick: loeschen })
+        ]));
+      }
+      modusLeisteZeichnen();
+      markieren();
+      fussZeichnen();
+    }
+
+    /* =======================================================================
+     * Speichern
+     * ==================================================================== */
     function uebernehmen(undWeiter) {
       if (!t.nummer && !t.bezeichnung) {
         A.toast('Bitte mindestens Türnummer oder Bezeichnung angeben.', 'fehler');
+        zuAbschnitt('lage', 'bezeichnung');
         return false;
       }
       t.anzahl = Math.max(1, parseInt(t.anzahl, 10) || 1);
       t.geaendert = new Date().toISOString();
+      /* Status aus der Vollständigkeit führen, solange er nicht selbst
+       * gewählt wurde. */
+      M.statusAusPruefung(p, t);
+      var fehlende = M.pflichtfelder(p, t);
+
       A.schrittMerken(istNeu ? ('Tür ' + (t.nummer || t.bezeichnung) + ' angelegt')
                              : ('Tür ' + (t.nummer || t.bezeichnung) + ' geändert'));
       if (istNeu) {
@@ -7186,68 +8435,122 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       }
       A.alsGeaendertMarkieren();
       A.speichern();
+
+      var meldung = fehlende.length
+        ? ('Gespeichert – ' + fehlende.length +
+           (fehlende.length === 1 ? ' Pflichtangabe fehlt noch.' : ' Pflichtangaben fehlen noch.'))
+        : 'Tür gespeichert.';
       if (undWeiter) {
-        A.toast('Tür gespeichert. Nächste Tür …', 'ok');
+        A.toast(meldung + ' Nächste Tür …', fehlende.length ? 'warn' : 'ok');
         neuZeichnen();
-        setTimeout(function () { tuerBearbeiten(null, neuZeichnen); }, 120);
+        setTimeout(function () { tuerBearbeiten(null, neuZeichnen, vorgaben); }, 120);
         return true;
       }
-      A.toast('Tür gespeichert.', 'ok');
+      A.toast(meldung, fehlende.length ? 'warn' : 'ok');
       neuZeichnen();
       return true;
     }
 
-    var knoepfe = [];
-    if (!istNeu) {
-      knoepfe.push({ text: 'Duplizieren', aktion: function (schliessen) {
-        A.schrittMerken('Tür dupliziert');
-        var kopie = JSON.parse(JSON.stringify(t));
-        kopie.id = M.uid('tur');
-        kopie.nummer = naechsteNummer(t.nummer);
-        kopie.fotos = [];
-        p.tueren.push(kopie);
-        A.alsGeaendertMarkieren(); A.speichern(); neuZeichnen();
-        schliessen();
-        setTimeout(function () { tuerBearbeiten(kopie, neuZeichnen); }, 100);
-        return false;
-      } });
-      knoepfe.push({ text: 'Löschen', klasse: 'gefahr', aktion: function (schliessen) {
-        A.bestaetigen('Tür löschen?', 'Die Tür „' + (t.nummer || t.bezeichnung) +
-          '“ wird gelöscht, samt Fotos und Berechtigungen im Schließplan.').then(function (ja) {
-          if (!ja) return;
-          A.schrittMerken('Tür ' + (t.nummer || t.bezeichnung) + ' gelöscht');
-          p.tueren = p.tueren.filter(function (x) { return x.id !== t.id; });
-          M.matrixAufraeumen(p);
-          A.alsGeaendertMarkieren(); A.speichern(); neuZeichnen();
-          A.toast('Tür gelöscht.');
-          schliessen();
-        });
-        return false;
-      } });
-    }
-    knoepfe.push({ fuellen: true });
-    knoepfe.push({ text: 'Abbrechen' });
-    if (istNeu) {
-      knoepfe.push({ text: 'Speichern & nächste', aktion: function (schliessen) {
-        if (uebernehmen(true)) schliessen();
-        return false;
-      } });
-    }
-    knoepfe.push({ text: istNeu ? 'Tür speichern' : 'Änderungen übernehmen', klasse: 'haupt',
-      aktion: function (schliessen) { if (uebernehmen(false)) schliessen(); return false; } });
-
-    A.dialogOeffnen({
+    /* =======================================================================
+     * Dialog samt Fußzeile
+     * ==================================================================== */
+    var dlg = A.dialogOeffnen({
       titel: istNeu ? 'Neue Tür aufnehmen'
         : 'Tür bearbeiten: ' + (t.nummer || t.bezeichnung || ''),
-      inhalt: inhalt, knoepfe: knoepfe
+      inhalt: inhalt,
+      knoepfe: [{ text: 'Abbrechen' }]
     });
+    var fuss = dlg.kasten.querySelector('.fuss');
+
+    function fussZeichnen() {
+      if (!fuss) return;
+      A.leeren(fuss);
+      var gefuehrt = Zustand[modusSchluessel] === 'gefuehrt';
+      var liste2 = aktive();
+      var index = 0;
+      liste2.forEach(function (a, i) { if (a.id === schrittId) index = i; });
+
+      function knopf(eigenschaften) { fuss.appendChild(el('button', eigenschaften)); }
+
+      /* Duplizieren und Löschen stehen am Ende des Formulars, nicht in der
+       * Daumenzone: Dort ist der Platz für das gedacht, was ständig
+       * gebraucht wird - und ein versehentliches Löschen wäre teuer. */
+      fuss.appendChild(el('div', { class: 'fuellen' }));
+
+      if (gefuehrt) {
+        knopf({ text: '← Zurück', disabled: index === 0,
+          onclick: function () { schrittId = liste2[index - 1].id; ansichtNeu(); } });
+        if (index < liste2.length - 1) {
+          knopf({ class: 'haupt', text: 'Weiter →',
+            onclick: function () { schrittId = liste2[index + 1].id; ansichtNeu(); } });
+          /* Dieselbe Beschriftung wie am Ende: Wer vor Ort abbrechen muss,
+           * soll nicht raten, welcher Knopf die Tür sichert. */
+          knopf({ class: 'klein', text: istNeu ? 'Tür speichern' : 'Änderungen übernehmen',
+            onclick: function () { if (uebernehmen(false)) dlg.schliessen(); } });
+        } else {
+          if (istNeu) {
+            knopf({ text: 'Speichern & nächste',
+              onclick: function () { if (uebernehmen(true)) dlg.schliessen(); } });
+          }
+          knopf({ class: 'haupt', text: istNeu ? 'Tür speichern' : 'Änderungen übernehmen',
+            onclick: function () { if (uebernehmen(false)) dlg.schliessen(); } });
+        }
+      } else {
+        knopf({ text: 'Abbrechen', onclick: function () { dlg.schliessen(); } });
+        if (istNeu) {
+          knopf({ text: 'Speichern & nächste',
+            onclick: function () { if (uebernehmen(true)) dlg.schliessen(); } });
+        }
+        knopf({ class: 'haupt', text: istNeu ? 'Tür speichern' : 'Änderungen übernehmen',
+          onclick: function () { if (uebernehmen(false)) dlg.schliessen(); } });
+      }
+    }
+
+    function duplizieren() {
+      A.schrittMerken('Tür dupliziert');
+      var kopie = JSON.parse(JSON.stringify(t));
+      kopie.id = M.uid('tur');
+      kopie.nummer = naechsteNummer(t.nummer) || M.naechsteLaufendeNummer(p);
+      kopie.fotos = [];
+      p.tueren.push(kopie);
+      A.alsGeaendertMarkieren(); A.speichern(); neuZeichnen();
+      dlg.schliessen();
+      setTimeout(function () { tuerBearbeiten(kopie, neuZeichnen, vorgaben); }, 100);
+    }
+
+    function loeschen() {
+      A.bestaetigen('Tür löschen?', 'Die Tür „' + (t.nummer || t.bezeichnung) +
+        '“ wird gelöscht, samt Fotos und Berechtigungen im Schließplan.').then(function (ja) {
+        if (!ja) return;
+        A.schrittMerken('Tür ' + (t.nummer || t.bezeichnung) + ' gelöscht');
+        p.tueren = p.tueren.filter(function (x) { return x.id !== t.id; });
+        M.matrixAufraeumen(p);
+        A.alsGeaendertMarkieren(); A.speichern(); neuZeichnen();
+        A.toast('Tür gelöscht.');
+        dlg.schliessen();
+      });
+    }
+
+    ansichtNeu();
+  }
+
+  /* Gesamtlänge eines Zylinders, sofern beide Maße vorliegen. */
+  function gesamtlaenge(t) {
+    var a = parseFloat(String(t.masseAussen || '').replace(',', '.'));
+    var i = parseFloat(String(t.masseInnen || '').replace(',', '.'));
+    if (!isFinite(a) || !isFinite(i)) return '';
+    return String(Math.round((a + i) * 10) / 10);
   }
 
   /* Eine neue Tür beginnt bewusst leer: Es werden keine Angaben der zuvor
    * erfassten Tür übernommen. Vorbelegt wird allein die laufende Nummer und
    * der Status; alles andere wird bewusst gewählt. */
-  function vorlageFuerNeueTuer() {
-    return { nummer: M.naechsteLaufendeNummer(Zustand.projekt), status: 'aufgemessen' };
+  function vorlageFuerNeueTuer(vorgaben) {
+    var v = { nummer: M.naechsteLaufendeNummer(Zustand.projekt), status: 'aufgemessen' };
+    /* Wird die Tür aus einem Bereich heraus angelegt, steht der Bereich
+     * schon fest und muss nicht erneut gewählt werden. */
+    if (vorgaben && vorgaben.strukturId) v.strukturId = vorgaben.strukturId;
+    return v;
   }
 
   /* "A-EG-01" -> "A-EG-02"; ohne Ziffer am Ende bleibt das Feld leer. */
@@ -7264,6 +8567,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
   global.ViewsTueren = {
     ansichtTueren: ansichtTueren,
     tuerBearbeiten: tuerBearbeiten,
+    tuerZeile: tuerZeile,
     strukturOptionen: strukturOptionen,
     naechsteNummer: naechsteNummer,
     vorlageFuerNeueTuer: vorlageFuerNeueTuer,
@@ -7398,10 +8702,11 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     var kopfZeile = el('tr', {}, [el('th', { class: 'ecke', text: 'Tür / Schließung' })]);
     schliessungen.forEach(function (s) {
       var titel = (s.kuerzel ? s.kuerzel + ' ' : '') + (s.bezeichnung || '');
+      var traeger = K.traegerText(s);
       kopfZeile.appendChild(el('th', {
         class: 'spaltenkopf' + (entfernenAn.wert ? ' entfernbar' : ''),
         title: entfernenAn.wert ? ('Schließung „' + titel + '“ entfernen')
-                                : (titel + (s.person ? ' – ' + s.person : '')),
+                                : (titel + (traeger ? ' – ' + traeger : '')),
         onclick: function () {
           if (entfernenAn.wert) schliessungEntfernen(s);
           else schliessungBearbeiten(s, neuZeichnen);
@@ -7411,7 +8716,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
         el('span', { class: 'dreh', text: titel || '–' }),
         entfernenAn.wert
           ? el('span', { class: 'entfernen-zeichen', text: '✕' })
-          : el('span', { class: 'medien', text: (parseInt(s.anzahlMedien, 10) || 0) + '×' })
+          : el('span', { class: 'medien', text: M.medienAnzahl(s) + '×' })
       ]));
     });
     tabelle.appendChild(el('thead', {}, kopfZeile));
@@ -7840,22 +9145,209 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     });
   }
 
+  /* =========================================================================
+   * Personen einer Schließung
+   * ======================================================================
+   * Eine Schließung wird entweder von namentlich benannten Einzelpersonen
+   * oder von einer Gruppe getragen. Die Liste ist in beiden Fällen dieselbe;
+   * bei einer Gruppe heißen die Einträge Mitglieder.
+   *
+   * Aus der Summe der Personen ergibt sich die Anzahl der Medien - außer
+   * die Zahl wurde ausdrücklich selbst eingetragen.
+   */
+  function personenListeBauen(s, beiAenderung) {
+    var behaelter = el('div');
+
+    function zeichnen() {
+      A.leeren(behaelter);
+      var liste = el('div', { class: 'person-liste' });
+      (s.personen || []).forEach(function (person, index) {
+        liste.appendChild(el('div', { class: 'person-zeile' }, [
+          A.textFeld(person, 'name', (index + 1) + '. Name',
+            { platzhalter: 'z. B. Herr Özdemir', beiAenderung: melden }),
+          A.textFeld(person, 'funktion', 'Funktion / Abteilung',
+            { platzhalter: 'z. B. Hausmeister' }),
+          A.textFeld(person, 'anzahlMedien', 'Medien',
+            { typ: 'number', inputmode: 'numeric', beiAenderung: melden }),
+          el('button', {
+            class: 'klein gefahr nur-symbol entfernen', text: '✕',
+            title: 'Person entfernen',
+            onclick: function () {
+              A.schrittMerken('Person entfernt: ' + (person.name || 'ohne Namen'));
+              s.personen.splice(index, 1);
+              melden(); zeichnen();
+            }
+          })
+        ]));
+      });
+      if (!(s.personen || []).length) {
+        liste.appendChild(el('p', { class: 'zart',
+          text: s.traegerArt === 'gruppe'
+            ? 'Noch keine Mitglieder hinterlegt.'
+            : 'Noch keine Person benannt.' }));
+      }
+      behaelter.appendChild(liste);
+      behaelter.appendChild(el('div', { class: 'knopfleiste', style: { marginTop: '10px' } },
+        el('button', { text: s.traegerArt === 'gruppe' ? '+ Mitglied' : '+ Person',
+          onclick: function () {
+            A.schrittMerken('Person hinzugefügt');
+            if (!Array.isArray(s.personen)) s.personen = [];
+            s.personen.push(M.neuePerson());
+            melden(); zeichnen();
+            /* Gleich in das neue Namensfeld springen */
+            setTimeout(function () {
+              var felder = behaelter.querySelectorAll('.person-zeile input');
+              var letzte = felder[(s.personen.length - 1) * 3];
+              if (letzte) letzte.focus();
+            }, 30);
+          } })));
+    }
+
+    function melden() {
+      A.alsGeaendertMarkieren();
+      if (beiAenderung) beiAenderung();
+    }
+
+    zeichnen();
+    return behaelter;
+  }
+
   /* --- Schließung anlegen / bearbeiten ------------------------------------ */
   function schliessungBearbeiten(vorhandene, neuZeichnen) {
     var p = Zustand.projekt;
     var istNeu = !vorhandene;
     var s = istNeu ? M.neueSchliessung({ sort: p.schliessungen.length })
                    : JSON.parse(JSON.stringify(vorhandene));
+    if (!Array.isArray(s.personen)) s.personen = [];
 
-    var inhalt = el('div', { class: 'raster' }, [
+    var inhalt = el('div');
+    var traegerBereich = el('div');
+    var medienBereich = el('div');
+
+    inhalt.appendChild(el('div', { class: 'raster' }, [
       A.textFeld(s, 'kuerzel', 'Kürzel', { platzhalter: 'z. B. GHS, HS-A, VW' }),
       A.textFeld(s, 'bezeichnung', 'Bezeichnung', { platzhalter: 'z. B. Generalhauptschlüssel' }),
-      A.auswahlFeld(s, 'typ', 'Typ', K.SCHLIESSUNG_TYPEN, { leerText: '– bitte wählen –' }),
-      A.textFeld(s, 'anzahlMedien', 'Anzahl Schlüssel / Medien', { typ: 'number', inputmode: 'numeric' }),
-      A.textFeld(s, 'person', 'Person'),
-      A.textFeld(s, 'abteilung', 'Abteilung / Bereich'),
+      A.auswahlFeld(s, 'typ', 'Rang im Plan', K.SCHLIESSUNG_TYPEN, { leerText: '– ohne Angabe –' })
+    ]));
+
+    inhalt.appendChild(el('hr', { class: 'trenner' }));
+    inhalt.appendChild(el('h3', { text: 'Wer bekommt dieses Medium?', style: { marginTop: '0' } }));
+    inhalt.appendChild(el('div', { class: 'raster' }, [
+      A.auswahlFeld(s, 'traegerArt', 'Träger', K.TRAEGER_ART,
+        { leerText: '– noch offen –', beiAenderung: function () { traegerZeichnen(); } })
+    ]));
+    inhalt.appendChild(traegerBereich);
+    inhalt.appendChild(medienBereich);
+    inhalt.appendChild(el('div', { class: 'raster', style: { marginTop: '14px' } }, [
       A.bereichFeld(s, 'bemerkung', 'Bemerkung', { zeilen: 2 })
-    ]);
+    ]));
+
+    function traegerZeichnen() {
+      A.leeren(traegerBereich);
+      var art = K.TRAEGER_ART.filter(function (a) { return a.id === s.traegerArt; })[0];
+      if (art) {
+        traegerBereich.appendChild(el('p', { class: 'hinweis', style: { marginTop: '8px' },
+          text: art.hinweis }));
+      }
+
+      if (s.traegerArt === 'gruppe') {
+        traegerBereich.appendChild(el('div', { class: 'raster', style: { marginTop: '10px' } }, [
+          A.textFeld(s, 'gruppenName', 'Gruppenname',
+            { platzhalter: 'z. B. Reinigung, IT, Hausmeisterei',
+              beiAenderung: function () { gruppenKnopfAktualisieren(); } })
+        ]));
+        /* Auf den Gruppennamen tippen öffnet die Mitgliederliste */
+        var knopf = el('button', { class: 'gruppen-knopf', style: { marginTop: '10px' },
+          onclick: function () { mitgliederDialog(); } });
+        traegerBereich.appendChild(knopf);
+        gruppenKnopfAktualisieren();
+
+        function gruppenKnopfAktualisieren() {
+          var benannt = (s.personen || []).filter(function (x) { return x && String(x.name || '').trim(); });
+          A.leeren(knopf);
+          knopf.appendChild(el('span', { class: 'name',
+            text: s.gruppenName ? ('Gruppe „' + s.gruppenName + '“') : 'Gruppe (noch ohne Namen)' }));
+          knopf.appendChild(el('span', { class: 'zahl', text: benannt.length
+            ? (benannt.length + (benannt.length === 1 ? ' Mitglied' : ' Mitglieder')) 
+            : 'Mitglieder hinterlegen' }));
+          knopf.appendChild(el('span', { class: 'oeffnen-pfeil', text: '›' }));
+        }
+      } else if (s.traegerArt === 'einzel') {
+        traegerBereich.appendChild(el('h3', { text: 'Personen' }));
+        traegerBereich.appendChild(personenListeBauen(s, function () { medienZeichnen(); }));
+      }
+      medienZeichnen();
+    }
+
+    /* Mitgliederliste einer Gruppe in einem eigenen Dialog: vor Ort ist das
+     * ein eigener Arbeitsschritt und soll den Rest nicht verdecken. */
+    function mitgliederDialog() {
+      var innen = el('div');
+      innen.appendChild(el('p', { class: 'hinweis', style: { marginTop: '0' },
+        text: 'Die Mitglieder dieser Gruppe. Die Anzahl der Medien ergibt sich aus der Summe – ' +
+              'je Person lässt sich eine eigene Anzahl eintragen.' }));
+      innen.appendChild(personenListeBauen(s, function () { medienZeichnen(); }));
+      A.dialogOeffnen({
+        titel: s.gruppenName ? ('Mitglieder: ' + s.gruppenName) : 'Mitglieder der Gruppe',
+        inhalt: innen,
+        knoepfe: [{ fuellen: true }, { text: 'Fertig', klasse: 'haupt' }],
+        beimSchliessen: function () { traegerZeichnen(); }
+      });
+    }
+
+    /* Anzahl der Medien: errechnet oder selbst eingetragen. Beides ist
+     * zulässig, aber es muss sichtbar sein, welches gerade gilt. */
+    function medienZeichnen() {
+      A.leeren(medienBereich);
+      var benannt = (s.personen || []).filter(function (x) { return x && String(x.name || '').trim(); });
+      var errechnet = benannt.reduce(function (sum, x) {
+        var n = parseInt(x.anzahlMedien, 10);
+        return sum + ((!n || n < 1) ? 1 : n);
+      }, 0);
+      var automatisch = !s.medienVonHand && benannt.length > 0;
+
+      medienBereich.appendChild(el('hr', { class: 'trenner' }));
+      /* Ohne die Art des Mediums lässt sich nicht bestellen: 40 Stück
+       * wovon? Die Auswahl ergibt sich aus den Systemen des Projekts. */
+      var medienArten = M.identmedienAuswahl(p,
+        (Zustand.einstellungen && Zustand.einstellungen.eigeneSysteme) || []);
+      medienBereich.appendChild(el('div', { class: 'raster' }, [
+        medienArten.length
+          ? A.auswahlFeld(s, 'medienTyp', 'Art des Mediums', medienArten,
+              { leerText: '– noch offen –' })
+          : A.textFeld(s, 'medienTyp', 'Art des Mediums',
+              { platzhalter: 'z. B. Schlüssel, Transponder, Karte' })
+      ]));
+      if (automatisch) {
+        s.anzahlMedien = errechnet;
+        medienBereich.appendChild(el('div', { class: 'feld' }, [
+          el('label', { html: 'Anzahl Schlüssel / Medien <span class="einheit">(automatisch aus der Personenliste)</span>' }),
+          el('input', { type: 'text', value: String(errechnet), readonly: true })
+        ]));
+        medienBereich.appendChild(el('div', { class: 'knopfleiste', style: { marginTop: '8px' } },
+          el('button', { class: 'klein', text: 'Anzahl von Hand eintragen', onclick: function () {
+            A.schrittMerken('Medienanzahl von Hand');
+            s.medienVonHand = true; A.alsGeaendertMarkieren(); medienZeichnen();
+          } })));
+      } else {
+        medienBereich.appendChild(el('div', { class: 'raster' }, [
+          A.textFeld(s, 'anzahlMedien', 'Anzahl Schlüssel / Medien',
+            { typ: 'number', inputmode: 'numeric',
+              beiAenderung: function () { s.medienVonHand = true; } })
+        ]));
+        if (benannt.length) {
+          medienBereich.appendChild(el('div', { class: 'knopfleiste', style: { marginTop: '8px' } },
+            el('button', { class: 'klein', text: 'Wieder automatisch (' + errechnet + ')',
+              title: 'Anzahl aus der Personenliste errechnen',
+              onclick: function () {
+                A.schrittMerken('Medienanzahl wieder automatisch');
+                s.medienVonHand = false; A.alsGeaendertMarkieren(); medienZeichnen();
+              } })));
+        }
+      }
+    }
+
+    traegerZeichnen();
 
     var knoepfe = [];
     if (!istNeu) {
@@ -7878,9 +9370,19 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     knoepfe.push({ text: 'Abbrechen' });
     knoepfe.push({ text: istNeu ? 'Anlegen' : 'Übernehmen', klasse: 'haupt', aktion: function (schliessen) {
       if (!s.kuerzel && !s.bezeichnung) { A.toast('Bitte Kürzel oder Bezeichnung angeben.', 'fehler'); return false; }
+      if (s.traegerArt === 'gruppe' && !String(s.gruppenName || '').trim()) {
+        A.toast('Bitte einen Gruppennamen angeben.', 'fehler'); return false;
+      }
       A.schrittMerken(istNeu ? ('Schließung ' + (s.kuerzel || s.bezeichnung) + ' angelegt')
                              : ('Schließung ' + (s.kuerzel || s.bezeichnung) + ' geändert'));
-      s.anzahlMedien = Math.max(0, parseInt(s.anzahlMedien, 10) || 0);
+      /* Namenlose Einträge werden nicht mitgeschleppt */
+      s.personen = (s.personen || []).filter(function (x) { return x && String(x.name || '').trim(); })
+        .map(function (x) {
+          var n = parseInt(x.anzahlMedien, 10);
+          x.anzahlMedien = (!n || n < 1) ? 1 : n;
+          return x;
+        });
+      M.medienAngleichen(s);
       if (istNeu) p.schliessungen.push(s);
       else {
         var i = p.schliessungen.findIndex(function (x) { return x.id === s.id; });
@@ -7907,7 +9409,8 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       if (!sortiert.length) { inhalt.appendChild(el('p', { class: 'zart', text: 'Keine Schließungen vorhanden.' })); return; }
       var tab = el('table');
       tab.appendChild(el('thead', {}, el('tr', {}, [
-        el('th', { text: 'Kürzel' }), el('th', { text: 'Bezeichnung' }), el('th', { text: 'Typ' }),
+        el('th', { text: 'Kürzel' }), el('th', { text: 'Bezeichnung' }),
+        el('th', { text: 'Rang im Plan' }), el('th', { text: 'Träger' }),
         el('th', { class: 'zahl', text: 'Medien' }), el('th', { text: 'Reihenfolge' })
       ])));
       var tb = el('tbody');
@@ -7917,7 +9420,9 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
           el('td', { onclick: function () { schliessungBearbeiten(s, neuZeichnen); }, text: s.kuerzel || '—' }),
           el('td', { onclick: function () { schliessungBearbeiten(s, neuZeichnen); }, text: s.bezeichnung || '' }),
           el('td', { text: typ ? typ.label : (s.typ || '') }),
-          el('td', { class: 'zahl', text: String(s.anzahlMedien || 0) }),
+          el('td', { onclick: function () { schliessungBearbeiten(s, neuZeichnen); },
+                     text: K.traegerText(s) || '– noch offen –' }),
+          el('td', { class: 'zahl', text: String(M.medienAnzahl(s)) }),
           el('td', {}, el('div', { class: 'knopfleiste' }, [
             el('button', { class: 'klein nur-symbol', text: '↑', disabled: index === 0, onclick: function () {
               A.schrittMerken('Reihenfolge der Schließungen geändert');
@@ -7986,6 +9491,11 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     /* --- PDF-Ausgaben --- */
     var detailMitFotos = { wert: true };
     var fotoSchalter = A.schalterFeld(detailMitFotos, 'wert', 'Fotos in das Datenblatt übernehmen');
+    /* Standardmäßig aus: ohne die Türspalte bleibt mehr Platz für die
+     * Maßspalten, und das ist beim Bestellen das Wichtigere. */
+    var materialMitTueren = { wert: false };
+    var tuerSchalter = A.schalterFeld(materialMitTueren, 'wert',
+      'Türnummern je Position mit ausgeben');
 
     seite.appendChild(el('div', { class: 'karte' }, [
       el('h2', { text: 'PDF-Ausgaben' }),
@@ -8002,8 +9512,11 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
           'Zutrittsmatrix Türen × Schließungen im Querformat, inklusive Legende und Schließungsübersicht.',
           function () { pdfErzeugen(function () { return Reports.schliessplan(p, eins); }, 'Kreuzschliessplan'); }),
         exportKarte('Materialliste',
-          'Aggregierte Stückliste je System als Grundlage für Angebot und Bestellung.',
-          function () { pdfErzeugen(function () { return Reports.materialliste(p, eins); }, 'Materialliste'); }),
+          'Bestellgrundlage, gegliedert nach Gewerk und Hersteller. Jede Bauteilart mit ' +
+          'ihren eigenen Maßspalten; Artikelnummer und Preis bleiben zum Ausfüllen frei.',
+          function () { pdfErzeugen(function () {
+            return Reports.materialliste(p, eins, { mitTueren: materialMitTueren.wert });
+          }, 'Materialliste'); }, tuerSchalter),
         exportKarte('Prüfprotokoll',
           'Alle Vollständigkeitshinweise als Abarbeitungsliste für das Büro.',
           function () { pdfErzeugen(function () { return Reports.pruefprotokoll(p, eins); }, 'Pruefprotokoll'); })
@@ -8519,8 +10032,12 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
         if (r.id === 'plan') zahl = p.schliessungen.length;
         if (r.id === 'struktur') zahl = p.standorte.length;
       }
+      /* Die Bereichsansicht ist ein Unterweg der Struktur und wird dort
+       * mit hervorgehoben - sonst wirkt kein Reiter aktiv. */
+      var aktiv = Zustand.ansicht === r.id ||
+                  (r.id === 'struktur' && Zustand.ansicht === 'bereich');
       reiterLeiste.appendChild(el('button', {
-        role: 'tab', 'aria-selected': Zustand.ansicht === r.id ? 'true' : 'false',
+        role: 'tab', 'aria-selected': aktiv ? 'true' : 'false',
         disabled: gesperrt,
         onclick: function () { wechseln(r.id); }
       }, [
@@ -8541,18 +10058,23 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       projekte:  { text: '+ Neues Aufmaß', tun: function () { VP.neuesProjektAnlegen(zeichnen); } },
       tueren:    { text: '+ Neue Tür',     tun: function () { VT.tuerBearbeiten(null, zeichnen); } },
       struktur:  { text: '+ Standort',     tun: function () { VP.standortAnlegen(zeichnen); } },
+      bereich:   { text: '+ Neue Tür hier', tun: function () {
+                     VT.tuerBearbeiten(null, zeichnen, { strukturId: Zustand.bereichId }); } },
       plan:      { text: '+ Schließung',   tun: function () { VPL.schliessungBearbeiten(null, zeichnen); } }
     };
 
     if (!p && ['projekte', 'einstellungen'].indexOf(Zustand.ansicht) === -1) {
       Zustand.ansicht = 'projekte';
     }
+    /* Ohne gewählten Bereich gibt es nichts zu zeigen */
+    if (Zustand.ansicht === 'bereich' && !Zustand.bereichId) Zustand.ansicht = 'struktur';
 
     try {
       switch (Zustand.ansicht) {
         case 'projekte':      VP.ansichtProjekte(haupt, zeichnen); break;
         case 'stammdaten':    VP.ansichtStammdaten(haupt); break;
         case 'struktur':      VP.ansichtStruktur(haupt, zeichnen); break;
+        case 'bereich':       VP.ansichtBereich(haupt, zeichnen); break;
         case 'tueren':        VT.ansichtTueren(haupt, zeichnen); break;
         case 'plan':          VPL.ansichtPlan(haupt, zeichnen); break;
         case 'export':        VPL.ansichtExport(haupt, zeichnen); break;

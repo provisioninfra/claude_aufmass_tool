@@ -57,8 +57,12 @@
         if (r.id === 'plan') zahl = p.schliessungen.length;
         if (r.id === 'struktur') zahl = p.standorte.length;
       }
+      /* Die Bereichsansicht ist ein Unterweg der Struktur und wird dort
+       * mit hervorgehoben - sonst wirkt kein Reiter aktiv. */
+      var aktiv = Zustand.ansicht === r.id ||
+                  (r.id === 'struktur' && Zustand.ansicht === 'bereich');
       reiterLeiste.appendChild(el('button', {
-        role: 'tab', 'aria-selected': Zustand.ansicht === r.id ? 'true' : 'false',
+        role: 'tab', 'aria-selected': aktiv ? 'true' : 'false',
         disabled: gesperrt,
         onclick: function () { wechseln(r.id); }
       }, [
@@ -79,18 +83,23 @@
       projekte:  { text: '+ Neues Aufmaß', tun: function () { VP.neuesProjektAnlegen(zeichnen); } },
       tueren:    { text: '+ Neue Tür',     tun: function () { VT.tuerBearbeiten(null, zeichnen); } },
       struktur:  { text: '+ Standort',     tun: function () { VP.standortAnlegen(zeichnen); } },
+      bereich:   { text: '+ Neue Tür hier', tun: function () {
+                     VT.tuerBearbeiten(null, zeichnen, { strukturId: Zustand.bereichId }); } },
       plan:      { text: '+ Schließung',   tun: function () { VPL.schliessungBearbeiten(null, zeichnen); } }
     };
 
     if (!p && ['projekte', 'einstellungen'].indexOf(Zustand.ansicht) === -1) {
       Zustand.ansicht = 'projekte';
     }
+    /* Ohne gewählten Bereich gibt es nichts zu zeigen */
+    if (Zustand.ansicht === 'bereich' && !Zustand.bereichId) Zustand.ansicht = 'struktur';
 
     try {
       switch (Zustand.ansicht) {
         case 'projekte':      VP.ansichtProjekte(haupt, zeichnen); break;
         case 'stammdaten':    VP.ansichtStammdaten(haupt); break;
         case 'struktur':      VP.ansichtStruktur(haupt, zeichnen); break;
+        case 'bereich':       VP.ansichtBereich(haupt, zeichnen); break;
         case 'tueren':        VT.ansichtTueren(haupt, zeichnen); break;
         case 'plan':          VPL.ansichtPlan(haupt, zeichnen); break;
         case 'export':        VPL.ansichtExport(haupt, zeichnen); break;

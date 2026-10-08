@@ -316,9 +316,18 @@ td.zahl, th.zahl { text-align: right; font-variant-numeric: tabular-nums; }
 .knoten {
   display: flex; align-items: center; gap: 9px; padding: 8px 11px;
   background: var(--flaeche); border: 1px solid var(--rand);
-  border-radius: var(--radius-klein); min-height: 42px;
+  border-radius: var(--radius-klein); min-height: 42px; flex-wrap: wrap;
 }
-.knoten .name { flex: 1; font-weight: 600; font-size: 14px; min-width: 0; }
+/* Der Namensbereich ist der Weg in die Bereichsansicht und muss überall
+   als Ganzes treffbar sein - auch wenn rechts fünf Aktionen stehen. */
+.knoten .knoten-haupt {
+  flex: 1 1 180px; min-width: 0; display: flex; align-items: center; gap: 9px;
+  background: none; border: 0; padding: 4px 0; min-height: var(--tap);
+  text-align: left; color: inherit; font: inherit; border-radius: var(--radius-klein);
+}
+.knoten .knoten-haupt:hover { background: var(--akzent-bg); }
+.knoten .name { flex: 1; font-weight: 600; font-size: 14px; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .knoten .ebene-marke {
   font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
   color: var(--text-zart); padding: 2px 7px; background: var(--flaeche-3); border-radius: 4px;
@@ -435,8 +444,11 @@ table.matrix td.tuername.entfernbar { background: rgba(179,38,30,.06); }
   display: flex; gap: 10px; padding: 14px 18px; border-top: 1px solid var(--rand);
   position: sticky; bottom: 0; background: var(--flaeche); border-radius: 0 0 14px 14px;
   padding-bottom: max(14px, env(safe-area-inset-bottom));
+  /* Auf dem Telefon passen nicht alle Knöpfe nebeneinander. Sie brechen um,
+     statt die Fußzeile seitlich scrollen zu lassen. */
+  flex-wrap: wrap;
 }
-.dialog > .fuss .fuellen { flex: 1; }
+.dialog > .fuss .fuellen { flex: 1 1 0; min-width: 0; }
 .dialog > .fuss button { min-height: var(--tap-gross); }
 .dialog > .fuss button.haupt { flex: 1 1 auto; min-width: 44%; font-size: 16px; }
 
@@ -595,3 +607,142 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
   main.inhalt { overflow: visible; padding: 0; }
   .karte, .tuer-liste { box-shadow: none; break-inside: avoid; }
 }
+
+/* =============================================================================
+   Türformular: geführter Ablauf und Pflichtangaben
+   ========================================================================== */
+.modus-leiste { display: flex; margin-bottom: 14px; }
+.modus-leiste .umschalter {
+  display: flex; gap: 0; border: 1px solid var(--rand); border-radius: var(--radius-klein);
+  overflow: hidden; width: 100%;
+}
+.modus-leiste .umschalter button {
+  flex: 1; border: 0; border-radius: 0; background: var(--flaeche-2);
+  min-height: var(--tap); font-size: 14.5px; font-weight: 600; color: var(--text-schwach);
+}
+.modus-leiste .umschalter button + button { border-left: 1px solid var(--rand); }
+.modus-leiste .umschalter button.aktiv { background: var(--akzent); color: #fff; }
+
+/* Kopfzeile mit dem Stand der Pflichtangaben */
+.pflicht-leiste {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 9px;
+  padding: 10px 13px; border-radius: var(--radius-klein); margin-bottom: 12px;
+  font-size: 14px; border: 1px solid var(--rand);
+}
+.pflicht-leiste .fuellen { flex: 1 1 auto; }
+.pflicht-leiste .zeichen {
+  width: 24px; height: 24px; border-radius: 50%; display: inline-flex;
+  align-items: center; justify-content: center; font-weight: 700; flex: none;
+}
+.pflicht-leiste.fertig { background: rgba(31,122,61,.10); border-color: rgba(31,122,61,.35); color: var(--gruen); }
+.pflicht-leiste.fertig .zeichen { background: var(--gruen); color: #fff; }
+.pflicht-leiste.offen { background: rgba(179,114,30,.12); border-color: rgba(179,114,30,.40); color: var(--gelb); }
+.pflicht-leiste.offen .zeichen { background: var(--gelb); color: #fff; }
+.pflicht-leiste .chips { flex-basis: 100%; }
+.pflicht-leiste .chip {
+  min-height: var(--tap); padding: 8px 12px; font-size: 14px;
+  background: var(--flaeche); border-color: var(--gelb); color: var(--gelb);
+}
+
+/* Fortschritt im geführten Ablauf */
+.schritt-fortschritt { margin-bottom: 14px; }
+.schritt-fortschritt .balken { display: flex; gap: 4px; }
+/* Die Stufen sind auch Sprungziele. Der sichtbare Balken bleibt schmal, die
+   Fingerfläche ist die ganze Zeilenhöhe - sonst wäre er nicht treffbar. */
+.schritt-fortschritt .stufe {
+  flex: 1; min-height: var(--tap); padding: 0; border: 0; background: none;
+  display: flex; align-items: center; cursor: pointer; border-radius: 0;
+}
+.schritt-fortschritt .stufe::after {
+  content: ''; display: block; width: 100%; height: 8px;
+  border-radius: 4px; background: var(--rand);
+}
+.schritt-fortschritt .stufe.erledigt::after { background: var(--akzent-hell); }
+.schritt-fortschritt .stufe.aktiv::after { background: var(--akzent); height: 12px; }
+.schritt-fortschritt .stufe.offen::after { background: var(--gelb); }
+.schritt { padding-bottom: 4px; }
+.schritt > h2 { border: 0; padding: 0; margin-bottom: 14px; font-size: 18px; }
+
+/* Pflichtfelder kennzeichnen. Die Kennzeichnung sperrt nichts - sie zeigt
+   nur, was für die Bestellung gebraucht wird. */
+.feld.pflicht > label::after {
+  content: ' Pflicht'; font-size: 10.5px; font-weight: 700; letter-spacing: .3px;
+  color: var(--gelb); text-transform: uppercase;
+}
+.feld.pflicht-offen > input,
+.feld.pflicht-offen > select,
+.feld.pflicht-offen > textarea { border-color: var(--gelb); background: rgba(179,114,30,.05); }
+.feld.pflicht-offen > label::after { content: ' fehlt'; color: var(--rot); }
+.raster.eng.pflicht-offen {
+  border: 1px solid var(--gelb); border-radius: var(--radius-klein);
+  padding: 8px; background: rgba(179,114,30,.05);
+}
+
+/* =============================================================================
+   Bereichsansicht: Türen eines Standorts, Gebäudes oder Bereichs
+   ========================================================================== */
+.knoten .oeffnen-pfeil { color: var(--text-zart); font-size: 19px; line-height: 1; flex: none; }
+@media (max-width: 560px) {
+  /* Auf dem Telefon rutschen die Aktionen in die zweite Zeile, damit der
+     Namensbereich über die ganze Breite treffbar bleibt. */
+  .knoten .knoten-haupt { flex: 1 1 100%; }
+  .knoten .aktionen { flex: 1 1 100%; justify-content: flex-end; }
+}
+
+.bereich-kopf { margin-bottom: 10px; }
+.bereich-kopf .zurueck-zeile {
+  background: none; border: 0; padding: 8px 0; color: var(--akzent);
+  font-size: 15px; font-weight: 600; min-height: var(--tap);
+}
+.bereich-kopf .pfad {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
+  font-size: 13px; color: var(--text-schwach);
+}
+.bereich-kopf .pfad .teiler { color: var(--text-zart); padding: 0 4px; }
+.bereich-kopf .pfad .pfad-knopf {
+  background: none; border: 0; padding: 4px 2px; min-height: 32px;
+  color: var(--text-schwach); font-size: 13px; text-decoration: underline;
+}
+
+.bereich-kacheln { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.bereich-kachel {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+  text-align: left; min-height: var(--tap-gross); padding: 11px 13px;
+  background: var(--flaeche-2); border: 1px solid var(--rand); border-radius: var(--radius-klein);
+}
+.bereich-kachel:hover { border-color: var(--akzent); background: var(--akzent-bg); }
+.bereich-kachel .name { font-weight: 600; font-size: 14.5px; }
+.bereich-kachel .zahl { font-size: 12px; color: var(--text-schwach); }
+.bereich-kachel.neu { border-style: dashed; color: var(--akzent); }
+
+/* =============================================================================
+   Personen und Gruppen einer Schließung
+   ========================================================================== */
+.person-liste { display: flex; flex-direction: column; gap: 8px; }
+.person-zeile {
+  display: grid; grid-template-columns: 1fr 1fr 86px auto; gap: 8px; align-items: end;
+  padding: 9px; border: 1px solid var(--rand-zart); border-radius: var(--radius-klein);
+  background: var(--flaeche-2);
+}
+.person-zeile .nr {
+  font-size: 12px; color: var(--text-zart); font-weight: 700;
+}
+.gruppen-knopf {
+  display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
+  min-height: var(--tap-gross); background: var(--flaeche-2);
+}
+.gruppen-knopf .name { font-weight: 700; font-size: 15px; flex: 1; }
+.gruppen-knopf .zahl { font-size: 13px; color: var(--text-schwach); }
+
+@media (max-width: 560px) {
+  .person-zeile { grid-template-columns: 1fr 1fr; }
+  .person-zeile .entfernen { grid-column: 2; justify-self: end; }
+}
+
+/* Seltene Aktionen am Fuß des Türformulars - bewusst nicht in der
+   Daumenzone, damit dort nur steht, was ständig gebraucht wird. */
+.weitere-aktionen {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 9px;
+  margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--rand-zart);
+}
+.weitere-aktionen .fuellen { flex: 1 1 auto; font-size: 13px; }

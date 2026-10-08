@@ -89,6 +89,19 @@ function pruefe(bedingung, text, info) {
   await page.click('nav.reiter button:has-text("Türen")');
   await page.click('button:has-text("+ Neue Tür")');
   await page.waitForSelector('.dialog');
+
+  // Eine neue Tür startet im geführten Ablauf: ein Schritt je Bildschirm
+  const schrittKopf = await page.textContent('.dialog .schritt-fortschritt');
+  pruefe(/Schritt 1 von \d+/.test(schrittKopf), 'neue Tür beginnt im geführten Ablauf',
+    schrittKopf.trim().slice(0, 60));
+  const stufen = await page.$$eval('.dialog .schritt-fortschritt .stufe', n => n.length);
+  pruefe(stufen >= 5, 'der Fortschritt zeigt alle Schritte (' + stufen + ')');
+  const pflichtLeiste = await page.textContent('.dialog .pflicht-leiste');
+  pruefe(/Pflichtangaben? fehlt?en?/.test(pflichtLeiste) && /Speichern ist möglich/.test(pflichtLeiste),
+    'fehlende Pflichtangaben werden genannt, ohne zu blockieren', pflichtLeiste.trim().slice(0, 80));
+  const pflichtFelder = await page.$$eval('.dialog .feld.pflicht', n => n.length);
+  pruefe(pflichtFelder > 0, 'Pflichtfelder sind im Formular gekennzeichnet (' + pflichtFelder + ')');
+
   await page.fill('.dialog input[type=text] >> nth=0', 'A-EG-01');
   await page.fill('.dialog input[type=text] >> nth=1', 'Haupteingang');
 
@@ -99,6 +112,25 @@ function pruefe(bedingung, text, info) {
     os.filter(o => /Erdgeschoss/.test(o.textContent)).map(o => o.value));
   await bereichWahl.selectOption(bereichWerte[0]);
   await page.waitForTimeout(150);
+
+  // Nach dem Ausfüllen des ersten Schritts darf nichts mehr rot sein
+  const nochOffenImSchritt = await page.$$eval('.dialog .schritt .feld.pflicht-offen', n => n.length);
+  pruefe(nochOffenImSchritt === 0, 'erledigte Pflichtangaben sind nicht mehr hervorgehoben',
+    nochOffenImSchritt + ' noch offen');
+
+  // Weiter zum zweiten Schritt
+  await page.click('.dialog .fuss button:has-text("Weiter")');
+  await page.waitForTimeout(250);
+  const schritt2 = await page.textContent('.dialog .schritt-fortschritt');
+  pruefe(/Schritt 2 von/.test(schritt2), 'der nächste Schritt wird geöffnet', schritt2.trim().slice(0, 40));
+
+  // Ab hier alle Felder auf einmal – die Vollansicht für das Büro
+  await page.click('.dialog .modus-leiste button:has-text("Alle Felder")');
+  await page.waitForTimeout(250);
+  const abschnitte = await page.$$eval('.dialog .abschnitt', n => n.length);
+  pruefe(abschnitte >= 7, 'die Vollansicht zeigt alle Abschnitte (' + abschnitte + ')');
+  const fortschrittWeg = await page.$$eval('.dialog .schritt-fortschritt .stufe', n => n.length);
+  pruefe(fortschrittWeg === 0, 'in der Vollansicht gibt es keinen Schrittbalken');
 
   // Das System steht im Projekt und darf hier nicht erneut wählbar sein
   const systemImDialog = await page.locator('.dialog select')
