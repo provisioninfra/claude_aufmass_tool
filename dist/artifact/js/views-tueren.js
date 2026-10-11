@@ -16,20 +16,38 @@
   }
   function alleSysteme() { return K.SYSTEME.concat(eigeneListe('eigeneSysteme')); }
 
-  /* Maßauswahl: übliche Werte als Liste, abweichende Maße über "anderes Maß".
-   * Vor Ort wird so in der Regel nur getippt statt getastet. */
+  /* =========================================================================
+   * Maßauswahl
+   * ======================================================================
+   * Übliche Maße als Liste, abweichende über "anderes Maß …". Vor Ort wird
+   * damit in aller Regel nur getippt statt getastet - das ist schneller,
+   * mit dem Stift treffsicher und verhindert Zahlendreher.
+   *
+   * Das Feld für abweichende Maße ist bewusst ein Textfeld: In ein
+   * Zahlenfeld schreibt Apples "Kritzeln" nicht hinein. Ein Komma wird
+   * angenommen (27,5) und wie ein Punkt behandelt.
+   */
   function massFeld(objekt, schluessel, beschriftung, werte, platzhalter, beiAenderung) {
     var behaelter = el('div', { class: 'feld', 'data-feld': schluessel });
     var reinText = String(beschriftung).replace(/<[^>]*>/g, '').trim();
+    var einheit = /mm|cm/.test(String(beschriftung)) ? ' mm' : '';
+
     var freitext = el('input', {
-      type: 'number', inputmode: 'numeric', placeholder: platzhalter || 'Maß in mm',
+      type: 'text', inputmode: 'decimal',
+      placeholder: platzhalter || ('Maß' + (einheit ? ' in mm' : '')),
       value: objekt[schluessel] || '',
+      autocomplete: 'off', autocorrect: 'off', spellcheck: 'false',
       oninput: function (e) {
         A.eingabeSchrittMerken('Eingabe: ' + reinText);
-        objekt[schluessel] = e.target.value; A.alsGeaendertMarkieren();
+        /* Nur Ziffern, Komma und Punkt - alles andere wäre kein Maß */
+        var roh = String(e.target.value).replace(/[^0-9.,]/g, '');
+        if (roh !== e.target.value) e.target.value = roh;
+        objekt[schluessel] = roh;
+        A.alsGeaendertMarkieren();
         if (beiAenderung) beiAenderung();
       }
     });
+
     var auswahl = el('select', {
       onchange: function (e) {
         if (e.target.value === K.ANDERES_MASS) {
@@ -46,12 +64,14 @@
       }
     });
     auswahl.appendChild(el('option', { value: '', text: '– bitte wählen –' }));
-    werte.forEach(function (w) { auswahl.appendChild(el('option', { value: w, text: w + ' mm' })); });
+    werte.forEach(function (w) {
+      auswahl.appendChild(el('option', { value: w, text: w + einheit }));
+    });
     auswahl.appendChild(el('option', { value: K.ANDERES_MASS, text: K.ANDERES_MASS }));
 
     var vorhanden = objekt[schluessel];
     if (vorhanden && werte.indexOf(String(vorhanden)) === -1) {
-      auswahl.value = K.ANDERES_MASS;          /* Altwert außerhalb der Liste */
+      auswahl.value = K.ANDERES_MASS;          /* Maß außerhalb der Liste */
     } else {
       auswahl.value = vorhanden || '';
       freitext.classList.add('versteckt');
@@ -365,7 +385,7 @@
               { leerText: '– bitte wählen –', beiAenderung: markieren })
           : A.textFeld(t, 'etage', 'Etage / Bereich <span class="einheit">(Freitext)</span>',
               { beiAenderung: markieren }),
-        A.textFeld(t, 'anzahl', 'Anzahl baugleicher Türen', { typ: 'number', inputmode: 'numeric' })
+        A.zahlFeld(t, 'anzahl', 'Anzahl baugleicher Türen', { min: 1, max: 999, vorgabe: 1 })
       ]));
       ziel.appendChild(statusFeldBauen());
     }
@@ -453,15 +473,26 @@
     }
 
     /* --- 3. Zylinder --------------------------------------------------- */
+    var gesamtAnzeige = el('p', { class: 'zart', style: { marginTop: '4px' } });
+    function gesamtlaengeZeigen() {
+      var gl = gesamtlaenge(t);
+      gesamtAnzeige.textContent = gl ? ('Gesamtlänge ' + gl + ' mm') : '';
+    }
+    function laengenGeaendert() {
+      gesamtlaengeZeigen();
+      widerspruecheZeigen();
+      markieren();
+    }
+
     function zylinderBauen(ziel) {
       var raster = el('div', { class: 'raster' }, [
         A.auswahlFeld(t, 'zylinderBauform', 'Art des Zylinders <span class="einheit">(Bauform)</span>',
           liste('ZYLINDER_BAUFORM', 'eigeneZylinderarten'),
           { leerText: '– bitte wählen –', beiAenderung: function () { abschnittNeu('zylinder'); markieren(); } }),
-        A.textFeld(t, 'masseAussen', 'Länge außen <span class="einheit">mm</span>',
-          { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 35', beiAenderung: markieren }),
-        A.textFeld(t, 'masseInnen', 'Länge innen <span class="einheit">mm</span>',
-          { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 40', beiAenderung: markieren })
+        massFeld(t, 'masseAussen', 'Länge außen <span class="einheit">mm</span>',
+          K.ZYLINDER_LAENGE, 'z. B. 35', laengenGeaendert),
+        massFeld(t, 'masseInnen', 'Länge innen <span class="einheit">mm</span>',
+          K.ZYLINDER_LAENGE, 'z. B. 40', laengenGeaendert)
       ]);
       /* Knaufseite ist nur beim einfachen Knaufzylinder eine offene Frage */
       if (t.zylinderBauform === 'Knaufzylinder') {
@@ -472,12 +503,11 @@
         t.zylinderKnaufseite = '';
       }
       ziel.appendChild(raster);
-      /* Gesamtlänge mitrechnen: danach wird bestellt */
-      var gl = gesamtlaenge(t);
-      if (gl) {
-        ziel.appendChild(el('p', { class: 'zart', style: { marginTop: '4px' },
-          text: 'Gesamtlänge ' + gl + ' mm' }));
-      }
+      /* Gesamtlänge mitrechnen: danach wird bestellt. Sie wird an Ort und
+       * Stelle fortgeschrieben - ein Neuaufbau des Abschnitts würde eine
+       * laufende Eingabe zerreißen, und mit dem Stift wäre das fatal. */
+      ziel.appendChild(gesamtAnzeige);
+      gesamtlaengeZeigen();
       ziel.appendChild(A.chipFeld(t, 'zylinderAusfuehrung',
         'Ausführung <span class="einheit">(nur wenn zutreffend)</span>',
         liste('ZYLINDER_AUSFUEHRUNG')));
@@ -514,8 +544,8 @@
         massFeld(t, 'dornmass', 'Dornmaß <span class="einheit">mm</span>', K.DORNMASS, 'z. B. 55', markieren),
         massFeld(t, 'entfernung', 'Entfernung <span class="einheit">mm</span>', K.ENTFERNUNG, 'z. B. 72', markieren),
         massFeld(t, 'vierkant', 'Vierkant / Nuss <span class="einheit">mm</span>', K.VIERKANT, 'z. B. 8', markieren),
-        A.textFeld(t, 'tuerblattstaerke', 'Türblattstärke <span class="einheit">mm</span>',
-          { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 68', beiAenderung: markieren }),
+        massFeld(t, 'tuerblattstaerke', 'Türblattstärke <span class="einheit">mm</span>',
+          K.TUERBLATTSTAERKE, 'z. B. 68', markieren),
         A.auswahlFeld(t, 'dinRichtung', 'DIN-Richtung', K.DIN_RICHTUNG,
           { leerText: '– bitte wählen –', beiAenderung: markieren })
       ]);
@@ -548,15 +578,15 @@
           el('div', { class: 'raster' }, [
             A.auswahlFeld(t, 'schlossStulpform', 'Stulpform', K.STULPFORM, { leerText: '– ohne Angabe –' }),
             massFeld(t, 'schlossStulpbreite', 'Stulpbreite <span class="einheit">mm</span>', K.STULPBREITE, 'z. B. 24'),
-            A.textFeld(t, 'schlossStulplaenge', 'Stulplänge <span class="einheit">mm</span>',
-              { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 235' }),
+            massFeld(t, 'schlossStulplaenge', 'Stulplänge <span class="einheit">mm</span>',
+              K.STULPLAENGE, 'z. B. 235'),
             A.auswahlFeld(t, 'schlossFallenart', 'Fallenart', K.FALLENART, { leerText: '– ohne Angabe –' }),
             massFeld(t, 'schlossRiegelausschluss', 'Riegelausschluss <span class="einheit">mm</span>',
               K.RIEGELAUSSCHLUSS, 'z. B. 20'),
-            A.textFeld(t, 'schlossVerriegelungspunkte', 'Verriegelungspunkte',
-              { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 3' }),
+            A.auswahlFeld(t, 'schlossVerriegelungspunkte', 'Verriegelungspunkte',
+              K.VERRIEGELUNGSPUNKTE, { leerText: '– ohne Angabe –' }),
             A.auswahlFeld(t, 'schlossNorm', 'Norm / Zulassung', K.SCHLOSS_NORM, { leerText: '– ohne Angabe –' }),
-            A.textFeld(t, 'stulpmass', 'Stulpmaß / Sonstiges')
+            A.textFeld(t, 'stulpmass', 'Stulp: Sonstiges <span class="einheit">(Freitext)</span>')
           ])
         ])
       ]));
@@ -573,7 +603,7 @@
         'Bauliche Anforderungen <span class="einheit">(mehrere möglich)</span>',
         liste('TUERANFORDERUNG', 'eigeneZutrittsarten'));
       /* Eine Änderung hier kann einen Widerspruch zum Schloss auflösen */
-      feld.addEventListener('click', function () { setTimeout(function () { abschnittNeu('zutritt'); }, 0); });
+      feld.addEventListener('click', function () { setTimeout(widerspruecheZeigen, 0); });
       ziel.appendChild(feld);
       ziel.appendChild(el('p', { class: 'hinweis', style: { marginTop: '10px' },
         text: 'Bei Flucht- und Rettungswegen sowie Brand- und Rauchschutztüren sind die bauaufsichtlichen Anforderungen zu beachten; die Auswahl hier ersetzt keine Prüfung vor Ort.' }));
@@ -610,14 +640,14 @@
       ziel.appendChild(el('p', { class: 'hinweis', style: { marginTop: '0' },
         text: 'Freiwillig. Türblattstärke und DIN-Richtung stehen beim Bauteil und werden hier nicht erneut gefragt.' }));
       ziel.appendChild(el('div', { class: 'raster' }, [
-        A.textFeld(t, 'tuerbreite', 'Türbreite <span class="einheit">mm</span>',
-          { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 885' }),
-        A.textFeld(t, 'tuerhoehe', 'Türhöhe <span class="einheit">mm</span>',
-          { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 2010' }),
+        massFeld(t, 'tuerbreite', 'Türbreite <span class="einheit">mm</span>',
+          K.TUERBREITE, 'z. B. 885'),
+        massFeld(t, 'tuerhoehe', 'Türhöhe <span class="einheit">mm</span>',
+          K.TUERHOEHE, 'z. B. 2010'),
         A.auswahlFeld(t, 'tuerAnschlag', 'Türanschlag', K.TUER_ANSCHLAG, { leerText: '– ohne Angabe –' }),
         A.auswahlFeld(t, 'tuermaterial', 'Türblattmaterial', K.TUERMATERIAL, { leerText: '– ohne Angabe –' }),
-        A.textFeld(t, 'profilbreite', 'Profilbreite <span class="einheit">mm</span>',
-          { typ: 'number', inputmode: 'numeric' }),
+        massFeld(t, 'profilbreite', 'Profilbreite <span class="einheit">mm</span>',
+          K.PROFILBREITE, 'z. B. 60'),
         A.auswahlFeld(t, 'oeffnungsrichtung', 'Öffnungsrichtung', K.TUER_OEFFNUNG, { leerText: '– ohne Angabe –' }),
         A.textFeld(t, 'bohrbild', 'Bohrbild / Lochung')
       ]));
@@ -630,11 +660,21 @@
     function bestandBauen(ziel) {
       ziel.appendChild(el('div', { class: 'raster' }, [
         A.textFeld(t, 'bestandFabrikat', 'Vorhandenes Fabrikat', { platzhalter: 'z. B. EVVA, Kaba, ABUS' }),
-        A.textFeld(t, 'bestandZylinderart', 'Vorhandene Zylinderart'),
-        A.textFeld(t, 'bestandLaenge', 'Vorhandene Länge', { platzhalter: 'z. B. 30/35' }),
-        A.textFeld(t, 'bestandAnzahlSchluessel', 'Anzahl vorhandener Schlüssel',
-          { typ: 'number', inputmode: 'numeric' })
+        A.auswahlFeld(t, 'bestandZylinderart', 'Vorhandene Zylinderart',
+          liste('ZYLINDER_BAUFORM', 'eigeneZylinderarten'), { leerText: '– unbekannt –' }),
+        massFeld(t, 'bestandLaengeAussen', 'Vorhandene Länge außen <span class="einheit">mm</span>',
+          K.ZYLINDER_LAENGE, 'z. B. 30'),
+        massFeld(t, 'bestandLaengeInnen', 'Vorhandene Länge innen <span class="einheit">mm</span>',
+          K.ZYLINDER_LAENGE, 'z. B. 35'),
+        A.zahlFeld(t, 'bestandAnzahlSchluessel', 'Anzahl vorhandener Schlüssel',
+          { min: 0, max: 999, vorgabe: 0 })
       ]));
+      if (String(t.bestandLaenge || '').trim()) {
+        ziel.appendChild(el('div', { class: 'raster', style: { marginTop: '10px' } }, [
+          A.textFeld(t, 'bestandLaenge',
+            'Vorhandene Länge <span class="einheit">(Eintrag aus einer früheren Fassung)</span>')
+        ]));
+      }
       ziel.appendChild(el('div', { class: 'raster', style: { marginTop: '10px' } }, [
         A.bereichFeld(t, 'bestandBemerkung', 'Bemerkung zum Bestand', { zeilen: 2 })
       ]));
@@ -702,7 +742,13 @@
      * Weist auf Angaben hin, die nicht zusammenpassen - statt sie ein
      * zweites Mal abzufragen. */
     function widerspruecheBauen() {
-      var kasten = el('div');
+      return el('div', { class: 'widersprueche' });
+    }
+
+    /* Die Hinweise werden in den vorhandenen Kästen erneuert, nicht neu
+     * aufgebaut: Ein Neuaufbau würde ein Feld, in das gerade geschrieben
+     * wird, unter dem Stift wegziehen. */
+    function widerspruecheZeigen() {
       var meldungen = [];
       var istFlucht = (t.tueranforderungen || []).indexOf('Flucht- und Rettungsweg') !== -1;
 
@@ -715,14 +761,17 @@
       if (t.brauchtZylinder && (t.zylinderAusfuehrung || []).indexOf('Anti-Panik') !== -1 && !istFlucht) {
         meldungen.push('Zylinder mit Anti-Panik gewählt – gehört diese Tür zum Flucht- und Rettungsweg?');
       }
-      if (t.zylinderBauform === 'Halbzylinder' && t.masseInnen && parseInt(t.masseInnen, 10) > 15) {
+      if (t.zylinderBauform === 'Halbzylinder' && t.masseInnen &&
+          parseInt(String(t.masseInnen).replace(',', '.'), 10) > 15) {
         meldungen.push('Bei einem Halbzylinder ist die Innenlänge üblicherweise 10 mm.');
       }
-      meldungen.forEach(function (m) {
-        kasten.appendChild(el('div', { class: 'meldung warn', style: { marginTop: '12px' } },
-          el('div', { text: m })));
+      Array.prototype.forEach.call(inhalt.querySelectorAll('.widersprueche'), function (kasten) {
+        A.leeren(kasten);
+        meldungen.forEach(function (m) {
+          kasten.appendChild(el('div', { class: 'meldung warn', style: { marginTop: '12px' } },
+            el('div', { text: m })));
+        });
       });
-      return kasten;
     }
 
     /* =======================================================================
@@ -883,6 +932,7 @@
           koerper.appendChild(block);
         });
       }
+      widerspruecheZeigen();
       if (!istNeu) {
         koerper.appendChild(el('div', { class: 'weitere-aktionen' }, [
           el('span', { class: 'zart fuellen', text: 'Weitere Aktionen zu dieser Tür' }),

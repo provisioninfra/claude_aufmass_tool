@@ -134,6 +134,10 @@
     pipedrivePhaseName: '',
     fotoQualitaet: 0.72,
     fotoMaxKante: 1280,
+    /* Stiftmodus: größere Schreibflächen für Apple Pencil und Handschrift.
+     * Vor Ort die Regel, deshalb vorbelegt; im Büro abschaltbar, dort ist
+     * eine kompakte Ansicht angenehmer. */
+    stiftModus: true,
     letztesProjekt: ''
   };
 

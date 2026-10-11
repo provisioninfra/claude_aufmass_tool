@@ -205,7 +205,9 @@
       /* --- Bestand (Altanlage) --- */
       bestandFabrikat: '',
       bestandZylinderart: '',
-      bestandLaenge: '',
+      bestandLaengeAussen: '',    // getrennt, damit beides auswählbar ist
+      bestandLaengeInnen: '',
+      bestandLaenge: '',          // früherer Sammeltext, z. B. "30/35"
       bestandAnzahlSchluessel: '',
       bestandBemerkung: '',
 
@@ -1386,6 +1388,20 @@
       var i = t.zylinderAusfuehrung.indexOf('Freidreh / Komfort');
       if (i !== -1) {
         t.zylinderAusfuehrung.splice(i, 1, 'Freidreh');
+      }
+    }
+
+    /* Die vorhandene Zylinderlänge stand als ein Text da ("30/35"). Getrennt
+     * lässt sie sich auswählen statt tippen. Nur eindeutig zerlegbare Werte
+     * werden umgeschrieben - alles andere bleibt im alten Feld stehen und
+     * ist weiter sichtbar, statt still verloren zu gehen. */
+    if (String(t.bestandLaenge || '').trim() && !t.bestandLaengeAussen && !t.bestandLaengeInnen) {
+      var teile = /^\s*(\d+(?:[.,]\d+)?)\s*[\/xX\-]\s*(\d+(?:[.,]\d+)?)\s*(?:mm)?\s*$/
+        .exec(String(t.bestandLaenge));
+      if (teile) {
+        t.bestandLaengeAussen = teile[1];
+        t.bestandLaengeInnen = teile[2];
+        t.bestandLaenge = '';
       }
     }
 

@@ -227,13 +227,33 @@
     'beidseitig elektronisch'
   ];
 
-  /* --- Maße, die Beschlag und Schloss gemeinsam betreffen ----------------
-   * Als Auswahl hinterlegt, damit vor Ort nicht getippt werden muss.
-   * Abweichende Maße bleiben über "anderes Maß" erfassbar. */
+  /* --- Feste Maßraster ---------------------------------------------------
+   * Überall, wo es ein übliches Raster gibt, wird ausgewählt statt getippt:
+   * vor Ort ist das schneller, mit dem Stift treffsicher und verhindert
+   * Zahlendreher. Jedes Raster hat zusätzlich "anderes Maß …" - kein Wert
+   * ist dadurch ausgeschlossen.
+   * -------------------------------------------------------------------- */
   var DORNMASS = ['25', '30', '35', '40', '45', '50', '55', '60', '65', '70',
                   '75', '80', '85', '90', '95', '100', '110', '120'];
   var ENTFERNUNG = ['72', '74', '78', '88', '92', '94'];
   var VIERKANT = ['7', '8', '8,5', '9', '10'];
+
+  /* Profilzylinder: 5-mm-Raster ab 30. 27,5 ist die kürzeste Hälfte,
+     10 die feste Innenseite eines Halbzylinders. */
+  var ZYLINDER_LAENGE = ['10', '27,5', '30', '35', '40', '45', '50', '55', '60',
+                         '65', '70', '75', '80', '85', '90', '95', '100',
+                         '105', '110', '115', '120'];
+  var TUERBLATTSTAERKE = ['38', '39', '40', '42', '45', '50', '55', '58', '60',
+                          '65', '68', '70', '75', '80', '85', '90', '95', '100'];
+  var PROFILBREITE = ['40', '45', '50', '55', '60', '65', '70', '75', '80',
+                      '85', '90', '100', '110', '120'];
+  var STULPLAENGE = ['170', '200', '235', '240', '245', '250', '255', '260',
+                     '270', '300', '400', '500', '600', '800', '1000'];
+  var VERRIEGELUNGSPUNKTE = ['1', '2', '3', '5', '7'];
+  /* Türblattmaße nach DIN 18101 sowie gängige Rohrrahmenbreiten */
+  var TUERBREITE = ['610', '735', '860', '885', '985', '1110', '1235'];
+  var TUERHOEHE = ['1985', '2010', '2110', '2135'];
+
   var ANDERES_MASS = 'anderes Maß …';
 
   function beschlagText(tuer) {
@@ -529,6 +549,13 @@
     DORNMASS: DORNMASS,
     ENTFERNUNG: ENTFERNUNG,
     VIERKANT: VIERKANT,
+    ZYLINDER_LAENGE: ZYLINDER_LAENGE,
+    TUERBLATTSTAERKE: TUERBLATTSTAERKE,
+    PROFILBREITE: PROFILBREITE,
+    STULPLAENGE: STULPLAENGE,
+    VERRIEGELUNGSPUNKTE: VERRIEGELUNGSPUNKTE,
+    TUERBREITE: TUERBREITE,
+    TUERHOEHE: TUERHOEHE,
     ANDERES_MASS: ANDERES_MASS,
     beschlagText: beschlagText,
     /* Schloss */

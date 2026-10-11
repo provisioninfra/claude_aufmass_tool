@@ -462,7 +462,8 @@
       ['Maß-Bemerkung', t.masseBemerkung, true],
       ['Bestand Fabrikat', t.bestandFabrikat],
       ['Bestand Zylinderart', t.bestandZylinderart],
-      ['Bestand Länge', t.bestandLaenge],
+      ['Bestand Länge', [t.bestandLaengeAussen, t.bestandLaengeInnen].filter(Boolean).join('/') ||
+                        t.bestandLaenge],
       ['Bestand Schlüsselanzahl', t.bestandAnzahlSchluessel],
       ['Bestand Bemerkung', t.bestandBemerkung, true],
       ['Funkabdeckung', t.elFunkabdeckung],

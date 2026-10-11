@@ -746,3 +746,41 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
   margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--rand-zart);
 }
 .weitere-aktionen .fuellen { flex: 1 1 auto; font-size: 13px; }
+
+/* =============================================================================
+   Apple Pencil: Schreibflächen und Zähler
+   ==========================================================================
+   Handschrift ("Kritzeln") schreibt nur in Textfelder, nie in Zahlenfelder -
+   deshalb gibt es im ganzen Werkzeug keine <input type="number"> mehr. Sie
+   braucht außerdem spürbar mehr Fläche als eine Tastatureingabe: der
+   Stiftmodus vergrößert sie, ohne das Raster zu sprengen.
+   ========================================================================== */
+.feld input, .feld textarea, .zahl-anzeige {
+  /* Ein Streichen mit dem Stift muss als Schreiben ankommen, nicht als
+     Scrollen oder Markieren. */
+  touch-action: manipulation;
+  -webkit-user-select: text; user-select: text;
+}
+
+body.stift .feld input,
+body.stift .feld select,
+body.stift .zahl-feld { min-height: 56px; }
+body.stift .feld input { padding-top: 12px; padding-bottom: 12px; }
+body.stift .feld textarea { min-height: 120px; line-height: 1.7; }
+body.stift .chip { min-height: 52px; font-size: 16px; }
+body.stift .schalter { min-height: 56px; }
+body.stift .zahl-knopf { min-width: 56px; }
+
+/* --- Zähler: Anzahl mit - und + ----------------------------------------- */
+.zahl-feld { display: flex; align-items: stretch; gap: 6px; min-height: var(--tap); }
+.zahl-feld .zahl-knopf {
+  min-width: var(--tap); min-height: var(--tap); padding: 0;
+  font-size: 22px; line-height: 1; font-weight: 600; flex: none;
+}
+.zahl-feld .zahl-anzeige {
+  flex: 1 1 auto; min-width: 0; text-align: center; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.zahl-feld .einheit-rechts {
+  display: flex; align-items: center; color: var(--text-zart); font-size: 13px;
+}

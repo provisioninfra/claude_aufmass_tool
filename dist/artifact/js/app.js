@@ -237,14 +237,32 @@
     return knoten;
   }
 
+  /* Ein Zahlenfeld (<input type="number">) nimmt auf dem iPad keine
+   * Handschrift an: Apples "Kritzeln" schreibt nur in Textfelder. Weil die
+   * Maße vor Ort mit dem Stift eingetragen werden sollen, wird daraus ein
+   * Textfeld mit numerischer Tastatur - dieselbe Eingabe, aber beschreibbar.
+   * Nebeneffekt: die winzigen Pfeilchen am Rand verschwinden. */
+  function eingabeTyp(optionen) {
+    if (optionen.typ === 'number') {
+      return { typ: 'text', modus: optionen.inputmode || 'numeric' };
+    }
+    return { typ: optionen.typ || 'text', modus: optionen.inputmode || null };
+  }
+
   function textFeld(objekt, schluessel, beschriftung, optionen) {
     optionen = optionen || {};
+    var art = eingabeTyp(optionen);
     var eingabe = el('input', {
-      type: optionen.typ || 'text',
+      type: art.typ,
       value: objekt[schluessel] === null || objekt[schluessel] === undefined ? '' : objekt[schluessel],
       placeholder: optionen.platzhalter || '',
-      inputmode: optionen.inputmode || null,
+      inputmode: art.modus,
       autocomplete: optionen.autocomplete || 'off',
+      /* Handschrift wird sonst "verbessert" - bei Türnummern und Maßen
+       * wäre das falsch. */
+      autocorrect: optionen.autocorrect || 'off',
+      autocapitalize: optionen.autocapitalize || 'sentences',
+      spellcheck: 'false',
       oninput: function (e) {
         eingabeSchrittMerken('Eingabe: ' + String(beschriftung).replace(/<[^>]*>/g, '').trim());
         objekt[schluessel] = e.target.value;
@@ -260,6 +278,8 @@
     var eingabe = el('textarea', {
       placeholder: optionen.platzhalter || '',
       rows: optionen.zeilen || 3,
+      /* Fließtext: hier ist die Rechtschreibhilfe beim Kritzeln nützlich */
+      autocorrect: 'on', autocapitalize: 'sentences', spellcheck: 'true',
       oninput: function (e) {
         eingabeSchrittMerken('Eingabe: ' + String(beschriftung).replace(/<[^>]*>/g, '').trim());
         objekt[schluessel] = e.target.value; alsGeaendertMarkieren();
@@ -280,12 +300,22 @@
       }
     });
     auswahl.appendChild(el('option', { value: '', text: konfig.leerText || '– bitte wählen –' }));
+    var bekannt = {};
     optionen.forEach(function (o) {
       var wert = (typeof o === 'string') ? o : o.id;
       var text = (typeof o === 'string') ? o : o.label;
+      bekannt[String(wert)] = true;
       auswahl.appendChild(el('option', { value: wert, text: text }));
     });
-    auswahl.value = objekt[schluessel] || '';
+    /* Ein gespeicherter Wert, der nicht (mehr) in der Liste steht, bliebe
+     * sonst beim Öffnen des Formulars stillschweigend leer und wäre beim
+     * nächsten Speichern verloren. Er wird deshalb mit aufgenommen. */
+    var vorhanden = objekt[schluessel];
+    if (vorhanden && !bekannt[String(vorhanden)]) {
+      auswahl.appendChild(el('option', { value: vorhanden,
+        text: vorhanden + '  (aus dem Bestand)' }));
+    }
+    auswahl.value = vorhanden || '';
     return feld(beschriftung, auswahl, konfig.breit, schluessel);
   }
 
@@ -302,6 +332,80 @@
     return el('label', { class: 'schalter', 'data-feld': schluessel }, [
       eingabe, el('span', { class: 'bahn' }), el('span', { class: 'beschriftung', text: beschriftung })
     ]);
+  }
+
+  /* =========================================================================
+   * Zähler: Anzahl mit - und + einstellen
+   * ======================================================================
+   * Für kleine Stückzahlen (baugleiche Türen, Schlüssel, Medien). Mit dem
+   * Stift oder einem Finger bedienbar, ganz ohne Tastatur; das Feld in der
+   * Mitte bleibt beschreibbar, damit auch 48 schnell eingetragen werden
+   * kann.
+   */
+  function zahlFeld(objekt, schluessel, beschriftung, optionen) {
+    optionen = optionen || {};
+    var min = (optionen.min === undefined) ? 0 : optionen.min;
+    var max = (optionen.max === undefined) ? 999 : optionen.max;
+    var reinText = String(beschriftung).replace(/<[^>]*>/g, '').trim();
+
+    /* Ein leeres Feld bleibt leer: "0 vorhandene Schlüssel" wäre eine
+     * Aussage, "noch nicht erfasst" ist etwas anderes. */
+    function istLeer() {
+      var w = objekt[schluessel];
+      return w === '' || w === null || w === undefined ||
+             !isFinite(parseInt(w, 10));
+    }
+    function lesen() {
+      var n = parseInt(objekt[schluessel], 10);
+      if (!isFinite(n)) n = (optionen.vorgabe === undefined) ? min : optionen.vorgabe;
+      return Math.min(max, Math.max(min, n));
+    }
+    function schreiben(n, vonHand) {
+      var begrenzt = Math.min(max, Math.max(min, n));
+      objekt[schluessel] = begrenzt;
+      anzeige.value = String(begrenzt);
+      if (optionen.beiAenderung) optionen.beiAenderung(begrenzt);
+      alsGeaendertMarkieren();
+      return begrenzt;
+    }
+
+    var anzeige = el('input', {
+      type: 'text', inputmode: 'numeric', value: istLeer() ? '' : String(lesen()),
+      placeholder: optionen.platzhalter || '–',
+      autocomplete: 'off', autocorrect: 'off', spellcheck: 'false',
+      class: 'zahl-anzeige',
+      oninput: function (e) {
+        eingabeSchrittMerken('Eingabe: ' + reinText);
+        /* Während der Eingabe nicht gegen die Grenzen laufen - sonst ließe
+         * sich keine zweistellige Zahl tippen. */
+        var roh = String(e.target.value).replace(/[^0-9]/g, '');
+        e.target.value = roh;
+        var n = parseInt(roh, 10);
+        objekt[schluessel] = isFinite(n) ? n : '';
+        if (optionen.beiAenderung) optionen.beiAenderung(objekt[schluessel]);
+        alsGeaendertMarkieren();
+      },
+      /* Beim Verlassen nur in die Grenzen rücken, wenn überhaupt etwas
+       * dasteht - sonst würde bloßes Antippen eine 0 erzeugen. */
+      onblur: function () { if (!istLeer()) schreiben(lesen()); }
+    });
+
+    function stufe(richtung, zeichen) {
+      return el('button', {
+        type: 'button', class: 'zahl-knopf', text: zeichen,
+        'aria-label': (richtung > 0 ? 'Mehr' : 'Weniger') + ': ' + reinText,
+        onclick: function () {
+          schrittMerken((richtung > 0 ? 'Erhöht: ' : 'Verringert: ') + reinText);
+          schreiben(lesen() + richtung);
+        }
+      });
+    }
+
+    var reihe = el('div', { class: 'zahl-feld' }, [
+      stufe(-1, '−'), anzeige, stufe(1, '+'),
+      optionen.einheit ? el('span', { class: 'einheit-rechts', text: optionen.einheit }) : null
+    ]);
+    return feld(beschriftung, reihe, optionen.breit, schluessel);
   }
 
   /* Mehrfachauswahl als anklickbare Chips */
@@ -382,6 +486,7 @@
     schrittZurueck: schrittZurueck,
     statusAnzeigen: statusAnzeigen,
     feld: feld, textFeld: textFeld, bereichFeld: bereichFeld,
-    auswahlFeld: auswahlFeld, schalterFeld: schalterFeld, chipFeld: chipFeld
+    auswahlFeld: auswahlFeld, schalterFeld: schalterFeld, chipFeld: chipFeld,
+    zahlFeld: zahlFeld
   };
 })(typeof window !== 'undefined' ? window : globalThis);

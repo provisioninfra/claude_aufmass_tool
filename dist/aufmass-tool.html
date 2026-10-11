@@ -759,13 +759,51 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
 }
 .weitere-aktionen .fuellen { flex: 1 1 auto; font-size: 13px; }
 
+/* =============================================================================
+   Apple Pencil: Schreibflächen und Zähler
+   ==========================================================================
+   Handschrift ("Kritzeln") schreibt nur in Textfelder, nie in Zahlenfelder -
+   deshalb gibt es im ganzen Werkzeug keine <input type="number"> mehr. Sie
+   braucht außerdem spürbar mehr Fläche als eine Tastatureingabe: der
+   Stiftmodus vergrößert sie, ohne das Raster zu sprengen.
+   ========================================================================== */
+.feld input, .feld textarea, .zahl-anzeige {
+  /* Ein Streichen mit dem Stift muss als Schreiben ankommen, nicht als
+     Scrollen oder Markieren. */
+  touch-action: manipulation;
+  -webkit-user-select: text; user-select: text;
+}
+
+body.stift .feld input,
+body.stift .feld select,
+body.stift .zahl-feld { min-height: 56px; }
+body.stift .feld input { padding-top: 12px; padding-bottom: 12px; }
+body.stift .feld textarea { min-height: 120px; line-height: 1.7; }
+body.stift .chip { min-height: 52px; font-size: 16px; }
+body.stift .schalter { min-height: 56px; }
+body.stift .zahl-knopf { min-width: 56px; }
+
+/* --- Zähler: Anzahl mit - und + ----------------------------------------- */
+.zahl-feld { display: flex; align-items: stretch; gap: 6px; min-height: var(--tap); }
+.zahl-feld .zahl-knopf {
+  min-width: var(--tap); min-height: var(--tap); padding: 0;
+  font-size: 22px; line-height: 1; font-weight: 600; flex: none;
+}
+.zahl-feld .zahl-anzeige {
+  flex: 1 1 auto; min-width: 0; text-align: center; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.zahl-feld .einheit-rechts {
+  display: flex; align-items: center; color: var(--text-zart); font-size: 13px;
+}
+
 </style>
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiByb2xlPSJpbWciIGFyaWEtbGFiZWw9IkF1Zm1hw58tVG9vbCI+CiAgPHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSI5NiIgZmlsbD0iIzFhNGI4YyIvPgogIDwhLS0gVMO8cmJsYXR0IC0tPgogIDxyZWN0IHg9IjExMiIgeT0iOTYiIHdpZHRoPSIxOTYiIGhlaWdodD0iMzIwIiByeD0iOCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmZmZmIiBzdHJva2Utd2lkdGg9IjIyIi8+CiAgPCEtLSBaeWxpbmRlciAvIFNjaGzDvHNzZWxsb2NoIC0tPgogIDxjaXJjbGUgY3g9IjI2MiIgY3k9IjI1MiIgcj0iMjAiIGZpbGw9IiNmZmZmZmYiLz4KICA8cmVjdCB4PSIyNTMiIHk9IjI2MiIgd2lkdGg9IjE4IiBoZWlnaHQ9IjQyIiByeD0iNiIgZmlsbD0iI2ZmZmZmZiIvPgogIDwhLS0gTWHDn3BmZWlsIHJlY2h0cyAtLT4KICA8cGF0aCBkPSJNMzY4IDEyMCB2MjcyIiBzdHJva2U9IiM4Y2JjZjUiIHN0cm9rZS13aWR0aD0iMTYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgogIDxwYXRoIGQ9Ik0zNDggMTQ2IGwyMCAtMjYgbDIwIDI2IiBmaWxsPSJub25lIiBzdHJva2U9IiM4Y2JjZjUiIHN0cm9rZS13aWR0aD0iMTYiCiAgICAgICAgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+CiAgPHBhdGggZD0iTTM0OCAzNjYgbDIwIDI2IGwyMCAtMjYiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzhjYmNmNSIgc3Ryb2tlLXdpZHRoPSIxNiIKICAgICAgICBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KPC9zdmc+Cg==" type="image/svg+xml">
 <link rel="apple-touch-icon" sizes="180x180" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAYAAAA9zQYyAAAPaklEQVR4Aeyde5AUxR3Hv7PHcYd4pxwcCMdTQQvloUZU1CghIHLHS01EEdAoRmLF0orGPzSVVCqpVFKIWhojRi1FCVUoiqBwKGhhfJxRygeCKO+nAscdcg+4O7zbdO/eLreP2Z3ZnZntmfmu2zvTPd39+/2+v8+NvTPLbqBPxcNBJ0rv8oeDvcvnxRXZJss8R3xwIk6/2gjnVuZSFplnsRVsRdqd0iUAmx7BYBCh/+RWFIiapmnQtI4Foi6LBj7crYCmae25hNi27wOhfZl7icDJEoRdD8uBlk6HnRVBQZRQoOFtuJ2vflNA02T+AbEJFbEH+bADa8uBlk5LZyNbuc9CBToqEGFD69ho0b7lQFvkF6ehAhkpkDHQcmkRKRlZ5iCHFVDfXJgn8c4ri7VIxkDL/21EivpS0UM3KBDmSWtfZ2fmccZAZ2aOo6iAvQoQaHv15ewOK0CgHRac5uxVwBDQYplurxecnQqkUcAog4aAFsv0NObcfZjeq6+AUQYNAa1+uPSQCoQVINBhHfjqEQUItEcSyTDCCiQF2ugCPDwFX6mA8wroMZoUaKMLcOfDoEUqEFZAj9EEoOX99PAQ+cpCBdRVQH7mPt67BKDl/fT4TqxTARUV0DQtwa0YoLP4kFPCxGygAk4oEM9sFGh5+k7k3QmXaIMKZK6AZFayG5khCjQgD4EPKuBCBU6yGwU6yXLEhYHR5YwVcPHAjuyGgO54ynZxXHTdxwpEGA4B7WMdGLrHFAgBrWkn1yAei4/h+EaBMMMB3kjxTcY9Hag8J8tLeKEztKcjZXD+UUAQHQifqP0TcwaRcoiLFAjofWrJRTHQVSoQVUDpJcct5efjmQenoOrZOdj/5n2+Lqsfm4l5d1+NUUP7RJPHnXgFglASaJm0dU/dir/d9XOUXzYE/c84Ld5z39WHD+6FGROG4/V5N+FfD0zC6acW+k4DIwELoDUj/Rzr07NbV7z05+swpF93x2y6zdDUK8/BE/eXu81tB/zV1DtDP/lABYpOKQAfqRUYe9Eg/GLsuak7+fBoQF6/yzhuiweeVdYNlw3vZ/Gs3p3utskXeDe4DCKTLIslRwYjbRpyzoAeNs3szWmHDiz1ZmBZRKUU0IP6dMsiFP8N7Zyfh7LSYv8FniJipYDO75TanSVrN+GRxVW+Kl9uPZAifUDn/NSapRzswYNKqaFpqa+4LFmzEfMXf+Sr8kUaoDX+w4yYP0ulgI7xjBXbFSjsUohpU8sxa+YNuOTin6S055aDBNotmbLYz4LOBfj17bNw5pkDUFraHZdffjFumX2jxVacn45AO6+5EhanTZuITvmdYnzp3r0bhg1z97VtAh2TUn9URow4D2VlvZMGO3bsFSjt4d67tAQ6aVq921jaswd+NuYK3QA75eVh6tSJ6Ny5s24flQ8QaJWzY7FvhQXiTeCUcuTlpU57cXERJk++2mLrzkyXOjJnfHC5FZe4rwFTpkxAUVFXQw4P6N8Po0ePMtRXpU4EWqVs2OjLFZdfir59zX2WevSlF2HgwP42emX91ATaek2Vm3HQoP64eJT+B5mCKTwunzgOpxadmqKHWocItFr5sNyb004rRkW5/npYwqxJq3JHbuNKYWEBrhU3X/ICeXFH1KwSaDXzYolXEsJrp5WLKxb5uvOFYJZHozuyElvkjZexY38a26hojUArmhgr3Bp5/jCUlCT/BOOuPfsSTYiz9KGD1YntomX48KHo3r1E7Kn9tBVotUP3vnd6VzR2796HnTt3JwogztLr3qtCQ8OxxGOipbhY/bU0gRaJ8upz89db0NrWFhNefV0DVq5cA4izccyB9kpzcxPeeHM12tpiO9TV1WPPnv3tvdTdEGh1c5O1Z4eqD4fgPX78eGiuxsZjWLrsTTQJaEMNOi/ff38QqyrXRKGuqanFa8tWobW1VWeEOs0EWp1c2OLJtm078PS/X8SixUvx7LOLcKT2iCE7W7Zsx4IFL+ClRS9j4YtLUFtba2hcrjsR6FxnwAH7bWLZId/stbaZO8PKM3l1dY0DHlpngkBbp6WfZ1ImdgKtTCroiBUKEGgrVOQcyihAoJVJBR2xQgECbYWKnEMZBQi0MqmgI1YoQKCtUDHVHDzmqAIE2lG5acxuBQi03QpzfkcVINCOyk1jditAoO1WmPM7qgCBdlRuGrNbgVwCbXdsnN+HChBoHybdyyETaC9n14exEWgfJt3LIRNoL2fXh7ERaB8m3fmQnbNIoJ3TmpYcUIBAOyAyTTinAIF2TmtackABAu2AyDThnAIE2jmtackBBQi0AyKnMsFj1ipAoK3Vk7PlWAEC7UAC8jsFMGJwL9w4fhhum3wBLh3WF1276H9nswMuedYEgbY5tRLiDf+5C5WPzcT8eybgL3eOxat/n45vltyNh351JQry3fHN+DbLZNn0BNoyKWMnKistxmv/mB6CuLhrQexBUQsENNx1/SiseWI2Ljj7DNHCpxUKEGgrVEwyxy0VI3HJeX2THIltOqtvCf40Z0xsI2sZK6Aw0BnHlPOBFw3tg99cZ/w3/kadW4ZZE0fm3G8vOECgbcjizdeMgFxSmJn6jqkXmunOvjoKEGgdYbJpHiyWEWbHD+zTzfQfgVkbfuhPoG3IciZA54k3iX16FNngjb+mJNA25Puzb783PWtT84/YX11nehwHxCpAoGP1sKS2acch0/N8vuUAgrE/PGV6DtcOsNBxAm2hmJGplqzZiOYT5n7P5KXKLyLDuc1CAQKdhXh6Q7fvP4InX/lE73BC+1sfb8Py/36b0M4G8woQaPOaGRrxxMv/w/Z96X8KrfH4CTz41DuG5mSn9AoQ6PQaZdSj5cdWXDn3eTy6uEp3/NpPd2DYTU/iQE2Dbh8eMKcAgTanl+neC5at1x3z3IrPIMHX7cADphUg0KYlc3QAjZlUgECbFIzd1VaAQKudH3pnUgECbVIwdldbAQKtdn7onUkFCLRJwdhdbQXcC7TautK7HClAoHMkPM3aowCBtkdXzpojBQi0zcI3HG/Bpp3VCVbkZzjWb/4uoZ0N2SlAoLPTz9Do3z/+Nt7/Yne07+Zdh3Hvo5U41nQi2sYdaxQg0NbomHKWL7cewI1/WIqySfNDZdxvF2LVR1tTjuHBkwqY2SPQZtRiX+UVINDKp4gOmlGAQJtRi32VV4BAK58iOmhGAQJtRi32VV4BAq18ilI5yGPxChDoeEVYd7UCBNrV6aPz8QoQ6HhFWHe1AgTa1emj8/EKEOh4RVh3tQKeBdrVWaHzGStAoDOWjgNVVIBAq5gV+pSxAgQ6Y+k4UEUFCLSKWaFPGStAoDOWjgMVUSDGDQIdI4c3K4G8AEp79kBeIM9UgIUFhSgt7W5qTK47B3LtAO3bq8DgwWfizjtmY9bNv8ScOTPR7fTTDRk8++yzMHfurZg18wbMnjUdJSUlhsbluhOBznUGbLTfq1dPVFSMR5cuXUJWunY9BddfPwnyzBtq0Hnp3bsXyieOj/5uYo8eJbju2nLk5+frjFCnmUCrkwvLPRk6dIhYZsSmuLi4CBWTxgEakj4KxDJjUsWEKMyRTnJcv759IlVlt7HRKusmHctEgYMHE78PRM4zoH8/DBo4QO7GliBw1ZjRKCrqGtsuavIn56oP14g9tZ8EWu38ZOXdN99sRU1N8h8uGjigLySkHQ0ExVm7V8/Sjk3R/Q0bNqG+Xv3fgiHQ0ZR5bycoiH19eSVaWpJ/oY0mABYn5XDgYkdUw/txr9XVNVi37sO4VjWrBFrNvFjm1dGjdVi56m3d+STEgmXorambmpqxbPkqtLaZ+yFR5OhBoHMkvJNmd+7cg0/X6/9SrRYiOrlHqyrXosEFS42I9wQ6ooTHt+9/UIV9+3S+HFKeppPEX/XxeuzatSfJEXWbCLS6ubHWM3EWXrHiLfHGrtHQvLv37EVV1aeG+qrUya9Aq5QDx3xpam7C6yvEeri1LaXNurp6vPGG/ro75eAcHyTQOU6A0+arDx1OecXix9ZWLA9dGWlx2jVL7BFoS2R01yRfbtiIvTrr6Xff/QBuuIGipziB1lPG4+0rlq+GPBt3DLO29gg2bvy6Y5Pr9gm061JmjcPNLc14YeESHKo+jMaGY9gs7ioufHGJNZPncBYCnUPxc2267uhRLFr0Cp5+ZiEqxfVmeWcx1z5laz8R6GxnzGJ8OkGnjx+G+2Zc5qty/pAzUioahLgel7KHvw4qBXTLidS3V6ePOw+/mzHaV2VkGqCb02gGnz2UAnrrXvU/nqgSH8ebT+C76nqVXMq5L0oBvWlH8s/v5lwlRR3YsO2gop7lzi2lgP7ucD3WfrI9d2q4zPJzKz53mcf2uxsIKvae4r7H30ZdY7P9kbvcwuqqbVj54ZasovDaYMmyOEOrRfThH47h9r8uR7XYek1wq+J577NduP/xt6yazkPzBCGAVi+ej77aizFzn8fSd7/Gtn21PGOLFB2sbcRXYs380FPvYMYfX8WR+ibRyme8AkoCLZ38oaEJ9zxSiasE2EOn/xNlk+b7ulw4ewGuuXcRXlip/0F9qZu/i4aApvdvb8AHFXCfAgG1VtDuE5Aeq6WAWHIQ6cSUsMWdCog3hZqmudN3ek0F4hTQNA3iDA2k+1AQ+KACiisQYTgEtOK+0j0qYFiBENCaxmWHYcXYUUkFNC3McAho6aG8bSi3LFTAbQp0ZDcKtJbq63M6RMhdKqCaAh3ZjQIN3mABH+5TIHx2Di83pPcdgJZVFirgLgXal85RpxOAjlz+iPbgDhVQVIFkrCYArWknT9+KxkG3qEBIAU1LZDUBaNmTN8OlCr4vSgugx2hSoBO5Vzo2OudDBfQYTQq0D/VhyB5RgEB7JJEMI6xAWqDD1/nCnflKBVRXIC3Q8o0koVY9jd73L2jwK8/SAh2RSkItS6Tu6y2Dd0wByVzoiob8EUUDVg0BLc/SkWJgTnahApYpEOJOzCa3YpP2aQjotLOwAxVQRAECrUgi6IY1CmQMdOg+uljgiKc1nnAW3ysgWZLr5RBbGaqRMdCaJu7VyCIMSwdkEbt8UgHTCkh2JMhyoKAKmiZfZc18yRjoiClpW9O0iBORZm6pgGEFNE3wI3qLjXjN7pk10PHmw//biPy9xR9lnQqEFQhxIl/CVcteLQda/pXJv7ewr+JyuNgRT8sc5kTuVEAyIE9zoa3YCXEiXywOx3KgI/6FfRVoix3xRDiQdsDFXZ9wHWIvMoJbtysgOG3Ps8yrzLXYikSLp1iSAhoAyYIssOnxfwAAAP//wq8lpQAAAAZJREFUAwDpxHdmTxxwHAAAAABJRU5ErkJggg==">
 <link rel="icon" type="image/png" sizes="192x192" href="data:image/png;base64,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">
 <!-- Eigenständige Fassung: enthält Programm und Gestaltung vollständig.
      Kann lokal gespeichert und ohne Internetverbindung geöffnet werden.
-     Erzeugt am 2026-10-08 -->
+     Erzeugt am 2026-10-11 -->
 </head>
 <body>
 <div id="app">
@@ -1005,13 +1043,33 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     'beidseitig elektronisch'
   ];
 
-  /* --- Maße, die Beschlag und Schloss gemeinsam betreffen ----------------
-   * Als Auswahl hinterlegt, damit vor Ort nicht getippt werden muss.
-   * Abweichende Maße bleiben über "anderes Maß" erfassbar. */
+  /* --- Feste Maßraster ---------------------------------------------------
+   * Überall, wo es ein übliches Raster gibt, wird ausgewählt statt getippt:
+   * vor Ort ist das schneller, mit dem Stift treffsicher und verhindert
+   * Zahlendreher. Jedes Raster hat zusätzlich "anderes Maß …" - kein Wert
+   * ist dadurch ausgeschlossen.
+   * -------------------------------------------------------------------- */
   var DORNMASS = ['25', '30', '35', '40', '45', '50', '55', '60', '65', '70',
                   '75', '80', '85', '90', '95', '100', '110', '120'];
   var ENTFERNUNG = ['72', '74', '78', '88', '92', '94'];
   var VIERKANT = ['7', '8', '8,5', '9', '10'];
+
+  /* Profilzylinder: 5-mm-Raster ab 30. 27,5 ist die kürzeste Hälfte,
+     10 die feste Innenseite eines Halbzylinders. */
+  var ZYLINDER_LAENGE = ['10', '27,5', '30', '35', '40', '45', '50', '55', '60',
+                         '65', '70', '75', '80', '85', '90', '95', '100',
+                         '105', '110', '115', '120'];
+  var TUERBLATTSTAERKE = ['38', '39', '40', '42', '45', '50', '55', '58', '60',
+                          '65', '68', '70', '75', '80', '85', '90', '95', '100'];
+  var PROFILBREITE = ['40', '45', '50', '55', '60', '65', '70', '75', '80',
+                      '85', '90', '100', '110', '120'];
+  var STULPLAENGE = ['170', '200', '235', '240', '245', '250', '255', '260',
+                     '270', '300', '400', '500', '600', '800', '1000'];
+  var VERRIEGELUNGSPUNKTE = ['1', '2', '3', '5', '7'];
+  /* Türblattmaße nach DIN 18101 sowie gängige Rohrrahmenbreiten */
+  var TUERBREITE = ['610', '735', '860', '885', '985', '1110', '1235'];
+  var TUERHOEHE = ['1985', '2010', '2110', '2135'];
+
   var ANDERES_MASS = 'anderes Maß …';
 
   function beschlagText(tuer) {
@@ -1307,6 +1365,13 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     DORNMASS: DORNMASS,
     ENTFERNUNG: ENTFERNUNG,
     VIERKANT: VIERKANT,
+    ZYLINDER_LAENGE: ZYLINDER_LAENGE,
+    TUERBLATTSTAERKE: TUERBLATTSTAERKE,
+    PROFILBREITE: PROFILBREITE,
+    STULPLAENGE: STULPLAENGE,
+    VERRIEGELUNGSPUNKTE: VERRIEGELUNGSPUNKTE,
+    TUERBREITE: TUERBREITE,
+    TUERHOEHE: TUERHOEHE,
     ANDERES_MASS: ANDERES_MASS,
     beschlagText: beschlagText,
     /* Schloss */
@@ -1554,7 +1619,9 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       /* --- Bestand (Altanlage) --- */
       bestandFabrikat: '',
       bestandZylinderart: '',
-      bestandLaenge: '',
+      bestandLaengeAussen: '',    // getrennt, damit beides auswählbar ist
+      bestandLaengeInnen: '',
+      bestandLaenge: '',          // früherer Sammeltext, z. B. "30/35"
       bestandAnzahlSchluessel: '',
       bestandBemerkung: '',
 
@@ -2735,6 +2802,20 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       var i = t.zylinderAusfuehrung.indexOf('Freidreh / Komfort');
       if (i !== -1) {
         t.zylinderAusfuehrung.splice(i, 1, 'Freidreh');
+      }
+    }
+
+    /* Die vorhandene Zylinderlänge stand als ein Text da ("30/35"). Getrennt
+     * lässt sie sich auswählen statt tippen. Nur eindeutig zerlegbare Werte
+     * werden umgeschrieben - alles andere bleibt im alten Feld stehen und
+     * ist weiter sichtbar, statt still verloren zu gehen. */
+    if (String(t.bestandLaenge || '').trim() && !t.bestandLaengeAussen && !t.bestandLaengeInnen) {
+      var teile = /^\s*(\d+(?:[.,]\d+)?)\s*[\/xX\-]\s*(\d+(?:[.,]\d+)?)\s*(?:mm)?\s*$/
+        .exec(String(t.bestandLaenge));
+      if (teile) {
+        t.bestandLaengeAussen = teile[1];
+        t.bestandLaengeInnen = teile[2];
+        t.bestandLaenge = '';
       }
     }
 
@@ -4084,7 +4165,8 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       ['Maß-Bemerkung', t.masseBemerkung, true],
       ['Bestand Fabrikat', t.bestandFabrikat],
       ['Bestand Zylinderart', t.bestandZylinderart],
-      ['Bestand Länge', t.bestandLaenge],
+      ['Bestand Länge', [t.bestandLaengeAussen, t.bestandLaengeInnen].filter(Boolean).join('/') ||
+                        t.bestandLaenge],
       ['Bestand Schlüsselanzahl', t.bestandAnzahlSchluessel],
       ['Bestand Bemerkung', t.bestandBemerkung, true],
       ['Funkabdeckung', t.elFunkabdeckung],
@@ -4934,6 +5016,10 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     pipedrivePhaseName: '',
     fotoQualitaet: 0.72,
     fotoMaxKante: 1280,
+    /* Stiftmodus: größere Schreibflächen für Apple Pencil und Handschrift.
+     * Vor Ort die Regel, deshalb vorbelegt; im Büro abschaltbar, dort ist
+     * eine kompakte Ansicht angenehmer. */
+    stiftModus: true,
     letztesProjekt: ''
   };
 
@@ -6367,14 +6453,32 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     return knoten;
   }
 
+  /* Ein Zahlenfeld (<input type="number">) nimmt auf dem iPad keine
+   * Handschrift an: Apples "Kritzeln" schreibt nur in Textfelder. Weil die
+   * Maße vor Ort mit dem Stift eingetragen werden sollen, wird daraus ein
+   * Textfeld mit numerischer Tastatur - dieselbe Eingabe, aber beschreibbar.
+   * Nebeneffekt: die winzigen Pfeilchen am Rand verschwinden. */
+  function eingabeTyp(optionen) {
+    if (optionen.typ === 'number') {
+      return { typ: 'text', modus: optionen.inputmode || 'numeric' };
+    }
+    return { typ: optionen.typ || 'text', modus: optionen.inputmode || null };
+  }
+
   function textFeld(objekt, schluessel, beschriftung, optionen) {
     optionen = optionen || {};
+    var art = eingabeTyp(optionen);
     var eingabe = el('input', {
-      type: optionen.typ || 'text',
+      type: art.typ,
       value: objekt[schluessel] === null || objekt[schluessel] === undefined ? '' : objekt[schluessel],
       placeholder: optionen.platzhalter || '',
-      inputmode: optionen.inputmode || null,
+      inputmode: art.modus,
       autocomplete: optionen.autocomplete || 'off',
+      /* Handschrift wird sonst "verbessert" - bei Türnummern und Maßen
+       * wäre das falsch. */
+      autocorrect: optionen.autocorrect || 'off',
+      autocapitalize: optionen.autocapitalize || 'sentences',
+      spellcheck: 'false',
       oninput: function (e) {
         eingabeSchrittMerken('Eingabe: ' + String(beschriftung).replace(/<[^>]*>/g, '').trim());
         objekt[schluessel] = e.target.value;
@@ -6390,6 +6494,8 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     var eingabe = el('textarea', {
       placeholder: optionen.platzhalter || '',
       rows: optionen.zeilen || 3,
+      /* Fließtext: hier ist die Rechtschreibhilfe beim Kritzeln nützlich */
+      autocorrect: 'on', autocapitalize: 'sentences', spellcheck: 'true',
       oninput: function (e) {
         eingabeSchrittMerken('Eingabe: ' + String(beschriftung).replace(/<[^>]*>/g, '').trim());
         objekt[schluessel] = e.target.value; alsGeaendertMarkieren();
@@ -6410,12 +6516,22 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       }
     });
     auswahl.appendChild(el('option', { value: '', text: konfig.leerText || '– bitte wählen –' }));
+    var bekannt = {};
     optionen.forEach(function (o) {
       var wert = (typeof o === 'string') ? o : o.id;
       var text = (typeof o === 'string') ? o : o.label;
+      bekannt[String(wert)] = true;
       auswahl.appendChild(el('option', { value: wert, text: text }));
     });
-    auswahl.value = objekt[schluessel] || '';
+    /* Ein gespeicherter Wert, der nicht (mehr) in der Liste steht, bliebe
+     * sonst beim Öffnen des Formulars stillschweigend leer und wäre beim
+     * nächsten Speichern verloren. Er wird deshalb mit aufgenommen. */
+    var vorhanden = objekt[schluessel];
+    if (vorhanden && !bekannt[String(vorhanden)]) {
+      auswahl.appendChild(el('option', { value: vorhanden,
+        text: vorhanden + '  (aus dem Bestand)' }));
+    }
+    auswahl.value = vorhanden || '';
     return feld(beschriftung, auswahl, konfig.breit, schluessel);
   }
 
@@ -6432,6 +6548,80 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     return el('label', { class: 'schalter', 'data-feld': schluessel }, [
       eingabe, el('span', { class: 'bahn' }), el('span', { class: 'beschriftung', text: beschriftung })
     ]);
+  }
+
+  /* =========================================================================
+   * Zähler: Anzahl mit - und + einstellen
+   * ======================================================================
+   * Für kleine Stückzahlen (baugleiche Türen, Schlüssel, Medien). Mit dem
+   * Stift oder einem Finger bedienbar, ganz ohne Tastatur; das Feld in der
+   * Mitte bleibt beschreibbar, damit auch 48 schnell eingetragen werden
+   * kann.
+   */
+  function zahlFeld(objekt, schluessel, beschriftung, optionen) {
+    optionen = optionen || {};
+    var min = (optionen.min === undefined) ? 0 : optionen.min;
+    var max = (optionen.max === undefined) ? 999 : optionen.max;
+    var reinText = String(beschriftung).replace(/<[^>]*>/g, '').trim();
+
+    /* Ein leeres Feld bleibt leer: "0 vorhandene Schlüssel" wäre eine
+     * Aussage, "noch nicht erfasst" ist etwas anderes. */
+    function istLeer() {
+      var w = objekt[schluessel];
+      return w === '' || w === null || w === undefined ||
+             !isFinite(parseInt(w, 10));
+    }
+    function lesen() {
+      var n = parseInt(objekt[schluessel], 10);
+      if (!isFinite(n)) n = (optionen.vorgabe === undefined) ? min : optionen.vorgabe;
+      return Math.min(max, Math.max(min, n));
+    }
+    function schreiben(n, vonHand) {
+      var begrenzt = Math.min(max, Math.max(min, n));
+      objekt[schluessel] = begrenzt;
+      anzeige.value = String(begrenzt);
+      if (optionen.beiAenderung) optionen.beiAenderung(begrenzt);
+      alsGeaendertMarkieren();
+      return begrenzt;
+    }
+
+    var anzeige = el('input', {
+      type: 'text', inputmode: 'numeric', value: istLeer() ? '' : String(lesen()),
+      placeholder: optionen.platzhalter || '–',
+      autocomplete: 'off', autocorrect: 'off', spellcheck: 'false',
+      class: 'zahl-anzeige',
+      oninput: function (e) {
+        eingabeSchrittMerken('Eingabe: ' + reinText);
+        /* Während der Eingabe nicht gegen die Grenzen laufen - sonst ließe
+         * sich keine zweistellige Zahl tippen. */
+        var roh = String(e.target.value).replace(/[^0-9]/g, '');
+        e.target.value = roh;
+        var n = parseInt(roh, 10);
+        objekt[schluessel] = isFinite(n) ? n : '';
+        if (optionen.beiAenderung) optionen.beiAenderung(objekt[schluessel]);
+        alsGeaendertMarkieren();
+      },
+      /* Beim Verlassen nur in die Grenzen rücken, wenn überhaupt etwas
+       * dasteht - sonst würde bloßes Antippen eine 0 erzeugen. */
+      onblur: function () { if (!istLeer()) schreiben(lesen()); }
+    });
+
+    function stufe(richtung, zeichen) {
+      return el('button', {
+        type: 'button', class: 'zahl-knopf', text: zeichen,
+        'aria-label': (richtung > 0 ? 'Mehr' : 'Weniger') + ': ' + reinText,
+        onclick: function () {
+          schrittMerken((richtung > 0 ? 'Erhöht: ' : 'Verringert: ') + reinText);
+          schreiben(lesen() + richtung);
+        }
+      });
+    }
+
+    var reihe = el('div', { class: 'zahl-feld' }, [
+      stufe(-1, '−'), anzeige, stufe(1, '+'),
+      optionen.einheit ? el('span', { class: 'einheit-rechts', text: optionen.einheit }) : null
+    ]);
+    return feld(beschriftung, reihe, optionen.breit, schluessel);
   }
 
   /* Mehrfachauswahl als anklickbare Chips */
@@ -6512,7 +6702,8 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     schrittZurueck: schrittZurueck,
     statusAnzeigen: statusAnzeigen,
     feld: feld, textFeld: textFeld, bereichFeld: bereichFeld,
-    auswahlFeld: auswahlFeld, schalterFeld: schalterFeld, chipFeld: chipFeld
+    auswahlFeld: auswahlFeld, schalterFeld: schalterFeld, chipFeld: chipFeld,
+    zahlFeld: zahlFeld
   };
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -7530,20 +7721,38 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
   }
   function alleSysteme() { return K.SYSTEME.concat(eigeneListe('eigeneSysteme')); }
 
-  /* Maßauswahl: übliche Werte als Liste, abweichende Maße über "anderes Maß".
-   * Vor Ort wird so in der Regel nur getippt statt getastet. */
+  /* =========================================================================
+   * Maßauswahl
+   * ======================================================================
+   * Übliche Maße als Liste, abweichende über "anderes Maß …". Vor Ort wird
+   * damit in aller Regel nur getippt statt getastet - das ist schneller,
+   * mit dem Stift treffsicher und verhindert Zahlendreher.
+   *
+   * Das Feld für abweichende Maße ist bewusst ein Textfeld: In ein
+   * Zahlenfeld schreibt Apples "Kritzeln" nicht hinein. Ein Komma wird
+   * angenommen (27,5) und wie ein Punkt behandelt.
+   */
   function massFeld(objekt, schluessel, beschriftung, werte, platzhalter, beiAenderung) {
     var behaelter = el('div', { class: 'feld', 'data-feld': schluessel });
     var reinText = String(beschriftung).replace(/<[^>]*>/g, '').trim();
+    var einheit = /mm|cm/.test(String(beschriftung)) ? ' mm' : '';
+
     var freitext = el('input', {
-      type: 'number', inputmode: 'numeric', placeholder: platzhalter || 'Maß in mm',
+      type: 'text', inputmode: 'decimal',
+      placeholder: platzhalter || ('Maß' + (einheit ? ' in mm' : '')),
       value: objekt[schluessel] || '',
+      autocomplete: 'off', autocorrect: 'off', spellcheck: 'false',
       oninput: function (e) {
         A.eingabeSchrittMerken('Eingabe: ' + reinText);
-        objekt[schluessel] = e.target.value; A.alsGeaendertMarkieren();
+        /* Nur Ziffern, Komma und Punkt - alles andere wäre kein Maß */
+        var roh = String(e.target.value).replace(/[^0-9.,]/g, '');
+        if (roh !== e.target.value) e.target.value = roh;
+        objekt[schluessel] = roh;
+        A.alsGeaendertMarkieren();
         if (beiAenderung) beiAenderung();
       }
     });
+
     var auswahl = el('select', {
       onchange: function (e) {
         if (e.target.value === K.ANDERES_MASS) {
@@ -7560,12 +7769,14 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       }
     });
     auswahl.appendChild(el('option', { value: '', text: '– bitte wählen –' }));
-    werte.forEach(function (w) { auswahl.appendChild(el('option', { value: w, text: w + ' mm' })); });
+    werte.forEach(function (w) {
+      auswahl.appendChild(el('option', { value: w, text: w + einheit }));
+    });
     auswahl.appendChild(el('option', { value: K.ANDERES_MASS, text: K.ANDERES_MASS }));
 
     var vorhanden = objekt[schluessel];
     if (vorhanden && werte.indexOf(String(vorhanden)) === -1) {
-      auswahl.value = K.ANDERES_MASS;          /* Altwert außerhalb der Liste */
+      auswahl.value = K.ANDERES_MASS;          /* Maß außerhalb der Liste */
     } else {
       auswahl.value = vorhanden || '';
       freitext.classList.add('versteckt');
@@ -7879,7 +8090,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
               { leerText: '– bitte wählen –', beiAenderung: markieren })
           : A.textFeld(t, 'etage', 'Etage / Bereich <span class="einheit">(Freitext)</span>',
               { beiAenderung: markieren }),
-        A.textFeld(t, 'anzahl', 'Anzahl baugleicher Türen', { typ: 'number', inputmode: 'numeric' })
+        A.zahlFeld(t, 'anzahl', 'Anzahl baugleicher Türen', { min: 1, max: 999, vorgabe: 1 })
       ]));
       ziel.appendChild(statusFeldBauen());
     }
@@ -7967,15 +8178,26 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     }
 
     /* --- 3. Zylinder --------------------------------------------------- */
+    var gesamtAnzeige = el('p', { class: 'zart', style: { marginTop: '4px' } });
+    function gesamtlaengeZeigen() {
+      var gl = gesamtlaenge(t);
+      gesamtAnzeige.textContent = gl ? ('Gesamtlänge ' + gl + ' mm') : '';
+    }
+    function laengenGeaendert() {
+      gesamtlaengeZeigen();
+      widerspruecheZeigen();
+      markieren();
+    }
+
     function zylinderBauen(ziel) {
       var raster = el('div', { class: 'raster' }, [
         A.auswahlFeld(t, 'zylinderBauform', 'Art des Zylinders <span class="einheit">(Bauform)</span>',
           liste('ZYLINDER_BAUFORM', 'eigeneZylinderarten'),
           { leerText: '– bitte wählen –', beiAenderung: function () { abschnittNeu('zylinder'); markieren(); } }),
-        A.textFeld(t, 'masseAussen', 'Länge außen <span class="einheit">mm</span>',
-          { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 35', beiAenderung: markieren }),
-        A.textFeld(t, 'masseInnen', 'Länge innen <span class="einheit">mm</span>',
-          { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 40', beiAenderung: markieren })
+        massFeld(t, 'masseAussen', 'Länge außen <span class="einheit">mm</span>',
+          K.ZYLINDER_LAENGE, 'z. B. 35', laengenGeaendert),
+        massFeld(t, 'masseInnen', 'Länge innen <span class="einheit">mm</span>',
+          K.ZYLINDER_LAENGE, 'z. B. 40', laengenGeaendert)
       ]);
       /* Knaufseite ist nur beim einfachen Knaufzylinder eine offene Frage */
       if (t.zylinderBauform === 'Knaufzylinder') {
@@ -7986,12 +8208,11 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
         t.zylinderKnaufseite = '';
       }
       ziel.appendChild(raster);
-      /* Gesamtlänge mitrechnen: danach wird bestellt */
-      var gl = gesamtlaenge(t);
-      if (gl) {
-        ziel.appendChild(el('p', { class: 'zart', style: { marginTop: '4px' },
-          text: 'Gesamtlänge ' + gl + ' mm' }));
-      }
+      /* Gesamtlänge mitrechnen: danach wird bestellt. Sie wird an Ort und
+       * Stelle fortgeschrieben - ein Neuaufbau des Abschnitts würde eine
+       * laufende Eingabe zerreißen, und mit dem Stift wäre das fatal. */
+      ziel.appendChild(gesamtAnzeige);
+      gesamtlaengeZeigen();
       ziel.appendChild(A.chipFeld(t, 'zylinderAusfuehrung',
         'Ausführung <span class="einheit">(nur wenn zutreffend)</span>',
         liste('ZYLINDER_AUSFUEHRUNG')));
@@ -8028,8 +8249,8 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
         massFeld(t, 'dornmass', 'Dornmaß <span class="einheit">mm</span>', K.DORNMASS, 'z. B. 55', markieren),
         massFeld(t, 'entfernung', 'Entfernung <span class="einheit">mm</span>', K.ENTFERNUNG, 'z. B. 72', markieren),
         massFeld(t, 'vierkant', 'Vierkant / Nuss <span class="einheit">mm</span>', K.VIERKANT, 'z. B. 8', markieren),
-        A.textFeld(t, 'tuerblattstaerke', 'Türblattstärke <span class="einheit">mm</span>',
-          { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 68', beiAenderung: markieren }),
+        massFeld(t, 'tuerblattstaerke', 'Türblattstärke <span class="einheit">mm</span>',
+          K.TUERBLATTSTAERKE, 'z. B. 68', markieren),
         A.auswahlFeld(t, 'dinRichtung', 'DIN-Richtung', K.DIN_RICHTUNG,
           { leerText: '– bitte wählen –', beiAenderung: markieren })
       ]);
@@ -8062,15 +8283,15 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
           el('div', { class: 'raster' }, [
             A.auswahlFeld(t, 'schlossStulpform', 'Stulpform', K.STULPFORM, { leerText: '– ohne Angabe –' }),
             massFeld(t, 'schlossStulpbreite', 'Stulpbreite <span class="einheit">mm</span>', K.STULPBREITE, 'z. B. 24'),
-            A.textFeld(t, 'schlossStulplaenge', 'Stulplänge <span class="einheit">mm</span>',
-              { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 235' }),
+            massFeld(t, 'schlossStulplaenge', 'Stulplänge <span class="einheit">mm</span>',
+              K.STULPLAENGE, 'z. B. 235'),
             A.auswahlFeld(t, 'schlossFallenart', 'Fallenart', K.FALLENART, { leerText: '– ohne Angabe –' }),
             massFeld(t, 'schlossRiegelausschluss', 'Riegelausschluss <span class="einheit">mm</span>',
               K.RIEGELAUSSCHLUSS, 'z. B. 20'),
-            A.textFeld(t, 'schlossVerriegelungspunkte', 'Verriegelungspunkte',
-              { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 3' }),
+            A.auswahlFeld(t, 'schlossVerriegelungspunkte', 'Verriegelungspunkte',
+              K.VERRIEGELUNGSPUNKTE, { leerText: '– ohne Angabe –' }),
             A.auswahlFeld(t, 'schlossNorm', 'Norm / Zulassung', K.SCHLOSS_NORM, { leerText: '– ohne Angabe –' }),
-            A.textFeld(t, 'stulpmass', 'Stulpmaß / Sonstiges')
+            A.textFeld(t, 'stulpmass', 'Stulp: Sonstiges <span class="einheit">(Freitext)</span>')
           ])
         ])
       ]));
@@ -8087,7 +8308,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
         'Bauliche Anforderungen <span class="einheit">(mehrere möglich)</span>',
         liste('TUERANFORDERUNG', 'eigeneZutrittsarten'));
       /* Eine Änderung hier kann einen Widerspruch zum Schloss auflösen */
-      feld.addEventListener('click', function () { setTimeout(function () { abschnittNeu('zutritt'); }, 0); });
+      feld.addEventListener('click', function () { setTimeout(widerspruecheZeigen, 0); });
       ziel.appendChild(feld);
       ziel.appendChild(el('p', { class: 'hinweis', style: { marginTop: '10px' },
         text: 'Bei Flucht- und Rettungswegen sowie Brand- und Rauchschutztüren sind die bauaufsichtlichen Anforderungen zu beachten; die Auswahl hier ersetzt keine Prüfung vor Ort.' }));
@@ -8124,14 +8345,14 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       ziel.appendChild(el('p', { class: 'hinweis', style: { marginTop: '0' },
         text: 'Freiwillig. Türblattstärke und DIN-Richtung stehen beim Bauteil und werden hier nicht erneut gefragt.' }));
       ziel.appendChild(el('div', { class: 'raster' }, [
-        A.textFeld(t, 'tuerbreite', 'Türbreite <span class="einheit">mm</span>',
-          { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 885' }),
-        A.textFeld(t, 'tuerhoehe', 'Türhöhe <span class="einheit">mm</span>',
-          { typ: 'number', inputmode: 'numeric', platzhalter: 'z. B. 2010' }),
+        massFeld(t, 'tuerbreite', 'Türbreite <span class="einheit">mm</span>',
+          K.TUERBREITE, 'z. B. 885'),
+        massFeld(t, 'tuerhoehe', 'Türhöhe <span class="einheit">mm</span>',
+          K.TUERHOEHE, 'z. B. 2010'),
         A.auswahlFeld(t, 'tuerAnschlag', 'Türanschlag', K.TUER_ANSCHLAG, { leerText: '– ohne Angabe –' }),
         A.auswahlFeld(t, 'tuermaterial', 'Türblattmaterial', K.TUERMATERIAL, { leerText: '– ohne Angabe –' }),
-        A.textFeld(t, 'profilbreite', 'Profilbreite <span class="einheit">mm</span>',
-          { typ: 'number', inputmode: 'numeric' }),
+        massFeld(t, 'profilbreite', 'Profilbreite <span class="einheit">mm</span>',
+          K.PROFILBREITE, 'z. B. 60'),
         A.auswahlFeld(t, 'oeffnungsrichtung', 'Öffnungsrichtung', K.TUER_OEFFNUNG, { leerText: '– ohne Angabe –' }),
         A.textFeld(t, 'bohrbild', 'Bohrbild / Lochung')
       ]));
@@ -8144,11 +8365,21 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
     function bestandBauen(ziel) {
       ziel.appendChild(el('div', { class: 'raster' }, [
         A.textFeld(t, 'bestandFabrikat', 'Vorhandenes Fabrikat', { platzhalter: 'z. B. EVVA, Kaba, ABUS' }),
-        A.textFeld(t, 'bestandZylinderart', 'Vorhandene Zylinderart'),
-        A.textFeld(t, 'bestandLaenge', 'Vorhandene Länge', { platzhalter: 'z. B. 30/35' }),
-        A.textFeld(t, 'bestandAnzahlSchluessel', 'Anzahl vorhandener Schlüssel',
-          { typ: 'number', inputmode: 'numeric' })
+        A.auswahlFeld(t, 'bestandZylinderart', 'Vorhandene Zylinderart',
+          liste('ZYLINDER_BAUFORM', 'eigeneZylinderarten'), { leerText: '– unbekannt –' }),
+        massFeld(t, 'bestandLaengeAussen', 'Vorhandene Länge außen <span class="einheit">mm</span>',
+          K.ZYLINDER_LAENGE, 'z. B. 30'),
+        massFeld(t, 'bestandLaengeInnen', 'Vorhandene Länge innen <span class="einheit">mm</span>',
+          K.ZYLINDER_LAENGE, 'z. B. 35'),
+        A.zahlFeld(t, 'bestandAnzahlSchluessel', 'Anzahl vorhandener Schlüssel',
+          { min: 0, max: 999, vorgabe: 0 })
       ]));
+      if (String(t.bestandLaenge || '').trim()) {
+        ziel.appendChild(el('div', { class: 'raster', style: { marginTop: '10px' } }, [
+          A.textFeld(t, 'bestandLaenge',
+            'Vorhandene Länge <span class="einheit">(Eintrag aus einer früheren Fassung)</span>')
+        ]));
+      }
       ziel.appendChild(el('div', { class: 'raster', style: { marginTop: '10px' } }, [
         A.bereichFeld(t, 'bestandBemerkung', 'Bemerkung zum Bestand', { zeilen: 2 })
       ]));
@@ -8216,7 +8447,13 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
      * Weist auf Angaben hin, die nicht zusammenpassen - statt sie ein
      * zweites Mal abzufragen. */
     function widerspruecheBauen() {
-      var kasten = el('div');
+      return el('div', { class: 'widersprueche' });
+    }
+
+    /* Die Hinweise werden in den vorhandenen Kästen erneuert, nicht neu
+     * aufgebaut: Ein Neuaufbau würde ein Feld, in das gerade geschrieben
+     * wird, unter dem Stift wegziehen. */
+    function widerspruecheZeigen() {
       var meldungen = [];
       var istFlucht = (t.tueranforderungen || []).indexOf('Flucht- und Rettungsweg') !== -1;
 
@@ -8229,14 +8466,17 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       if (t.brauchtZylinder && (t.zylinderAusfuehrung || []).indexOf('Anti-Panik') !== -1 && !istFlucht) {
         meldungen.push('Zylinder mit Anti-Panik gewählt – gehört diese Tür zum Flucht- und Rettungsweg?');
       }
-      if (t.zylinderBauform === 'Halbzylinder' && t.masseInnen && parseInt(t.masseInnen, 10) > 15) {
+      if (t.zylinderBauform === 'Halbzylinder' && t.masseInnen &&
+          parseInt(String(t.masseInnen).replace(',', '.'), 10) > 15) {
         meldungen.push('Bei einem Halbzylinder ist die Innenlänge üblicherweise 10 mm.');
       }
-      meldungen.forEach(function (m) {
-        kasten.appendChild(el('div', { class: 'meldung warn', style: { marginTop: '12px' } },
-          el('div', { text: m })));
+      Array.prototype.forEach.call(inhalt.querySelectorAll('.widersprueche'), function (kasten) {
+        A.leeren(kasten);
+        meldungen.forEach(function (m) {
+          kasten.appendChild(el('div', { class: 'meldung warn', style: { marginTop: '12px' } },
+            el('div', { text: m })));
+        });
       });
-      return kasten;
     }
 
     /* =======================================================================
@@ -8397,6 +8637,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
           koerper.appendChild(block);
         });
       }
+      widerspruecheZeigen();
       if (!istNeu) {
         koerper.appendChild(el('div', { class: 'weitere-aktionen' }, [
           el('span', { class: 'zart fuellen', text: 'Weitere Aktionen zu dieser Tür' }),
@@ -9167,8 +9408,8 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
             { platzhalter: 'z. B. Herr Özdemir', beiAenderung: melden }),
           A.textFeld(person, 'funktion', 'Funktion / Abteilung',
             { platzhalter: 'z. B. Hausmeister' }),
-          A.textFeld(person, 'anzahlMedien', 'Medien',
-            { typ: 'number', inputmode: 'numeric', beiAenderung: melden }),
+          A.zahlFeld(person, 'anzahlMedien', 'Medien',
+            { min: 1, max: 99, vorgabe: 1, beiAenderung: melden }),
           el('button', {
             class: 'klein gefahr nur-symbol entfernen', text: '✕',
             title: 'Person entfernen',
@@ -9331,8 +9572,8 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
           } })));
       } else {
         medienBereich.appendChild(el('div', { class: 'raster' }, [
-          A.textFeld(s, 'anzahlMedien', 'Anzahl Schlüssel / Medien',
-            { typ: 'number', inputmode: 'numeric',
+          A.zahlFeld(s, 'anzahlMedien', 'Anzahl Schlüssel / Medien',
+            { min: 0, max: 999, vorgabe: 1,
               beiAenderung: function () { s.medienVonHand = true; } })
         ]));
         if (benannt.length) {
@@ -9675,6 +9916,32 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
       logoVorschau
     ]));
 
+    /* --- Apple Pencil und Handschrift --------------------------------- */
+    seite.appendChild(el('div', { class: 'karte' }, [
+      el('h2', { text: 'Apple Pencil und Handschrift' }),
+      el('p', { class: 'hinweis',
+        text: 'Handschrift wird auf dem iPad von „Kritzeln“ umgesetzt – einer Funktion von ' +
+              'iPadOS, nicht dieses Werkzeugs. Sie ist in jedem Schreibfeld aktiv: ' +
+              'einfach mit dem Stift hineinschreiben, die Schrift wird in Druckschrift ' +
+              'umgewandelt. Einzuschalten unter Einstellungen → Apple Pencil → Kritzeln.' }),
+      el('div', { style: { marginTop: '6px' } }, [
+        A.schalterFeld(e, 'stiftModus', 'Stiftmodus: größere Schreibflächen', function () {
+          merken();
+          document.body.classList.toggle('stift', e.stiftModus !== false);
+        })
+      ]),
+      el('p', { class: 'zart', style: { marginLeft: '64px', marginTop: '-6px' },
+        text: 'Handschrift braucht mehr Platz als eine Tastatureingabe. Im Büro lässt sich ' +
+              'der Modus abschalten; die Ansicht wird dann kompakter.' }),
+      el('div', { class: 'meldung info', style: { marginTop: '12px' } }, el('div', {}, [
+        el('b', { text: 'Ohne Tastatur bedienbar: ' }),
+        'Alle festen Maße – Zylinderlängen, Dornmaß, Entfernung, Nuss, Türblattstärke, ' +
+        'Stulpmaße, Türmaße – stehen als Auswahl bereit. Stückzahlen werden über – und + ' +
+        'gestellt. Getippt oder geschrieben werden muss nur noch, was wirklich frei ist: ' +
+        'Bezeichnungen, Namen und Bemerkungen.'
+      ]))
+    ]));
+
     /* --- Fotoqualität --- */
     var qualitaetAnzeige = el('span', { class: 'zart' });
     function qualitaetText() {
@@ -10006,6 +10273,9 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
 
     /* --- Kopfzeile --- */
     var eins = Zustand.einstellungen || {};
+    /* Im Stiftmodus sind alle Schreibflächen größer - Handschrift braucht
+     * mehr Platz als eine Tastatureingabe. */
+    document.body.classList.toggle('stift', eins.stiftModus !== false);
     wurzel.appendChild(el('header', { class: 'kopf' }, [
       eins.logoDataUrl
         ? el('img', { class: 'logo', src: eins.logoDataUrl, alt: eins.firma || 'Firmenlogo' })

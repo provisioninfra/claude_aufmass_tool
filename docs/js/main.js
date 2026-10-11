@@ -31,6 +31,9 @@
 
     /* --- Kopfzeile --- */
     var eins = Zustand.einstellungen || {};
+    /* Im Stiftmodus sind alle Schreibflächen größer - Handschrift braucht
+     * mehr Platz als eine Tastatureingabe. */
+    document.body.classList.toggle('stift', eins.stiftModus !== false);
     wurzel.appendChild(el('header', { class: 'kopf' }, [
       eins.logoDataUrl
         ? el('img', { class: 'logo', src: eins.logoDataUrl, alt: eins.firma || 'Firmenlogo' })

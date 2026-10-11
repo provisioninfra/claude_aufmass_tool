@@ -588,8 +588,8 @@
             { platzhalter: 'z. B. Herr Özdemir', beiAenderung: melden }),
           A.textFeld(person, 'funktion', 'Funktion / Abteilung',
             { platzhalter: 'z. B. Hausmeister' }),
-          A.textFeld(person, 'anzahlMedien', 'Medien',
-            { typ: 'number', inputmode: 'numeric', beiAenderung: melden }),
+          A.zahlFeld(person, 'anzahlMedien', 'Medien',
+            { min: 1, max: 99, vorgabe: 1, beiAenderung: melden }),
           el('button', {
             class: 'klein gefahr nur-symbol entfernen', text: '✕',
             title: 'Person entfernen',
@@ -752,8 +752,8 @@
           } })));
       } else {
         medienBereich.appendChild(el('div', { class: 'raster' }, [
-          A.textFeld(s, 'anzahlMedien', 'Anzahl Schlüssel / Medien',
-            { typ: 'number', inputmode: 'numeric',
+          A.zahlFeld(s, 'anzahlMedien', 'Anzahl Schlüssel / Medien',
+            { min: 0, max: 999, vorgabe: 1,
               beiAenderung: function () { s.medienVonHand = true; } })
         ]));
         if (benannt.length) {
@@ -1094,6 +1094,32 @@
         el('button', { text: 'Logo hochladen', onclick: function () { logoEingabe.click(); } }), logoEingabe
       ]),
       logoVorschau
+    ]));
+
+    /* --- Apple Pencil und Handschrift --------------------------------- */
+    seite.appendChild(el('div', { class: 'karte' }, [
+      el('h2', { text: 'Apple Pencil und Handschrift' }),
+      el('p', { class: 'hinweis',
+        text: 'Handschrift wird auf dem iPad von „Kritzeln“ umgesetzt – einer Funktion von ' +
+              'iPadOS, nicht dieses Werkzeugs. Sie ist in jedem Schreibfeld aktiv: ' +
+              'einfach mit dem Stift hineinschreiben, die Schrift wird in Druckschrift ' +
+              'umgewandelt. Einzuschalten unter Einstellungen → Apple Pencil → Kritzeln.' }),
+      el('div', { style: { marginTop: '6px' } }, [
+        A.schalterFeld(e, 'stiftModus', 'Stiftmodus: größere Schreibflächen', function () {
+          merken();
+          document.body.classList.toggle('stift', e.stiftModus !== false);
+        })
+      ]),
+      el('p', { class: 'zart', style: { marginLeft: '64px', marginTop: '-6px' },
+        text: 'Handschrift braucht mehr Platz als eine Tastatureingabe. Im Büro lässt sich ' +
+              'der Modus abschalten; die Ansicht wird dann kompakter.' }),
+      el('div', { class: 'meldung info', style: { marginTop: '12px' } }, el('div', {}, [
+        el('b', { text: 'Ohne Tastatur bedienbar: ' }),
+        'Alle festen Maße – Zylinderlängen, Dornmaß, Entfernung, Nuss, Türblattstärke, ' +
+        'Stulpmaße, Türmaße – stehen als Auswahl bereit. Stückzahlen werden über – und + ' +
+        'gestellt. Getippt oder geschrieben werden muss nur noch, was wirklich frei ist: ' +
+        'Bezeichnungen, Namen und Bemerkungen.'
+      ]))
     ]));
 
     /* --- Fotoqualität --- */

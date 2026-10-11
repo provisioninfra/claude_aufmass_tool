@@ -15,6 +15,8 @@ Installation und ohne Internetverbindung.
 * **Geführtes Türformular** – ein Schritt je Bildschirm für das Aufmaß vor
   Ort, umschaltbar auf alle Felder für das Büro; Pflichtangaben sind
   gekennzeichnet, blockieren aber nichts
+* **Vollständig mit dem Apple Pencil bedienbar** – feste Maße als Auswahl,
+  Stückzahlen über – und +, und jedes Schreibfeld nimmt Handschrift an
 * **Kreuzschließplan** – Zutrittsmatrix Türen × Schließungen, direkt auf dem
   Aufmaß aufbauend
 * **PDF-Ausgaben** auf Knopfdruck: Türliste (kompakt und ausführlich),
@@ -232,6 +234,59 @@ Wer stattdessen in der Türliste nach einem Bereich filtert, bekommt neue
 Türen ebenfalls gleich diesem Bereich zugeordnet – derselbe Gedanke, zweiter
 Weg.
 
+## Bedienung mit dem Apple Pencil
+
+**Handschrift wird von iPadOS umgesetzt, nicht von diesem Werkzeug.** Apples
+„Kritzeln“ (Scribble) wandelt Geschriebenes in jedem Textfeld in Druckschrift
+um; einzuschalten unter *Einstellungen → Apple Pencil → Kritzeln*. Safari
+bietet keine Schnittstelle an, über die eine Webseite selbst Handschrift
+erkennen könnte – die `HandwritingRecognition`-API gibt es nur in Chrome und
+auf ChromeOS. Das Werkzeug kann also nur dafür sorgen, dass Kritzeln überall
+funktioniert, und genau das tut es:
+
+* **Kein einziges `<input type="number">` mehr.** In ein Zahlenfeld schreibt
+  Kritzeln nicht hinein. Alle 13 früheren Zahlenfelder sind Textfelder mit
+  Zifferntastatur – gleiche Eingabe, aber beschreibbar.
+* **Kein Feld baut sich während der Eingabe neu auf.** Das hätte die
+  Schrifterkennung mitten im Wort abgebrochen. Die Gesamtlänge des Zylinders
+  und die Widerspruchshinweise werden an Ort und Stelle fortgeschrieben.
+  `tests/test-stift.js` schreibt in jedes sichtbare Feld jeder Ansicht und
+  jedes Dialogs und prüft, dass es danach noch steht und den Fokus hat.
+* **Stiftmodus** (*Einstellungen → Apple Pencil*): größere Schreibflächen,
+  56 px je Zeile, Bemerkungsfelder 120 px. Vorbelegt; im Büro abschaltbar.
+
+## Feste Größen werden ausgewählt, nicht getippt
+
+Überall, wo es ein übliches Raster gibt, steht eine Auswahl bereit. Jede hat
+zusätzlich *anderes Maß …* – kein Wert ist dadurch ausgeschlossen, und ein
+Komma wird angenommen (27,5).
+
+| Angabe | Raster |
+|---|---|
+| Zylinderlänge außen/innen, Bestandslänge | 10 · 27,5 · 30 … 120 mm |
+| Dornmaß | 25 … 120 mm |
+| Entfernung | 72 · 74 · 78 · 88 · 92 · 94 mm |
+| Vierkant / Nuss | 7 · 8 · 8,5 · 9 · 10 mm |
+| Türblattstärke | 38 … 100 mm |
+| Profilbreite | 40 … 120 mm |
+| Stulpbreite / Stulplänge / Riegelausschluss | eigene Raster |
+| Verriegelungspunkte | 1 · 2 · 3 · 5 · 7 |
+| Türbreite / Türhöhe | DIN 18101 und gängige Rohrrahmenmaße |
+
+Stückzahlen – baugleiche Türen, vorhandene Schlüssel, Medien je Person –
+werden über **– und +** gestellt. Das Feld dazwischen bleibt beschreibbar,
+damit auch 48 schnell gesetzt ist; ein noch nicht erfasster Zähler bleibt
+leer, denn „0 Schlüssel“ wäre eine Aussage und „noch nicht erfasst“ etwas
+anderes.
+
+Getippt oder geschrieben werden muss damit nur noch, was wirklich frei ist:
+Türnummer, Bezeichnung, Namen, Fabrikat und Bemerkungen.
+
+Eine Auswahl verliert dabei nie einen Wert: Steht ein gespeicherter Eintrag
+nicht (mehr) in der Liste – etwa aus einem alten Aufmaß –, wird er mit
+aufgenommen und als *(aus dem Bestand)* gekennzeichnet, statt beim nächsten
+Speichern zu verschwinden.
+
 ## Pflichtangaben an der Tür
 
 Pflicht ist, was für die Bestellung zwingend gebraucht wird. Welche Angaben
@@ -438,6 +493,7 @@ Die Testreihen prüfen:
 | `test-bereich-gruppen.js` | Bereich aus der Gliederung öffnen und dort Türen erfassen, Pflichtangaben und ihre Folgen für den Status, freiwillige Felder, Einzelpersonen und Gruppen samt errechneter Medienanzahl |
 | `test-exportlisten.js` | Materialliste: keine Doppelungen, Mengen stimmen mit dem Aufmaß überein, eigene Maßspalten je Bauteilart und die Leerspalten im erzeugten Dokument |
 | `test-bedienung.js` | Größe aller Bedienelemente (≥ 44 px), Schriftgröße der Eingabefelder (≥ 16 px gegen das Hineinzoomen auf iOS), Daumenzone, kein seitliches Scrollen |
+| `test-stift.js` | Bedienbarkeit mit dem Apple Pencil: kein Zahlenfeld in irgendeiner Ansicht, feste Maße als Auswahl, Stückzahlen als Zähler, Schreibprobe in jedem Feld jedes Dialogs, Stiftmodus, kein stiller Datenverlust in Auswahllisten |
 | `test-standalone.js` | Einzeldatei aus `dist/`: startet per `file://`, stellt nachweislich keine einzige Netzanfrage |
 | `test-ueberall.js` | Einzeldatei per Doppelklick, von einer Website und als Einbettung — je mit Datenerhalt nach dem Neuladen |
 | `test-offline-pwa.js` | Laden über http, Netz trennen, Neustart ohne Verbindung, Erfassen und PDF-Erzeugung im Offline-Zustand |

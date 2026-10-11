@@ -13,6 +13,7 @@ const reihen = [
   ['Report-Erzeugung','test-reports.js'],
   ['Browser (E2E)',   'test-e2e.js'],
   ['Bereich & Gruppen','test-bereich-gruppen.js'],
+  ['Stiftbedienung',  'test-stift.js'],
   ['Einzeldatei',     'test-standalone.js'],
   ['Ausgabeweg',      'test-downloads.js'],
   ['Offline-Betrieb', 'test-offline-pwa.js'],
