@@ -151,6 +151,7 @@
       oninput: function (e) { f.suche = e.target.value; listeZeichnen(); }
     });
     var strukturWahl = el('select', {
+      'aria-label': 'Bereich filtern',
       onchange: function (e) { f.struktur = e.target.value; listeZeichnen(); }
     });
     strukturWahl.appendChild(el('option', { value: '', text: 'Alle Bereiche' }));
@@ -161,6 +162,7 @@
     strukturWahl.value = f.struktur;
 
     var statusWahl = el('select', {
+      'aria-label': 'Status filtern',
       onchange: function (e) { f.status = e.target.value; listeZeichnen(); }
     });
     statusWahl.appendChild(el('option', { value: '', text: 'Alle Status' }));
@@ -168,6 +170,7 @@
     statusWahl.value = f.status;
 
     var systemWahl = el('select', {
+      'aria-label': 'System filtern',
       onchange: function (e) { f.system = e.target.value; listeZeichnen(); }
     });
     systemWahl.appendChild(el('option', { value: '', text: 'Alle Systeme' }));

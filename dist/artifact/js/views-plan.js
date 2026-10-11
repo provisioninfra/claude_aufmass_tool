@@ -1196,11 +1196,13 @@
       } });
 
       pdBereich.appendChild(el('div', { class: 'raster' }, [
-        el('div', { class: 'feld' }, [
-          el('label', { html: 'Zugriffsschlüssel <span class="einheit">(API-Token)</span>' }),
-          tokenFeld,
-          el('div', { class: 'knopfleiste', style: { marginTop: '6px' } }, [zeigen])
-        ]),
+        /* Über A.feld, damit die Beschriftung auf das Feld zeigt - sonst
+           setzt ein Tippen darauf den Cursor nicht hinein. */
+        A.feld('Zugriffsschlüssel <span class="einheit">(API-Token)</span>',
+          el('div', { class: 'feld-mit-knopf' }, [
+            tokenFeld,
+            el('div', { class: 'knopfleiste', style: { marginTop: '6px' } }, [zeigen])
+          ])),
         textE('pipedriveHost', 'Pipedrive-Adresse',
               'z. B. meinefirma.pipedrive.com – leer lassen für die Standardadresse')
       ]));

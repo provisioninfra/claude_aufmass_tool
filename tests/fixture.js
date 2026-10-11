@@ -63,7 +63,7 @@ function baueTestprojekt(opt = {}) {
       brauchtZylinder:true, zylinderBauform:'Doppelknaufzylinder', zylinderAusfuehrung:['Freidreh'],
       brauchtSchloss:true, schlossBauform:'Einsteckschloss', schlossFunktion:'selbstverriegelnd',
       zutrittsseite:'innen und außen', tueranforderungen:['VdS-Anforderung'],
-      systemNotiz:'SimonsVoss AX, AX .SmartCore', komponenten:[],
+      komponenten:[],
       masseAussen:'35', masseInnen:'45', tuerblattstaerke:'48', dornmass:'55',
       dinRichtung:'DIN rechts', status:'klaerung', anzahl:1,
       elFunkabdeckung:'schlecht', elVernetzung:'virtuelles Netzwerk',
@@ -119,7 +119,10 @@ function baueTestprojekt(opt = {}) {
 
   /* Rang im Plan (typ) und Träger (traegerArt) sind zwei verschiedene
      Angaben. Bei Gruppen entsteht die Medienzahl aus den Mitgliedern. */
-  const person = (name, funktion, medien) => ({ name, funktion: funktion || '', anzahlMedien: medien || 1 });
+  /* Über M.neuePerson, damit die Personen - wie in der Oberfläche - eine
+     eigene id tragen. Ohne id vergibt die Migration bei jedem Lauf eine neue. */
+  const person = (name, funktion, medien) =>
+    M.neuePerson({ name, funktion: funktion || '', anzahlMedien: medien || 1 });
   const schliessungen = [
     { kuerzel:'GHS', bezeichnung:'Generalhauptschlüssel', typ:'ghs', traegerArt:'einzel', medienTyp:'Schlüssel',
       personen:[person('Frau Dr. Schäfer','Geschäftsführung',2), person('Herr Baumann','Prokura',1)] },

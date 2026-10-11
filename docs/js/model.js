@@ -1623,7 +1623,6 @@
     tuerenUnter: tuerenUnter,
     findeStruktur: findeStruktur,
     strukturPfadText: strukturPfadText,
-    findeStruktur: findeStruktur,
     kinderVon: kinderVon,
     loescheStruktur: loescheStruktur,
     strukturReihenfolge: strukturReihenfolge,

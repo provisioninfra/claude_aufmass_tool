@@ -25,7 +25,7 @@
      * nur als schmaler Streifen unter dem Seitenkopf: Schrift in Gold wäre
      * auf Weiß kaum zu lesen. */
     hausfarbe: '#fcc91d',
-    warn:      '#a8600f',
+    warn:      '#95560a',
     fehler:    '#a32020'
   };
 

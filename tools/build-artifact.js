@@ -20,11 +20,29 @@ fs.mkdirSync(path.join(ZIEL, 'css'), { recursive: true });
 SKRIPTE.forEach(d => fs.copyFileSync(path.join(QUELLE, 'js', d), path.join(ZIEL, 'js', d)));
 fs.copyFileSync(path.join(QUELLE, 'css', 'app.css'), path.join(ZIEL, 'css', 'app.css'));
 
+/* Die Darstellung wird vor dem ersten Bild festgelegt - sonst blitzt die
+   helle Fassung auf, bevor das Programm die Einstellung gelesen hat.
+   Dieselbe Weiche steht in src/index.html im Kopf der Seite; hier liefert
+   die Umgebung den Kopf, deshalb steht sie am Anfang des Inhalts. */
+const DARSTELLUNG = `<script>
+(function () {
+  var wahl = 'dunkel';
+  try { wahl = localStorage.getItem('aufmass.erscheinungsbild') || wahl; } catch (e) {}
+  if (wahl === 'geraet') {
+    var dunkel = true;
+    try { dunkel = matchMedia('(prefers-color-scheme: dark)').matches; } catch (e2) {}
+    wahl = dunkel ? 'dunkel' : 'hell';
+  }
+  document.documentElement.setAttribute('data-darstellung', wahl === 'hell' ? 'hell' : 'dunkel');
+})();
+</script>`;
+
 const seite = `<title>Aufmaß Schließanlagen</title>
+${DARSTELLUNG}
 <link rel="stylesheet" href="css/app.css">
 
 <div id="app">
-  <div style="padding:40px;text-align:center;color:#5c6670;font:15px system-ui,sans-serif">
+  <div style="padding:40px;text-align:center;color:#7b88a4;font:15px system-ui,sans-serif">
     Anwendung wird geladen …
   </div>
 </div>

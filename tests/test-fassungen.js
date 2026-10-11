@@ -1,0 +1,177 @@
+/* Prüft die veröffentlichten Fassungen gegen das Quellverzeichnis.
+ *
+ * Es gibt vier Ausgabewege: src/ (Entwicklung), dist/aufmass-tool.html
+ * (Einzeldatei), dist/artifact/ (gehostet) und docs/ (GitHub Pages).
+ * Jede davon muss alles enthalten, was ihre Seiten anfordern - eine
+ * fehlende Datei fällt im Betrieb nur dadurch auf, dass etwas still
+ * nicht mehr geht (so fehlte docs/sw.js, und damit der Offline-Betrieb). */
+const fs = require('fs');
+const path = require('path');
+
+const WURZEL = path.join(__dirname, '..');
+const QUELLE = path.join(WURZEL, 'src');
+let ok = 0, fehler = 0;
+function pruefe(b, t, i) {
+  if (b) { ok++; console.log('  OK   ' + t); }
+  else { fehler++; console.log('  FEHL ' + t + (i ? '\n         -> ' + i : '')); }
+}
+
+/* Welche Dateien fordert eine Seite an? */
+function angeforderteDateien(htmlPfad) {
+  const html = fs.readFileSync(htmlPfad, 'utf8');
+  const raus = new Set();
+  const muster = [
+    /<script[^>]+src="([^"]+)"/g,
+    /<link[^>]+href="([^"]+)"/g,
+    /navigator\.serviceWorker\.register\('([^']+)'\)/g
+  ];
+  muster.forEach(m => {
+    let tr;
+    while ((tr = m.exec(html)) !== null) {
+      const ziel = tr[1];
+      if (/^(https?:|data:|#|mailto:)/.test(ziel)) continue;
+      raus.add(ziel.replace(/^\.\//, ''));
+    }
+  });
+  return Array.from(raus);
+}
+
+/* Der Service Worker legt eine Liste an - auch die muss vorhanden sein. */
+function swDateien(swPfad) {
+  if (!fs.existsSync(swPfad)) return [];
+  const text = fs.readFileSync(swPfad, 'utf8');
+  const block = /DATEIEN\s*=\s*\[([\s\S]*?)\]/.exec(text) || /var\s+\w+\s*=\s*\[([\s\S]*?)\]/.exec(text);
+  if (!block) return [];
+  return (block[1].match(/'([^']+)'/g) || [])
+    .map(s => s.slice(1, -1).replace(/^\.\//, ''))
+    .filter(s => s && !/^https?:/.test(s));
+}
+
+console.log('\n== Veröffentlichte Fassungen ==');
+
+/* --- 1. Die Verzeichnisfassungen: vollständig und inhaltsgleich ---------- */
+[['docs', 'GitHub Pages'], ['dist/artifact', 'gehostete Fassung']].forEach(([ordner, name]) => {
+  const ziel = path.join(WURZEL, ordner);
+  if (!fs.existsSync(ziel)) { pruefe(false, name + ' ist vorhanden', ordner + ' fehlt'); return; }
+
+  ['index.html', 'freigabe.html'].forEach(seite => {
+    const seitenPfad = path.join(ziel, seite);
+    if (!fs.existsSync(seitenPfad)) {
+      /* dist/artifact hat bewusst keine eigene Freigabeseite */
+      if (ordner === 'dist/artifact' && seite === 'freigabe.html') return;
+      pruefe(false, name + ': ' + seite + ' vorhanden', 'fehlt');
+      return;
+    }
+    const gefordert = angeforderteDateien(seitenPfad);
+    const fehlend = gefordert.filter(d => !fs.existsSync(path.join(ziel, d)));
+    pruefe(fehlend.length === 0,
+      name + ': ' + seite + ' findet alle ' + gefordert.length + ' angeforderten Dateien',
+      'fehlen: ' + fehlend.join(', '));
+  });
+
+  /* Der Service Worker muss seine eigene Liste ausliefern können */
+  const sw = path.join(ziel, 'sw.js');
+  if (fs.existsSync(path.join(ziel, 'index.html')) &&
+      /serviceWorker\.register/.test(fs.readFileSync(path.join(ziel, 'index.html'), 'utf8'))) {
+    pruefe(fs.existsSync(sw), name + ': der angemeldete Service Worker liegt auch dort',
+      'sw.js fehlt, der Offline-Betrieb wäre still ohne Wirkung');
+    const liste = swDateien(sw);
+    const fehlendSw = liste.filter(d => !fs.existsSync(path.join(ziel, d)));
+    pruefe(fehlendSw.length === 0, name + ': der Service Worker legt nur vorhandene Dateien ab (' + liste.length + ')',
+      'fehlen: ' + fehlendSw.join(', '));
+  }
+
+  /* Inhaltsgleich mit der Quelle - sonst ist eine Fassung veraltet */
+  function dateienUnter(wurzel, unter) {
+    const voll = path.join(wurzel, unter || '');
+    if (!fs.existsSync(voll)) return [];
+    return fs.readdirSync(voll, { withFileTypes: true }).reduce((raus, e) => {
+      const rel = path.join(unter || '', e.name);
+      return raus.concat(e.isDirectory() ? dateienUnter(wurzel, rel) : [rel]);
+    }, []);
+  }
+  const quellDateien = dateienUnter(QUELLE, '');
+  const abweichend = [], nichtDa = [];
+  /* dist/artifact/index.html wird eigens erzeugt: Dort liefert die Umgebung
+     das Dokumentgerüst, die Seite enthält nur den Inhalt. */
+  const eigenErzeugt = ordner === 'dist/artifact' ? ['index.html'] : [];
+  quellDateien.forEach(rel => {
+    /* Nur das vergleichen, was diese Fassung überhaupt mitbringt */
+    if (eigenErzeugt.indexOf(rel) !== -1) return;
+    const dort = path.join(ziel, rel);
+    if (!fs.existsSync(dort)) return;
+    if (!fs.readFileSync(path.join(QUELLE, rel)).equals(fs.readFileSync(dort))) abweichend.push(rel);
+  });
+  pruefe(abweichend.length === 0, name + ': alle übernommenen Dateien sind auf dem Stand der Quelle',
+    'abweichend: ' + abweichend.join(', '));
+
+  /* Jede Datei, die die Quelle ausliefert, muss auch hier liegen */
+  const quellGefordert = ['index.html', 'freigabe.html']
+    .filter(s => fs.existsSync(path.join(QUELLE, s)))
+    .reduce((raus, s) => raus.concat(angeforderteDateien(path.join(QUELLE, s))), [])
+    .concat(['sw.js']);
+  Array.from(new Set(quellGefordert)).forEach(d => {
+    if (!fs.existsSync(path.join(QUELLE, d))) return;
+    if (ordner === 'dist/artifact' && (d === 'sw.js' || d === 'manifest.webmanifest' || /^icon/.test(d))) return;
+    if (!fs.existsSync(path.join(ziel, d))) nichtDa.push(d);
+  });
+  pruefe(nichtDa.length === 0, name + ': keine von der Quelle ausgelieferte Datei fehlt',
+    'fehlen: ' + nichtDa.join(', '));
+});
+
+/* --- 1b. Die eigens erzeugte Seite muss die Darstellung vorab setzen ----- */
+const artSeite = path.join(WURZEL, 'dist', 'artifact', 'index.html');
+if (fs.existsSync(artSeite)) {
+  const text = fs.readFileSync(artSeite, 'utf8');
+  pruefe(text.indexOf("setAttribute('data-darstellung'") !== -1,
+    'gehostete Fassung: die Darstellung wird vor dem ersten Bild gesetzt',
+    'ohne diese Weiche blitzt die helle Fassung auf');
+  pruefe(text.indexOf('#5c6670') === -1,
+    'gehostete Fassung: der Ladehinweis nutzt keine Farbe von vor der Umstellung');
+}
+
+/* --- 2. Die Einzeldateien: eigenständig und gleich ----------------------- */
+const einzel = [
+  [path.join(WURZEL, 'dist', 'aufmass-tool.html'), 'dist/aufmass-tool.html'],
+  [path.join(WURZEL, 'docs', 'aufmass-tool-einzeldatei.html'), 'docs/aufmass-tool-einzeldatei.html']
+];
+const inhalte = [];
+einzel.forEach(([pfad, name]) => {
+  if (!fs.existsSync(pfad)) { pruefe(false, name + ' ist vorhanden', 'fehlt'); return; }
+  const text = fs.readFileSync(pfad, 'utf8');
+  inhalte.push(text);
+  pruefe(!/<script[^>]+src=|<link[^>]+href="(?!data:)[^"]*\.css"/.test(text),
+    name + ': lädt keine Datei von außen nach');
+  pruefe(text.indexOf('serviceWorker') === -1, name + ': enthält keine Service-Worker-Anmeldung');
+  /* Alle Module müssen enthalten sein */
+  ['Katalog', 'Model', 'PDF', 'Reports', 'Store', 'Verlauf', 'Freigabe', 'Pipedrive',
+   'AppKern', 'ViewsProjekt', 'ViewsTueren', 'ViewsPlan'].forEach(m => {
+    if (text.indexOf('global.' + m + ' =') === -1 && text.indexOf('global.' + m + '=') === -1) {
+      pruefe(false, name + ': enthält das Modul ' + m);
+    }
+  });
+  pruefe(true, name + ': enthält alle Module');
+});
+if (inhalte.length === 2) {
+  pruefe(inhalte[0] === inhalte[1], 'beide Einzeldateien sind identisch',
+    'Längen: ' + inhalte[0].length + ' / ' + inhalte[1].length);
+}
+
+/* --- 3. Die Einzeldatei ist auf dem Stand der Quelle --------------------- */
+if (inhalte.length) {
+  const css = fs.readFileSync(path.join(QUELLE, 'css', 'app.css'), 'utf8');
+  pruefe(inhalte[0].indexOf(css.trim().slice(0, 400)) !== -1,
+    'die Einzeldatei enthält das aktuelle Stylesheet');
+  ['catalog.js', 'model.js', 'app.js', 'views-tueren.js', 'views-plan.js', 'reports.js'].forEach(d => {
+    const js = fs.readFileSync(path.join(QUELLE, 'js', d), 'utf8');
+    /* Eine kennzeichnende Zeile aus der Mitte der Datei */
+    const zeilen = js.split('\n').filter(z => z.trim().length > 40 && !/^\s*[*\/]/.test(z));
+    const probe = zeilen[Math.floor(zeilen.length / 2)];
+    pruefe(probe && inhalte[0].indexOf(probe) !== -1,
+      'die Einzeldatei enthält den aktuellen Stand von ' + d,
+      'vermisste Zeile: ' + String(probe).trim().slice(0, 70));
+  });
+}
+
+console.log('\nErgebnis Fassungen: ' + ok + ' ok, ' + fehler + ' Fehler');
+process.exit(fehler ? 1 : 0);

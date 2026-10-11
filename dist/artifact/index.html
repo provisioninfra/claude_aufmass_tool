@@ -1,8 +1,20 @@
 <title>Aufmaß Schließanlagen</title>
+<script>
+(function () {
+  var wahl = 'dunkel';
+  try { wahl = localStorage.getItem('aufmass.erscheinungsbild') || wahl; } catch (e) {}
+  if (wahl === 'geraet') {
+    var dunkel = true;
+    try { dunkel = matchMedia('(prefers-color-scheme: dark)').matches; } catch (e2) {}
+    wahl = dunkel ? 'dunkel' : 'hell';
+  }
+  document.documentElement.setAttribute('data-darstellung', wahl === 'hell' ? 'hell' : 'dunkel');
+})();
+</script>
 <link rel="stylesheet" href="css/app.css">
 
 <div id="app">
-  <div style="padding:40px;text-align:center;color:#5c6670;font:15px system-ui,sans-serif">
+  <div style="padding:40px;text-align:center;color:#7b88a4;font:15px system-ui,sans-serif">
     Anwendung wird geladen …
   </div>
 </div>

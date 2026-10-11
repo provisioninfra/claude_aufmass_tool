@@ -75,15 +75,20 @@
 
   --text:          #0a1637;
   --text-schwach:  #46557f;
-  --text-zart:     #7985a3;
+  /* Dunkel genug, dass die Schrift auch auf den getönten Flächen und im
+     Sonnenlicht auf der Baustelle noch 4,5:1 erreicht. */
+  --text-zart:     #5c6884;
   --flaeche:       #ffffff;
   --flaeche-2:     #eef2f9;
   --flaeche-3:     #e5ebf6;
   --rand:          #ccd6e8;
   --rand-zart:     #e2e9f4;
   --gruen:         #1b7a44;
-  --gelb:          #a8600f;
+  --gelb:          #95560a;
   --rot:           #b3261e;
+  /* Schrift auf einer dieser Farbflächen: hell braucht Weiß, dunkel
+     braucht das Navy - sonst verschwindet der Text im Orange bzw. Grün. */
+  --auf-farbe:     #ffffff;
   --schleier:      rgba(2, 9, 43, .58);
   --schatten:      0 1px 3px rgba(10, 22, 55, .10), 0 8px 24px rgba(10, 22, 55, .08);
 }
@@ -115,6 +120,7 @@
      verwechselt werden - die steht für Hauptaktionen, nicht für Hinweise. */
   --gelb:          #f0893c;
   --rot:           #f2655c;
+  --auf-farbe:     #0a1637;
   --schleier:      rgba(0, 4, 18, .66);
   --schatten:      0 1px 3px rgba(0, 0, 0, .45), 0 10px 28px rgba(0, 0, 0, .40);
 }
@@ -332,7 +338,7 @@ button.haupt:hover {
   background: var(--hausfarbe-hell); border-color: var(--hausfarbe-hell); color: var(--auf-hausfarbe);
 }
 button.gefahr { color: var(--rot); border-color: var(--rand); }
-button.gefahr:hover { background: var(--rot); border-color: var(--rot); color: #fff; }
+button.gefahr:hover { background: var(--rot); border-color: var(--rot); color: var(--auf-farbe); }
 /* "klein" betrifft nur Innenabstand und Schrift - die Trefffläche bleibt
    fingertauglich, sonst ist der Knopf auf der Baustelle nicht bedienbar. */
 button.klein { padding: 8px 13px; font-size: 14px; min-height: var(--tap); }
@@ -432,7 +438,10 @@ td.zahl, th.zahl { text-align: right; font-variant-numeric: tabular-nums; }
   color: var(--text-zart); padding: 2px 7px; background: var(--flaeche-3); border-radius: 4px;
 }
 .knoten .tuerzahl { font-size: 12px; color: var(--text-schwach); }
-.knoten .aktionen { display: flex; gap: 4px; }
+/* Auf der dritten Gliederungsebene bleibt neben der Einrückung zu wenig
+   Platz für fünf Knöpfe. Sie brechen um, statt seitlich aus dem Bild zu
+   laufen - der Löschknopf lag sonst außerhalb des Telefonbildschirms. */
+.knoten .aktionen { display: flex; gap: 4px; flex-wrap: wrap; }
 
 /* --- Matrix / Kreuzschließplan ------------------------------------------- */
 .matrix-rahmen {
@@ -512,7 +521,7 @@ table.matrix td.tuername.entfernbar { background: rgba(179,38,30,.06); }
   display: inline-flex; align-items: center; justify-content: center;
   vertical-align: middle;
 }
-.entfernen-knopf:hover { background: var(--rot); color: #fff; border-color: var(--rot); }
+.entfernen-knopf:hover { background: var(--rot); color: var(--auf-farbe); border-color: var(--rot); }
 
 .matrix-legende {
   display: flex; flex-wrap: wrap; gap: 14px; margin-top: 12px;
@@ -619,8 +628,8 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
   font-size: 14px; font-weight: 500; box-shadow: 0 6px 22px rgba(0,0,0,.35);
   animation: einblenden .18s ease-out; text-align: center;
 }
-.toast.fehler { background: var(--rot); }
-.toast.ok { background: var(--gruen); }
+.toast.fehler { background: var(--rot); color: var(--auf-farbe); }
+.toast.ok { background: var(--gruen); color: var(--auf-farbe); }
 @keyframes einblenden { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
 /* --- Kennzahlen ---------------------------------------------------------- */
@@ -657,11 +666,12 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
 /* --- Hilfsklassen -------------------------------------------------------- */
 .zeile-verteilt { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .zeile-verteilt .fuellen { flex: 1; }
+/* Ein Feld, unter dem noch ein Knopf steht (z. B. „Anzeigen“ beim Token) */
+.feld-mit-knopf { display: block; }
 .trenner { height: 1px; background: var(--rand-zart); margin: 16px 0; border: 0; }
 .zart { color: var(--text-zart); font-size: 12.5px; }
 .mono { font-variant-numeric: tabular-nums; }
 .versteckt { display: none !important; }
-.nur-lesen { opacity: .6; pointer-events: none; }
 
 /* --- Anpassung an kleine Geräte ------------------------------------------ */
 @media (max-width: 700px) {
@@ -737,9 +747,9 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
   align-items: center; justify-content: center; font-weight: 700; flex: none;
 }
 .pflicht-leiste.fertig { background: rgba(31,122,61,.10); border-color: rgba(31,122,61,.35); color: var(--gruen); }
-.pflicht-leiste.fertig .zeichen { background: var(--gruen); color: #fff; }
+.pflicht-leiste.fertig .zeichen { background: var(--gruen); color: var(--auf-farbe); }
 .pflicht-leiste.offen { background: rgba(179,114,30,.12); border-color: rgba(179,114,30,.40); color: var(--gelb); }
-.pflicht-leiste.offen .zeichen { background: var(--gelb); color: #fff; }
+.pflicht-leiste.offen .zeichen { background: var(--gelb); color: var(--auf-farbe); }
 .pflicht-leiste .chips { flex-basis: 100%; }
 .pflicht-leiste .chip {
   min-height: var(--tap); padding: 8px 12px; font-size: 14px;
@@ -3127,7 +3137,6 @@ body.stift .zahl-knopf { min-width: 56px; }
     tuerenUnter: tuerenUnter,
     findeStruktur: findeStruktur,
     strukturPfadText: strukturPfadText,
-    findeStruktur: findeStruktur,
     kinderVon: kinderVon,
     loescheStruktur: loescheStruktur,
     strukturReihenfolge: strukturReihenfolge,
@@ -3818,7 +3827,7 @@ body.stift .zahl-knopf { min-width: 56px; }
      * nur als schmaler Streifen unter dem Seitenkopf: Schrift in Gold wäre
      * auf Weiß kaum zu lesen. */
     hausfarbe: '#fcc91d',
-    warn:      '#a8600f',
+    warn:      '#95560a',
     fehler:    '#a32020'
   };
 
@@ -6549,10 +6558,29 @@ body.stift .zahl-knopf { min-width: 56px; }
   /* Ein Formularfeld. Der Feldname wird als data-feld hinterlegt: Daran
    * erkennt das Türformular, welche Felder Pflicht sind, ohne jedes Feld
    * einzeln zu kennen. */
+  var feldZaehler = 0;
+  /* Welches Bedienelement gehört zu dieser Beschriftung? Entweder der
+   * übergebene Knoten selbst oder - bei einer Reihe wie dem Zählfeld - das
+   * einzige Eingabefeld darin. Bei mehreren wäre die Zuordnung geraten,
+   * darum bleibt es dann bei der reinen Beschriftung. */
+  function zugehoerigesFeld(knoten) {
+    if (!knoten || !knoten.tagName) return null;
+    if (/^(INPUT|SELECT|TEXTAREA)$/.test(knoten.tagName)) return knoten;
+    var drin = knoten.querySelectorAll ? knoten.querySelectorAll('input, select, textarea') : [];
+    return drin.length === 1 ? drin[0] : null;
+  }
+
   function feld(beschriftung, eingabeKnoten, breit, schluessel) {
-    var knoten = el('div', { class: 'feld' + (breit ? ' voll' : '') }, [
-      el('label', { html: beschriftung }), eingabeKnoten
-    ]);
+    var marke = el('label', { html: beschriftung });
+    /* Die Beschriftung steht neben dem Feld, nicht darum herum. Ohne
+     * ausdrückliche Verknüpfung setzt ein Tippen auf den Text den Cursor
+     * nicht ins Feld - mit dem Stift ist der Text aber das größere Ziel. */
+    var ziel = zugehoerigesFeld(eingabeKnoten);
+    if (ziel) {
+      if (!ziel.id) ziel.id = 'f' + (++feldZaehler) + '-' + (schluessel || 'feld');
+      marke.setAttribute('for', ziel.id);
+    }
+    var knoten = el('div', { class: 'feld' + (breit ? ' voll' : '') }, [marke, eingabeKnoten]);
     if (schluessel) knoten.setAttribute('data-feld', schluessel);
     return knoten;
   }
@@ -7960,6 +7988,7 @@ body.stift .zahl-knopf { min-width: 56px; }
       oninput: function (e) { f.suche = e.target.value; listeZeichnen(); }
     });
     var strukturWahl = el('select', {
+      'aria-label': 'Bereich filtern',
       onchange: function (e) { f.struktur = e.target.value; listeZeichnen(); }
     });
     strukturWahl.appendChild(el('option', { value: '', text: 'Alle Bereiche' }));
@@ -7970,6 +7999,7 @@ body.stift .zahl-knopf { min-width: 56px; }
     strukturWahl.value = f.struktur;
 
     var statusWahl = el('select', {
+      'aria-label': 'Status filtern',
       onchange: function (e) { f.status = e.target.value; listeZeichnen(); }
     });
     statusWahl.appendChild(el('option', { value: '', text: 'Alle Status' }));
@@ -7977,6 +8007,7 @@ body.stift .zahl-knopf { min-width: 56px; }
     statusWahl.value = f.status;
 
     var systemWahl = el('select', {
+      'aria-label': 'System filtern',
       onchange: function (e) { f.system = e.target.value; listeZeichnen(); }
     });
     systemWahl.appendChild(el('option', { value: '', text: 'Alle Systeme' }));
@@ -10122,11 +10153,13 @@ body.stift .zahl-knopf { min-width: 56px; }
       } });
 
       pdBereich.appendChild(el('div', { class: 'raster' }, [
-        el('div', { class: 'feld' }, [
-          el('label', { html: 'Zugriffsschlüssel <span class="einheit">(API-Token)</span>' }),
-          tokenFeld,
-          el('div', { class: 'knopfleiste', style: { marginTop: '6px' } }, [zeigen])
-        ]),
+        /* Über A.feld, damit die Beschriftung auf das Feld zeigt - sonst
+           setzt ein Tippen darauf den Cursor nicht hinein. */
+        A.feld('Zugriffsschlüssel <span class="einheit">(API-Token)</span>',
+          el('div', { class: 'feld-mit-knopf' }, [
+            tokenFeld,
+            el('div', { class: 'knopfleiste', style: { marginTop: '6px' } }, [zeigen])
+          ])),
         textE('pipedriveHost', 'Pipedrive-Adresse',
               'z. B. meinefirma.pipedrive.com – leer lassen für die Standardadresse')
       ]));

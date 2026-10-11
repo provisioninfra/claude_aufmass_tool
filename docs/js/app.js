@@ -229,10 +229,29 @@
   /* Ein Formularfeld. Der Feldname wird als data-feld hinterlegt: Daran
    * erkennt das Türformular, welche Felder Pflicht sind, ohne jedes Feld
    * einzeln zu kennen. */
+  var feldZaehler = 0;
+  /* Welches Bedienelement gehört zu dieser Beschriftung? Entweder der
+   * übergebene Knoten selbst oder - bei einer Reihe wie dem Zählfeld - das
+   * einzige Eingabefeld darin. Bei mehreren wäre die Zuordnung geraten,
+   * darum bleibt es dann bei der reinen Beschriftung. */
+  function zugehoerigesFeld(knoten) {
+    if (!knoten || !knoten.tagName) return null;
+    if (/^(INPUT|SELECT|TEXTAREA)$/.test(knoten.tagName)) return knoten;
+    var drin = knoten.querySelectorAll ? knoten.querySelectorAll('input, select, textarea') : [];
+    return drin.length === 1 ? drin[0] : null;
+  }
+
   function feld(beschriftung, eingabeKnoten, breit, schluessel) {
-    var knoten = el('div', { class: 'feld' + (breit ? ' voll' : '') }, [
-      el('label', { html: beschriftung }), eingabeKnoten
-    ]);
+    var marke = el('label', { html: beschriftung });
+    /* Die Beschriftung steht neben dem Feld, nicht darum herum. Ohne
+     * ausdrückliche Verknüpfung setzt ein Tippen auf den Text den Cursor
+     * nicht ins Feld - mit dem Stift ist der Text aber das größere Ziel. */
+    var ziel = zugehoerigesFeld(eingabeKnoten);
+    if (ziel) {
+      if (!ziel.id) ziel.id = 'f' + (++feldZaehler) + '-' + (schluessel || 'feld');
+      marke.setAttribute('for', ziel.id);
+    }
+    var knoten = el('div', { class: 'feld' + (breit ? ' voll' : '') }, [marke, eingabeKnoten]);
     if (schluessel) knoten.setAttribute('data-feld', schluessel);
     return knoten;
   }

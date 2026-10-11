@@ -17,6 +17,7 @@ const reihen = [
   ['Erscheinungsbild','test-erscheinungsbild.js'],
   ['Einzeldatei',     'test-standalone.js'],
   ['Ausgabeweg',      'test-downloads.js'],
+  ['Fassungen',       'test-fassungen.js'],
   ['Offline-Betrieb', 'test-offline-pwa.js'],
   ['Alle Öffnungswege','test-ueberall.js']
 ];
