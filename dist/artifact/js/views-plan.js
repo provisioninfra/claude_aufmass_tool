@@ -1054,6 +1054,8 @@
       if (e.logoDataUrl) {
         logoVorschau.appendChild(el('img', {
           src: e.logoDataUrl, alt: 'Firmenlogo',
+          /* Weiß ist hier Absicht: Logos sind für weißen Grund gemacht und
+             wären auf dunklem Untergrund oft nicht zu erkennen. */
           style: { maxHeight: '70px', maxWidth: '220px', border: '1px solid var(--rand)',
                    borderRadius: '6px', padding: '6px', background: '#fff' }
         }));

@@ -3,10 +3,28 @@
    Ausgelegt auf Touch-Bedienung (iPad vor Ort) und Maus/Tastatur (Büro).
    ========================================================================== */
 
+/* -----------------------------------------------------------------------------
+   HAUSFARBE ÄNDERN
+   Die Hausfarbe steht an sechs Stellen. Wer sie ändert, muss alle sechs
+   anfassen - sonst bleibt irgendwo das alte Blau stehen:
+     1. hier: --akzent, --akzent-hell, --akzent-bg, --akzent-flaeche, --auf-akzent
+     2. hier: derselbe Satz im Block für die dunkle Darstellung
+     3. src/js/reports.js  -> FARBE.akzent  (die Farbe auf dem Papier)
+     4. src/index.html     -> <meta name="theme-color">
+     5. src/manifest.webmanifest -> theme_color
+     6. src/icon.svg       -> Hintergrund; danach `node tools/icons-erzeugen.js`
+   -------------------------------------------------------------------------- */
 :root {
   --akzent:        #1a4b8c;
   --akzent-hell:   #2a6ac0;
   --akzent-bg:     #eaf1fa;
+  /* Zarte Fläche aus der Hausfarbe - etwa die gesetzten Felder der Matrix.
+     Sie steht ausgeschrieben da und nicht errechnet, damit sie in jedem
+     Browser gleich aussieht; beim Wechsel der Hausfarbe mit anpassen. */
+  --akzent-flaeche: rgba(26, 75, 140, .10);
+  /* Schrift auf der Hausfarbe. Bei einer hellen Hausfarbe gehört hier ein
+     dunkler Wert hin, sonst ist der Text darauf nicht zu lesen. */
+  --auf-akzent:    #ffffff;
   --text:          #1a1f26;
   --text-schwach:  #5c6670;
   --text-zart:     #8d969e;
@@ -31,6 +49,8 @@
     --akzent:        #6fa8ee;
     --akzent-hell:   #8cbcf5;
     --akzent-bg:     #1b2836;
+    --akzent-flaeche: rgba(111, 168, 238, .16);
+    --auf-akzent:    #0d1219;
     --text:          #e7ecf1;
     --text-schwach:  #a4aeb8;
     --text-zart:     #79838d;
@@ -208,9 +228,8 @@ input::placeholder, textarea::placeholder { color: var(--text-zart); }
 }
 .chip:hover { border-color: var(--akzent); }
 .chip[aria-pressed="true"] {
-  background: var(--akzent); border-color: var(--akzent); color: #fff; font-weight: 600;
+  background: var(--akzent); border-color: var(--akzent); color: var(--auf-akzent); font-weight: 600;
 }
-@media (prefers-color-scheme: dark) { .chip[aria-pressed="true"] { color: #0d1219; } }
 
 /* --- Schaltflächen ------------------------------------------------------- */
 button, .knopf {
@@ -225,13 +244,9 @@ button:hover, .knopf:hover { border-color: var(--akzent); color: var(--akzent); 
 button:active, .knopf:active { transform: translateY(1px); }
 button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 button.haupt, .knopf.haupt {
-  background: var(--akzent); border-color: var(--akzent); color: #fff;
+  background: var(--akzent); border-color: var(--akzent); color: var(--auf-akzent);
 }
-button.haupt:hover { background: var(--akzent-hell); border-color: var(--akzent-hell); color: #fff; }
-@media (prefers-color-scheme: dark) {
-  button.haupt, .knopf.haupt { color: #0d1219; }
-  button.haupt:hover { color: #0d1219; }
-}
+button.haupt:hover { background: var(--akzent-hell); border-color: var(--akzent-hell); color: var(--auf-akzent); }
 button.gefahr { color: var(--rot); border-color: var(--rand); }
 button.gefahr:hover { background: var(--rot); border-color: var(--rot); color: #fff; }
 /* "klein" betrifft nur Innenabstand und Schrift - die Trefffläche bleibt
@@ -387,8 +402,8 @@ table.matrix td.zelle {
   min-width: 48px; height: 48px; color: var(--akzent); touch-action: manipulation;
 }
 table.matrix td.zelle:hover { background: var(--akzent-bg); }
-table.matrix td.zelle:active { background: var(--akzent); color: #fff; }
-table.matrix td.zelle.gesetzt-ja    { background: rgba(26,75,140,.10); }
+table.matrix td.zelle:active { background: var(--akzent); color: var(--auf-akzent); }
+table.matrix td.zelle.gesetzt-ja    { background: var(--akzent-flaeche); }
 table.matrix td.zelle.gesetzt-zeit  { background: rgba(179,114,30,.14); color: var(--gelb); }
 table.matrix td.zelle.gesetzt-temp  { background: rgba(179,114,30,.10); color: var(--gelb); }
 table.matrix td.zelle.gesetzt-sperr { background: rgba(179,38,30,.12); color: var(--rot); }
@@ -500,15 +515,12 @@ table.matrix td.tuername.entfernbar { background: rgba(179,38,30,.06); }
   bottom: calc(18px + env(safe-area-inset-bottom));
   min-height: var(--tap-gross); padding: 0 22px;
   border-radius: 28px; font-size: 16px; font-weight: 700;
-  background: var(--akzent); color: #fff; border: 0;
+  background: var(--akzent); color: var(--auf-akzent); border: 0;
   box-shadow: 0 4px 16px rgba(20,30,45,.28), 0 2px 4px rgba(20,30,45,.2);
   display: inline-flex; align-items: center; gap: 9px;
 }
-.schwebe-aktion:hover { background: var(--akzent-hell); color: #fff; border: 0; }
+.schwebe-aktion:hover { background: var(--akzent-hell); color: var(--auf-akzent); border: 0; }
 .schwebe-aktion:active { transform: translateY(1px); }
-@media (prefers-color-scheme: dark) {
-  .schwebe-aktion, .schwebe-aktion:hover { color: #0d1219; }
-}
 /* Platz schaffen, damit der schwebende Knopf nichts verdeckt */
 main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
 
@@ -621,7 +633,7 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
   min-height: var(--tap); font-size: 14.5px; font-weight: 600; color: var(--text-schwach);
 }
 .modus-leiste .umschalter button + button { border-left: 1px solid var(--rand); }
-.modus-leiste .umschalter button.aktiv { background: var(--akzent); color: #fff; }
+.modus-leiste .umschalter button.aktiv { background: var(--akzent); color: var(--auf-akzent); }
 
 /* Kopfzeile mit dem Stand der Pflichtangaben */
 .pflicht-leiste {

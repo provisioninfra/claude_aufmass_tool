@@ -8,6 +8,10 @@
   var M = global.Model;
   var PDF = global.PDF;
 
+  /* Farben auf dem Papier. Sie folgen bewusst nicht der dunklen Darstellung
+   * des Bildschirms - gedruckt wird auf Weiß. Gegenstück zum Farbblock in
+   * src/css/app.css; die Hausfarbe steht dort und hier (siehe den Wegweiser
+   * "HAUSFARBE ÄNDERN" am Anfang der CSS). */
   var FARBE = {
     text:      '#1a1f26',
     grau:      '#5c6670',

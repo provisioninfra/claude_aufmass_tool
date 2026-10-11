@@ -268,7 +268,9 @@
       class: 'tuer-zeile',
       onclick: function () { tuerBearbeiten(t, neuZeichnen); }
     }, [
-      el('div', { class: 'statusbalken', style: { background: t.nacharbeit ? '#c62828' : status.farbe } }),
+      /* Die Farbe der Nacharbeit steht im Katalog und nicht ein zweites Mal hier */
+      el('div', { class: 'statusbalken', style: {
+        background: t.nacharbeit ? K.statusById('nacharbeit').farbe : status.farbe } }),
       el('div', { class: 'inhalt' }, [
         el('div', { class: 'nummer', text: t.nummer || '—' }),
         el('div', { class: 'haupt' }, [
