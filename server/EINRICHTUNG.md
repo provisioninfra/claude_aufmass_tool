@@ -104,6 +104,8 @@ Speichern.
 1. Den Ordner **`dist/aufmasstool`** vollständig per SFTP in das
    **Wurzelverzeichnis** der Website legen (dorthin, wo auch
    `wp-content`, `wp-admin` und `wp-config.php` liegen).
+   Bequemer: **`dist/aufmasstool.zip`** hochladen und dort entpacken –
+   es enthält den Ordner mit allen 25 Dateien.
 2. Der Ordner muss danach `aufmasstool` heißen:
    ```
    /aufmasstool/index.html
@@ -230,6 +232,14 @@ Die Salts in der `wp-config.php` wurden geändert. Token in WordPress neu
 eintragen – mehr ist nicht nötig.
 
 ---
+
+## Bei jeder neuen Fassung
+
+Den Ordner `aufmasstool` einfach ersetzen und das Plugin-ZIP erneut
+hochladen. Das Werkzeug legt sich für den Offline-Betrieb im Gerät ab;
+jede neue Fassung trägt deshalb eine neue Kennung (`CACHE` in `sw.js`),
+damit alle Geräte beim nächsten Start den neuen Stand holen. Wer selbst
+baut: `npm run build` erzeugt alle Fassungen auf einmal.
 
 ## Für Techniker
 

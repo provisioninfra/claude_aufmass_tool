@@ -349,6 +349,68 @@ const JPEG = Buffer.concat([Buffer.from([0xFF, 0xD8, 0xFF, 0xE0]), Buffer.alloc(
     await B.A.jetzt();
     p(await B.Store.projektLaden('prj-zweites') === null, 'nach dem Löschen ist es auch bei B weg');
 
+    console.log('\n== Löschen ohne Netz ==');
+    /* Vor Ort gelöscht, Empfang kommt erst später: Das Löschen muss
+       nachgeholt werden wie jede andere Änderung auch. */
+    const spaeter = Object.assign(neuesProjekt(), { id: 'prj-spaeter', kunde: 'Später löschen' });
+    await A.Store.projektSpeichern(spaeter); await A.A.projektGeaendert(spaeter);
+    await A.A.jetzt();
+    await A.A.zustaendigeSetzen('prj-spaeter', ['u-weber', 'u-kraus']);
+    await A.A.jetzt(); await B.A.jetzt();
+    p(await B.Store.projektLaden('prj-spaeter') !== null, 'Vorbereitung: beide Geräte haben das Aufmaß');
+    B.netzAus();
+    await B.Store.projektLoeschen('prj-spaeter');
+    await B.A.projektGeloescht('prj-spaeter');
+    p(await B.Store.projektLaden('prj-spaeter') === null, 'B hat es ohne Netz gelöscht');
+    B.netzAn();
+    await B.A.jetzt();
+    p(await B.Store.projektLaden('prj-spaeter') === null, 'nach dem Abgleich ist es bei B weiterhin weg (kommt nicht zurück)');
+    await A.A.jetzt();
+    p(await A.Store.projektLaden('prj-spaeter') === null, 'das Löschen ohne Netz kommt bei A an');
+
+    console.log('\n== Löschen ohne Zuständigkeit ==');
+    /* Nur Zuständige dürfen löschen. Wer es trotzdem versucht, bekommt das
+       Aufmaß zurück - sofort, nicht irgendwann still. */
+    const fremdes = Object.assign(neuesProjekt(), { id: 'prj-fremd', kunde: 'Gehört Weber' });
+    await A.Store.projektSpeichern(fremdes); await A.A.projektGeaendert(fremdes);
+    await A.A.jetzt(); await B.A.jetzt();
+    p(await B.Store.projektLaden('prj-fremd') !== null, 'Vorbereitung: B sieht das Aufmaß von A');
+    await B.Store.projektLoeschen('prj-fremd');
+    await B.A.projektGeloescht('prj-fremd');
+    await B.A.jetzt();
+    const zurueckGeholt = await B.Store.projektLaden('prj-fremd');
+    p(zurueckGeholt !== null && zurueckGeholt.kunde === 'Gehört Weber', 'B bekommt es sofort zurück, weil B nicht zuständig ist',
+      JSON.stringify(zurueckGeholt && zurueckGeholt.kunde));
+    p(B.A.zustand().offen === 0, 'und es bleibt kein Grabstein liegen', B.A.zustand().offen);
+    await A.A.jetzt();
+    p(await A.Store.projektLaden('prj-fremd') !== null, 'bei A ist nichts passiert');
+
+    console.log('\n== Zweimal hintereinander geändert, dazwischen zusammengeführt ==');
+    /* A ändert eine Angabe zweimal kurz nacheinander, B arbeitet derweil an
+       einer anderen Tür. Beim zweiten Mal darf B NICHT gefragt werden: B hat
+       diese Angabe nie angefasst. */
+    const doppel = Object.assign(neuesProjekt(), { id: 'prj-doppel', kunde: 'Doppelt geändert' });
+    await A.Store.projektSpeichern(doppel); await A.A.projektGeaendert(doppel);
+    await A.A.jetzt();
+    await A.A.zustaendigeSetzen('prj-doppel', ['u-weber', 'u-kraus']);
+    await A.A.jetzt(); await B.A.jetzt();
+    let da = await A.Store.projektLaden('prj-doppel'); da.tueren[0].tuerblattstaerke = '60';
+    await A.Store.projektSpeichern(da); await A.A.projektGeaendert(da); await A.A.jetzt();
+    let db = await B.Store.projektLaden('prj-doppel'); db.tueren[2].dornmass = '55';
+    await B.Store.projektSpeichern(db); await B.A.projektGeaendert(db);
+    await B.A._intern.holen();                /* B führt zusammen, hat aber noch nicht gesendet */
+    da = await A.Store.projektLaden('prj-doppel'); da.tueren[0].tuerblattstaerke = '62';
+    await A.Store.projektSpeichern(da); await A.A.projektGeaendert(da); await A.A.jetzt();
+    await B.A._intern.senden();              /* jetzt erst sendet B - und bekommt 409 */
+    p(B.A.zustand().konflikte.length === 0,
+      'B wird nicht nach einer Angabe gefragt, die B nie angefasst hat',
+      JSON.stringify(B.A.zustand().konflikte.map(k => k.konflikte.map(x => x.feldName + ': ' + x.meins + '/' + x.server))));
+    await B.A.jetzt(); await A.A.jetzt();
+    db = await B.Store.projektLaden('prj-doppel'); da = await A.Store.projektLaden('prj-doppel');
+    p(db.tueren[0].tuerblattstaerke === '62' && da.tueren[0].tuerblattstaerke === '62', 'die zweite Änderung von A steht auf beiden Geräten',
+      JSON.stringify([db.tueren[0].tuerblattstaerke, da.tueren[0].tuerblattstaerke]));
+    p(db.tueren[2].dornmass === '55' && da.tueren[2].dornmass === '55', 'und die Änderung von B ebenfalls');
+
     console.log('\n== Nichts Fremdes im Gepäck ==');
     const satz = A.saetze['prj-gemeinsam'];
     p(satz.basis && !JSON.stringify(satz.basis).includes('data:image'),

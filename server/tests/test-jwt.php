@@ -82,6 +82,14 @@ pruefe($e['ok'] === false, 'nachträglich veränderter Inhalt wird abgelehnt', j
 $e = Aufmass_JWT::pruefen(ausweis($paar, array('aud' => 'andere-app.apps.googleusercontent.com')), $CLIENT, $DOMAENE);
 pruefe($e['ok'] === false, 'Ausweis für eine andere Anwendung wird abgelehnt', json_encode($e));
 
+/* 5b. aud als Liste (laut Norm erlaubt) */
+$e = Aufmass_JWT::pruefen(ausweis($paar, array('aud' => array('andere', $CLIENT))), $CLIENT, $DOMAENE);
+pruefe($e['ok'] === true, 'aud als Liste mit passendem Eintrag wird angenommen', $e['ok'] ? '' : $e['grund']);
+$e = Aufmass_JWT::pruefen(ausweis($paar, array('aud' => array('andere', 'fremd'))), $CLIENT, $DOMAENE);
+pruefe($e['ok'] === false, 'aud als Liste ohne passenden Eintrag wird abgelehnt');
+$e = Aufmass_JWT::pruefen(ausweis($paar, array('aud' => array(array($CLIENT)))), $CLIENT, $DOMAENE);
+pruefe($e['ok'] === false, 'verschachtelter Unsinn in aud wird abgelehnt, ohne Warnung');
+
 /* 6. Abgelaufen */
 $e = Aufmass_JWT::pruefen(ausweis($paar, array('exp' => time() - 3600, 'iat' => time() - 7200)), $CLIENT, $DOMAENE);
 pruefe($e['ok'] === false, 'abgelaufener Ausweis wird abgelehnt', json_encode($e));

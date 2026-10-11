@@ -208,6 +208,25 @@ if (!fs.existsSync(pluginZip)) {
     'Plugin-ZIP: die Hauptdatei liegt im erwarteten Unterordner');
 }
 
+/* --- 1e. Die Webserver-Fassung als ZIP ----------------------------------- */
+const onlineZip = path.join(WURZEL, 'dist', 'aufmasstool.zip');
+if (!fs.existsSync(onlineZip)) {
+  pruefe(false, 'Webserver-ZIP vorhanden', 'dist/aufmasstool.zip fehlt');
+} else {
+  const roh = fs.readFileSync(onlineZip);
+  pruefe(roh.readUInt32LE(0) === 0x04034b50, 'Webserver-ZIP: gültiger Dateianfang');
+  ['aufmasstool/index.html', 'aufmasstool/sw.js', 'aufmasstool/js/abgleich.js', 'aufmasstool/css/app.css']
+    .forEach(d => pruefe(roh.includes(Buffer.from(d)), 'Webserver-ZIP enthält ' + d));
+  /* Inhalt muss mit dem Ordner übereinstimmen: die Einträge zählen */
+  let ende = -1;
+  for (let i = roh.length - 22; i >= 0 && ende < 0; i--) { if (roh.readUInt32LE(i) === 0x06054b50) ende = i; }
+  const imOrdner = (function zaehlen(o) {
+    return fs.readdirSync(o, { withFileTypes: true }).reduce((n, e) => n + (e.isDirectory() ? zaehlen(path.join(o, e.name)) : 1), 0);
+  })(path.join(WURZEL, 'dist', 'aufmasstool'));
+  pruefe(ende >= 0 && roh.readUInt16LE(ende + 10) === imOrdner,
+    'Webserver-ZIP: enthält alle ' + imOrdner + ' Dateien des Ordners', ende >= 0 ? String(roh.readUInt16LE(ende + 10)) : 'kein Abschluss');
+}
+
 /* --- 2. Die Einzeldateien: eigenständig und gleich ----------------------- */
 const einzel = [
   [path.join(WURZEL, 'dist', 'aufmass-tool.html'), 'dist/aufmass-tool.html'],

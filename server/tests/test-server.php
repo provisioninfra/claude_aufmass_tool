@@ -326,5 +326,20 @@ pruefe((int) $wpdb->get_var("SELECT COUNT(*) FROM wp_aufmass_projekte") >= 2,
 pruefe(Aufmass_Projekte::laden('prj-1')['daten']['kunde'] === "Robert'); DROP TABLE wp_aufmass_projekte;--",
     'der Text kommt unverändert zurück');
 
+echo "\n== Serverzeit läuft nie rückwärts ==\n";
+/* Die Änderungszeit entsteht aus zwei Uhrabfragen. Fällt dazwischen die
+   Sekundengrenze, läge der Wert eine Sekunde zurück - und ein Abgleich
+   könnte eine Zeile verpassen. Über zwei Sekundengrenzen hinweg prüfen. */
+$letzte = ''; $rueckwaerts = 0; $start = microtime(true); $n = 0;
+while (microtime(true) - $start < 2.2) {
+    $j = Aufmass_Datenbank::jetzt();
+    if ($letzte !== '' && strcmp($j, $letzte) < 0) { $rueckwaerts++; }
+    $letzte = $j; $n++;
+}
+pruefe($rueckwaerts === 0, 'jetzt() läuft über ' . $n . ' Aufrufe und zwei Sekundengrenzen nie rückwärts', $rueckwaerts . ' Rückschritte');
+$m = Aufmass_Datenbank::marke(); $j = Aufmass_Datenbank::jetzt();
+pruefe(abs(strtotime(substr($m, 0, 19)) - strtotime(substr($j, 0, 19))) <= 1, 'marke() und jetzt() zeigen dieselbe Uhr');
+pruefe(preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}$/', $j) === 1, 'jetzt() hat immer sechs Nachkommastellen', $j);
+
 echo "\nErgebnis Server: $ok ok, $fehler Fehler\n";
 exit($fehler ? 1 : 0);

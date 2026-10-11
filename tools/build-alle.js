@@ -51,6 +51,13 @@ const zip = packen(path.join(WURZEL, 'server', 'aufmass-sync'),
 console.log('Plugin zum Hochladen: dist/aufmass-abgleich-plugin.zip  ('
   + zip.dateien + ' Dateien, ' + Math.round(zip.groesse / 1024) + ' KB)');
 
+/* 6: Die Webserver-Fassung ebenfalls als ZIP - ein Ordner mit 25 Dateien
+      lässt sich so in einem Stück weitergeben und per SFTP entpacken. */
+const zipOnline = packen(path.join(WURZEL, 'dist', 'aufmasstool'),
+                         path.join(WURZEL, 'dist', 'aufmasstool.zip'));
+console.log('Webserver-Fassung als ZIP: dist/aufmasstool.zip  ('
+  + zipOnline.dateien + ' Dateien, ' + Math.round(zipOnline.groesse / 1024) + ' KB)');
+
 const zahl = (function zaehlen(ordner) {
   return fs.readdirSync(ordner, { withFileTypes: true })
     .reduce((n, e) => n + (e.isDirectory() ? zaehlen(path.join(ordner, e.name)) : 1), 0);

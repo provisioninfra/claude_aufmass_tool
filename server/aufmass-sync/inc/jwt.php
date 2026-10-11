@@ -108,7 +108,9 @@ class Aufmass_JWT {
         /* Google nennt im Cache-Control, wie lange die Schlüssel gelten. */
         $dauer = 3600;
         $steuerung = wp_remote_retrieve_header($antwort, 'cache-control');
-        if ($steuerung && preg_match('/max-age=(\d+)/', $steuerung, $treffer)) {
+        /* WordPress liefert mehrfach gesetzte Kopffelder als Array */
+        if (is_array($steuerung)) { $steuerung = implode(', ', $steuerung); }
+        if ($steuerung && preg_match('/max-age=(\d+)/', (string) $steuerung, $treffer)) {
             $dauer = max(300, min(86400, (int) $treffer[1]));
         }
         set_transient('aufmass_google_schluessel', $daten, $dauer);
@@ -166,7 +168,14 @@ class Aufmass_JWT {
         if (empty($inhalt['iss']) || !in_array($inhalt['iss'], self::AUSSTELLER, true)) {
             return self::nein('Der Ausweis stammt nicht von Google.');
         }
-        if (empty($inhalt['aud']) || !hash_equals((string) $client, (string) $inhalt['aud'])) {
+        /* aud darf laut Norm auch eine Liste sein; Google schickt eine
+           Zeichenkette. Beides wird angenommen, Unerwartetes abgewiesen. */
+        $aud = isset($inhalt['aud']) ? $inhalt['aud'] : null;
+        $audPasst = false;
+        foreach ((is_array($aud) ? $aud : array($aud)) as $eintrag) {
+            if (is_string($eintrag) && $eintrag !== '' && hash_equals((string) $client, $eintrag)) { $audPasst = true; }
+        }
+        if (!$audPasst) {
             return self::nein('Der Ausweis wurde für eine andere Anwendung ausgestellt.');
         }
         if (empty($inhalt['exp']) || $jetzt > ((int) $inhalt['exp'] + self::UHRSPANNE)) {

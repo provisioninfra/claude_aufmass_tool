@@ -221,6 +221,19 @@
     });
   }
 
+  /* Das gerade geöffnete Aufmaß, falls es dieses ist. Es ist der frischeste
+     eigene Stand: Eine Eingabe, die noch nicht gesichert wurde, liegt nur
+     dort. In Prüfläufen ohne Oberfläche gibt es das nicht. */
+  function offenesProjekt(id) {
+    var Kern = global.AppKern;
+    var q = Kern && Kern.Zustand && Kern.Zustand.projekt;
+    return (q && q.id === id) ? q : null;
+  }
+  function offenUngesichert(id) {
+    var Kern = global.AppKern;
+    return !!(offenesProjekt(id) && Kern.Zustand && (Kern.Zustand.ungesichert || Kern.Zustand.speichertGerade));
+  }
+
   function eintragVerarbeiten(eintrag) {
     return Promise.all([Store.projektLaden(eintrag.id), Store.abgleichLesen(eintrag.id)])
       .then(function (beides) {
@@ -228,11 +241,14 @@
 
         /* Auf dem Server gelöscht */
         if (eintrag.geloescht) {
-          if (!hier) { return; }
-          if (satz && satz.schmutzig) { return; }   /* hier liegt noch Arbeit: nicht wegwerfen */
-          return Store.projektLoeschen(eintrag.id)
+          /* Hier liegt noch ungesendete Arbeit: nicht wegwerfen. (Ein eigener
+             Grabstein ist keine Arbeit - der ist damit erledigt.) */
+          if (satz && satz.schmutzig && !satz.geloescht) { return; }
+          return (hier ? Store.projektLoeschen(eintrag.id) : Promise.resolve())
             .then(function () { return Store.abgleichLoeschen(eintrag.id); });
         }
+        /* Hier gelöscht, drüben noch nicht angekommen: nicht wiederbeleben */
+        if (satz && satz.geloescht) { return; }
 
         /* Schon auf dem Stand */
         if (satz && satz.version === eintrag.version && !satz.schmutzig) { return; }
@@ -247,15 +263,24 @@
             }).then(function () { return fotosHolen(eintrag.id, voll.daten); })
               .then(function () { return offenesMitziehen(eintrag.id); });
           }
-          if (!satz || !satz.schmutzig) {
+          /* Eine Eingabe, die gerade erst gemacht und noch nicht gesichert
+             wurde, zählt als eigene Arbeit - auch wenn die Datenbank noch
+             nichts davon weiß. Sonst würde der Serverstand die Datenbank
+             überschreiben, der Autosave kurz darauf den alten Speicherstand
+             zurückschreiben, und die fremde Änderung wäre ohne Rückfrage
+             verloren. Der Prüflauf im Browser hat genau das gezeigt. */
+          var ungesendet = (satz && satz.schmutzig) || offenUngesichert(eintrag.id);
+          if (!ungesendet) {
             /* Hier liegt nichts Ungesendetes: Serverstand übernehmen */
             return Store.projektSpeichern(voll.daten, { vomAbgleich: true }).then(function () {
               return satzSchreiben(eintrag.id, voll.version, voll.daten, false);
             }).then(function () { return fotosHolen(eintrag.id, voll.daten); })
               .then(function () { return offenesMitziehen(eintrag.id); });
           }
-          /* Beide Seiten haben gearbeitet */
-          return zusammenfuehren(hier, satz, voll);
+          /* Beide Seiten haben gearbeitet: gegen den frischesten eigenen Stand */
+          var offen = offenesProjekt(eintrag.id);
+          var lokal = offen ? JSON.parse(JSON.stringify(offen)) : hier;
+          return zusammenfuehren(lokal, satz || { basis: null, version: 0 }, voll);
         });
       });
   }
@@ -266,12 +291,22 @@
       konfliktMerken(hier, e, voll);
       return;
     }
-    /* Sauber zusammengeführt: lokal sichern und zum Senden vormerken */
+    /* Sauber zusammengeführt: lokal sichern und zum Senden vormerken.
+     *
+     * Als Basis gilt ab jetzt der Serverstand, gegen den zusammengeführt
+     * wurde - nicht mehr die alte Basis. Sonst sähen die eben übernommenen
+     * fremden Änderungen beim nächsten Vergleich wie eigene aus, und wenn
+     * die andere Seite dieselbe Angabe gleich noch einmal ändert, gäbe es
+     * eine Rückfrage zu etwas, das man nie angefasst hat. Der Prüflauf mit
+     * zwei Geräten hat genau das gezeigt. */
     e.ergebnis.id = hier.id;
     return Store.projektSpeichern(e.ergebnis, { vomAbgleich: true }).then(function () {
-      return satzSchreiben(hier.id, voll.version, satz.basis, true);
+      return satzSchreiben(hier.id, voll.version, voll.daten, true);
     }).then(function () { return fotosHolen(hier.id, voll.daten); })
-      .then(function () { return offenesMitziehen(hier.id); });
+      /* Das Ergebnis enthält die eigenen - auch die noch ungesicherten -
+         Eingaben: Es darf und muss in den Speicher, selbst mitten in einer
+         Eingabe. */
+      .then(function () { return offenesMitziehen(hier.id, true, e.ergebnis); });
   }
 
   function konfliktMerken(hier, e, voll) {
@@ -318,10 +353,40 @@
     return Store.abgleichAlle().then(function (saetze) {
       var reihe = Promise.resolve();
       (saetze || []).filter(function (s) { return s && s.schmutzig; }).forEach(function (s) {
-        reihe = reihe.then(function () { return einesSenden(s); });
+        reihe = reihe.then(function () { return s.geloescht ? loeschungSenden(s.id) : einesSenden(s); });
       });
       return reihe;
     });
+  }
+
+  /* Ein lokal gelöschtes Aufmaß drüben löschen. Scheitert es am Netz,
+     bleibt der Grabstein liegen und es wird beim nächsten Durchgang
+     erneut versucht - wie bei jeder anderen Änderung. */
+  function loeschungSenden(id) {
+    return anfrage('/projekte/' + encodeURIComponent(id), { methode: 'DELETE' })
+      .then(function () { return Store.abgleichLoeschen(id); })
+      .catch(function (f) {
+        /* Drüben nie angekommen: dort gibt es nichts zu löschen. */
+        if (f && f.status === 404) { return Store.abgleichLoeschen(id); }
+        /* Nicht erlaubt - nur Zuständige dürfen löschen. Dann kommt das
+           Aufmaß hierher ZURÜCK, und zwar sofort: Sonst wäre es auf diesem
+           Gerät weg und auf allen anderen da, und tauchte irgendwann still
+           wieder auf. So sieht man gleich, dass man es nicht löschen darf. */
+        if (f && f.status === 403) {
+          return Store.abgleichLoeschen(id).then(function () { return zurueckholen(id); });
+        }
+        throw f;   /* Netz: beim nächsten Durchgang erneut */
+      });
+  }
+
+  /* Den Serverstand eines Aufmaßes wiederherstellen (samt Fotos). */
+  function zurueckholen(id) {
+    return anfrage('/projekte/' + encodeURIComponent(id)).then(function (voll) {
+      if (!voll || !voll.daten || voll.geloescht) { return; }
+      return Store.projektSpeichern(voll.daten, { vomAbgleich: true })
+        .then(function () { return satzSchreiben(id, voll.version, voll.daten, false); })
+        .then(function () { return fotosHolen(id, voll.daten); });
+    }).catch(function () { /* dann beim nächsten Abholen */ });
   }
 
   function einesSenden(satz) {
@@ -329,7 +394,11 @@
     var offen = zustand.konflikte.some(function (x) { return x.projektId === satz.id; });
     if (offen) { return Promise.resolve(); }
 
-    return Store.projektLaden(satz.id).then(function (projekt) {
+    /* Für ein geöffnetes Aufmaß zählt der Speicher, nicht die Datenbank:
+       Dort steht die neueste Eingabe, gesichert oder noch nicht. */
+    var offen = offenesProjekt(satz.id);
+    return (offen ? Promise.resolve(JSON.parse(JSON.stringify(offen))) : Store.projektLaden(satz.id)).then(function (projekt) {
+      /* Kein Projekt mehr, aber auch kein Grabstein: Altlast, aufräumen */
       if (!projekt) { return Store.abgleichLoeschen(satz.id); }
 
       /* Erst das Aufmaß, dann die Fotos - nicht umgekehrt.
@@ -476,15 +545,27 @@
     });
   }
 
-  function offenesMitziehen(id) {
+  /**
+   * @param erzwingen  auch bei ungesicherter Eingabe übernehmen - nur dann,
+   *                   wenn 'daten' diese Eingabe bereits enthält (Ergebnis
+   *                   einer Zusammenführung mit dem Speicherstand)
+   * @param daten      der zu übernehmende Stand; fehlt er, die Datenbank
+   */
+  function offenesMitziehen(id, erzwingen, daten) {
     var Kern = global.AppKern;
     if (!Kern || !Kern.Zustand || !Kern.Zustand.projekt) { return Promise.resolve(); }
     if (Kern.Zustand.projekt.id !== id) { return Promise.resolve(); }
-    /* Nicht mitten in eine laufende Speicherung hineinschreiben */
-    if (Kern.Zustand.ungesichert || Kern.Zustand.speichertGerade) { return Promise.resolve(); }
-    return Store.projektLaden(id).then(function (frisch) {
+    /* Nicht mitten in eine laufende Eingabe hineinschreiben - außer das
+       Ergebnis enthält sie schon. */
+    if (!erzwingen && (Kern.Zustand.ungesichert || Kern.Zustand.speichertGerade)) { return Promise.resolve(); }
+    return (daten ? Promise.resolve(daten) : Store.projektLaden(id)).then(function (frisch) {
       if (!frisch) { return; }
       inPlatzUebernehmen(Kern.Zustand.projekt, frisch);
+      /* Was jetzt im Speicher steht, muss auch in die Datenbank - der
+         nächste Autosave erledigt das. */
+      if (erzwingen && typeof Kern.alsGeaendertMarkieren === 'function') {
+        try { Kern.alsGeaendertMarkieren(); } catch (e) {}
+      }
       if (global.App && global.App.zeichnen) {
         try { global.App.zeichnen(); } catch (e) {}
       }
@@ -527,12 +608,28 @@
     });
   }
 
-  /** Ein lokal gelöschtes Projekt auch drüben löschen. */
+  /**
+   * Ein lokal gelöschtes Projekt auch drüben löschen.
+   *
+   * Zuerst wird ein Grabstein abgelegt, dann gesendet. Ohne Netz bleibt
+   * der Grabstein liegen und geht mit dem nächsten Durchgang raus. Vorher
+   * ging die Löschung ohne Netz verloren - und das Aufmaß kam beim
+   * nächsten Abgleich sogar zurück. Der Prüflauf mit zwei Geräten hat es
+   * gezeigt.
+   */
   function projektGeloescht(id) {
-    if (!zustand.angemeldet) { return Store.abgleichLoeschen(id); }
-    return anfrage('/projekte/' + encodeURIComponent(id), { methode: 'DELETE' })
-      .catch(function () { /* beim nächsten Durchgang erneut */ })
-      .then(function () { return Store.abgleichLoeschen(id); });
+    return Store.abgleichLesen(id).then(function (satz) {
+      /* Nie auf dem Server gewesen: drüben gibt es nichts zu löschen */
+      if (!satz || !satz.version) { return Store.abgleichLoeschen(id).then(function () { return false; }); }
+      return Store.abgleichSchreiben({
+        id: id, version: satz.version, basis: null, schmutzig: true, geloescht: true,
+        fehler: '', zuletzt: new Date().toISOString()
+      }).then(function () { return true; });
+    }).then(function (offen) {
+      if (!offen || !zustand.angemeldet) { return; }
+      return loeschungSenden(id).catch(function () { /* bleibt als Grabstein liegen */ });
+    }).then(function () { return offeneZaehlen(); })
+      .then(function () { melden(); });
   }
 
   function offeneZaehlen() {
@@ -613,6 +710,7 @@
     /* für Tests */
     _intern: { ohneBilddaten: ohneBilddaten, fotoListe: fotoListe,
                inPlatzUebernehmen: inPlatzUebernehmen,
+               holen: holen, senden: senden,
                markeSetzen: function (m) { marke = m; }, markeLesen: function () { return marke; } }
   };
 

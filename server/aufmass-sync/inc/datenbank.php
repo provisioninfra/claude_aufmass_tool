@@ -110,15 +110,36 @@ class Aufmass_Datenbank {
 ) $sortierung;");
     }
 
+    /**
+     * Sekunden und Mikrosekunden aus EINER Uhrabfrage.
+     *
+     * Zwei getrennte Abfragen (gmdate() für die Sekunden, microtime() für
+     * den Bruchteil) liefen an der Sekundengrenze auseinander: Die Sekunde
+     * stammte noch von "19", der Bruchteil schon von "20" - der Wert lag
+     * dann um fast eine Sekunde zurück, und ein Abgleich konnte eine Zeile
+     * verpassen. Der Prüflauf hat es über 1,8 Millionen Aufrufe gezeigt.
+     * Der Bruchteil wird abgeschnitten, nicht gerundet: Runden könnte auf
+     * 1.000000 überlaufen, ohne dass die Sekunde mitzählt.
+     */
+    private static function uhr() {
+        $t = microtime(true);
+        $sekunden = (int) floor($t);
+        $mikro = (int) (($t - $sekunden) * 1000000);
+        if ($mikro > 999999) { $mikro = 999999; }
+        if ($mikro < 0) { $mikro = 0; }
+        return array($sekunden, sprintf('%06d', $mikro));
+    }
+
     /** Serverzeit mit Mikrosekunden, als Zeichenkette für die Datenbank. */
     public static function jetzt() {
-        return gmdate('Y-m-d H:i:s') . substr(sprintf('%.6f', microtime(true)), -7);
+        $u = self::uhr();
+        return gmdate('Y-m-d H:i:s', $u[0]) . '.' . $u[1];
     }
 
     /** Dieselbe Zeit als Marke für die Geräte (ISO, UTC). */
     public static function marke() {
-        $t = microtime(true);
-        return gmdate('Y-m-d\TH:i:s', (int) $t) . substr(sprintf('%.6f', $t - floor($t)), 1, 7) . 'Z';
+        $u = self::uhr();
+        return gmdate('Y-m-d\TH:i:s', $u[0]) . '.' . $u[1] . 'Z';
     }
 
     /**

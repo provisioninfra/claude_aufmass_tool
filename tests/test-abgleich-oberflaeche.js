@@ -208,6 +208,38 @@ fs.writeFileSync(OPT, JSON.stringify({
     p(amServer2.daten.bemerkung === 'Im Keller erfasst', 'und die Eingabe liegt auf dem Server',
       String(amServer2.daten.bemerkung));
 
+    console.log('\n== Fremde Änderung trifft ein, während eine eigene noch ungesichert ist ==');
+    /* Zwischen Eingabe und Autosave liegen bis zu 0,7 s. Kommt genau dann
+       eine fremde Änderung herein, dürfen weder die eigene noch die fremde
+       verlorengehen. */
+    const stand2 = await (await fetch(BASIS + '/wp-json/aufmass/v1/projekte/' + projektId,
+      { headers: { 'X-Aufmass-Abgleich': '1', Cookie: kekse } })).json();
+    const fremd2 = JSON.parse(JSON.stringify(stand2.daten)); fremd2.kundenNr = 'K-FREMD-7';
+    const a2 = await fetch(BASIS + '/wp-json/aufmass/v1/projekte/' + projektId, {
+      method: 'PUT', headers: { 'X-Aufmass-Abgleich': '1', 'Content-Type': 'application/json', Cookie: kekse },
+      body: JSON.stringify({ daten: fremd2, basisVersion: stand2.version }) });
+    p(a2.ok, 'Vorbereitung: die Gegenseite hat die Kunden-Nr. gesetzt', String(a2.status));
+    /* Eigene Eingabe (noch ungesichert) und sofort der Abgleich */
+    await seite.evaluate(() => {
+      const q = window.AppKern.Zustand.projekt;
+      q.ansprechpartner = 'Eigene Eingabe, noch ungesichert';
+      window.AppKern.alsGeaendertMarkieren();          /* Autosave in 0,7 s */
+      return window.Abgleich.jetzt();                   /* der Abgleich kommt dazwischen */
+    });
+    await seite.waitForTimeout(4500);                    /* Autosave, Sendeverzug, Abgleich */
+    await seite.evaluate(() => window.Abgleich.jetzt());
+    await seite.waitForTimeout(1500);
+    const danach2 = await seite.evaluate(() => ({ kundenNr: window.AppKern.Zustand.projekt.kundenNr,
+      ansprechpartner: window.AppKern.Zustand.projekt.ansprechpartner, konflikte: window.Abgleich.zustand().konflikte.length }));
+    p(danach2.kundenNr === 'K-FREMD-7', 'die fremde Änderung steht im geöffneten Aufmaß', JSON.stringify(danach2));
+    p(danach2.ansprechpartner === 'Eigene Eingabe, noch ungesichert', 'die eigene, zuvor ungesicherte Eingabe ebenfalls', JSON.stringify(danach2));
+    const amServer3 = await (await fetch(BASIS + '/wp-json/aufmass/v1/projekte/' + projektId,
+      { headers: { 'X-Aufmass-Abgleich': '1', Cookie: kekse } })).json();
+    p(amServer3.daten.kundenNr === 'K-FREMD-7' && amServer3.daten.ansprechpartner === 'Eigene Eingabe, noch ungesichert',
+      'und auf dem Server stehen beide - nichts wurde überschrieben',
+      JSON.stringify({ kundenNr: amServer3.daten.kundenNr, ansprechpartner: amServer3.daten.ansprechpartner }));
+    p(danach2.konflikte === 0, 'ohne Rückfrage - es waren verschiedene Angaben', String(danach2.konflikte));
+
     p(konsole.length === 0, 'keine JavaScript-Fehler in der Oberfläche', konsole.join(' | '));
     p(serverFehler === '', 'keine Fehler auf dem Server', serverFehler.slice(0, 300));
   } catch (e) {
