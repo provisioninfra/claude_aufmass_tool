@@ -179,6 +179,35 @@ if (!fs.existsSync(onlineOrdner)) {
   pruefe(alt.length === 0, 'Webserver-Fassung: auf dem Stand der Quelle', 'veraltet: ' + alt.join(', '));
 }
 
+/* --- 1d. Das Plugin zum Hochladen ---------------------------------------- */
+const pluginZip = path.join(WURZEL, 'dist', 'aufmass-abgleich-plugin.zip');
+if (!fs.existsSync(pluginZip)) {
+  pruefe(false, 'Plugin-ZIP vorhanden', 'dist/aufmass-abgleich-plugin.zip fehlt');
+} else {
+  const roh = fs.readFileSync(pluginZip);
+  pruefe(roh.readUInt32LE(0) === 0x04034b50, 'Plugin-ZIP: gültiger Dateianfang');
+  /* Abschlusssatz suchen und die Einträge zählen */
+  let ende = -1;
+  for (let i = roh.length - 22; i >= 0 && ende < 0; i--) {
+    if (roh.readUInt32LE(i) === 0x06054b50) { ende = i; }
+  }
+  pruefe(ende >= 0, 'Plugin-ZIP: Abschlusssatz vorhanden');
+  if (ende >= 0) {
+    const anzahl = roh.readUInt16LE(ende + 10);
+    const inQuelle = (function zaehlen(o) {
+      return fs.readdirSync(o, { withFileTypes: true })
+        .filter(e => e.name !== '.DS_Store')
+        .reduce((n, e) => n + (e.isDirectory() ? zaehlen(path.join(o, e.name)) : 1), 0);
+    })(path.join(WURZEL, 'server', 'aufmass-sync'));
+    pruefe(anzahl === inQuelle,
+      'Plugin-ZIP: enthält alle ' + inQuelle + ' Dateien des Plugins', 'im Archiv: ' + anzahl);
+  }
+  /* Die Hauptdatei muss im Archiv zu finden sein - sonst erkennt
+     WordPress das Paket nicht als Plugin. */
+  pruefe(roh.includes(Buffer.from('aufmass-sync/aufmass-sync.php')),
+    'Plugin-ZIP: die Hauptdatei liegt im erwarteten Unterordner');
+}
+
 /* --- 2. Die Einzeldateien: eigenständig und gleich ----------------------- */
 const einzel = [
   [path.join(WURZEL, 'dist', 'aufmass-tool.html'), 'dist/aufmass-tool.html'],

@@ -50,7 +50,18 @@ Dafür werden Rechte als **Administrator der Google Workspace** gebraucht.
 
 ---
 
-## Schritt 2 — Plugin auf Raidboxes hochladen
+## Schritt 2 — Plugin installieren
+
+**Der einfache Weg (kein FTP nötig):**
+
+1. In WordPress: **Plugins → Installieren → Plugin hochladen**
+2. Die Datei **`dist/aufmass-abgleich-plugin.zip`** auswählen
+3. **Jetzt installieren**, danach **Aktivieren**
+
+Beim Aktivieren legt das Plugin seine Tabellen selbst an.
+
+<details>
+<summary>Alternativ über SFTP</summary>
 
 1. Im Raidboxes-Dashboard die Box öffnen → **SFTP**. Dort stehen Server,
    Benutzername und Passwort.
@@ -64,7 +75,9 @@ Dafür werden Rechte als **Administrator der Google Workspace** gebraucht.
    wp-content/plugins/aufmass-sync/inc/…
    ```
 4. In WordPress unter **Plugins** das Plugin **„Aufmaß-Abgleich"**
-   aktivieren. Beim Aktivieren legt es seine Tabellen selbst an.
+   aktivieren.
+
+</details>
 
 ---
 

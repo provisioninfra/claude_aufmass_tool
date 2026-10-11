@@ -42,6 +42,15 @@ fs.copyFileSync(path.join(WURZEL, 'dist', 'aufmass-tool.html'),
 if (!fs.existsSync(path.join(DOCS, '.nojekyll'))) {
   fs.writeFileSync(path.join(DOCS, '.nojekyll'), '');
 }
+/* 5: Das Plugin als ZIP - so lässt es sich in WordPress unter
+      "Plugins -> Installieren -> Plugin hochladen" einspielen, ohne dass
+      jemand ein FTP-Programm bedienen muss. */
+const { packen } = require('./zip.js');
+const zip = packen(path.join(WURZEL, 'server', 'aufmass-sync'),
+                   path.join(WURZEL, 'dist', 'aufmass-abgleich-plugin.zip'));
+console.log('Plugin zum Hochladen: dist/aufmass-abgleich-plugin.zip  ('
+  + zip.dateien + ' Dateien, ' + Math.round(zip.groesse / 1024) + ' KB)');
+
 const zahl = (function zaehlen(ordner) {
   return fs.readdirSync(ordner, { withFileTypes: true })
     .reduce((n, e) => n + (e.isDirectory() ? zaehlen(path.join(ordner, e.name)) : 1), 0);
