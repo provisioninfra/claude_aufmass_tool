@@ -1,0 +1,12 @@
+Aufmaß-Werkzeug — Fassung für den Webserver
+==========================================
+
+Diesen gesamten Ordner als "aufmasstool" in das Wurzelverzeichnis der
+Website legen. Danach ist das Werkzeug erreichbar unter:
+
+    https://<ihre-domäne>/aufmasstool/
+
+Voraussetzung ist das WordPress-Plugin "Aufmaß-Abgleich" aus dem
+Ordner server/aufmass-sync (siehe server/EINRICHTUNG.md).
+
+Erzeugt am 2026-10-11

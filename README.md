@@ -1,8 +1,18 @@
 # Aufmaß-Tool für Schließanlagen und Zutrittslösungen
 
 Werkzeug zur Aufnahme von Türaufmaßen beim Kunden vor Ort und zur Erstellung
-des Schließplans im Büro. Läuft vollständig im Browser – ohne Server, ohne
-Installation und ohne Internetverbindung.
+des Schließplans im Büro. Läuft vollständig im Browser – ohne Installation
+und ohne Internetverbindung.
+
+Es gibt es in zwei Fassungen:
+
+* **Einzeldatei** (`dist/aufmass-tool.html`) – eine Datei, Doppelklick,
+  fertig. Kein Server, keine Anmeldung. Alle Daten bleiben auf dem Gerät.
+* **Gemeinsame Fassung** (`dist/aufmasstool/`) – auf dem eigenen Webserver,
+  mit Anmeldung über das Google-Konto der Organisation. Alle Aufmaße stehen
+  auf allen Geräten zur Verfügung und gleichen sich von selbst ab – auch
+  diese Fassung arbeitet ohne Netz weiter und holt später nach.
+  Einrichtung: [server/EINRICHTUNG.md](server/EINRICHTUNG.md)
 
 ## Was das Werkzeug kann
 
@@ -22,9 +32,14 @@ Installation und ohne Internetverbindung.
 * **PDF-Ausgaben** auf Knopfdruck: Türliste (kompakt und ausführlich),
   Kreuzschließplan, Materialliste, Prüfprotokoll
 * **Projektdatei** zum Austausch zwischen iPad und Büro-Rechner
+* **Gemeinsame Ablage** (nur in der Fassung für den eigenen Webserver) –
+  alle Aufmaße auf allen Geräten, Zuständigkeiten je Aufmaß, Zusammenführen
+  bei gleichzeitiger Arbeit
 
-Alle Daten verbleiben auf dem jeweiligen Gerät. Es findet keinerlei
-Datenübertragung statt.
+In der Einzeldatei verbleiben alle Daten auf dem jeweiligen Gerät; es findet
+keinerlei Datenübertragung statt. In der gemeinsamen Fassung werden die
+Aufmaße mit dem **eigenen** Server abgeglichen – an Dritte geht nichts außer
+der Anmeldung bei Google.
 
 ## Aufbau der Türangaben
 

@@ -51,6 +51,17 @@ function bauen() {
   skripte.forEach(datei => {
     html = html.replace(new RegExp('<script src="' + datei.replace(/\//g, '\\/') + '"></script>\\s*'), '');
   });
+
+  /* Der Abgleich bleibt draußen - mit voller Absicht.
+     Die Einzeldatei ist die Fassung für den Doppelklick ohne Server und
+     ohne Netz. Sie soll weder eine Anmeldung verlangen noch eine Adresse
+     kennen. Wer den Abgleich will, nimmt die Fassung unter /aufmasstool
+     (siehe tools/build-online.js). */
+  const NUR_ONLINE = ['js/zusammenfuehren.js', 'js/abgleich.js', 'js/abgleich-ui.js'];
+  NUR_ONLINE.forEach(datei => {
+    html = html.replace(new RegExp('<script src="' + datei.replace(/\//g, '\\/') + '"></script>\\s*'), '');
+  });
+  html = html.replace(/<!--\s*Abgleich mit der gemeinsamen Ablage[\s\S]*?-->\s*/, '');
   html = html.replace('</body>', '<script>' + gebuendelt + '</script>\n</body>');
 
   /* Die Kundenfreigabe braucht eine Web-Adresse; in der Einzeldatei bleibt

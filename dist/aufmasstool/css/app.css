@@ -1,0 +1,937 @@
+/* =============================================================================
+   Schließanlagen Aufmaß-Tool — Oberfläche
+   Ausgelegt auf Touch-Bedienung (iPad vor Ort) und Maus/Tastatur (Büro).
+   ========================================================================== */
+
+/* -----------------------------------------------------------------------------
+   ERSCHEINUNGSBILD — abgenommen von provision-infra.de
+   ----------------------------------------------------------------------------
+   Gemessen aus Bildschirmaufnahmen der Website, nicht geschätzt:
+     Gold (Hauptaktion)     #fcc91d   Knopffläche
+     Seitengrund dunkel     #02092b   Grundfläche der Seite
+     Karte                  #0a1637   Inhaltskarten
+     Karte, zweite Ebene    #131f40   verschachtelte Karten
+     Leiste / Navigation    #252c44   Navigationspille
+
+   Gold trägt die gefüllten Hauptaktionen (--hausfarbe), dunkles Navy steht
+   darauf (--auf-hausfarbe). Für Schrift, Linien und den aktiven Reiter gilt
+   --akzent: in der dunklen Darstellung ebenfalls Gold - wie auf der Website -,
+   in der hellen das Marken-Navy, weil Gold auf Weiß nicht zu lesen wäre.
+
+   DIE HAUSFARBE STEHT AN SECHS STELLEN. Wer sie ändert, muss alle anfassen:
+     1. hier: der helle Satz
+     2. hier: der dunkle Satz
+     3. src/js/reports.js  -> FARBE  (die Farben auf dem Papier)
+     4. src/index.html     -> <meta name="theme-color">
+     5. src/manifest.webmanifest -> theme_color
+     6. src/icon.svg       -> danach `node tools/icons-erzeugen.js`
+   -------------------------------------------------------------------------- */
+
+/* Die Darstellung wird von der Anwendung aufgelöst und als data-darstellung
+   an <html> geschrieben ("hell" oder "dunkel"). Die Einstellung "Wie das
+   Gerät" wird dabei über prefers-color-scheme in einen der beiden Werte
+   übersetzt - so steht jeder Satz hier genau einmal. */
+:root,
+:root[data-darstellung="hell"] {
+  /* --- Hausfarbe: gefüllte Hauptaktionen ---------------------------------- */
+  --hausfarbe:      #fcc91d;
+  --hausfarbe-hell: #ffd84a;
+  --auf-hausfarbe:  #0a1637;
+  --hausfarbe-flaeche: rgba(252, 201, 29, .18);
+
+  /* --- Akzent: Schrift, Linien, aktiver Reiter ---------------------------- */
+  --akzent:        #14306e;
+  --akzent-hell:   #1d4499;
+  --akzent-bg:     #e7ecf8;
+  --akzent-flaeche: rgba(20, 48, 110, .10);
+  --auf-akzent:    #ffffff;
+
+  --text:          #0a1637;
+  --text-schwach:  #46557f;
+  /* Dunkel genug, dass die Schrift auch auf den getönten Flächen und im
+     Sonnenlicht auf der Baustelle noch 4,5:1 erreicht. */
+  --text-zart:     #5c6884;
+  --flaeche:       #ffffff;
+  --flaeche-2:     #eef2f9;
+  --flaeche-3:     #e5ebf6;
+  --rand:          #ccd6e8;
+  --rand-zart:     #e2e9f4;
+  --gruen:         #1b7a44;
+  --gelb:          #95560a;
+  --rot:           #b3261e;
+  /* Schrift auf einer dieser Farbflächen: hell braucht Weiß, dunkel
+     braucht das Navy - sonst verschwindet der Text im Orange bzw. Grün. */
+  --auf-farbe:     #ffffff;
+  --schleier:      rgba(2, 9, 43, .58);
+  --schatten:      0 1px 3px rgba(10, 22, 55, .10), 0 8px 24px rgba(10, 22, 55, .08);
+}
+
+:root[data-darstellung="dunkel"] {
+  --hausfarbe:      #fcc91d;
+  --hausfarbe-hell: #ffd84a;
+  --auf-hausfarbe:  #0a1637;
+  --hausfarbe-flaeche: rgba(252, 201, 29, .18);
+
+  /* In der dunklen Darstellung ist der Akzent ebenfalls Gold - genau so
+     setzt die Website Überschriften und Hervorhebungen. */
+  --akzent:        #fcc91d;
+  --akzent-hell:   #ffd84a;
+  --akzent-bg:     rgba(252, 201, 29, .13);
+  --akzent-flaeche: rgba(252, 201, 29, .18);
+  --auf-akzent:    #0a1637;
+
+  --text:          #f4f7fd;
+  --text-schwach:  #aab6ce;
+  --text-zart:     #7b88a4;
+  --flaeche:       #0a1637;
+  --flaeche-2:     #02092b;
+  --flaeche-3:     #131f40;
+  --rand:          #2a3558;
+  --rand-zart:     #1b2748;
+  --gruen:         #45c07a;
+  /* Warnungen in Orange, damit sie nicht mit der goldenen Hausfarbe
+     verwechselt werden - die steht für Hauptaktionen, nicht für Hinweise. */
+  --gelb:          #f0893c;
+  --rot:           #f2655c;
+  --auf-farbe:     #0a1637;
+  --schleier:      rgba(0, 4, 18, .66);
+  --schatten:      0 1px 3px rgba(0, 0, 0, .45), 0 10px 28px rgba(0, 0, 0, .40);
+}
+
+/* Form und Maße gelten in beiden Darstellungen */
+:root {
+  --radius:        16px;
+  --radius-klein:  12px;
+  --radius-pille:  999px;
+  --tap:           48px;          /* Mindestgröße für Touch-Ziele (Einhandbedienung) */
+  --tap-gross:     56px;          /* Hauptaktionen */
+  --daumen:        env(safe-area-inset-bottom);
+  /* Geometrische Grotesk, der Schrift der Website nahe. Es wird bewusst
+     keine Schrift aus dem Netz geladen: Das Werkzeug muss ohne Verbindung
+     starten. Avenir Next liegt auf jedem iPad und Mac bereit. */
+  --schrift: "Avenir Next", Avenir, "Segoe UI Variable Text", "Segoe UI",
+             system-ui, -apple-system, BlinkMacSystemFont, Roboto,
+             "Helvetica Neue", Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0; height: 100%;
+  background: var(--flaeche-2); color: var(--text);
+  font: 15px/1.5 var(--schrift);
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+/* --- Grundlayout --------------------------------------------------------- */
+#app { display: flex; flex-direction: column; height: 100%; }
+
+header.kopf {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px; background: var(--flaeche);
+  border-bottom: 1px solid var(--rand);
+  position: sticky; top: 0; z-index: 30;
+  padding-top: max(10px, env(safe-area-inset-top));
+}
+.kopf .logo {
+  height: 34px; width: auto; max-width: 120px; object-fit: contain;
+  border-radius: 4px; flex-shrink: 0;
+}
+.kopf .marke { font-weight: 700; font-size: 15px; color: var(--akzent); white-space: nowrap; }
+.kopf .marke small { display: block; font-weight: 400; font-size: 11px; color: var(--text-zart); }
+.kopf .projekt-titel {
+  flex: 1; min-width: 0; font-weight: 600; font-size: 14px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.kopf .projekt-titel span { display: block; font-weight: 400; font-size: 11.5px; color: var(--text-zart); }
+/* --- Zurück-Knopf: überall im Projekt erreichbar ------------------------ */
+.zurueck-knopf {
+  display: inline-flex; align-items: center; gap: 7px;
+  min-height: var(--tap); padding: 8px 16px;
+  border: 1px solid var(--rand); border-radius: var(--radius-pille);
+  background: var(--flaeche); color: var(--text);
+  font-size: 14.5px; font-weight: 600; flex-shrink: 0;
+  /* Ohne das streckt sich der Knopf über die ganze Höhe der Kopfzeile -
+     die Kopfzeile ist ein Flexkasten und streckt ihre Kinder. */
+  align-self: center;
+}
+.zurueck-knopf .pfeil { font-size: 19px; line-height: 1; }
+.zurueck-knopf .zahl {
+  font-size: 11.5px; font-weight: 700; padding: 1px 7px; border-radius: 9px;
+  background: var(--akzent-bg); color: var(--akzent);
+}
+.zurueck-knopf:hover:not(:disabled) { border-color: var(--akzent); color: var(--akzent); }
+.zurueck-knopf.ohne-schritte { opacity: .4; }
+.zurueck-knopf:disabled { cursor: not-allowed; }
+@media (max-width: 700px) {
+  .zurueck-knopf .beschriftung { display: none; }
+  .zurueck-knopf { padding: 8px 11px; }
+}
+
+.speicher-status {
+  font-size: 11.5px; color: var(--text-zart); white-space: nowrap;
+  display: flex; align-items: center; gap: 5px;
+}
+.speicher-status.aktiv { color: var(--gruen); }
+.speicher-status .punkt { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+/* =============================================================================
+   Abgleich: Zustand, Anmeldung und Rückfragen
+   ========================================================================== */
+.abgleich-status {
+  display: flex; align-items: center; gap: 6px; white-space: nowrap;
+  background: var(--flaeche-2); border: 1px solid var(--rand);
+  border-radius: var(--radius-pille); padding: 7px 13px;
+  font-size: 12px; font-weight: 600; color: var(--text-schwach);
+  min-height: 36px; cursor: pointer; font-family: inherit;
+}
+.abgleich-status:hover { border-color: var(--akzent); }
+.abgleich-status .punkt { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+.abgleich-status.fertig  { color: var(--gruen); }
+.abgleich-status.offen   { color: var(--gelb); }
+.abgleich-status.laeuft  { color: var(--akzent); }
+.abgleich-status.laeuft .punkt { animation: pulsieren 1.1s ease-in-out infinite; }
+.abgleich-status.offline { color: var(--text-zart); }
+.abgleich-status.aus     { color: var(--text-zart); }
+.abgleich-status.frage   { color: var(--auf-hausfarbe); background: var(--hausfarbe); border-color: var(--hausfarbe); }
+@keyframes pulsieren { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+.anmelde-seite { display: flex; justify-content: center; padding: 20px 0 60px; }
+.anmelde-karte {
+  background: var(--flaeche); border: 1px solid var(--rand); border-radius: var(--radius);
+  box-shadow: var(--schatten); padding: 30px; max-width: 480px; width: 100%; text-align: center;
+}
+.anmelde-karte .logo { max-height: 54px; max-width: 220px; margin-bottom: 14px; }
+.anmelde-karte h1 { font-size: 22px; margin-bottom: 2px; }
+.anmelde-karte h2 { border: 0; padding: 0; }
+.anmelde-karte p { margin: 0 0 10px; }
+.anmelde-karte .meldung { text-align: left; }
+.google-knopf { display: flex; justify-content: center; min-height: 44px; }
+
+.liste-schlicht { list-style: none; margin: 12px 0; padding: 0; }
+.liste-schlicht li {
+  padding: 9px 0; border-bottom: 1px solid var(--rand-zart); font-size: 14px;
+}
+.liste-schlicht li:last-child { border-bottom: 0; }
+
+.konflikt-liste { display: flex; flex-direction: column; gap: 12px; }
+.konflikt {
+  border: 1px solid var(--rand); border-radius: var(--radius-klein);
+  padding: 12px; background: var(--flaeche-2);
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.konflikt .wo { grid-column: 1 / -1; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.konflikt .bereich {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--text-zart); background: var(--flaeche-3); padding: 2px 7px; border-radius: 4px;
+}
+.konflikt .fassung {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+  text-align: left; padding: 10px 12px; min-height: var(--tap);
+  border: 2px solid var(--rand); border-radius: var(--radius-klein);
+  background: var(--flaeche); color: var(--text); font-family: inherit; cursor: pointer;
+}
+.konflikt .fassung:hover { border-color: var(--akzent); }
+.konflikt .fassung.gewaehlt { border-color: var(--hausfarbe); background: var(--hausfarbe-flaeche); }
+.konflikt .fassung .herkunft { font-size: 11px; font-weight: 700; color: var(--text-zart); }
+.konflikt .fassung.gewaehlt .herkunft { color: var(--text-schwach); }
+.konflikt .fassung .wert { font-size: 15px; font-weight: 600; word-break: break-word; }
+@media (max-width: 560px) {
+  .konflikt { grid-template-columns: 1fr; }
+  .anmelde-karte { padding: 22px 18px; }
+}
+
+nav.reiter {
+  display: flex; gap: 2px; padding: 0 10px; background: var(--flaeche);
+  border-bottom: 1px solid var(--rand); overflow-x: auto; z-index: 25;
+  position: sticky; top: 0; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+nav.reiter::-webkit-scrollbar { display: none; }
+nav.reiter button {
+  appearance: none; border: 0; background: transparent; color: var(--text-schwach);
+  padding: 13px 13px; font-size: 14.5px; font-weight: 700; cursor: pointer;
+  letter-spacing: -.005em;
+  touch-action: manipulation;
+  border-bottom: 3px solid transparent; white-space: nowrap; min-height: var(--tap);
+  font-family: inherit;
+}
+nav.reiter button[aria-selected="true"] { color: var(--akzent); border-bottom-color: var(--akzent); }
+/* Am rechten Rand andeuten, dass die Leiste weitergeht - sonst sieht ein
+   abgeschnittener Reiter nach einem Fehler aus. */
+nav.reiter { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 18px), transparent);
+             mask-image: linear-gradient(to right, #000 calc(100% - 18px), transparent); }
+@media (min-width: 1100px) { nav.reiter { -webkit-mask-image: none; mask-image: none; } }
+nav.reiter button:disabled { opacity: .35; cursor: not-allowed; }
+nav.reiter button .zahl {
+  display: inline-block; margin-left: 6px; padding: 1px 6px; font-size: 11px;
+  border-radius: 9px; background: var(--flaeche-3); color: var(--text-schwach);
+}
+
+main.inhalt {
+  flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 16px; padding-bottom: max(28px, env(safe-area-inset-bottom));
+}
+.seite { max-width: 1400px; margin: 0 auto; }
+.seite.breit { max-width: none; }
+
+/* --- Typografie ---------------------------------------------------------- */
+h1 { font-size: 23px; font-weight: 700; letter-spacing: -.015em; margin: 0 0 5px; }
+h2 { font-size: 17px; font-weight: 700; letter-spacing: -.01em; margin: 24px 0 11px;
+     padding-bottom: 7px; border-bottom: 1px solid var(--rand-zart); }
+h2:first-child { margin-top: 0; }
+h3 { font-size: 14px; font-weight: 700; letter-spacing: .01em; margin: 16px 0 8px;
+     color: var(--text-schwach); }
+p.hinweis { color: var(--text-schwach); font-size: 13.5px; margin: 4px 0 14px; }
+
+/* --- Karten -------------------------------------------------------------- */
+.karte {
+  background: var(--flaeche); border: 1px solid var(--rand);
+  border-radius: var(--radius); padding: 16px; margin-bottom: 14px;
+  box-shadow: var(--schatten);
+}
+.karte.schmal { padding: 12px; }
+
+/* --- Formulare ----------------------------------------------------------- */
+.raster { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px 14px; }
+.raster.eng { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.raster.zwei { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.feld { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.feld.voll { grid-column: 1 / -1; }
+.feld label { font-size: 12px; font-weight: 600; color: var(--text-schwach); }
+.feld .einheit { font-weight: 400; color: var(--text-zart); }
+
+input[type="text"], input[type="number"], input[type="date"], input[type="tel"],
+input[type="email"], input[type="search"], select, textarea {
+  /* 16px ist Pflicht: darunter zoomt iOS beim Antippen in das Feld hinein,
+     was die Bedienung mit einer Hand unbrauchbar macht. */
+  font: inherit; font-size: 16px; color: var(--text);
+  background: var(--flaeche); border: 1px solid var(--rand);
+  border-radius: var(--radius-klein); padding: 11px 12px; width: 100%;
+  min-height: var(--tap); appearance: none; -webkit-appearance: none;
+}
+select {
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-schwach) 50%),
+                    linear-gradient(135deg, var(--text-schwach) 50%, transparent 50%);
+  background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%;
+  background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+  padding-right: 30px;
+}
+textarea { min-height: 74px; resize: vertical; line-height: 1.45; }
+input:focus, select:focus, textarea:focus {
+  outline: 2px solid var(--akzent); outline-offset: -1px; border-color: var(--akzent);
+}
+input::placeholder, textarea::placeholder { color: var(--text-zart); }
+
+/* Umschalter (Checkbox als Schalter) */
+.schalter { display: flex; align-items: center; gap: 9px; min-height: var(--tap); cursor: pointer; }
+.schalter input { position: absolute; opacity: 0; width: 0; height: 0; }
+.schalter .bahn {
+  width: 54px; height: 32px; border-radius: 16px; background: var(--flaeche-3);
+  border: 1px solid var(--rand); position: relative; transition: background .15s, border-color .15s;
+  flex-shrink: 0;
+}
+.schalter .bahn::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 26px; height: 26px;
+  border-radius: 50%; background: var(--flaeche); box-shadow: 0 1px 3px rgba(0,0,0,.3);
+  transition: transform .15s;
+}
+.schalter input:checked + .bahn { background: var(--akzent); border-color: var(--akzent); }
+.schalter input:checked + .bahn::after { transform: translateX(22px); }
+.schalter input:focus-visible + .bahn { outline: 2px solid var(--akzent); outline-offset: 2px; }
+.schalter .beschriftung { font-size: 15.5px; font-weight: 500; }
+
+/* Mehrfachauswahl als Chips */
+.chips { display: flex; flex-wrap: wrap; gap: 9px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 11px 16px;
+  border: 1px solid var(--rand); border-radius: 24px; background: var(--flaeche);
+  font-size: 15px; cursor: pointer; user-select: none; min-height: var(--tap);
+  color: var(--text); touch-action: manipulation;
+}
+.chip:hover { border-color: var(--akzent); }
+.chip[aria-pressed="true"] {
+  background: var(--hausfarbe); border-color: var(--hausfarbe);
+  color: var(--auf-hausfarbe); font-weight: 700;
+}
+
+/* --- Schaltflächen ------------------------------------------------------- */
+button, .knopf {
+  font: inherit; font-size: 15px; font-weight: 600; font-family: inherit;
+  touch-action: manipulation;
+  border: 1px solid var(--rand); background: var(--flaeche); color: var(--text);
+  border-radius: var(--radius-pille); padding: 12px 20px; cursor: pointer;
+  min-height: var(--tap); display: inline-flex; align-items: center; justify-content: center;
+  gap: 7px; text-decoration: none; white-space: nowrap;
+}
+button:hover, .knopf:hover { border-color: var(--akzent); color: var(--akzent); }
+button:active, .knopf:active { transform: translateY(1px); }
+button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+/* Die Hauptaktion trägt die Hausfarbe - so wie der Knopf auf der Website */
+button.haupt, .knopf.haupt {
+  background: var(--hausfarbe); border-color: var(--hausfarbe); color: var(--auf-hausfarbe);
+}
+button.haupt:hover {
+  background: var(--hausfarbe-hell); border-color: var(--hausfarbe-hell); color: var(--auf-hausfarbe);
+}
+button.gefahr { color: var(--rot); border-color: var(--rand); }
+button.gefahr:hover { background: var(--rot); border-color: var(--rot); color: var(--auf-farbe); }
+/* "klein" betrifft nur Innenabstand und Schrift - die Trefffläche bleibt
+   fingertauglich, sonst ist der Knopf auf der Baustelle nicht bedienbar. */
+button.klein { padding: 8px 13px; font-size: 14px; min-height: var(--tap); }
+button.nur-symbol { padding: 8px 10px; min-width: var(--tap); }
+.knopfleiste { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; }
+.knopfleiste.rechts { justify-content: flex-end; }
+
+/* --- Werkzeugleiste über Listen ------------------------------------------ */
+.werkzeuge {
+  display: flex; gap: 9px; align-items: center; flex-wrap: wrap;
+  margin-bottom: 14px; padding: 11px; background: var(--flaeche);
+  border: 1px solid var(--rand); border-radius: var(--radius);
+}
+.werkzeuge .suche { flex: 1; min-width: 170px; }
+.werkzeuge select { width: auto; min-width: 130px; }
+
+/* --- Tabellen ------------------------------------------------------------ */
+.tabelle-rahmen {
+  overflow: auto; border: 1px solid var(--rand); border-radius: var(--radius);
+  background: var(--flaeche); -webkit-overflow-scrolling: touch;
+}
+table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13.5px; }
+th, td { padding: 9px 11px; text-align: left; border-bottom: 1px solid var(--rand-zart); }
+th {
+  background: var(--flaeche-3); font-size: 12px; font-weight: 700; color: var(--text-schwach);
+  position: sticky; top: 0; z-index: 2; white-space: nowrap;
+}
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr.anklickbar { cursor: pointer; }
+tbody tr.anklickbar:hover td { background: var(--akzent-bg); }
+td.zahl, th.zahl { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* --- Türliste als Karten (Touch) ----------------------------------------- */
+.tuer-gruppe { margin-bottom: 20px; }
+.tuer-gruppe > .kopfzeile {
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+  background: var(--akzent-bg); border: 1px solid var(--rand);
+  border-radius: var(--radius) var(--radius) 0 0; font-weight: 700; font-size: 14px;
+  color: var(--akzent);
+}
+.tuer-gruppe > .kopfzeile .anzahl { margin-left: auto; font-weight: 500; font-size: 12.5px; color: var(--text-schwach); }
+.tuer-liste {
+  border: 1px solid var(--rand); border-top: 0;
+  border-radius: 0 0 var(--radius) var(--radius); overflow: hidden; background: var(--flaeche);
+}
+.tuer-zeile {
+  display: flex; align-items: stretch; gap: 0; border-bottom: 1px solid var(--rand-zart);
+  cursor: pointer; background: var(--flaeche);
+}
+.tuer-zeile:last-child { border-bottom: 0; }
+.tuer-zeile:hover { background: var(--akzent-bg); }
+.tuer-zeile .statusbalken { width: 7px; flex-shrink: 0; background: var(--text-zart); }
+.tuer-zeile .inhalt { flex: 1; min-width: 0; padding: 15px 14px; display: flex; gap: 12px; align-items: center; min-height: 64px; }
+.tuer-zeile .nummer {
+  font-weight: 700; font-size: 13.5px; min-width: 72px; flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.tuer-zeile .haupt { flex: 1; min-width: 0; }
+.tuer-zeile .haupt .bez { font-weight: 600; font-size: 16px; }
+.tuer-zeile .haupt .detail {
+  font-size: 13.5px; color: var(--text-schwach); margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tuer-zeile .marken { display: flex; gap: 6px; flex-shrink: 0; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+
+.marke-pille {
+  font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 11px;
+  background: var(--flaeche-3); color: var(--text-schwach); white-space: nowrap;
+}
+.marke-pille.gruen { background: rgba(31,122,61,.14); color: var(--gruen); }
+.marke-pille.gelb  { background: rgba(179,114,30,.16); color: var(--gelb); }
+.marke-pille.rot   { background: rgba(179,38,30,.14); color: var(--rot); }
+.marke-pille.blau  { background: var(--akzent-bg); color: var(--akzent); }
+.marke-pille.foto::before { content: '▣ '; }
+
+/* --- Strukturbaum -------------------------------------------------------- */
+.baum { list-style: none; margin: 0; padding: 0; }
+.baum ul { list-style: none; margin: 0; padding-left: 22px; border-left: 1px dashed var(--rand); }
+.baum li { margin: 5px 0; }
+.knoten {
+  display: flex; align-items: center; gap: 9px; padding: 8px 11px;
+  background: var(--flaeche); border: 1px solid var(--rand);
+  border-radius: var(--radius-klein); min-height: 42px; flex-wrap: wrap;
+}
+/* Der Namensbereich ist der Weg in die Bereichsansicht und muss überall
+   als Ganzes treffbar sein - auch wenn rechts fünf Aktionen stehen. */
+.knoten .knoten-haupt {
+  flex: 1 1 180px; min-width: 0; display: flex; align-items: center; gap: 9px;
+  background: none; border: 0; padding: 4px 0; min-height: var(--tap);
+  text-align: left; color: inherit; font: inherit; border-radius: var(--radius-klein);
+}
+.knoten .knoten-haupt:hover { background: var(--akzent-bg); }
+.knoten .name { flex: 1; font-weight: 600; font-size: 14px; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.knoten .ebene-marke {
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+  color: var(--text-zart); padding: 2px 7px; background: var(--flaeche-3); border-radius: 4px;
+}
+.knoten .tuerzahl { font-size: 12px; color: var(--text-schwach); }
+/* Auf der dritten Gliederungsebene bleibt neben der Einrückung zu wenig
+   Platz für fünf Knöpfe. Sie brechen um, statt seitlich aus dem Bild zu
+   laufen - der Löschknopf lag sonst außerhalb des Telefonbildschirms. */
+.knoten .aktionen { display: flex; gap: 4px; flex-wrap: wrap; }
+
+/* --- Matrix / Kreuzschließplan ------------------------------------------- */
+.matrix-rahmen {
+  overflow: auto; border: 1px solid var(--rand); border-radius: var(--radius);
+  background: var(--flaeche); max-height: 72vh; -webkit-overflow-scrolling: touch;
+  position: relative;
+  display: inline-block; max-width: 100%; vertical-align: top;  /* nur so breit wie die Matrix */
+}
+table.matrix {
+  border-collapse: separate; border-spacing: 0; font-size: 13px;
+  width: auto;                 /* nur so breit wie nötig, nicht auf volle Breite gedehnt */
+  --kopfhoehe: 150px;          /* wird beim Aufbau an den längsten Spaltentitel angepasst */
+}
+table.matrix th, table.matrix td { border-bottom: 1px solid var(--rand-zart); padding: 0; }
+table.matrix th.ecke {
+  position: sticky; left: 0; top: 0; z-index: 6; background: var(--flaeche-3);
+  min-width: 240px; max-width: 240px; padding: 8px 10px; text-align: left;
+  border-right: 2px solid var(--rand);
+}
+table.matrix th.spaltenkopf {
+  position: sticky; top: 0; z-index: 4; background: var(--flaeche-3);
+  height: var(--kopfhoehe); width: 48px; min-width: 48px; max-width: 48px;
+  padding: 0; vertical-align: bottom; border-right: 1px solid var(--rand-zart);
+}
+table.matrix th.spaltenkopf .dreh {
+  writing-mode: vertical-rl; transform: rotate(180deg);
+  white-space: nowrap; padding: 8px 0; font-size: 12px; font-weight: 700;
+  max-height: calc(var(--kopfhoehe) - 22px); overflow: hidden; text-overflow: ellipsis;
+  display: block; margin: 0 auto; color: var(--text);
+}
+table.matrix th.spaltenkopf .medien {
+  display: block; font-size: 10px; font-weight: 500; color: var(--text-zart);
+  padding-bottom: 4px; text-align: center;
+}
+table.matrix td.tuername {
+  position: sticky; left: 0; z-index: 3; background: var(--flaeche);
+  min-width: 240px; max-width: 240px; padding: 7px 10px;
+  border-right: 2px solid var(--rand); font-size: 13px;
+}
+table.matrix td.tuername .nr { font-weight: 700; margin-right: 6px; }
+table.matrix td.tuername .bez { color: var(--text-schwach); }
+table.matrix tr.gruppenzeile td {
+  position: sticky; left: 0; z-index: 3;
+  background: var(--akzent-bg); color: var(--akzent); font-weight: 700;
+  font-size: 12.5px; padding: 7px 10px;
+}
+table.matrix tr:hover td.tuername { background: var(--akzent-bg); }
+table.matrix td.zelle {
+  text-align: center; cursor: pointer; user-select: none;
+  border-right: 1px solid var(--rand-zart); font-weight: 700; font-size: 15px;
+  min-width: 48px; height: 48px; color: var(--akzent); touch-action: manipulation;
+}
+table.matrix td.zelle:hover { background: var(--akzent-bg); }
+table.matrix td.zelle:active { background: var(--hausfarbe); color: var(--auf-hausfarbe); }
+table.matrix td.zelle.gesetzt-ja    { background: var(--hausfarbe-flaeche); }
+table.matrix td.zelle.gesetzt-zeit  { background: rgba(179,114,30,.14); color: var(--gelb); }
+table.matrix td.zelle.gesetzt-temp  { background: rgba(179,114,30,.10); color: var(--gelb); }
+table.matrix td.zelle.gesetzt-sperr { background: rgba(179,38,30,.12); color: var(--rot); }
+table.matrix tfoot td {
+  position: sticky; bottom: 0; background: var(--flaeche-3); font-weight: 700;
+  font-size: 12px; text-align: center; z-index: 3; padding: 6px 2px;
+}
+table.matrix tfoot td.tuername { z-index: 5; text-align: left; }
+
+/* --- Entfernen-Modus im Schließplan ------------------------------------- */
+table.matrix th.spaltenkopf.entfernbar { background: rgba(179,38,30,.12); }
+table.matrix th.spaltenkopf.entfernbar:hover { background: rgba(179,38,30,.22); }
+table.matrix th.spaltenkopf .entfernen-zeichen {
+  display: block; text-align: center; font-size: 14px; font-weight: 700;
+  color: var(--rot); padding-bottom: 3px;
+}
+table.matrix td.tuername.entfernbar { background: rgba(179,38,30,.06); }
+.entfernen-knopf {
+  min-height: 34px; min-width: 34px; padding: 0; margin-right: 8px;
+  border-radius: 50%; border: 1px solid var(--rot); background: var(--flaeche);
+  color: var(--rot); font-size: 15px; font-weight: 700; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  vertical-align: middle;
+}
+.entfernen-knopf:hover { background: var(--rot); color: var(--auf-farbe); border-color: var(--rot); }
+
+.matrix-legende {
+  display: flex; flex-wrap: wrap; gap: 14px; margin-top: 12px;
+  font-size: 12.5px; color: var(--text-schwach);
+}
+.matrix-legende b { color: var(--akzent); margin-right: 3px; }
+
+/* --- Dialog -------------------------------------------------------------- */
+.dialog-hinter {
+  position: fixed; inset: 0; background: var(--schleier); z-index: 50;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 20px; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  backdrop-filter: blur(2px);
+}
+.dialog {
+  background: var(--flaeche); border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.35);
+  width: 100%; max-width: 940px; margin: auto 0; border: 1px solid var(--rand);
+}
+.dialog.klein { max-width: 480px; }
+.dialog > .kopf {
+  display: flex; align-items: center; gap: 12px; padding: 14px 18px;
+  border-bottom: 1px solid var(--rand); position: sticky; top: 0;
+  background: var(--flaeche); border-radius: 14px 14px 0 0; z-index: 2;
+}
+.dialog > .kopf h2 { margin: 0; border: 0; padding: 0; font-size: 17px; flex: 1; }
+.dialog > .koerper { padding: 18px; }
+.dialog > .fuss {
+  display: flex; gap: 10px; padding: 14px 18px; border-top: 1px solid var(--rand);
+  position: sticky; bottom: 0; background: var(--flaeche); border-radius: 0 0 14px 14px;
+  padding-bottom: max(14px, env(safe-area-inset-bottom));
+  /* Auf dem Telefon passen nicht alle Knöpfe nebeneinander. Sie brechen um,
+     statt die Fußzeile seitlich scrollen zu lassen. */
+  flex-wrap: wrap;
+}
+.dialog > .fuss .fuellen { flex: 1 1 0; min-width: 0; }
+.dialog > .fuss button { min-height: var(--tap-gross); }
+.dialog > .fuss button.haupt { flex: 1 1 auto; min-width: 44%; font-size: 16px; }
+
+/* --- Abschnitte im Türformular ------------------------------------------- */
+.abschnitt {
+  border: 1px solid var(--rand); border-radius: var(--radius);
+  margin-bottom: 12px; overflow: hidden; background: var(--flaeche);
+}
+.abschnitt > summary {
+  padding: 12px 15px; font-weight: 700; font-size: 14.5px; cursor: pointer;
+  background: var(--flaeche-3); list-style: none; display: flex;
+  align-items: center; gap: 9px; min-height: var(--tap);
+}
+.abschnitt > summary::-webkit-details-marker { display: none; }
+.abschnitt > summary::before {
+  content: '▸'; color: var(--text-zart); font-size: 13px; transition: transform .15s;
+}
+.abschnitt[open] > summary::before { transform: rotate(90deg); }
+.abschnitt > summary .zusatz {
+  margin-left: auto; font-weight: 500; font-size: 12px; color: var(--text-zart);
+}
+.abschnitt > .koerper { padding: 15px; }
+
+/* --- Fotos --------------------------------------------------------------- */
+.foto-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 11px; }
+.foto-karte {
+  border: 1px solid var(--rand); border-radius: var(--radius-klein);
+  overflow: hidden; background: var(--flaeche-2);
+}
+.foto-karte img { width: 100%; height: 100px; object-fit: cover; display: block; background: var(--flaeche-3); }
+.foto-karte .unten { padding: 6px; display: flex; flex-direction: column; gap: 5px; }
+.foto-karte input { font-size: 16px; padding: 8px 9px; min-height: var(--tap); }
+.foto-karte button { padding: 8px 10px; font-size: 14px; min-height: var(--tap); }
+
+/* --- Meldungen ----------------------------------------------------------- */
+.meldung {
+  padding: 11px 14px; border-radius: var(--radius-klein); font-size: 13.5px;
+  margin-bottom: 12px; border: 1px solid; display: flex; gap: 9px; align-items: flex-start;
+}
+.meldung.info  { background: var(--akzent-bg); border-color: var(--akzent); color: var(--akzent); }
+.meldung.warn  { background: rgba(179,114,30,.12); border-color: var(--gelb); color: var(--gelb); }
+.meldung.fehler{ background: rgba(179,38,30,.10); border-color: var(--rot); color: var(--rot); }
+.meldung.ok    { background: rgba(31,122,61,.10); border-color: var(--gruen); color: var(--gruen); }
+
+/* Hauptaktion schwebend unten rechts: mit dem Daumen erreichbar, ohne
+   an den oberen Bildschirmrand greifen zu müssen. */
+.schwebe-aktion {
+  position: fixed; right: 18px; z-index: 40;
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  min-height: var(--tap-gross); padding: 0 22px;
+  border-radius: 28px; font-size: 16px; font-weight: 700;
+  background: var(--hausfarbe); color: var(--auf-hausfarbe); border: 0;
+  box-shadow: 0 4px 16px rgba(20,30,45,.28), 0 2px 4px rgba(20,30,45,.2);
+  display: inline-flex; align-items: center; gap: 9px;
+}
+.schwebe-aktion:hover { background: var(--hausfarbe-hell); color: var(--auf-hausfarbe); border: 0; }
+.schwebe-aktion:active { transform: translateY(1px); }
+/* Platz schaffen, damit der schwebende Knopf nichts verdeckt */
+main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
+
+#toast-bereich {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(88px + env(safe-area-inset-bottom)); z-index: 90;
+  display: flex; flex-direction: column; gap: 8px; align-items: center;
+  pointer-events: none; width: calc(100% - 32px); max-width: 480px;
+}
+.toast {
+  background: #1a1f26; color: #fff; padding: 11px 18px; border-radius: 22px;
+  font-size: 14px; font-weight: 500; box-shadow: 0 6px 22px rgba(0,0,0,.35);
+  animation: einblenden .18s ease-out; text-align: center;
+}
+.toast.fehler { background: var(--rot); color: var(--auf-farbe); }
+.toast.ok { background: var(--gruen); color: var(--auf-farbe); }
+@keyframes einblenden { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+/* --- Kennzahlen ---------------------------------------------------------- */
+.kennzahlen { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 11px; }
+.kennzahl {
+  background: var(--flaeche); border: 1px solid var(--rand); border-radius: var(--radius);
+  padding: 13px; text-align: center;
+}
+.kennzahl .wert { font-size: 25px; font-weight: 700; color: var(--akzent); line-height: 1.15; }
+.kennzahl .bez { font-size: 11.5px; color: var(--text-schwach); margin-top: 3px; }
+
+/* --- Leerzustand --------------------------------------------------------- */
+.leer {
+  text-align: center; padding: 44px 20px; color: var(--text-schwach);
+  border: 2px dashed var(--rand); border-radius: var(--radius); background: var(--flaeche);
+}
+.leer h3 { color: var(--text); margin: 0 0 7px; font-size: 16px; }
+.leer p { margin: 0 0 16px; font-size: 14px; }
+
+/* --- Projektkarten ------------------------------------------------------- */
+.projekt-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 13px; }
+.projekt-karte {
+  background: var(--flaeche); border: 1px solid var(--rand); border-radius: var(--radius);
+  padding: 15px; cursor: pointer; display: flex; flex-direction: column; gap: 7px;
+  box-shadow: var(--schatten);
+}
+.projekt-karte:hover { border-color: var(--akzent); }
+.projekt-karte .titel { font-weight: 700; font-size: 15.5px; }
+.projekt-karte .zeile { font-size: 13px; color: var(--text-schwach); }
+.projekt-karte .zahlen { display: flex; gap: 14px; margin-top: 5px; font-size: 12px; color: var(--text-zart); }
+.projekt-karte .zahlen b { color: var(--text); font-size: 14px; }
+.projekt-karte .aktionen { display: flex; gap: 7px; margin-top: 9px; }
+
+/* --- Hilfsklassen -------------------------------------------------------- */
+.zeile-verteilt { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.zeile-verteilt .fuellen { flex: 1; }
+/* Ein Feld, unter dem noch ein Knopf steht (z. B. „Anzeigen“ beim Token) */
+.feld-mit-knopf { display: block; }
+.trenner { height: 1px; background: var(--rand-zart); margin: 16px 0; border: 0; }
+.zart { color: var(--text-zart); font-size: 12.5px; }
+.mono { font-variant-numeric: tabular-nums; }
+.versteckt { display: none !important; }
+
+/* --- Anpassung an kleine Geräte ------------------------------------------ */
+@media (max-width: 700px) {
+  main.inhalt { padding: 12px; }
+  /* Die Kopfzeile muss auch neben dem Zurück-Knopf umbruchfrei passen */
+  header.kopf { gap: 8px; padding-left: 12px; padding-right: 12px; }
+  .kopf .marke { display: none; }
+  .kopf .logo { height: 28px; max-width: 70px; }
+  .kopf .projekt-titel { font-size: 13.5px; }
+  .kopf .projekt-titel span { font-size: 11px; }
+  .speicher-status { font-size: 0; gap: 0; }
+  .speicher-status .punkt { width: 9px; height: 9px; }
+  /* Auf dem Telefon wandert die Navigation in die Daumenzone */
+  #app { flex-direction: column; }
+  nav.reiter {
+    order: 3; position: sticky; bottom: 0; top: auto;
+    border-bottom: 0; border-top: 1px solid var(--rand);
+    padding-bottom: env(safe-area-inset-bottom);
+    box-shadow: 0 -2px 10px rgba(20,30,45,.08);
+  }
+  nav.reiter button { border-bottom: 0; border-top: 3px solid transparent; }
+  nav.reiter button[aria-selected="true"] { border-top-color: var(--akzent); border-bottom-color: transparent; }
+  main.inhalt { order: 2; }
+  .schwebe-aktion { bottom: calc(76px + env(safe-area-inset-bottom)); }
+  #toast-bereich { bottom: calc(140px + env(safe-area-inset-bottom)); }
+  .kopf .marke small { display: none; }
+  .tuer-zeile .inhalt { flex-wrap: wrap; gap: 7px; }
+  .tuer-zeile .nummer { min-width: 0; }
+  .tuer-zeile .marken { width: 100%; justify-content: flex-start; }
+  table.matrix th.ecke, table.matrix td.tuername { min-width: 160px; max-width: 160px; }
+  .dialog-hinter { padding: 0; }
+  .dialog { border-radius: 0; min-height: 100%; max-width: none; }
+  .dialog > .kopf, .dialog > .fuss { border-radius: 0; }
+}
+
+/* --- Druck: der PDF-Export ist der vorgesehene Weg ----------------------- */
+@media print {
+  nav.reiter, header.kopf, .werkzeuge, .knopfleiste, #toast-bereich { display: none !important; }
+  main.inhalt { overflow: visible; padding: 0; }
+  .karte, .tuer-liste { box-shadow: none; break-inside: avoid; }
+}
+
+/* =============================================================================
+   Türformular: geführter Ablauf und Pflichtangaben
+   ========================================================================== */
+.modus-leiste { display: flex; margin-bottom: 14px; }
+.modus-leiste .umschalter {
+  display: flex; gap: 0; border: 1px solid var(--rand); border-radius: var(--radius-klein);
+  overflow: hidden; width: 100%;
+}
+.modus-leiste .umschalter button {
+  flex: 1; border: 0; border-radius: 0; background: var(--flaeche-2);
+  min-height: var(--tap); font-size: 14.5px; font-weight: 600; color: var(--text-schwach);
+}
+.modus-leiste .umschalter button + button { border-left: 1px solid var(--rand); }
+/* Der gewählte Abschnitt wird hervorgehoben, aber nicht in der Hausfarbe
+   gefüllt: Gold steht für die Hauptaktion, und die liegt unten im Fuß.
+   Zweimal Gold auf einem Bildschirm nimmt beiden die Wirkung. */
+.modus-leiste .umschalter button.aktiv {
+  background: var(--flaeche-3); color: var(--akzent);
+  box-shadow: inset 0 -3px 0 var(--hausfarbe);
+}
+
+/* Kopfzeile mit dem Stand der Pflichtangaben */
+.pflicht-leiste {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 9px;
+  padding: 10px 13px; border-radius: var(--radius-klein); margin-bottom: 12px;
+  font-size: 14px; border: 1px solid var(--rand);
+}
+.pflicht-leiste .fuellen { flex: 1 1 auto; }
+.pflicht-leiste .zeichen {
+  width: 24px; height: 24px; border-radius: 50%; display: inline-flex;
+  align-items: center; justify-content: center; font-weight: 700; flex: none;
+}
+.pflicht-leiste.fertig { background: rgba(31,122,61,.10); border-color: rgba(31,122,61,.35); color: var(--gruen); }
+.pflicht-leiste.fertig .zeichen { background: var(--gruen); color: var(--auf-farbe); }
+.pflicht-leiste.offen { background: rgba(179,114,30,.12); border-color: rgba(179,114,30,.40); color: var(--gelb); }
+.pflicht-leiste.offen .zeichen { background: var(--gelb); color: var(--auf-farbe); }
+.pflicht-leiste .chips { flex-basis: 100%; }
+.pflicht-leiste .chip {
+  min-height: var(--tap); padding: 8px 12px; font-size: 14px;
+  background: var(--flaeche); border-color: var(--gelb); color: var(--gelb);
+}
+
+/* Fortschritt im geführten Ablauf */
+.schritt-fortschritt { margin-bottom: 14px; }
+.schritt-fortschritt .balken { display: flex; gap: 4px; }
+/* Die Stufen sind auch Sprungziele. Der sichtbare Balken bleibt schmal, die
+   Fingerfläche ist die ganze Zeilenhöhe - sonst wäre er nicht treffbar. */
+.schritt-fortschritt .stufe {
+  flex: 1; min-height: var(--tap); padding: 0; border: 0; background: none;
+  display: flex; align-items: center; cursor: pointer; border-radius: 0;
+}
+.schritt-fortschritt .stufe::after {
+  content: ''; display: block; width: 100%; height: 8px;
+  border-radius: 4px; background: var(--rand);
+}
+.schritt-fortschritt .stufe.erledigt::after { background: var(--hausfarbe); opacity: .55; }
+.schritt-fortschritt .stufe.aktiv::after { background: var(--hausfarbe); height: 12px; }
+.schritt-fortschritt .stufe.offen::after { background: var(--gelb); }
+.schritt { padding-bottom: 4px; }
+.schritt > h2 { border: 0; padding: 0; margin-bottom: 14px; font-size: 18px; }
+
+/* Pflichtfelder kennzeichnen. Die Kennzeichnung sperrt nichts - sie zeigt
+   nur, was für die Bestellung gebraucht wird. */
+.feld.pflicht > label::after {
+  content: ' Pflicht'; font-size: 10.5px; font-weight: 700; letter-spacing: .3px;
+  color: var(--gelb); text-transform: uppercase;
+}
+.feld.pflicht-offen > input,
+.feld.pflicht-offen > select,
+.feld.pflicht-offen > textarea { border-color: var(--gelb); background: rgba(179,114,30,.05); }
+.feld.pflicht-offen > label::after { content: ' fehlt'; color: var(--rot); }
+.raster.eng.pflicht-offen {
+  border: 1px solid var(--gelb); border-radius: var(--radius-klein);
+  padding: 8px; background: rgba(179,114,30,.05);
+}
+
+/* =============================================================================
+   Bereichsansicht: Türen eines Standorts, Gebäudes oder Bereichs
+   ========================================================================== */
+.knoten .oeffnen-pfeil { color: var(--text-zart); font-size: 19px; line-height: 1; flex: none; }
+@media (max-width: 560px) {
+  /* Auf dem Telefon rutschen die Aktionen in die zweite Zeile, damit der
+     Namensbereich über die ganze Breite treffbar bleibt. */
+  .knoten .knoten-haupt { flex: 1 1 100%; }
+  .knoten .aktionen { flex: 1 1 100%; justify-content: flex-end; }
+}
+
+.bereich-kopf { margin-bottom: 10px; }
+.bereich-kopf .zurueck-zeile {
+  background: none; border: 0; padding: 8px 0; color: var(--akzent);
+  font-size: 15px; font-weight: 600; min-height: var(--tap);
+}
+.bereich-kopf .pfad {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
+  font-size: 13px; color: var(--text-schwach);
+}
+.bereich-kopf .pfad .teiler { color: var(--text-zart); padding: 0 4px; }
+.bereich-kopf .pfad .pfad-knopf {
+  background: none; border: 0; padding: 4px 2px; min-height: 32px;
+  color: var(--text-schwach); font-size: 13px; text-decoration: underline;
+}
+
+.bereich-kacheln { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.bereich-kachel {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+  text-align: left; min-height: var(--tap-gross); padding: 11px 13px;
+  background: var(--flaeche-2); border: 1px solid var(--rand); border-radius: var(--radius-klein);
+}
+.bereich-kachel:hover { border-color: var(--akzent); background: var(--akzent-bg); }
+.bereich-kachel .name { font-weight: 600; font-size: 14.5px; }
+.bereich-kachel .zahl { font-size: 12px; color: var(--text-schwach); }
+.bereich-kachel.neu { border-style: dashed; color: var(--akzent); }
+
+/* =============================================================================
+   Personen und Gruppen einer Schließung
+   ========================================================================== */
+.person-liste { display: flex; flex-direction: column; gap: 8px; }
+.person-zeile {
+  display: grid; grid-template-columns: 1fr 1fr 86px auto; gap: 8px; align-items: end;
+  padding: 9px; border: 1px solid var(--rand-zart); border-radius: var(--radius-klein);
+  background: var(--flaeche-2);
+}
+.person-zeile .nr {
+  font-size: 12px; color: var(--text-zart); font-weight: 700;
+}
+.gruppen-knopf {
+  display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
+  min-height: var(--tap-gross); background: var(--flaeche-2);
+}
+.gruppen-knopf .name { font-weight: 700; font-size: 15px; flex: 1; }
+.gruppen-knopf .zahl { font-size: 13px; color: var(--text-schwach); }
+
+@media (max-width: 560px) {
+  .person-zeile { grid-template-columns: 1fr 1fr; }
+  .person-zeile .entfernen { grid-column: 2; justify-self: end; }
+}
+
+/* Seltene Aktionen am Fuß des Türformulars - bewusst nicht in der
+   Daumenzone, damit dort nur steht, was ständig gebraucht wird. */
+.weitere-aktionen {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 9px;
+  margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--rand-zart);
+}
+.weitere-aktionen .fuellen { flex: 1 1 auto; font-size: 13px; }
+
+/* =============================================================================
+   Apple Pencil: Schreibflächen und Zähler
+   ==========================================================================
+   Handschrift ("Kritzeln") schreibt nur in Textfelder, nie in Zahlenfelder -
+   deshalb gibt es im ganzen Werkzeug keine <input type="number"> mehr. Sie
+   braucht außerdem spürbar mehr Fläche als eine Tastatureingabe: der
+   Stiftmodus vergrößert sie, ohne das Raster zu sprengen.
+   ========================================================================== */
+.feld input, .feld textarea, .zahl-anzeige {
+  /* Ein Streichen mit dem Stift muss als Schreiben ankommen, nicht als
+     Scrollen oder Markieren. */
+  touch-action: manipulation;
+  -webkit-user-select: text; user-select: text;
+}
+
+body.stift .feld input,
+body.stift .feld select,
+body.stift .zahl-feld { min-height: 56px; }
+body.stift .feld input { padding-top: 12px; padding-bottom: 12px; }
+body.stift .feld textarea { min-height: 120px; line-height: 1.7; }
+body.stift .chip { min-height: 52px; font-size: 16px; }
+body.stift .schalter { min-height: 56px; }
+body.stift .zahl-knopf { min-width: 56px; }
+
+/* --- Zähler: Anzahl mit - und + ----------------------------------------- */
+.zahl-feld { display: flex; align-items: stretch; gap: 6px; min-height: var(--tap); }
+.zahl-feld .zahl-knopf {
+  min-width: var(--tap); min-height: var(--tap); padding: 0;
+  font-size: 22px; line-height: 1; font-weight: 600; flex: none;
+}
+.zahl-feld .zahl-anzeige {
+  flex: 1 1 auto; min-width: 0; text-align: center; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.zahl-feld .einheit-rechts {
+  display: flex; align-items: center; color: var(--text-zart); font-size: 13px;
+}

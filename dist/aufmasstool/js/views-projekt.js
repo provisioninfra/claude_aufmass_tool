@@ -1,0 +1,1001 @@
+/* =============================================================================
+ * views-projekt.js — Ansichten: Projektübersicht, Stammdaten, Struktur
+ * ========================================================================== */
+(function (global) {
+  'use strict';
+  var A = global.AppKern, K = global.Katalog, M = global.Model, Store = global.Store;
+  var el = A.el, Zustand = A.Zustand;
+
+  function datumKurz(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d)) return String(iso).slice(0, 10);
+    function p(n) { return (n < 10 ? '0' : '') + n; }
+    return p(d.getDate()) + '.' + p(d.getMonth() + 1) + '.' + d.getFullYear();
+  }
+  function kb(bytes) {
+    if (bytes > 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+    return Math.round(bytes / 1024) + ' KB';
+  }
+
+  /* =========================================================================
+   * Projektübersicht
+   * ====================================================================== */
+  function ansichtProjekte(behaelter, neuLaden) {
+    var seite = el('div', { class: 'seite' });
+    behaelter.appendChild(seite);
+
+    seite.appendChild(el('div', { class: 'zeile-verteilt', style: { marginBottom: '14px' } }, [
+      el('div', { class: 'fuellen' }, [
+        el('h1', { text: 'Aufmaß-Projekte' }),
+        el('p', { class: 'hinweis', text: 'Zum Bearbeiten ein Projekt öffnen. Alle Daten liegen ausschließlich auf diesem Gerät; zum Austausch mit dem Büro das Projekt exportieren.' })
+      ]),
+      el('button', {
+        class: 'haupt', text: '+ Neues Aufmaß',
+        onclick: function () { neuesProjektAnlegen(neuLaden); }
+      }),
+      (Zustand.einstellungen && Zustand.einstellungen.pipedriveToken)
+        ? el('button', { text: 'Aus Pipedrive', title: 'Aufmaß aus einem Deal anlegen',
+            onclick: function () { pipedriveDialog(neuLaden); } })
+        : null,
+      el('button', {
+        text: 'Projekt importieren',
+        onclick: function () { importDialog(neuLaden); }
+      })
+    ]));
+
+    var listenBereich = el('div');
+    seite.appendChild(listenBereich);
+    listenBereich.appendChild(el('p', { class: 'zart', text: 'Projekte werden geladen …' }));
+
+    Store.alleProjekte().then(function (projekte) {
+      A.leeren(listenBereich);
+      if (!projekte.length) {
+        listenBereich.appendChild(el('div', { class: 'leer' }, [
+          el('h3', { text: 'Noch kein Aufmaß vorhanden' }),
+          el('p', { text: 'Legen Sie ein neues Aufmaß an oder importieren Sie eine Projektdatei aus dem Büro.' }),
+          el('button', { class: 'haupt', text: '+ Neues Aufmaß anlegen',
+            onclick: function () { neuesProjektAnlegen(neuLaden); } })
+        ]));
+        return;
+      }
+      var raster = el('div', { class: 'projekt-raster' });
+      projekte.forEach(function (p) {
+        var s = M.statistik(p);
+        raster.appendChild(el('div', {
+          class: 'projekt-karte',
+          onclick: function (e) { if (!e.target.closest('button')) projektOeffnen(p.id, neuLaden); }
+        }, [
+          el('div', { class: 'titel', text: p.kunde || p.name || 'Ohne Namen' }),
+          el('div', { class: 'zeile', text: p.objekt || '—' }),
+          el('div', { class: 'zeile zart', text:
+            [p.anlagenNr ? 'Anlage ' + p.anlagenNr : '', 'geändert ' + datumKurz(p.geaendert)]
+            .filter(Boolean).join('  ·  ') }),
+          el('div', { class: 'zahlen' }, [
+            el('span', {}, [el('b', { text: String(s.tuerenGesamtAnzahl) }), ' Türen']),
+            el('span', {}, [el('b', { text: String(s.schliessungen) }), ' Schließungen']),
+            s.fotos ? el('span', {}, [el('b', { text: String(s.fotos) }), ' Fotos']) : null,
+            s.nacharbeit ? el('span', { class: 'marke-pille rot', text: s.nacharbeit + '× Nacharbeit' }) : null
+          ]),
+          el('div', { class: 'aktionen' }, [
+            el('button', { class: 'haupt klein', text: 'Öffnen',
+              onclick: function () { projektOeffnen(p.id, neuLaden); } }),
+            el('button', { class: 'klein', text: 'Kopieren',
+              onclick: function () {
+                var klon = Store.projektKlonen(p);
+                Store.projektSpeichern(klon).then(function () {
+                  A.toast('Projekt kopiert.', 'ok'); neuLaden();
+                });
+              } }),
+            el('button', { class: 'klein gefahr', text: 'Löschen',
+              onclick: function () {
+                A.bestaetigen('Projekt löschen?',
+                  'Das Aufmaß „' + (p.kunde || p.name) + '“ mit ' + s.tueren +
+                  ' Türen wird endgültig gelöscht. Dieser Schritt kann nicht rückgängig gemacht werden.')
+                  .then(function (ja) {
+                    if (!ja) return;
+                    Store.projektLoeschen(p.id).then(function () {
+                      if (Zustand.projekt && Zustand.projekt.id === p.id) {
+                        Zustand.projekt = null; Zustand.ansicht = 'projekte';
+                        if (global.Verlauf) global.Verlauf.beenden();
+                      }
+                      /* Auch auf den anderen Geräten entfernen */
+                      if (global.Abgleich) {
+                        try { global.Abgleich.projektGeloescht(p.id); } catch (e2) {}
+                      }
+                      A.toast('Projekt gelöscht.'); neuLaden();
+                    });
+                  });
+              } })
+          ])
+        ]));
+      });
+      listenBereich.appendChild(raster);
+
+      Store.speicherInfo().then(function (info) {
+        if (!info.unterstuetzt) return;
+        listenBereich.appendChild(el('p', {
+          class: 'zart', style: { marginTop: '16px' },
+          text: 'Belegter Gerätespeicher: ' + kb(info.benutzt) +
+                (info.verfuegbar ? ' von rund ' + kb(info.verfuegbar) : '') +
+                (Store.nutztFallback() ? '  ·  Hinweis: Es wird der einfache Browserspeicher genutzt (begrenzte Kapazität).' : '')
+        }));
+      });
+    });
+  }
+
+  /* =========================================================================
+   * Aufmaß aus einem Pipedrive-Deal anlegen
+   * ======================================================================
+   * Das Werkzeug holt die Deals ab; es wird nichts nach Pipedrive geschrieben.
+   */
+  function pipedriveDialog(neuLaden) {
+    var e = Zustand.einstellungen || {};
+    var PD = global.Pipedrive;
+
+    if (!e.pipedriveToken) {
+      A.dialogOeffnen({
+        titel: 'Pipedrive ist noch nicht verbunden', klein: true,
+        inhalt: el('div', {}, [
+          el('p', { class: 'hinweis', style: { marginTop: '0' },
+            text: 'Hinterlegen Sie zuerst unter Einstellungen den Zugriffsschlüssel aus Pipedrive. ' +
+                  'Danach lassen sich Aufmaße direkt aus einem Deal anlegen.' })
+        ]),
+        knoepfe: [
+          { fuellen: true },
+          { text: 'Abbrechen' },
+          { text: 'Zu den Einstellungen', klasse: 'haupt', aktion: function (schliessen) {
+            schliessen();
+            global.App.wechseln('einstellungen');
+            return false;
+          } }
+        ]
+      });
+      return;
+    }
+
+    var liste = el('div');
+    var dlg = A.dialogOeffnen({
+      titel: 'Aufmaß aus einem Pipedrive-Deal anlegen',
+      inhalt: el('div', {}, [
+        el('p', { class: 'hinweis', style: { marginTop: '0' },
+          text: e.pipedrivePipelineName
+            ? ('Offene Deals aus „' + e.pipedrivePipelineName + '“' +
+               (e.pipedrivePhaseName ? (', Phase „' + e.pipedrivePhaseName + '“') : '') +
+               ', zu denen noch kein Aufmaß vorliegt.')
+            : 'Offene Deals aus allen Pipelines. Unter Einstellungen lassen sich Pipeline und Phase festlegen.' }),
+        liste
+      ]),
+      knoepfe: [{ fuellen: true }, { text: 'Schließen' }]
+    });
+
+    liste.appendChild(el('p', { class: 'zart', text: 'Deals werden abgerufen …' }));
+
+    Promise.all([
+      PD.deals(e, e.pipedrivePipelineId || undefined, {
+        phaseId: e.pipedrivePhaseId || undefined, status: 'open', limit: 100 }),
+      Store.alleProjekte()
+    ]).then(function (teile) {
+      var deals = teile[0], vorhandene = teile[1];
+      A.leeren(liste);
+
+      /* Jeden Deal gegen die festgelegte Regel prüfen */
+      var geprueft = deals.map(function (deal) {
+        return { deal: deal, pruefung: PD.istZuUebernehmen(deal, e, vorhandene) };
+      });
+      var offen = geprueft.filter(function (g) { return g.pruefung.uebernehmen; });
+      var schonDa = geprueft.filter(function (g) { return g.pruefung.code === 'vorhanden'; });
+      var nichtOffen = geprueft.filter(function (g) { return g.pruefung.code === 'status'; });
+
+      if (!offen.length) {
+        /* Der Grund wird beim Namen genannt - „nichts da“ und „alles schon
+         * übernommen“ sind zwei verschiedene Lagen mit verschiedener Abhilfe. */
+        var text;
+        if (!deals.length) {
+          text = 'Pipedrive liefert für ' +
+            (e.pipedrivePipelineName ? ('die Pipeline „' + e.pipedrivePipelineName + '“') : 'diese Einstellung') +
+            (e.pipedrivePhaseName ? (' in der Phase „' + e.pipedrivePhaseName + '“') : '') +
+            ' derzeit keinen offenen Deal zurück.';
+        } else if (schonDa.length === deals.length) {
+          text = 'Alle ' + deals.length + ' Deals in dieser Phase haben bereits ein Aufmaß.';
+        } else if (nichtOffen.length) {
+          text = 'Von ' + deals.length + ' Deals sind ' + nichtOffen.length +
+            ' nicht mehr offen (gewonnen, verloren oder gelöscht); die übrigen haben ein Aufmaß.';
+        } else {
+          text = 'Von ' + deals.length + ' gelesenen Deals passt derzeit keiner auf die ' +
+            'eingestellte Regel.';
+        }
+        liste.appendChild(el('div', { class: 'leer' }, [
+          el('h3', { text: 'Kein Deal zur Übernahme' }),
+          el('p', { text: text }),
+          el('div', { class: 'knopfleiste', style: { justifyContent: 'center', marginTop: '10px' } },
+            el('button', { class: 'haupt', text: 'Warum? – Verbindung prüfen',
+              onclick: function (ev) { diagnoseLaufenLassen(ev.target, liste); } }))
+        ]));
+      } else {
+        liste.appendChild(el('p', { class: 'zart', style: { marginBottom: '8px' },
+          text: offen.length + (offen.length === 1 ? ' Deal wartet' : ' Deals warten') + ' auf ein Aufmaß' }));
+        var box = el('div', { class: 'tuer-liste deal-offen', style: { border: '1px solid var(--rand)',
+          borderRadius: 'var(--radius)' } });
+        offen.forEach(function (g) {
+          var deal = g.deal;
+          box.appendChild(el('div', {
+            class: 'tuer-zeile',
+            onclick: function () { dealUebernehmen(deal, null, dlg, neuLaden); }
+          }, [
+            el('div', { class: 'statusbalken', style: { background: 'var(--gruen)' } }),
+            el('div', { class: 'inhalt' }, [
+              el('div', { class: 'haupt' }, [
+                el('div', { class: 'bez', text: deal.titel || ('Deal ' + deal.id) }),
+                el('div', { class: 'detail', text:
+                  ['Deal-Nr. ' + deal.id,
+                   deal.wert ? (Number(deal.wert).toLocaleString('de-DE') + ' ' + (deal.waehrung || '')) : '',
+                   deal.geaendert ? ('geändert ' + datumKurz(deal.geaendert)) : ''
+                  ].filter(Boolean).join('  ·  ') })
+              ]),
+              el('div', { class: 'marken' },
+                el('span', { class: 'marke-pille gruen', text: 'Aufmaß anlegen' }))
+            ])
+          ]));
+        });
+        liste.appendChild(box);
+      }
+
+      /* Bereits übernommene Deals nur auf Wunsch zeigen */
+      if (schonDa.length) {
+        var aufklapp = el('details', { class: 'abschnitt', style: { marginTop: '14px' } }, [
+          el('summary', {}, [
+            el('span', { text: 'Bereits übernommen' }),
+            el('span', { class: 'zusatz', text: schonDa.length + (schonDa.length === 1 ? ' Deal' : ' Deals') })
+          ]),
+          el('div', { class: 'koerper' }, (function () {
+            var innen = el('div', { class: 'tuer-liste deal-vorhanden', style: { border: '1px solid var(--rand)',
+              borderRadius: 'var(--radius)' } });
+            schonDa.forEach(function (g) {
+              var pr = g.pruefung.projekt || {};
+              innen.appendChild(el('div', { class: 'tuer-zeile', style: { cursor: 'default' } }, [
+                el('div', { class: 'statusbalken', style: { background: 'var(--text-zart)' } }),
+                el('div', { class: 'inhalt' }, [
+                  el('div', { class: 'haupt' }, [
+                    el('div', { class: 'bez', text: g.deal.titel || ('Deal ' + g.deal.id) }),
+                    el('div', { class: 'detail',
+                      text: 'Aufmaß vorhanden: ' + (pr.kunde || pr.name || '–') })
+                  ]),
+                  el('div', { class: 'marken' }, [
+                    el('button', { class: 'klein', text: 'Öffnen', onclick: function (ev) {
+                      ev.stopPropagation();
+                      if (dlg) dlg.schliessen();
+                      projektOeffnen(pr.id, neuLaden);
+                    } }),
+                    el('button', { class: 'klein', text: 'Trotzdem neu anlegen', onclick: function (ev) {
+                      ev.stopPropagation();
+                      dealUebernehmen(g.deal, pr, dlg, neuLaden);
+                    } })
+                  ])
+                ])
+              ]));
+            });
+            return innen;
+          })())
+        ]);
+        liste.appendChild(aufklapp);
+      }
+    })
+    .catch(function (fehler) {
+      A.leeren(liste);
+      liste.appendChild(el('div', { class: 'meldung fehler' }, el('div', {}, [
+        el('b', { text: fehler.message || 'Die Deals konnten nicht abgerufen werden.' }),
+        fehler.zusatz ? el('div', { style: { marginTop: '6px', fontSize: '13px' }, text: fehler.zusatz }) : null
+      ])));
+    });
+  }
+
+  /* =========================================================================
+   * Diagnose: Was liefert Pipedrive wirklich?
+   * ======================================================================
+   * Wird sichtbar, sobald kein Deal angeboten wird. Sie liest die offenen
+   * Deals ohne Filter und zeigt zu jedem, in welcher Pipeline und Phase er
+   * steht - damit die Lücke zwischen Erwartung und Datenlage sichtbar wird.
+   */
+  function diagnoseLaufenLassen(knopf, ziel) {
+    var e = Zustand.einstellungen || {};
+    var beschriftung = knopf ? knopf.textContent : '';
+    /* Der Knopf wird in jedem Fall wieder benutzbar - auch wenn er noch
+     * dasteht, weil der Bericht woanders erscheint. */
+    function freigeben() {
+      if (knopf && knopf.parentNode) { knopf.disabled = false; knopf.textContent = beschriftung; }
+    }
+    if (knopf) { knopf.disabled = true; knopf.textContent = 'Prüfe …'; }
+    Store.alleProjekte().then(function (vorhandene) {
+      return global.Pipedrive.diagnose(e, vorhandene);
+    }).then(function (bericht) {
+      A.leeren(ziel);
+      ziel.appendChild(diagnoseAnzeigen(bericht));
+      freigeben();
+    }).catch(function (fehler) {
+      freigeben();
+      A.leeren(ziel);
+      ziel.appendChild(el('div', { class: 'meldung fehler' }, el('div', {}, [
+        el('b', { text: fehler.message || 'Die Prüfung ist fehlgeschlagen.' }),
+        fehler.zusatz ? el('div', { style: { marginTop: '6px', fontSize: '13px' },
+          text: fehler.zusatz }) : null
+      ])));
+    });
+  }
+
+  /* Den Bericht darstellen. Er enthält nie den Zugriffsschlüssel. */
+  function diagnoseAnzeigen(b) {
+    var z = b.zahlen || {};
+    var kasten = el('div', { class: 'pd-diagnose' });
+
+    kasten.appendChild(el('h3', { style: { margin: '0 0 8px' }, text: 'Prüfbericht' }));
+
+    var schritte = el('div', { class: 'tuer-liste', style: { border: '1px solid var(--rand)',
+      borderRadius: 'var(--radius)', marginBottom: '12px' } });
+    (b.schritte || []).forEach(function (sch) {
+      schritte.appendChild(el('div', { class: 'tuer-zeile', style: { cursor: 'default' } }, [
+        el('div', { class: 'statusbalken',
+          style: { background: sch.ok ? 'var(--gruen)' : 'var(--rot)' } }),
+        el('div', { class: 'inhalt' }, el('div', { class: 'haupt' }, [
+          el('div', { class: 'bez', text: (sch.ok ? '✓ ' : '✕ ') + sch.name }),
+          el('div', { class: 'detail', text: sch.text })
+        ]))
+      ]));
+    });
+    kasten.appendChild(schritte);
+
+    kasten.appendChild(el('p', { class: 'zart', style: { marginBottom: '10px' }, text:
+      z.gelesen + ' offene Deals gelesen  ·  ' + z.inPipeline + ' in der Pipeline  ·  ' +
+      z.inPhase + ' in der Phase  ·  ' + z.uebernehmbar + ' ohne Aufmaß' }));
+
+    (b.hinweise || []).forEach(function (h) {
+      kasten.appendChild(el('div', { class: 'meldung warn', style: { marginBottom: '10px' } },
+        el('div', { text: h })));
+    });
+
+    /* Die gelesenen Deals im Klartext - hier wird der Unterschied sichtbar */
+    if ((b.deals || []).length) {
+      var innen = el('div', { class: 'tuer-liste deal-diagnose', style: {
+        border: '1px solid var(--rand)', borderRadius: 'var(--radius)' } });
+      b.deals.slice(0, 40).forEach(function (d) {
+        innen.appendChild(el('div', { class: 'tuer-zeile', style: { cursor: 'default' } }, [
+          el('div', { class: 'statusbalken',
+            style: { background: d.uebernehmen ? 'var(--gruen)' : 'var(--text-zart)' } }),
+          el('div', { class: 'inhalt' }, [
+            el('div', { class: 'haupt' }, [
+              el('div', { class: 'bez', text: d.titel || ('Deal ' + d.id) }),
+              el('div', { class: 'detail', text:
+                ['Nr. ' + d.id,
+                 'Pipeline ' + (d.pipelineName || d.pipelineId || '–'),
+                 'Phase ' + (d.phaseName || d.phaseId || '–'),
+                 d.status || ''].filter(Boolean).join('  ·  ') })
+            ]),
+            el('div', { class: 'marken' }, el('span', {
+              class: 'marke-pille ' + (d.uebernehmen ? 'gruen' : ''),
+              text: d.uebernehmen ? 'würde angeboten' : d.grund }))
+          ])
+        ]));
+      });
+      kasten.appendChild(el('details', { class: 'abschnitt', open: true }, [
+        el('summary', {}, [
+          el('span', { text: 'Gelesene Deals' }),
+          el('span', { class: 'zusatz', text: b.deals.length + '' })
+        ]),
+        el('div', { class: 'koerper' }, innen)
+      ]));
+    }
+
+    kasten.appendChild(el('div', { class: 'knopfleiste', style: { marginTop: '12px' } },
+      el('button', { class: 'klein', text: 'Bericht kopieren', onclick: function () {
+        var text = diagnoseAlsText(b);
+        var fertig = function () { A.toast('Bericht kopiert.', 'ok'); };
+        if (global.navigator && navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(fertig, function () { ersatzKopie(text); });
+        } else { ersatzKopie(text); }
+      } })));
+    return kasten;
+  }
+
+  function ersatzKopie(text) {
+    var feld = el('textarea', { value: text, style: { position: 'fixed', top: '-1000px' } });
+    document.body.appendChild(feld);
+    feld.select();
+    try { document.execCommand('copy'); A.toast('Bericht kopiert.', 'ok'); }
+    catch (x) { A.toast('Kopieren nicht möglich.', 'fehler'); }
+    document.body.removeChild(feld);
+  }
+
+  /* Als Text zum Weitergeben - bewusst ohne Zugriffsschlüssel. */
+  function diagnoseAlsText(b) {
+    var z = b.zahlen || {};
+    var zeilen = ['Pipedrive-Prüfbericht', 'Adresse: ' + b.host,
+      'Pipeline: ' + (b.pipelineName || '–') + ' (Nr. ' + (b.pipelineId || '–') + ')',
+      'Phase: ' + (b.phaseName || '–') + ' (Nr. ' + (b.phaseId || '–') + ')', ''];
+    (b.schritte || []).forEach(function (sch) {
+      zeilen.push((sch.ok ? '[ok] ' : '[!] ') + sch.name + ': ' + sch.text);
+    });
+    zeilen.push('');
+    zeilen.push('Gelesen: ' + z.gelesen + ', in Pipeline: ' + z.inPipeline +
+      ', in Phase: ' + z.inPhase + ', übernehmbar: ' + z.uebernehmbar +
+      ', gefilterte Abfrage: ' + (z.gefiltert === null ? '–' : z.gefiltert));
+    (b.hinweise || []).forEach(function (h) { zeilen.push('Hinweis: ' + h); });
+    zeilen.push('');
+    (b.deals || []).slice(0, 40).forEach(function (d) {
+      zeilen.push('Deal ' + d.id + ' | Pipeline ' + (d.pipelineName || d.pipelineId) +
+        ' | Phase ' + (d.phaseName || d.phaseId) + ' | ' + d.status +
+        ' | ' + (d.uebernehmen ? 'würde angeboten' : d.grund));
+    });
+    return zeilen.join('\n');
+  }
+
+  function dealUebernehmen(deal, bekannt, dlg, neuLaden) {
+    var e = Zustand.einstellungen || {};
+    var PD = global.Pipedrive;
+
+    if (bekannt) {
+      A.bestaetigen('Deal bereits übernommen',
+        'Zu diesem Deal gibt es schon das Aufmaß „' + (bekannt.kunde || bekannt.name) +
+        '“. Soll trotzdem ein weiteres angelegt werden?', 'Weiteres anlegen')
+        .then(function (ja) { if (ja) holenUndAnlegen(); });
+      return;
+    }
+    holenUndAnlegen();
+
+    function holenUndAnlegen() {
+      A.toast('Stammdaten werden aus Pipedrive geholt …');
+      PD.dealVollstaendig(e, deal).then(function (daten) {
+        var projekt = M.neuesProjekt(deal.titel || 'Aufmaß aus Pipedrive');
+        if (e.standardBearbeiter) projekt.bearbeiter = e.standardBearbeiter;
+        var ergebnis = PD.aufProjektAbbilden(projekt, daten, e);
+
+        return Store.projektSpeichern(projekt).then(function () {
+          if (dlg) dlg.schliessen();
+          A.projektOeffnenIntern(projekt, 'stammdaten');
+          neuLaden();
+          var n = ergebnis.uebernommen.length;
+          A.toast(n ? (n + ' Angaben aus Pipedrive übernommen: ' + ergebnis.uebernommen.join(', '))
+                    : 'Aufmaß angelegt. In Pipedrive waren keine Stammdaten hinterlegt.', 'ok');
+        });
+      }).catch(function (fehler) {
+        A.toast(fehler.message || 'Die Übernahme ist fehlgeschlagen.', 'fehler');
+      });
+    }
+  }
+
+  function neuesProjektAnlegen(neuLaden) {
+    A.textAbfragen('Neues Aufmaß', 'Kunde oder Objektbezeichnung', '', 'z. B. Müller GmbH – Verwaltung')
+      .then(function (name) {
+        if (name === null) return;
+        var p = M.neuesProjekt(name || 'Neues Aufmaß');
+        p.kunde = name || '';
+        if (Zustand.einstellungen && Zustand.einstellungen.standardBearbeiter) {
+          p.bearbeiter = Zustand.einstellungen.standardBearbeiter;
+        }
+        Store.projektSpeichern(p).then(function () {
+          A.projektOeffnenIntern(p, 'stammdaten');
+          neuLaden();
+          A.toast('Aufmaß angelegt. Bitte Stammdaten ergänzen.', 'ok');
+        });
+      });
+  }
+
+  function projektOeffnen(id, neuLaden) {
+    Store.projektLaden(id).then(function (p) {
+      if (!p) { A.toast('Projekt nicht gefunden.', 'fehler'); return; }
+      var geladen = M.migriere(p);
+      geladen.id = p.id;
+      A.projektOeffnenIntern(geladen, 'tueren');
+      neuLaden();
+    });
+  }
+
+  function importDialog(neuLaden) {
+    var dateiEingabe = el('input', {
+      type: 'file', accept: '.json,application/json',
+      onchange: function (e) {
+        var datei = e.target.files && e.target.files[0];
+        if (!datei) return;
+        var leser = new FileReader();
+        leser.onerror = function () { A.toast('Die Datei konnte nicht gelesen werden.', 'fehler'); };
+        leser.onload = function () {
+          var ergebnis;
+          try { ergebnis = Store.importParsen(leser.result); }
+          catch (fehler) { A.toast(fehler.message, 'fehler'); return; }
+          Store.alleProjekte().then(function (vorhandene) {
+            var gleich = vorhandene.filter(function (v) { return v.id === ergebnis.projekt.id; })[0];
+            var fortsetzen = function (projekt) {
+              Store.projektSpeichern(projekt).then(function () {
+                A.projektOeffnenIntern(projekt, 'tueren');
+                A.toast('Projekt importiert: ' + projekt.tueren.length + ' Türen.', 'ok');
+                dlg.schliessen(); neuLaden();
+              });
+            };
+            if (gleich) {
+              A.bestaetigen('Projekt bereits vorhanden',
+                'Ein Projekt mit derselben Kennung existiert bereits („' + (gleich.kunde || gleich.name) +
+                '“). Soll es überschrieben werden? Andernfalls wird eine Kopie angelegt.',
+                'Überschreiben').then(function (ueberschreiben) {
+                  fortsetzen(ueberschreiben ? ergebnis.projekt
+                    : Store.projektKlonen(ergebnis.projekt, (ergebnis.projekt.name || 'Import') + ' (Import)'));
+                });
+            } else { fortsetzen(ergebnis.projekt); }
+          });
+        };
+        leser.readAsText(datei);
+      }
+    });
+    var dlg = A.dialogOeffnen({
+      titel: 'Projekt importieren', klein: true,
+      inhalt: el('div', {}, [
+        el('p', { class: 'hinweis', text: 'Wählen Sie eine zuvor exportierte Aufmaß-Datei (.json) aus.' }),
+        dateiEingabe
+      ]),
+      knoepfe: [{ fuellen: true }, { text: 'Abbrechen' }]
+    });
+  }
+
+  /* =========================================================================
+   * Stammdaten
+   * ====================================================================== */
+  function ansichtStammdaten(behaelter) {
+    var p = Zustand.projekt;
+    var seite = el('div', { class: 'seite' });
+    behaelter.appendChild(seite);
+
+    seite.appendChild(el('h1', { text: 'Projekt-Stammdaten' }));
+    seite.appendChild(el('p', { class: 'hinweis', text: 'Diese Angaben erscheinen im Kopf jeder PDF-Ausgabe.' }));
+
+    /* Verknüpfung zu Pipedrive, sofern das Aufmaß von dort stammt */
+    if (p.pipedrive && p.pipedrive.dealId) {
+      seite.appendChild(el('div', { class: 'meldung info' }, el('div', {}, [
+        el('b', { text: 'Verknüpft mit Pipedrive' }),
+        el('div', { style: { marginTop: '4px', fontSize: '13.5px' }, text:
+          'Deal-Nr. ' + p.pipedrive.dealId +
+          (p.pipedrive.dealTitel ? ('  ·  ' + p.pipedrive.dealTitel) : '') +
+          (p.pipedrive.orgId ? ('  ·  Organisation ' + p.pipedrive.orgId) : '') }),
+        p.pipedrive.dealLink ? el('div', { style: { marginTop: '8px' } },
+          el('a', { class: 'knopf klein', href: p.pipedrive.dealLink, target: '_blank',
+                    rel: 'noopener noreferrer', text: 'Deal in Pipedrive öffnen ↗' })) : null
+      ])));
+    }
+
+    seite.appendChild(el('div', { class: 'karte' }, [
+      el('h2', { text: 'Kunde und Objekt' }),
+      el('div', { class: 'raster' }, [
+        A.textFeld(p, 'kunde', 'Kunde / Firma'),
+        A.textFeld(p, 'kundenNr', 'Kunden-Nr.'),
+        A.textFeld(p, 'objekt', 'Objekt / Liegenschaft'),
+        A.textFeld(p, 'strasse', 'Straße und Hausnummer'),
+        A.textFeld(p, 'plz', 'PLZ', { inputmode: 'numeric' }),
+        A.textFeld(p, 'ort', 'Ort'),
+        A.textFeld(p, 'anlagenNr', 'Anlagen-Nr. / Schließanlagen-Nr.')
+      ])
+    ]));
+
+    /* --- Schließanlage: gilt für das gesamte Projekt --------------------- */
+    var anlageKarte = el('div', { class: 'karte' });
+    seite.appendChild(anlageKarte);
+    anlageZeichnen();
+
+    function anlageZeichnen() {
+      A.leeren(anlageKarte);
+      var eigene = (Zustand.einstellungen && Zustand.einstellungen.eigeneSysteme) || [];
+      function systemOptionen(typ) {
+        return K.systemeNachTyp(typ, eigene).map(function (sy) {
+          return { id: sy.id, label: K.systemLabel(sy.id, eigene) };
+        });
+      }
+
+      anlageKarte.appendChild(el('h2', { text: 'Schließanlage' }));
+      anlageKarte.appendChild(el('p', { class: 'hinweis',
+        text: 'Diese Angaben gelten für das gesamte Projekt. An der einzelnen Tür muss das System nicht erneut gewählt werden.' }));
+
+      var artFelder = el('div', { class: 'raster' }, [
+        A.auswahlFeld(p, 'anlagenart', 'Art der Anlage', K.ANLAGENART, {
+          leerText: '– bitte wählen –',
+          beiAenderung: function () { anlageZeichnen(); }
+        })
+      ]);
+      anlageKarte.appendChild(artFelder);
+
+      var art = K.ANLAGENART.filter(function (a) { return a.id === p.anlagenart; })[0];
+      if (art) {
+        anlageKarte.appendChild(el('p', { class: 'hinweis', style: { marginTop: '8px' }, text: art.hinweis }));
+      }
+
+      if (!p.anlagenart) {
+        anlageKarte.appendChild(el('div', { class: 'meldung info', style: { marginTop: '12px' } },
+          el('div', { text: 'Bitte zuerst die Art der Anlage festlegen – davon hängt ab, welche Angaben an den Türen überhaupt nötig sind.' })));
+        return;
+      }
+
+      var systemFelder = el('div', { class: 'raster', style: { marginTop: '14px' } });
+      if (p.anlagenart === 'mechanik' || p.anlagenart === 'hybrid') {
+        systemFelder.appendChild(A.auswahlFeld(p, 'systemMechanik',
+          'Mechanisches System', systemOptionen('mechanisch'),
+          { leerText: '– bitte wählen –', beiAenderung: function () { anlageZeichnen(); } }));
+      }
+      if (p.anlagenart === 'elektronik' || p.anlagenart === 'hybrid') {
+        systemFelder.appendChild(A.auswahlFeld(p, 'systemElektronik',
+          'Elektronisches System', systemOptionen('elektronisch'),
+          { leerText: '– bitte wählen –', beiAenderung: function () { anlageZeichnen(); } }));
+      }
+      systemFelder.appendChild(A.textFeld(p, 'systemDetail', 'Detail / Variante zur Anlage',
+        { platzhalter: 'z. B. Profil, Sonderfarbe, Schließfolge' }));
+      anlageKarte.appendChild(systemFelder);
+
+      /* Hinweise der gewählten Systeme anzeigen */
+      [p.systemMechanik, p.systemElektronik].filter(Boolean).forEach(function (sid) {
+        var sys = K.systemById(sid, eigene);
+        if (sys && sys.hinweis) {
+          anlageKarte.appendChild(el('p', { class: 'zart', style: { marginTop: '6px' },
+            text: K.systemLabel(sid, eigene) + ': ' + sys.hinweis }));
+        }
+      });
+
+      if (!M.anlageVollstaendig(p)) {
+        anlageKarte.appendChild(el('div', { class: 'meldung warn', style: { marginTop: '12px' } },
+          el('div', { text: 'Es fehlt noch ein System. Solange es nicht gewählt ist, bleiben die Türangaben unvollständig.' })));
+      } else if (p.anlagenart === 'hybrid') {
+        anlageKarte.appendChild(el('div', { class: 'meldung info', style: { marginTop: '12px' } },
+          el('div', { text: 'Hybridanlage: An jeder Tür wird nur noch angegeben, ob sie mechanisch oder elektronisch ausgeführt wird.' })));
+      }
+    }
+
+    /* --- Angaben, die nur die Bestellung braucht ------------------------
+     * Die Lieferadresse bleibt leer, solange geliefert wird, wo das Objekt
+     * steht - sie erscheint in der Materialliste nur dann, wenn sie
+     * abweicht. So steht dieselbe Anschrift nie zweimal im Dokument. */
+    seite.appendChild(el('div', { class: 'karte' }, [
+      el('h2', { text: 'Bestellangaben' }),
+      el('p', { class: 'hinweis',
+        text: 'Diese Angaben erscheinen in der Materialliste als Bestellgrundlage.' }),
+      el('div', { class: 'raster' }, [
+        A.textFeld(p, 'kommission', 'Kommission / Bestellzeichen',
+          { platzhalter: 'z. B. KOMM-2026-4711' })
+      ]),
+      el('div', { class: 'raster', style: { marginTop: '12px' } }, [
+        A.bereichFeld(p, 'lieferAdresse',
+          'Lieferadresse <span class="einheit">(nur wenn abweichend von der Objektadresse)</span>',
+          { zeilen: 3, platzhalter: 'Firma\nStraße und Hausnummer\nPLZ Ort' })
+      ])
+    ]));
+
+    seite.appendChild(el('div', { class: 'karte' }, [
+      el('h2', { text: 'Ansprechpartner vor Ort' }),
+      el('div', { class: 'raster' }, [
+        A.textFeld(p, 'ansprechpartner', 'Name'),
+        A.textFeld(p, 'telefon', 'Telefon', { typ: 'tel' }),
+        A.textFeld(p, 'email', 'E-Mail', { typ: 'email' })
+      ])
+    ]));
+
+    seite.appendChild(el('div', { class: 'karte' }, [
+      el('h2', { text: 'Aufmaß' }),
+      el('div', { class: 'raster' }, [
+        A.textFeld(p, 'aufmassDatum', 'Aufmaßdatum', { typ: 'date' }),
+        A.textFeld(p, 'bearbeiter', 'Bearbeiter / Monteur'),
+        A.textFeld(p, 'name', 'Interne Projektbezeichnung')
+      ]),
+      el('div', { class: 'raster', style: { marginTop: '12px' } }, [
+        A.bereichFeld(p, 'bemerkung', 'Projektbemerkung', {
+          zeilen: 4,
+          platzhalter: 'Besonderheiten, Absprachen, Bauabschnitte, offene Punkte …'
+        })
+      ])
+    ]));
+
+    /* Nur in der abgeglichenen Fassung: Wer darf dieses Aufmaß ändern? */
+    if (global.AbgleichUI) {
+      var karte = global.AbgleichUI.zustaendigeKarte(p);
+      if (karte) { seite.appendChild(karte); }
+    }
+  }
+
+  /* =========================================================================
+   * Struktur: Standorte → Gebäude → Bereiche/Etagen
+   * ====================================================================== */
+  var EBENEN = {
+    standort: { label: 'Standort', kind: 'gebaeude', kindLabel: 'Gebäude' },
+    gebaeude: { label: 'Gebäude', kind: 'bereich',  kindLabel: 'Bereich / Etage' },
+    bereich:  { label: 'Bereich', kind: 'bereich',  kindLabel: 'Unterbereich' }
+  };
+
+  function ansichtStruktur(behaelter, neuZeichnen) {
+    var p = Zustand.projekt;
+    var seite = el('div', { class: 'seite' });
+    behaelter.appendChild(seite);
+
+    seite.appendChild(el('div', { class: 'zeile-verteilt', style: { marginBottom: '6px' } }, [
+      el('div', { class: 'fuellen' }, [
+        el('h1', { text: 'Standorte, Gebäude und Bereiche' }),
+        el('p', { class: 'hinweis', text: 'Die Gliederung bestimmt die Gruppierung in Türliste und Kreuzschließplan. Die Reihenfolge hier ist auch die Reihenfolge in der PDF-Ausgabe.' })
+      ]),
+      el('button', { class: 'haupt', text: '+ Standort',
+        onclick: function () { knotenAnlegen('standort', null, neuZeichnen); } })
+    ]));
+
+    var wurzeln = M.kinderVon(p, null);
+    if (!wurzeln.length) {
+      seite.appendChild(el('div', { class: 'leer' }, [
+        el('h3', { text: 'Noch keine Gliederung angelegt' }),
+        el('p', { text: 'Legen Sie zuerst einen Standort an, darunter Gebäude und Etagen. Türen ohne Zuordnung erscheinen in der PDF unter „Ohne Zuordnung“.' }),
+        el('button', { class: 'haupt', text: '+ Ersten Standort anlegen',
+          onclick: function () { knotenAnlegen('standort', null, neuZeichnen); } })
+      ]));
+      return;
+    }
+
+    var liste = el('ul', { class: 'baum' });
+    wurzeln.forEach(function (k) { liste.appendChild(knotenZeichnen(k, neuZeichnen)); });
+    seite.appendChild(el('div', { class: 'karte' }, liste));
+  }
+
+  /* =========================================================================
+   * Bereichsansicht: Türen eines Standorts, Gebäudes oder Bereichs
+   * ======================================================================
+   * Entsteht durch Antippen eines Eintrags in der Gliederung. Gezeigt werden
+   * die Türen dieses Eintrags einschließlich seiner Unterbereiche, nach
+   * Unterbereich gruppiert. Eine neue Tür entsteht hier bereits mit dem
+   * richtigen Bereich - er muss nicht erneut gewählt werden.
+   */
+  function bereichOeffnen(knotenId, neuZeichnen) {
+    Zustand.bereichId = knotenId;
+    global.App.wechseln('bereich');
+  }
+
+  function ansichtBereich(behaelter, neuZeichnen) {
+    var p = Zustand.projekt;
+    var seite = el('div', { class: 'seite' });
+    behaelter.appendChild(seite);
+
+    var knoten = M.findeStruktur(p, Zustand.bereichId);
+    if (!knoten) {
+      seite.appendChild(el('div', { class: 'leer' }, [
+        el('h3', { text: 'Der Bereich ist nicht mehr vorhanden' }),
+        el('p', { text: 'Er wurde vermutlich gelöscht oder umgehängt.' }),
+        el('button', { class: 'haupt', text: '← Zurück zur Struktur',
+          onclick: function () { zurueckZurStruktur(); } })
+      ]));
+      return;
+    }
+
+    var konfig = EBENEN[knoten.ebene] || EBENEN.bereich;
+    var pfad = M.strukturPfad(p, knoten.id);
+    var tueren = M.tuerenUnter(p, knoten.id);
+    var unterbereiche = M.kinderVon(p, knoten.id);
+    var gesamtAnzahl = tueren.reduce(function (sum, t) {
+      return sum + (parseInt(t.anzahl, 10) || 1); }, 0);
+    var offene = tueren.filter(function (t) { return !M.tuerVollstaendig(p, t); });
+
+    /* --- Kopf mit Zurück-Knopf und Pfad --- */
+    seite.appendChild(el('div', { class: 'bereich-kopf' }, [
+      el('button', { class: 'zurueck-zeile', text: '← Zurück zur Struktur',
+        onclick: function () { zurueckZurStruktur(); } }),
+      el('div', { class: 'pfad' }, pfad.map(function (k, i) {
+        return el('span', {}, [
+          i > 0 ? el('span', { class: 'teiler', text: '›' }) : null,
+          k.id === knoten.id
+            ? el('b', { text: k.name || '(ohne Namen)' })
+            : el('button', { class: 'pfad-knopf', text: k.name || '(ohne Namen)',
+                onclick: function () { bereichOeffnen(k.id, neuZeichnen); } })
+        ]);
+      }))
+    ]));
+
+    seite.appendChild(el('div', { class: 'zeile-verteilt', style: { marginBottom: '12px' } }, [
+      el('div', { class: 'fuellen' }, [
+        el('h1', { text: knoten.name || '(ohne Namen)' }),
+        el('p', { class: 'hinweis', text: konfig.label + '  ·  ' +
+          tueren.length + (tueren.length === 1 ? ' Position' : ' Positionen') +
+          '  ·  ' + gesamtAnzahl + (gesamtAnzahl === 1 ? ' Tür' : ' Türen') +
+          (offene.length ? ('  ·  ' + offene.length + ' unvollständig') : '') })
+      ]),
+      el('button', { class: 'haupt', text: '+ Neue Tür hier',
+        onclick: function () { VT().tuerBearbeiten(null, neuZeichnen, { strukturId: knoten.id }); } })
+    ]));
+
+    /* --- Unterbereiche zum Weiterklicken --- */
+    if (unterbereiche.length) {
+      var kacheln = el('div', { class: 'bereich-kacheln' });
+      unterbereiche.forEach(function (k) {
+        var n = M.tuerenUnter(p, k.id);
+        kacheln.appendChild(el('button', { class: 'bereich-kachel',
+          onclick: function () { bereichOeffnen(k.id, neuZeichnen); } }, [
+          el('span', { class: 'name', text: k.name || '(ohne Namen)' }),
+          el('span', { class: 'zahl', text: n.length + (n.length === 1 ? ' Position' : ' Positionen') })
+        ]));
+      });
+      kacheln.appendChild(el('button', { class: 'bereich-kachel neu',
+        onclick: function () { knotenAnlegen(konfig.kind, knoten.id, neuZeichnen); } }, [
+        el('span', { class: 'name', text: '+ ' + konfig.kindLabel }),
+        el('span', { class: 'zahl', text: 'neu anlegen' })
+      ]));
+      seite.appendChild(el('div', { class: 'karte' }, [
+        el('h2', { text: 'Unterbereiche' }),
+        kacheln
+      ]));
+    }
+
+    /* --- Türen dieses Bereichs --- */
+    if (!tueren.length) {
+      seite.appendChild(el('div', { class: 'leer' }, [
+        el('h3', { text: 'Noch keine Tür in diesem Bereich' }),
+        el('p', { text: 'Jede hier aufgenommene Tür ist „' + (knoten.name || 'diesem Bereich') +
+          '“ bereits zugeordnet.' }),
+        el('button', { class: 'haupt', text: '+ Erste Tür hier aufnehmen',
+          onclick: function () { VT().tuerBearbeiten(null, neuZeichnen, { strukturId: knoten.id }); } })
+      ]));
+      return;
+    }
+
+    /* Nach Unterbereich gruppieren, damit die Herkunft sichtbar bleibt */
+    var gruppen = [], index = {};
+    tueren.forEach(function (t) {
+      var key = t.strukturId || '__ohne__';
+      if (!index[key]) {
+        /* Der Pfad wird nur bis zum geöffneten Bereich gezeigt - das
+         * Gebäude steht schon in der Überschrift darüber. */
+        var titel;
+        if (key === knoten.id) {
+          titel = 'Direkt in ' + (knoten.name || 'diesem Bereich');
+        } else {
+          var teil = M.strukturPfad(p, key);
+          var ab = 0;
+          teil.forEach(function (k, i) { if (k.id === knoten.id) ab = i + 1; });
+          titel = teil.slice(ab).map(function (k) { return k.name; }).join(' › ');
+        }
+        index[key] = { key: key, titel: titel, tueren: [] };
+        gruppen.push(index[key]);
+      }
+      index[key].tueren.push(t);
+    });
+    /* Der eigene Bereich zuerst, danach die Unterbereiche in Gliederungsfolge */
+    var ordnung = M.strukturReihenfolge(p);
+    gruppen.sort(function (a, b) {
+      if (a.key === knoten.id) return -1;
+      if (b.key === knoten.id) return 1;
+      return (ordnung[a.key] || 0) - (ordnung[b.key] || 0);
+    });
+
+    gruppen.forEach(function (g) {
+      var anzahl = g.tueren.reduce(function (sum, t) {
+        return sum + (parseInt(t.anzahl, 10) || 1); }, 0);
+      var liste = el('div', { class: 'tuer-liste' });
+      g.tueren.forEach(function (t) { liste.appendChild(VT().tuerZeile(t, neuZeichnen)); });
+      seite.appendChild(el('div', { class: 'tuer-gruppe' }, [
+        el('div', { class: 'kopfzeile' }, [
+          el('span', { text: g.titel }),
+          el('span', { class: 'anzahl', text: g.tueren.length + ' Pos.  ·  ' + anzahl +
+            (anzahl === 1 ? ' Tür' : ' Türen') })
+        ]),
+        liste
+      ]));
+    });
+  }
+
+  function zurueckZurStruktur() {
+    Zustand.bereichId = null;
+    global.App.wechseln('struktur');
+  }
+
+  /* Die Türansicht lädt nach dieser Datei - erst zur Laufzeit nachschlagen. */
+  function VT() { return global.ViewsTueren; }
+
+  function tuerenImKnoten(knotenId) {
+    return M.tuerenUnter(Zustand.projekt, knotenId).length;
+  }
+
+  function knotenZeichnen(knoten, neuZeichnen) {
+    var p = Zustand.projekt;
+    var kinder = M.kinderVon(p, knoten.id);
+    var konfig = EBENEN[knoten.ebene] || EBENEN.bereich;
+    var anzahl = tuerenImKnoten(knoten.id);
+    var geschwister = M.kinderVon(p, knoten.parentId);
+    var index = geschwister.indexOf(geschwister.filter(function (g) { return g.id === knoten.id; })[0]);
+
+    function verschieben(richtung) {
+      var ziel = index + richtung;
+      if (ziel < 0 || ziel >= geschwister.length) return;
+      /* Sortierwerte neu vergeben und die beiden Knoten tauschen */
+      A.schrittMerken('Reihenfolge geändert');
+      geschwister.forEach(function (g, i) { g.sort = i; });
+      geschwister[index].sort = ziel;
+      geschwister[ziel].sort = index;
+      A.alsGeaendertMarkieren();
+      neuZeichnen();
+    }
+
+    /* Der Namensbereich ist ein eigener Knopf: Auf dem Telefon nehmen die
+     * Aktionen rechts fast die ganze Zeile ein - ein Antippen der Zeile
+     * würde dort fast immer einen der Knöpfe treffen. */
+    var oeffnen = function () { bereichOeffnen(knoten.id, neuZeichnen); };
+    var eintrag = el('li', {}, [
+      /* Auch der freie Platz der Zeile öffnet den Bereich - aber nur er:
+       * "e.target === this" greift genau dann, wenn weder der Namensknopf
+       * noch eine der Aktionen getroffen wurde. */
+      el('div', { class: 'knoten', onclick: function (e) { if (e.target === this) oeffnen(); } }, [
+        el('button', { class: 'knoten-haupt', onclick: oeffnen,
+                       title: 'Türen in „' + (knoten.name || 'diesem Bereich') + '“ zeigen' }, [
+          el('span', { class: 'ebene-marke', text: konfig.label }),
+          el('span', { class: 'name', text: knoten.name || '(ohne Namen)' }),
+          anzahl ? el('span', { class: 'tuerzahl', text: anzahl + (anzahl === 1 ? ' Tür' : ' Türen') }) : null,
+          el('span', { class: 'oeffnen-pfeil', text: '›' })
+        ]),
+        el('div', { class: 'aktionen' }, [
+          el('button', { class: 'klein nur-symbol', title: 'Nach oben', text: '↑',
+            disabled: index <= 0, onclick: function () { verschieben(-1); } }),
+          el('button', { class: 'klein nur-symbol', title: 'Nach unten', text: '↓',
+            disabled: index >= geschwister.length - 1, onclick: function () { verschieben(1); } }),
+          el('button', { class: 'klein', text: '+ ' + konfig.kindLabel,
+            onclick: function () { knotenAnlegen(konfig.kind, knoten.id, neuZeichnen); } }),
+          el('button', { class: 'klein nur-symbol', title: 'Umbenennen', text: '✎',
+            onclick: function () {
+              A.textAbfragen('Umbenennen', konfig.label + 'sbezeichnung', knoten.name).then(function (neu) {
+                if (neu === null) return;
+                A.schrittMerken('Umbenannt: ' + (knoten.name || 'Eintrag'));
+                knoten.name = neu; A.alsGeaendertMarkieren(); neuZeichnen();
+              });
+            } }),
+          el('button', { class: 'klein nur-symbol gefahr', title: 'Löschen', text: '🗑',
+            onclick: function () {
+              var text = anzahl
+                ? 'Dieser Eintrag und alle Unterbereiche werden gelöscht. ' + anzahl +
+                  ' zugeordnete Tür(en) bleiben erhalten, verlieren aber ihre Zuordnung.'
+                : 'Dieser Eintrag und alle Unterbereiche werden gelöscht.';
+              A.bestaetigen('„' + (knoten.name || 'Eintrag') + '“ löschen?', text).then(function (ja) {
+                if (!ja) return;
+                A.schrittMerken('Gelöscht: ' + (knoten.name || 'Eintrag'));
+                M.loescheStruktur(p, knoten.id);
+                A.alsGeaendertMarkieren(); neuZeichnen();
+                A.toast('Eintrag gelöscht.');
+              });
+            } })
+        ])
+      ])
+    ]);
+
+    if (kinder.length) {
+      var unterliste = el('ul');
+      kinder.forEach(function (k) { unterliste.appendChild(knotenZeichnen(k, neuZeichnen)); });
+      eintrag.appendChild(unterliste);
+    }
+    return eintrag;
+  }
+
+  function knotenAnlegen(ebene, parentId, neuZeichnen) {
+    var konfig = EBENEN[ebene] || EBENEN.bereich;
+    A.textAbfragen('Neuer Eintrag', konfig.label + 'sbezeichnung', '',
+      ebene === 'standort' ? 'z. B. Standort Düsseldorf'
+        : ebene === 'gebaeude' ? 'z. B. Haus A (Verwaltung)' : 'z. B. Erdgeschoss')
+      .then(function (name) {
+        if (name === null) return;
+        var p = Zustand.projekt;
+        A.schrittMerken((konfig.label) + ' angelegt: ' + (name || konfig.label));
+        var knoten = M.neuerStrukturknoten(ebene, name || konfig.label, parentId);
+        knoten.sort = M.kinderVon(p, parentId).length;
+        p.standorte.push(knoten);
+        A.alsGeaendertMarkieren();
+        neuZeichnen();
+      });
+  }
+
+  /* Von der schwebenden Hauptaktion aus aufrufbar */
+  function standortAnlegen(neuZeichnen) { knotenAnlegen('standort', null, neuZeichnen); }
+
+  global.ViewsProjekt = {
+    ansichtProjekte: ansichtProjekte,
+    neuesProjektAnlegen: neuesProjektAnlegen,
+    pipedriveDialog: pipedriveDialog,
+    diagnoseLaufenLassen: diagnoseLaufenLassen,
+    diagnoseAnzeigen: diagnoseAnzeigen,
+    diagnoseAlsText: diagnoseAlsText,
+    standortAnlegen: standortAnlegen,
+    ansichtStammdaten: ansichtStammdaten,
+    ansichtStruktur: ansichtStruktur,
+    ansichtBereich: ansichtBereich,
+    bereichOeffnen: bereichOeffnen,
+    zurueckZurStruktur: zurueckZurStruktur,
+    datumKurz: datumKurz, kb: kb
+  };
+})(typeof window !== 'undefined' ? window : globalThis);

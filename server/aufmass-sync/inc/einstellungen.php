@@ -1,0 +1,145 @@
+<?php
+/**
+ * einstellungen.php — Einrichtungsseite im WordPress-Verwaltungsbereich.
+ *
+ * Hier werden die beiden Angaben eingetragen, die der Abgleich braucht:
+ * die Google-Client-ID und die Organisationsdomäne. Beides ist nicht
+ * geheim - die Client-ID steht ohnehin im Browser. Ein Client-Geheimnis
+ * wird für dieses Verfahren nicht benötigt und darf hier gar nicht erst
+ * hinterlegt werden.
+ */
+
+if (!defined('ABSPATH')) { exit; }
+
+class Aufmass_Einstellungen {
+
+    public static function menue() {
+        add_options_page('Aufmaß-Abgleich', 'Aufmaß-Abgleich', 'manage_options',
+            'aufmass-sync', array(__CLASS__, 'seite'));
+    }
+
+    public static function registrieren() {
+        register_setting('aufmass_sync', 'aufmass_client_id', array(
+            'type' => 'string', 'sanitize_callback' => array(__CLASS__, 'client_pruefen'), 'default' => ''
+        ));
+        register_setting('aufmass_sync', 'aufmass_domaene', array(
+            'type' => 'string', 'sanitize_callback' => array(__CLASS__, 'domaene_pruefen'), 'default' => ''
+        ));
+    }
+
+    public static function client_pruefen($wert) {
+        $wert = trim((string) $wert);
+        if ($wert === '') { return ''; }
+        if (!preg_match('/^[0-9]+-[A-Za-z0-9_]+\.apps\.googleusercontent\.com$/', $wert)) {
+            add_settings_error('aufmass_sync', 'client',
+                'Die Client-ID sieht nicht wie eine Google-Client-ID aus. Sie endet auf .apps.googleusercontent.com.');
+            return get_option('aufmass_client_id', '');
+        }
+        return $wert;
+    }
+
+    public static function domaene_pruefen($wert) {
+        $wert = strtolower(trim((string) $wert));
+        $wert = preg_replace('#^https?://#', '', $wert);
+        $wert = trim($wert, '/ ');
+        if ($wert === '') {
+            add_settings_error('aufmass_sync', 'domaene',
+                'Ohne Domäne darf sich jedes Google-Konto anmelden. Bitte die Organisationsdomäne eintragen.',
+                'warning');
+            return '';
+        }
+        if (!preg_match('/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/', $wert)) {
+            add_settings_error('aufmass_sync', 'domaene', 'Das ist keine gültige Domäne.');
+            return get_option('aufmass_domaene', '');
+        }
+        return $wert;
+    }
+
+    public static function seite() {
+        if (!current_user_can('manage_options')) { return; }
+        global $wpdb;
+        $bt = Aufmass_Datenbank::tabelle('benutzer');
+        $pt = Aufmass_Datenbank::tabelle('projekte');
+        $benutzer = $wpdb->get_results("SELECT * FROM $bt ORDER BY name", ARRAY_A) ?: array();
+        $anzahl = (int) $wpdb->get_var("SELECT COUNT(*) FROM $pt WHERE geloescht = 0");
+
+        /* Zugang sperren oder freigeben */
+        if (isset($_POST['aufmass_benutzer']) && check_admin_referer('aufmass_benutzer')) {
+            $id = sanitize_text_field(wp_unslash($_POST['aufmass_benutzer']));
+            $aktiv = isset($_POST['aufmass_aktiv']) ? (int) $_POST['aufmass_aktiv'] : 0;
+            $wpdb->update($bt, array('aktiv' => $aktiv), array('id' => $id));
+            if (!$aktiv) { Aufmass_Anmeldung::alle_beenden($id); }
+            echo '<div class="notice notice-success"><p>Zugang ' . ($aktiv ? 'freigegeben' : 'gesperrt und alle Geräte abgemeldet') . '.</p></div>';
+            $benutzer = $wpdb->get_results("SELECT * FROM $bt ORDER BY name", ARRAY_A) ?: array();
+        }
+        ?>
+        <div class="wrap">
+          <h1>Aufmaß-Abgleich</h1>
+          <p>Das Aufmaß-Werkzeug gleicht Projekte, Fotos und Zuständigkeiten über diesen Server ab.
+             Zurzeit liegen hier <strong><?php echo (int) $anzahl; ?></strong> Aufmaße.</p>
+
+          <form method="post" action="options.php">
+            <?php settings_fields('aufmass_sync'); ?>
+            <table class="form-table" role="presentation">
+              <tr>
+                <th scope="row"><label for="aufmass_client_id">Google-Client-ID</label></th>
+                <td>
+                  <input name="aufmass_client_id" id="aufmass_client_id" type="text" class="regular-text code"
+                         value="<?php echo esc_attr(get_option('aufmass_client_id', '')); ?>"
+                         placeholder="123456789-abc.apps.googleusercontent.com">
+                  <p class="description">Aus der Google Cloud Console, Bereich „Anmeldedaten“.
+                     Ein <strong>Client-Geheimnis wird nicht gebraucht</strong> und darf hier nicht eingetragen werden.</p>
+                </td>
+              </tr>
+              <tr>
+                <th scope="row"><label for="aufmass_domaene">Organisationsdomäne</label></th>
+                <td>
+                  <input name="aufmass_domaene" id="aufmass_domaene" type="text" class="regular-text code"
+                         value="<?php echo esc_attr(get_option('aufmass_domaene', '')); ?>"
+                         placeholder="provision-infra.de">
+                  <p class="description">Nur Google-Konten dieser Organisation dürfen sich anmelden.
+                     <strong>Bleibt das Feld leer, darf sich jedes beliebige Google-Konto anmelden.</strong></p>
+                </td>
+              </tr>
+            </table>
+            <?php submit_button(); ?>
+          </form>
+
+          <h2>Zugänge</h2>
+          <?php if (!count($benutzer)) : ?>
+            <p>Noch niemand angemeldet. Die <em>erste</em> Anmeldung erhält automatisch die Verwaltung.</p>
+          <?php else : ?>
+          <table class="widefat striped">
+            <thead><tr><th>Name</th><th>Adresse</th><th>Rolle</th><th>Zuletzt</th><th>Zugang</th></tr></thead>
+            <tbody>
+            <?php foreach ($benutzer as $b) : ?>
+              <tr>
+                <td><strong><?php echo esc_html($b['name']); ?></strong></td>
+                <td><code><?php echo esc_html($b['email']); ?></code></td>
+                <td><?php echo $b['rolle'] === 'verwaltung' ? 'Verwaltung' : 'Mitarbeit'; ?></td>
+                <td><?php echo $b['letzte_anmeldung'] ? esc_html(mysql2date('d.m.Y H:i', $b['letzte_anmeldung'])) : '–'; ?></td>
+                <td>
+                  <form method="post" style="margin:0">
+                    <?php wp_nonce_field('aufmass_benutzer'); ?>
+                    <input type="hidden" name="aufmass_benutzer" value="<?php echo esc_attr($b['id']); ?>">
+                    <input type="hidden" name="aufmass_aktiv" value="<?php echo (int) $b['aktiv'] ? 0 : 1; ?>">
+                    <?php if ((int) $b['aktiv']) : ?>
+                      <button class="button button-small">sperren</button>
+                    <?php else : ?>
+                      <button class="button button-small button-primary">freigeben</button>
+                    <?php endif; ?>
+                  </form>
+                </td>
+              </tr>
+            <?php endforeach; ?>
+            </tbody>
+          </table>
+          <p class="description">Sperren meldet sofort alle Geräte dieser Person ab.</p>
+          <?php endif; ?>
+        </div>
+        <?php
+    }
+}
+
+add_action('admin_menu', array('Aufmass_Einstellungen', 'menue'));
+add_action('admin_init', array('Aufmass_Einstellungen', 'registrieren'));

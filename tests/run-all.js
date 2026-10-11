@@ -3,6 +3,7 @@
 const { execFileSync } = require('child_process');
 const reihen = [
   ['PDF-Writer',      'test-pdf.js'],
+  ['Zusammenführen',  'test-zusammenfuehren.js'],
   ['Entdoppelung',    'test-entdoppelung.js'],
   ['Exportlisten',    'test-exportlisten.js'],
   ['Bedienung',       'test-bedienung.js'],
@@ -18,13 +19,31 @@ const reihen = [
   ['Einzeldatei',     'test-standalone.js'],
   ['Ausgabeweg',      'test-downloads.js'],
   ['Fassungen',       'test-fassungen.js'],
+  ['Abgleich (2 Geräte)', 'test-abgleich.js'],
+  ['Abgleich-Oberfläche', 'test-abgleich-oberflaeche.js'],
   ['Offline-Betrieb', 'test-offline-pwa.js'],
   ['Alle Öffnungswege','test-ueberall.js']
 ];
+/* Der Serverteil ist in PHP geschrieben und wird mit PHP geprüft. Fehlt
+   PHP auf diesem Rechner, werden diese Reihen gemeldet und übersprungen -
+   sie dürfen den Rest nicht blockieren. */
+const phpReihen = [
+  ['Google-Ausweis (PHP)', '../server/tests/test-jwt.php'],
+  ['Server-Logik (PHP)',   '../server/tests/test-server.php']
+];
+let phpDa = true;
+try { execFileSync('php', ['--version'], { stdio: 'ignore' }); } catch (e) { phpDa = false; }
+
 let fehlgeschlagen = [];
 reihen.forEach(([name, datei]) => {
   process.stdout.write('\n### ' + name + '\n');
   try { execFileSync(process.execPath, [__dirname + '/' + datei], { stdio: 'inherit' }); }
+  catch (e) { fehlgeschlagen.push(name); }
+});
+phpReihen.forEach(([name, datei]) => {
+  process.stdout.write('\n### ' + name + '\n');
+  if (!phpDa) { console.log('  übersprungen: PHP ist auf diesem Rechner nicht vorhanden.'); return; }
+  try { execFileSync('php', [__dirname + '/' + datei], { stdio: 'inherit' }); }
   catch (e) { fehlgeschlagen.push(name); }
 });
 console.log('\n' + '='.repeat(58));

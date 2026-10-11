@@ -188,6 +188,8 @@
       Zustand.ungesichert = false;
       Zustand.speichertGerade = false;
       statusAnzeigen('gesichert');
+      /* Die Meldung an den Abgleich geschieht in Store.projektSpeichern -
+         dort laufen alle Speicherwege zusammen. */
     }).catch(function (e) {
       Zustand.speichertGerade = false;
       statusAnzeigen('fehler');

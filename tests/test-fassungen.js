@@ -105,19 +105,35 @@ console.log('\n== Veröffentlichte Fassungen ==');
   pruefe(abweichend.length === 0, name + ': alle übernommenen Dateien sind auf dem Stand der Quelle',
     'abweichend: ' + abweichend.join(', '));
 
-  /* Jede Datei, die die Quelle ausliefert, muss auch hier liegen */
-  const quellGefordert = ['index.html', 'freigabe.html']
-    .filter(s => fs.existsSync(path.join(QUELLE, s)))
-    .reduce((raus, s) => raus.concat(angeforderteDateien(path.join(QUELLE, s))), [])
-    .concat(['sw.js']);
-  Array.from(new Set(quellGefordert)).forEach(d => {
-    if (!fs.existsSync(path.join(QUELLE, d))) return;
-    if (ordner === 'dist/artifact' && (d === 'sw.js' || d === 'manifest.webmanifest' || /^icon/.test(d))) return;
-    if (!fs.existsSync(path.join(ziel, d))) nichtDa.push(d);
-  });
-  pruefe(nichtDa.length === 0, name + ': keine von der Quelle ausgelieferte Datei fehlt',
-    'fehlen: ' + nichtDa.join(', '));
+  /* Jede Datei, die die Quelle ausliefert, muss auch hier liegen.
+     Das gilt für docs/ - eine vollständige Spiegelung von src/.
+     dist/artifact wird dagegen eigens erzeugt (tools/build-artifact.js)
+     und lässt den Abgleich bewusst weg: Dort gibt es keinen eigenen
+     Server, den das Werkzeug fragen könnte. Diese Fassung wird oben
+     gegen ihre EIGENE index.html geprüft. */
+  if (ordner === 'docs') {
+    const quellGefordert = ['index.html', 'freigabe.html']
+      .filter(s => fs.existsSync(path.join(QUELLE, s)))
+      .reduce((raus, s) => raus.concat(angeforderteDateien(path.join(QUELLE, s))), [])
+      .concat(['sw.js']);
+    Array.from(new Set(quellGefordert)).forEach(d => {
+      if (!fs.existsSync(path.join(QUELLE, d))) return;
+      if (!fs.existsSync(path.join(ziel, d))) nichtDa.push(d);
+    });
+    pruefe(nichtDa.length === 0, name + ': keine von der Quelle ausgelieferte Datei fehlt',
+      'fehlen: ' + nichtDa.join(', '));
+  }
 });
+
+/* --- 1a. Die gehostete Fassung kennt bewusst keinen Abgleich ------------- */
+const artOrdner = path.join(WURZEL, 'dist', 'artifact');
+if (fs.existsSync(path.join(artOrdner, 'index.html'))) {
+  const seite = fs.readFileSync(path.join(artOrdner, 'index.html'), 'utf8');
+  pruefe(seite.indexOf('abgleich') === -1,
+    'gehostete Fassung: bindet den Abgleich nicht ein (dort gibt es keinen eigenen Server)');
+  pruefe(!fs.existsSync(path.join(artOrdner, 'js', 'abgleich.js')),
+    'gehostete Fassung: liefert die Abgleichdateien auch nicht mit aus');
+}
 
 /* --- 1b. Die eigens erzeugte Seite muss die Darstellung vorab setzen ----- */
 const artSeite = path.join(WURZEL, 'dist', 'artifact', 'index.html');
@@ -128,6 +144,39 @@ if (fs.existsSync(artSeite)) {
     'ohne diese Weiche blitzt die helle Fassung auf');
   pruefe(text.indexOf('#5c6670') === -1,
     'gehostete Fassung: der Ladehinweis nutzt keine Farbe von vor der Umstellung');
+}
+
+/* --- 1c. Die Fassung für den Webserver ----------------------------------- */
+const onlineOrdner = path.join(WURZEL, 'dist', 'aufmasstool');
+if (!fs.existsSync(onlineOrdner)) {
+  pruefe(false, 'Fassung für den Webserver vorhanden', 'dist/aufmasstool fehlt - "node tools/build-online.js" ausführen');
+} else {
+  const seite = path.join(onlineOrdner, 'index.html');
+  const gefordert = angeforderteDateien(seite);
+  const fehlend = gefordert.filter(d => !fs.existsSync(path.join(onlineOrdner, d)));
+  pruefe(fehlend.length === 0,
+    'Webserver-Fassung: alle ' + gefordert.length + ' angeforderten Dateien sind da',
+    'fehlen: ' + fehlend.join(', '));
+  const text = fs.readFileSync(seite, 'utf8');
+  pruefe(/js\/abgleich\.js/.test(text) && /js\/zusammenfuehren\.js/.test(text) && /js\/abgleich-ui\.js/.test(text),
+    'Webserver-Fassung: der Abgleich ist eingebunden');
+  pruefe(fs.existsSync(path.join(onlineOrdner, 'sw.js')),
+    'Webserver-Fassung: der Service Worker liegt dabei (Offline-Betrieb)');
+  const sw = fs.readFileSync(path.join(onlineOrdner, 'sw.js'), 'utf8');
+  pruefe(/\/wp-json\//.test(sw),
+    'Webserver-Fassung: der Service Worker nimmt die Schnittstelle vom Zwischenspeicher aus',
+    'sonst käme die Projektliste von gestern');
+  const swFehlt = swDateien(path.join(onlineOrdner, 'sw.js'))
+    .filter(d => !fs.existsSync(path.join(onlineOrdner, d)));
+  pruefe(swFehlt.length === 0, 'Webserver-Fassung: der Service Worker legt nur Vorhandenes ab',
+    'fehlen: ' + swFehlt.join(', '));
+  /* Alle Quelldateien müssen auf dem aktuellen Stand sein */
+  const alt = [];
+  ['index.html', 'css/app.css', 'js/abgleich.js', 'js/zusammenfuehren.js', 'js/abgleich-ui.js',
+   'js/main.js', 'js/app.js', 'js/store.js', 'sw.js'].forEach(d => {
+    if (!fs.readFileSync(path.join(QUELLE, d)).equals(fs.readFileSync(path.join(onlineOrdner, d)))) { alt.push(d); }
+  });
+  pruefe(alt.length === 0, 'Webserver-Fassung: auf dem Stand der Quelle', 'veraltet: ' + alt.join(', '));
 }
 
 /* --- 2. Die Einzeldateien: eigenständig und gleich ----------------------- */
@@ -143,6 +192,12 @@ einzel.forEach(([pfad, name]) => {
   pruefe(!/<script[^>]+src=|<link[^>]+href="(?!data:)[^"]*\.css"/.test(text),
     name + ': lädt keine Datei von außen nach');
   pruefe(text.indexOf('serviceWorker') === -1, name + ': enthält keine Service-Worker-Anmeldung');
+  /* Die Einzeldatei ist die Fassung ohne Server. Sie darf den Abgleich
+     nicht mitbringen - sonst verlangte sie unterwegs eine Anmeldung. */
+  pruefe(text.indexOf('global.Abgleich = {') === -1 && text.indexOf('global.AbgleichUI = {') === -1,
+    name + ': enthält keinen Abgleich');
+  pruefe(text.indexOf('accounts.google.com') === -1,
+    name + ': kennt keine Google-Anmeldung');
   /* Alle Module müssen enthalten sein */
   ['Katalog', 'Model', 'PDF', 'Reports', 'Store', 'Verlauf', 'Freigabe', 'Pipedrive',
    'AppKern', 'ViewsProjekt', 'ViewsTueren', 'ViewsPlan'].forEach(m => {

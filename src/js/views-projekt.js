@@ -99,6 +99,10 @@
                         Zustand.projekt = null; Zustand.ansicht = 'projekte';
                         if (global.Verlauf) global.Verlauf.beenden();
                       }
+                      /* Auch auf den anderen Geräten entfernen */
+                      if (global.Abgleich) {
+                        try { global.Abgleich.projektGeloescht(p.id); } catch (e2) {}
+                      }
                       A.toast('Projekt gelöscht.'); neuLaden();
                     });
                   });
@@ -680,6 +684,12 @@
         })
       ])
     ]));
+
+    /* Nur in der abgeglichenen Fassung: Wer darf dieses Aufmaß ändern? */
+    if (global.AbgleichUI) {
+      var karte = global.AbgleichUI.zustaendigeKarte(p);
+      if (karte) { seite.appendChild(karte); }
+    }
   }
 
   /* =========================================================================

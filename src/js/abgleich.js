@@ -1,0 +1,601 @@
+/* =============================================================================
+ * abgleich.js — Gemeinsame Ablage für alle Geräte
+ *
+ * Grundsatz: Die Ablage auf dem Gerät bleibt die führende. Das Werkzeug
+ * arbeitet unverändert weiter, wenn kein Netz da ist - im Keller, in der
+ * Tiefgarage, im Neubau. Der Abgleich läuft nebenher und holt nach, sobald
+ * wieder Empfang da ist. Er darf das Speichern niemals aufhalten und nie
+ * eine Fehlermeldung in den Weg stellen.
+ *
+ * Je Projekt merkt sich das Gerät drei Dinge (siehe store.js):
+ *   version    - die zuletzt vom Server bestätigte Fassung
+ *   basis      - der Stand, bei dem beide Seiten zuletzt übereinstimmten
+ *   schmutzig  - hier liegt etwas, das noch nicht gesendet wurde
+ *
+ * Aus Basis, eigenem Stand und Serverstand entsteht bei Bedarf der
+ * Drei-Wege-Vergleich (siehe zusammenfuehren.js).
+ * ========================================================================== */
+(function (global) {
+  'use strict';
+
+  var Store = global.Store;
+  var Z = global.Zusammenfuehren;
+
+  var WEG = '/wp-json/aufmass/v1';
+  var KOPFFELD = 'X-Aufmass-Abgleich';
+  var TAKT_NORMAL = 15000;      /* regelmäßig nachsehen */
+  var TAKT_RUHE = 60000;        /* wenn das Fenster im Hintergrund liegt */
+  var TAKT_FEHLER = 60000;      /* nach einem Fehler nicht hämmern */
+  var VERZUG_SENDEN = 2500;     /* nach einer Änderung kurz sammeln */
+
+  var zustand = {
+    eingerichtet: false,
+    erreichbar: null,        /* null = noch nicht versucht */
+    angemeldet: false,
+    benutzer: null,
+    clientId: '',
+    domaene: '',
+    laeuft: false,
+    offen: 0,                /* noch nicht gesendete Projekte */
+    letzterAbgleich: null,
+    letzterFehler: '',
+    konflikte: []            /* [{ projektId, name, konflikte, ergebnis, server }] */
+  };
+
+  var marke = '';
+  var basisUrl = '';
+  var uhr = null, sendeUhr = null;
+  var beiAenderung = null;
+  var amLaufen = false;
+
+  /* ---------------------------------------------------------------- */
+  /* Anfragen                                                          */
+  /* ---------------------------------------------------------------- */
+  function anfrage(weg, optionen) {
+    optionen = optionen || {};
+    var kopf = {};
+    kopf[KOPFFELD] = '1';
+    if (optionen.json !== undefined) { kopf['Content-Type'] = 'application/json'; }
+    if (optionen.typ) { kopf['Content-Type'] = optionen.typ; }
+
+    return fetch(basisUrl + WEG + weg, {
+      method: optionen.methode || 'GET',
+      credentials: 'same-origin',
+      headers: kopf,
+      body: optionen.json !== undefined ? JSON.stringify(optionen.json) : (optionen.koerper || undefined)
+    }).then(function (antwort) {
+      if (optionen.roh) {
+        if (!antwort.ok) { return fehlerAus(antwort); }
+        return antwort.blob();
+      }
+      return antwort.text().then(function (text) {
+        var daten = null;
+        try { daten = text ? JSON.parse(text) : null; } catch (e) { daten = null; }
+        if (!antwort.ok) {
+          var f = new Error((daten && daten.message) || ('Der Server antwortete mit ' + antwort.status + '.'));
+          f.status = antwort.status;
+          f.code = daten && daten.code;
+          f.daten = daten && daten.data;
+          throw f;
+        }
+        return daten;
+      });
+    });
+  }
+  function fehlerAus(antwort) {
+    var f = new Error('Der Server antwortete mit ' + antwort.status + '.');
+    f.status = antwort.status;
+    throw f;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Einrichten und Anmeldung                                          */
+  /* ---------------------------------------------------------------- */
+  function einrichten(optionen) {
+    optionen = optionen || {};
+    basisUrl = (optionen.basisUrl || '').replace(/\/+$/, '');
+    beiAenderung = optionen.beiAenderung || null;
+
+    /* Wird die Datei lokal geöffnet (Doppelklick, file://), gibt es keinen
+     * Server, den man fragen könnte. Dann wird gar nicht erst angefragt:
+     * Der Browser würde die Anfrage ohnehin abweisen und dabei eine
+     * Fehlermeldung in die Entwicklerkonsole schreiben, die wie ein
+     * Defekt aussieht - es ist aber der vorgesehene Fall. */
+    if (!/^https?:/i.test(basisUrl)) {
+      zustand.eingerichtet = false;
+      zustand.erreichbar = false;
+      zustand.angemeldet = false;
+      zustand.letzterFehler = '';
+      melden();
+      return Promise.resolve(zustand);
+    }
+
+    return anfrage('/start').then(function (d) {
+      zustand.eingerichtet = !!(d && d.eingerichtet);
+      zustand.clientId = (d && d.clientId) || '';
+      zustand.domaene = (d && d.domaene) || '';
+      zustand.erreichbar = true;
+      /* Der Server sagt in derselben Antwort, ob dieses Gerät angemeldet
+         ist - eine zweite, absehbar abgewiesene Anfrage erübrigt sich. */
+      zustand.angemeldet = !!(d && d.angemeldet);
+      zustand.benutzer = (d && d.benutzer) || null;
+      melden();
+      return zustand;
+    }).catch(function (f) {
+      /* Kein Server erreichbar: Das Werkzeug läuft trotzdem weiter. */
+      zustand.erreichbar = false;
+      zustand.letzterFehler = f && f.message ? f.message : 'Der Abgleich ist nicht erreichbar.';
+      melden();
+      return zustand;
+    });
+  }
+
+  function anmelden(googleToken) {
+    return anfrage('/anmelden', { methode: 'POST', json: { token: googleToken } })
+      .then(function (d) {
+        zustand.angemeldet = true;
+        zustand.benutzer = d.benutzer;
+        zustand.letzterFehler = '';
+        melden();
+        /* Beim ersten Anmelden alles holen, was es gibt. */
+        marke = '';
+        return jetzt();
+      });
+  }
+
+  function abmelden() {
+    return anfrage('/abmelden', { methode: 'POST' }).catch(function () { /* egal */ })
+      .then(function () {
+        zustand.angemeldet = false;
+        zustand.benutzer = null;
+        stopp();
+        melden();
+      });
+  }
+
+  function benutzerListe() {
+    return anfrage('/benutzer').then(function (d) { return (d && d.benutzer) || []; })
+      .catch(function () { return []; });
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Der Abgleich                                                      */
+  /* ---------------------------------------------------------------- */
+  function jetzt() {
+    if (amLaufen) { return Promise.resolve(zustand); }
+    if (!zustand.angemeldet) { return Promise.resolve(zustand); }
+    if (global.navigator && global.navigator.onLine === false) {
+      zustand.erreichbar = false; melden(); return Promise.resolve(zustand);
+    }
+    amLaufen = true;
+    zustand.laeuft = true;
+    melden();
+
+    return holen()
+      .then(senden)
+      .then(function () {
+        zustand.erreichbar = true;
+        zustand.letzterFehler = '';
+        zustand.letzterAbgleich = new Date().toISOString();
+      })
+      .catch(function (f) {
+        zustand.erreichbar = (f && f.status) ? true : false;
+        zustand.letzterFehler = (f && f.message) || 'Der Abgleich ist gescheitert.';
+        if (f && f.status === 401) { zustand.angemeldet = false; zustand.benutzer = null; }
+      })
+      .then(function () {
+        amLaufen = false;
+        zustand.laeuft = false;
+        return offeneZaehlen();
+      })
+      .then(function () { melden(); return zustand; });
+  }
+
+  /* --- Was gibt es Neues? --- */
+  function holen() {
+    return anfrage('/projekte?seit=' + encodeURIComponent(marke)).then(function (d) {
+      var reihe = Promise.resolve();
+      (d.projekte || []).forEach(function (eintrag) {
+        reihe = reihe.then(function () { return eintragVerarbeiten(eintrag); });
+      });
+      return reihe.then(function () { marke = d.marke || marke; });
+    });
+  }
+
+  function eintragVerarbeiten(eintrag) {
+    return Promise.all([Store.projektLaden(eintrag.id), Store.abgleichLesen(eintrag.id)])
+      .then(function (beides) {
+        var hier = beides[0], satz = beides[1];
+
+        /* Auf dem Server gelöscht */
+        if (eintrag.geloescht) {
+          if (!hier) { return; }
+          if (satz && satz.schmutzig) { return; }   /* hier liegt noch Arbeit: nicht wegwerfen */
+          return Store.projektLoeschen(eintrag.id)
+            .then(function () { return Store.abgleichLoeschen(eintrag.id); });
+        }
+
+        /* Schon auf dem Stand */
+        if (satz && satz.version === eintrag.version && !satz.schmutzig) { return; }
+        if (satz && satz.version === eintrag.version && satz.schmutzig) { return; }  /* wird gesendet */
+
+        /* Vollständig holen */
+        return anfrage('/projekte/' + encodeURIComponent(eintrag.id)).then(function (voll) {
+          if (!hier) {
+            /* Ganz neu für dieses Gerät */
+            return Store.projektSpeichern(voll.daten, { vomAbgleich: true }).then(function () {
+              return satzSchreiben(eintrag.id, voll.version, voll.daten, false);
+            }).then(function () { return fotosHolen(eintrag.id, voll.daten); })
+              .then(function () { return offenesMitziehen(eintrag.id); });
+          }
+          if (!satz || !satz.schmutzig) {
+            /* Hier liegt nichts Ungesendetes: Serverstand übernehmen */
+            return Store.projektSpeichern(voll.daten, { vomAbgleich: true }).then(function () {
+              return satzSchreiben(eintrag.id, voll.version, voll.daten, false);
+            }).then(function () { return fotosHolen(eintrag.id, voll.daten); })
+              .then(function () { return offenesMitziehen(eintrag.id); });
+          }
+          /* Beide Seiten haben gearbeitet */
+          return zusammenfuehren(hier, satz, voll);
+        });
+      });
+  }
+
+  function zusammenfuehren(hier, satz, voll) {
+    var e = Z.projekte(satz.basis || {}, hier, voll.daten);
+    if (e.konflikte.length) {
+      konfliktMerken(hier, e, voll);
+      return;
+    }
+    /* Sauber zusammengeführt: lokal sichern und zum Senden vormerken */
+    e.ergebnis.id = hier.id;
+    return Store.projektSpeichern(e.ergebnis, { vomAbgleich: true }).then(function () {
+      return satzSchreiben(hier.id, voll.version, satz.basis, true);
+    }).then(function () { return fotosHolen(hier.id, voll.daten); })
+      .then(function () { return offenesMitziehen(hier.id); });
+  }
+
+  function konfliktMerken(hier, e, voll) {
+    var vorhanden = -1;
+    zustand.konflikte.forEach(function (x, i) { if (x.projektId === hier.id) { vorhanden = i; } });
+    var satz = {
+      projektId: hier.id,
+      name: hier.kunde || hier.name || 'Aufmaß',
+      konflikte: e.konflikte,
+      ergebnis: e.ergebnis,
+      serverVersion: voll.version,
+      serverDaten: voll.daten,
+      wer: voll.geaendertVon || 'eine andere Stelle'
+    };
+    if (vorhanden >= 0) { zustand.konflikte[vorhanden] = satz; }
+    else { zustand.konflikte.push(satz); }
+    melden();
+  }
+
+  /** Die Entscheidungen des Benutzers übernehmen und senden. */
+  function konfliktAufloesen(projektId, wahl) {
+    var satz = null;
+    zustand.konflikte.forEach(function (x) { if (x.projektId === projektId) { satz = x; } });
+    if (!satz) { return Promise.resolve(false); }
+
+    var fertig = Z.anwenden(satz.ergebnis, satz.konflikte, wahl || {});
+    fertig.id = projektId;
+    return Store.projektSpeichern(fertig, { vomAbgleich: true })
+      .then(function () {
+        /* Als Basis gilt jetzt der Serverstand: Darauf baut das Senden auf. */
+        return satzSchreiben(projektId, satz.serverVersion, satz.serverDaten, true);
+      })
+      .then(function () {
+        zustand.konflikte = zustand.konflikte.filter(function (x) { return x.projektId !== projektId; });
+        melden();
+        return offenesMitziehen(projektId);
+      })
+      .then(function () { return jetzt(); })
+      .then(function () { return true; });
+  }
+
+  /* --- Was muss hier weg? --- */
+  function senden() {
+    return Store.abgleichAlle().then(function (saetze) {
+      var reihe = Promise.resolve();
+      (saetze || []).filter(function (s) { return s && s.schmutzig; }).forEach(function (s) {
+        reihe = reihe.then(function () { return einesSenden(s); });
+      });
+      return reihe;
+    });
+  }
+
+  function einesSenden(satz) {
+    /* Für dieses Projekt steht eine Frage offen: erst klären lassen. */
+    var offen = zustand.konflikte.some(function (x) { return x.projektId === satz.id; });
+    if (offen) { return Promise.resolve(); }
+
+    return Store.projektLaden(satz.id).then(function (projekt) {
+      if (!projekt) { return Store.abgleichLoeschen(satz.id); }
+
+      /* Erst das Aufmaß, dann die Fotos - nicht umgekehrt.
+       *
+       * Ein Foto gehört immer zu einem Aufmaß, und der Server nimmt nur
+       * Fotos zu einem Aufmaß an, das er kennt. Ein neu angelegtes Aufmaß
+       * mit Fotos (der Normalfall vor Ort) muss also zuerst ankommen. */
+      return anfrage('/projekte/' + encodeURIComponent(satz.id), {
+        methode: 'PUT',
+        json: { daten: ohneBilddaten(projekt), basisVersion: satz.version || 0 }
+      }).then(function (antwort) {
+        return fotosSenden(satz.id, projekt).then(function () { return antwort; });
+      }).then(function (antwort) {
+        return satzSchreiben(satz.id, antwort.version, ohneBilddaten(projekt), false);
+      }).catch(function (f) {
+        if (f && f.status === 409 && f.daten && f.daten.server) {
+          /* In der Zwischenzeit hat jemand anderes gespeichert */
+          return zusammenfuehren(projekt, satz, f.daten.server);
+        }
+        if (f && f.status === 403) {
+          return satzSchreiben(satz.id, satz.version, satz.basis, true, f.message);
+        }
+        throw f;
+      });
+    });
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Fotos                                                             */
+  /* ---------------------------------------------------------------- */
+  function fotoListe(projekt) {
+    var aus = [];
+    (projekt.tueren || []).forEach(function (t) {
+      (t.fotos || []).forEach(function (f) { if (f && f.id) { aus.push({ foto: f, tuerId: t.id }); } });
+    });
+    return aus;
+  }
+
+  function ohneBilddaten(projekt) {
+    var kopie = JSON.parse(JSON.stringify(projekt));
+    (kopie.tueren || []).forEach(function (t) {
+      (t.fotos || []).forEach(function (f) { if (f) { f.dataUrl = ''; } });
+    });
+    return kopie;
+  }
+
+  function fotosSenden(projektId, projekt) {
+    var hier = fotoListe(projekt).filter(function (x) { return x.foto.dataUrl; });
+    if (!hier.length) { return Promise.resolve(); }
+
+    return anfrage('/projekte/' + encodeURIComponent(projektId) + '/fotos')
+      .catch(function () { return { fotos: [] }; })
+      .then(function (d) {
+        var dort = {};
+        ((d && d.fotos) || []).forEach(function (id) { dort[id] = true; });
+        var reihe = Promise.resolve();
+        hier.filter(function (x) { return !dort[x.foto.id]; }).forEach(function (x) {
+          reihe = reihe.then(function () { return einFotoSenden(projektId, x); });
+        });
+        return reihe;
+      });
+  }
+
+  function einFotoSenden(projektId, x) {
+    var teile = /^data:([^;]+);base64,(.*)$/.exec(x.foto.dataUrl || '');
+    if (!teile) { return Promise.resolve(); }
+    var roh = atob(teile[2]);
+    var bytes = new Uint8Array(roh.length);
+    for (var i = 0; i < roh.length; i++) { bytes[i] = roh.charCodeAt(i); }
+    return anfrage('/fotos/' + encodeURIComponent(x.foto.id)
+        + '?projekt=' + encodeURIComponent(projektId) + '&tuer=' + encodeURIComponent(x.tuerId || ''), {
+      methode: 'PUT', typ: teile[1], koerper: bytes
+    }).catch(function (f) {
+      /* Ein einzelnes Foto darf den ganzen Abgleich nicht aufhalten. */
+      if (f && f.status && f.status < 500) { return null; }
+      throw f;
+    });
+  }
+
+  function fotosHolen(projektId, daten) {
+    return Store.projektLaden(projektId).then(function (projekt) {
+      if (!projekt) { return; }
+      var fehlend = fotoListe(projekt).filter(function (x) { return !x.foto.dataUrl; });
+      if (!fehlend.length) { return; }
+
+      var reihe = Promise.resolve();
+      fehlend.forEach(function (x) {
+        reihe = reihe.then(function () {
+          return anfrage('/fotos/' + encodeURIComponent(x.foto.id), { roh: true })
+            .then(function (blob) { return blobAlsDataUrl(blob); })
+            .then(function (url) { x.foto.dataUrl = url; })
+            .catch(function () { /* Foto fehlt serverseitig: Eintrag bleibt ohne Bild */ });
+        });
+      });
+      return reihe.then(function () { return Store.projektSpeichern(projekt, { vomAbgleich: true }); });
+    });
+  }
+
+  function blobAlsDataUrl(blob) {
+    return new Promise(function (fertig, schief) {
+      var leser = new FileReader();
+      leser.onload = function () { fertig(leser.result); };
+      leser.onerror = schief;
+      leser.readAsDataURL(blob);
+    });
+  }
+
+  /* ----------------------------------------------------------------
+   * Ein gerade geöffnetes Aufmaß mitziehen
+   *
+   * Der Abgleich schreibt in die Datenbank. Ist dasselbe Aufmaß aber
+   * gerade geöffnet, hält die Oberfläche eine eigene Fassung im Speicher.
+   * Würde die nicht mitgezogen, sähe man weiter den alten Stand - und die
+   * nächste Speicherung würde das Zusammengeführte wieder überschreiben.
+   *
+   * Die Übernahme geschieht AN ORT UND STELLE: Die Oberfläche hält auch
+   * Verweise auf einzelne Türen (ein offener Türdialog zum Beispiel).
+   * Würde das Projekt als Ganzes ersetzt, zeigten diese Verweise ins
+   * Leere und Eingaben liefen ins Nichts.
+   * ---------------------------------------------------------------- */
+  function inPlatzUebernehmen(ziel, quelle) {
+    if (!ziel || !quelle || typeof ziel !== 'object' || typeof quelle !== 'object') { return; }
+    Object.keys(ziel).forEach(function (k) {
+      if (!Object.prototype.hasOwnProperty.call(quelle, k)) { delete ziel[k]; }
+    });
+    Object.keys(quelle).forEach(function (k) {
+      var q = quelle[k], z = ziel[k];
+      if (Array.isArray(q) && Array.isArray(z) && q.length && q[0] && q[0].id) {
+        var bekannt = {};
+        z.forEach(function (x) { if (x && x.id) { bekannt[x.id] = x; } });
+        var neueFolge = q.map(function (x) {
+          if (x && x.id && bekannt[x.id]) { inPlatzUebernehmen(bekannt[x.id], x); return bekannt[x.id]; }
+          return x;
+        });
+        z.length = 0;
+        neueFolge.forEach(function (x) { z.push(x); });
+        return;
+      }
+      if (q && typeof q === 'object' && !Array.isArray(q) && z && typeof z === 'object' && !Array.isArray(z)) {
+        inPlatzUebernehmen(z, q);
+        return;
+      }
+      ziel[k] = q;
+    });
+  }
+
+  function offenesMitziehen(id) {
+    var Kern = global.AppKern;
+    if (!Kern || !Kern.Zustand || !Kern.Zustand.projekt) { return Promise.resolve(); }
+    if (Kern.Zustand.projekt.id !== id) { return Promise.resolve(); }
+    /* Nicht mitten in eine laufende Speicherung hineinschreiben */
+    if (Kern.Zustand.ungesichert || Kern.Zustand.speichertGerade) { return Promise.resolve(); }
+    return Store.projektLaden(id).then(function (frisch) {
+      if (!frisch) { return; }
+      inPlatzUebernehmen(Kern.Zustand.projekt, frisch);
+      if (global.App && global.App.zeichnen) {
+        try { global.App.zeichnen(); } catch (e) {}
+      }
+    });
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Zustand und Takt                                                  */
+  /* ---------------------------------------------------------------- */
+  function satzSchreiben(id, version, basis, schmutzig, fehler) {
+    return Store.abgleichSchreiben({
+      id: id,
+      version: version || 0,
+      basis: basis ? JSON.parse(JSON.stringify(basis)) : null,
+      schmutzig: !!schmutzig,
+      fehler: fehler || '',
+      zuletzt: new Date().toISOString()
+    });
+  }
+
+  /** Vom Werkzeug nach jedem Speichern aufzurufen. */
+  function projektGeaendert(projekt) {
+    if (!projekt || !projekt.id) { return Promise.resolve(); }
+    return Store.abgleichLesen(projekt.id).then(function (satz) {
+      return Store.abgleichSchreiben({
+        id: projekt.id,
+        version: satz ? satz.version : 0,
+        basis: satz ? satz.basis : null,
+        schmutzig: true,
+        fehler: '',
+        zuletzt: new Date().toISOString()
+      });
+    }).then(function () {
+      return offeneZaehlen();
+    }).then(function () {
+      melden();
+      if (!zustand.angemeldet) { return; }
+      if (sendeUhr) { clearTimeout(sendeUhr); }
+      sendeUhr = setTimeout(function () { sendeUhr = null; jetzt(); }, VERZUG_SENDEN);
+    });
+  }
+
+  /** Ein lokal gelöschtes Projekt auch drüben löschen. */
+  function projektGeloescht(id) {
+    if (!zustand.angemeldet) { return Store.abgleichLoeschen(id); }
+    return anfrage('/projekte/' + encodeURIComponent(id), { methode: 'DELETE' })
+      .catch(function () { /* beim nächsten Durchgang erneut */ })
+      .then(function () { return Store.abgleichLoeschen(id); });
+  }
+
+  function offeneZaehlen() {
+    return Store.abgleichAlle().then(function (s) {
+      zustand.offen = (s || []).filter(function (x) { return x && x.schmutzig; }).length;
+      return zustand.offen;
+    });
+  }
+
+  /**
+   * Wer ist für dieses Aufmaß zuständig?
+   *
+   * Gefragt wird nur, wenn das Aufmaß überhaupt schon auf dem Server
+   * liegt. Sonst gäbe es eine Fehlantwort auf eine Frage, deren Antwort
+   * man schon kennt: Es ist eben noch nicht abgeglichen.
+   */
+  function zustaendigeLesen(projektId) {
+    return Store.abgleichLesen(projektId).then(function (satz) {
+      if (!satz || !satz.version) {
+        return { abgeglichen: false, zustaendige: [] };
+      }
+      return anfrage('/projekte/' + encodeURIComponent(projektId)).then(function (d) {
+        return { abgeglichen: true, zustaendige: (d && d.zustaendige) || [] };
+      });
+    }).catch(function () { return { abgeglichen: false, zustaendige: [] }; });
+  }
+
+  function zustaendigeSetzen(projektId, benutzerIds) {
+    return anfrage('/projekte/' + encodeURIComponent(projektId) + '/zustaendige', {
+      methode: 'PUT', json: { benutzer: benutzerIds }
+    });
+  }
+
+  /* Einmal angelegt und wiederverwendet: Würde bei jedem start() ein
+     neuer Empfänger angemeldet, liefen nach mehrfachem Ab- und Anmelden
+     mehrere Abgleiche gleichzeitig los. */
+  function beiNetzAn() { jetzt(); }
+  function beiNetzAus() { zustand.erreichbar = false; melden(); }
+  var empfaengerAngemeldet = false;
+
+  function start() {
+    stopp();
+    uhr = setInterval(function () {
+      if (!zustand.angemeldet) { return; }
+      var ruht = global.document && global.document.hidden;
+      if (ruht && Math.random() > 0.25) { return; }   /* im Hintergrund seltener */
+      jetzt();
+    }, TAKT_NORMAL);
+    if (global.addEventListener && !empfaengerAngemeldet) {
+      global.addEventListener('online', beiNetzAn);
+      global.addEventListener('offline', beiNetzAus);
+      empfaengerAngemeldet = true;
+    }
+    return jetzt();
+  }
+
+  function stopp() {
+    if (uhr) { clearInterval(uhr); uhr = null; }
+    if (sendeUhr) { clearTimeout(sendeUhr); sendeUhr = null; }
+  }
+
+  function melden() { if (beiAenderung) { try { beiAenderung(zustand); } catch (e) {} } }
+
+  global.Abgleich = {
+    einrichten: einrichten,
+    anmelden: anmelden,
+    abmelden: abmelden,
+    benutzerListe: benutzerListe,
+    start: start,
+    stopp: stopp,
+    jetzt: jetzt,
+    projektGeaendert: projektGeaendert,
+    projektGeloescht: projektGeloescht,
+    konfliktAufloesen: konfliktAufloesen,
+    zustaendigeLesen: zustaendigeLesen,
+    zustaendigeSetzen: zustaendigeSetzen,
+    zustand: function () { return zustand; },
+    /* für Tests */
+    _intern: { ohneBilddaten: ohneBilddaten, fotoListe: fotoListe,
+               inPlatzUebernehmen: inPlatzUebernehmen,
+               markeSetzen: function (m) { marke = m; }, markeLesen: function () { return marke; } }
+  };
+
+  if (typeof module !== 'undefined' && module.exports) { module.exports = global.Abgleich; }
+})(typeof window !== 'undefined' ? window : globalThis);

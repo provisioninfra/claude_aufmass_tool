@@ -1,13 +1,16 @@
 /* Service Worker: legt die Anwendung im Gerätespeicher ab, damit sie auch
  * ohne Netzverbindung startet (z. B. im Keller oder in der Tiefgarage).
  * Wirkt nur, wenn die Anwendung über http(s) ausgeliefert wird. */
-var CACHE = 'aufmass-tool-v9';
+var CACHE = 'aufmass-tool-v10';
 var DATEIEN = [
   './', './index.html', './freigabe.html', './css/app.css', './manifest.webmanifest',
   './icon.svg', './icon-180.png', './icon-192.png', './icon-512.png',
   './js/catalog.js', './js/model.js', './js/pdf.js', './js/reports.js',
   './js/store.js', './js/verlauf.js', './js/freigabe.js', './js/pipedrive.js', './js/app.js', './js/views-projekt.js', './js/views-tueren.js',
-  './js/views-plan.js', './js/main.js'
+  './js/views-plan.js', './js/main.js',
+  /* Der Abgleich gehört mit in die Ablage: Sonst stünde das Werkzeug
+     beim Start ohne Netz ohne diese Dateien da. */
+  './js/zusammenfuehren.js', './js/abgleich.js', './js/abgleich-ui.js'
 ];
 
 self.addEventListener('install', function (e) {
@@ -34,6 +37,11 @@ self.addEventListener('fetch', function (e) {
   if (e.request.method !== 'GET') return;
   var url = new URL(e.request.url);
   if (url.origin !== self.location.origin) return;
+  /* Der Abgleich darf NIEMALS aus dem Zwischenspeicher bedient werden.
+   * Sonst bekäme das Gerät die Projektliste von gestern und hielte sie
+   * für den aktuellen Stand - der Abgleich wäre still wirkungslos.
+   * Die Anfragen gehen deshalb unverändert ans Netz. */
+  if (url.pathname.indexOf('/wp-json/') !== -1) return;
   e.respondWith(
     caches.match(e.request).then(function (treffer) {
       var netz = fetch(e.request).then(function (antwort) {

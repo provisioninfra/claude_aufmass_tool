@@ -48,6 +48,8 @@
         el('span', { text: [p.objekt, p.anlagenNr && ('Anlage ' + p.anlagenNr)].filter(Boolean).join('  ·  ') })
       ] : [el('span', { class: 'zart', text: 'Kein Projekt geöffnet' })]),
       p ? zurueckKnopfBauen() : (function () { zurueckKnopf = null; return null; })(),
+      /* Nur in der abgeglichenen Fassung vorhanden */
+      global.AbgleichUI ? global.AbgleichUI.statusKnoten() : null,
       el('div', { class: 'speicher-status', id: 'speicher-status' })
     ]));
 
@@ -80,6 +82,14 @@
     var haupt = el('main', { class: 'inhalt' });
     wurzel.appendChild(haupt);
     A.toastBereich();      /* hängt am Dokument, nicht an der Ansicht */
+
+    /* Solange die gemeinsame Ablage eine Anmeldung erwartet, steht hier
+       die Anmeldung. Ohne Netz oder nach "ohne Abgleich weiterarbeiten"
+       geht es wie gewohnt weiter - das Werkzeug sperrt niemanden aus. */
+    if (global.AbgleichUI && global.AbgleichUI.brauchtAnmeldung()) {
+      global.AbgleichUI.anmeldeSeite(haupt, eins);
+      return;
+    }
 
     /* Die häufigste Aktion der jeweiligen Ansicht liegt als schwebender
      * Knopf in der Daumenzone - so ist sie mit einer Hand erreichbar. */
@@ -255,6 +265,11 @@
       zeichnen();
       if (Store.nutztFallback()) {
         A.toast('Hinweis: Dieser Browser erlaubt keine Datenbank. Es wird der einfache Speicher genutzt – bitte häufiger exportieren.', 'fehler');
+      }
+      /* Der Abgleich wird nachgelagert aufgebaut: Das Werkzeug ist schon
+         bedienbar, bevor der Server geantwortet hat. */
+      if (global.AbgleichUI) {
+        global.AbgleichUI.starten(zeichnen).then(function () { zeichnen(); });
       }
     });
   }

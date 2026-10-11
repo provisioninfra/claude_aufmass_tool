@@ -1,15 +1,24 @@
 /* =============================================================================
  * store.js — Persistenz (IndexedDB mit localStorage-Rückfallebene),
  *            Export/Import und Bildverarbeitung.
- * Alles läuft ausschließlich auf dem Gerät; es werden keine Daten übertragen.
+ *
+ * Die Ablage auf dem Gerät ist und bleibt die führende: Das Werkzeug
+ * arbeitet vollständig ohne Netz. Ist der Abgleich eingerichtet (siehe
+ * abgleich.js), wird zusätzlich mit dem Server abgeglichen - aber erst,
+ * nachdem hier gespeichert wurde, und nie als Voraussetzung dafür.
  * ========================================================================== */
 (function (global) {
   'use strict';
 
   var DB_NAME = 'aufmass-tool';
-  var DB_VERSION = 1;
+  var DB_VERSION = 2;
   var STORE_PROJEKTE = 'projekte';
   var STORE_META = 'meta';
+  /* Was der Abgleich je Projekt wissen muss: zuletzt bestätigte Version,
+     der zuletzt abgeglichene Stand (für den Drei-Wege-Vergleich) und ob
+     noch etwas zu senden ist. Bewusst getrennt vom Projekt selbst - diese
+     Angaben gehören weder in einen Export noch auf den Server. */
+  var STORE_ABGLEICH = 'abgleich';
   var LS_PRAEFIX = 'aufmass.';
 
   var db = null;
@@ -31,6 +40,9 @@
         }
         if (!d.objectStoreNames.contains(STORE_META)) {
           d.createObjectStore(STORE_META, { keyPath: 'schluessel' });
+        }
+        if (!d.objectStoreNames.contains(STORE_ABGLEICH)) {
+          d.createObjectStore(STORE_ABGLEICH, { keyPath: 'id' });
         }
       };
       anfrage.onsuccess = function (e) { db = e.target.result; resolve(db); };
@@ -89,7 +101,15 @@
     });
   }
 
-  function projektSpeichern(projekt) {
+  /* Jede Speicherung meldet sich beim Abgleich - und zwar HIER, an der
+   * einen Stelle, durch die alle Wege laufen. Hinge die Meldung an den
+   * Aufrufern, würde sie beim nächsten neuen Weg (Import, Kopie, Übernahme
+   * aus Pipedrive) vergessen, und das Aufmaß bliebe still auf dem Gerät.
+   *
+   * Speichert der Abgleich selbst etwas, das er gerade empfangen hat, wird
+   * nicht gemeldet: Sonst schickte das Gerät sofort zurück, was es eben
+   * bekommen hat. */
+  function projektSpeichern(projekt, optionen) {
     projekt.geaendert = new Date().toISOString();
     return oeffnen().then(function (d) {
       if (!d) {
@@ -101,6 +121,11 @@
         return projekt;
       }
       return alsPromise(tx(STORE_PROJEKTE, 'readwrite').put(projekt)).then(function () { return projekt; });
+    }).then(function (gespeichert) {
+      if (global.Abgleich && !(optionen && optionen.vomAbgleich)) {
+        try { global.Abgleich.projektGeaendert(gespeichert); } catch (e) { /* nie im Weg stehen */ }
+      }
+      return gespeichert;
     });
   }
 
@@ -109,6 +134,56 @@
       if (!d) { global.localStorage.removeItem(LS_PRAEFIX + 'projekt.' + id); return true; }
       return alsPromise(tx(STORE_PROJEKTE, 'readwrite').delete(id)).then(function () { return true; });
     });
+  }
+
+  /* --- Abgleichstände ------------------------------------------------------ */
+  /* Je Projekt ein Satz: { id, version, basis, schmutzig, zuletzt, fehler }
+     'basis' ist der Stand, auf dem beide Seiten zuletzt übereinstimmten.
+     Ohne ihn ließe sich bei einem Konflikt nicht unterscheiden, wer was
+     geändert hat - und man müsste raten. */
+  function abgleichLesen(id) {
+    return oeffnen().then(function (d) {
+      if (!d) {
+        var roh = global.localStorage.getItem(LS_PRAEFIX + 'abgleich.' + id);
+        return roh ? JSON.parse(roh) : null;
+      }
+      return alsPromise(tx(STORE_ABGLEICH, 'readonly').get(id));
+    }).catch(function () { return null; });
+  }
+
+  function abgleichSchreiben(satz) {
+    if (!satz || !satz.id) return Promise.resolve(null);
+    return oeffnen().then(function (d) {
+      if (!d) {
+        try { global.localStorage.setItem(LS_PRAEFIX + 'abgleich.' + satz.id, JSON.stringify(satz)); }
+        catch (e) { /* Der Abgleich darf das Speichern nie blockieren */ }
+        return satz;
+      }
+      return alsPromise(tx(STORE_ABGLEICH, 'readwrite').put(satz)).then(function () { return satz; });
+    }).catch(function () { return satz; });
+  }
+
+  function abgleichAlle() {
+    return oeffnen().then(function (d) {
+      if (!d) {
+        var aus = [];
+        for (var i = 0; i < global.localStorage.length; i++) {
+          var k = global.localStorage.key(i);
+          if (k && k.indexOf(LS_PRAEFIX + 'abgleich.') === 0) {
+            try { aus.push(JSON.parse(global.localStorage.getItem(k))); } catch (e) {}
+          }
+        }
+        return aus.filter(Boolean);
+      }
+      return alsPromise(tx(STORE_ABGLEICH, 'readonly').getAll());
+    }).catch(function () { return []; });
+  }
+
+  function abgleichLoeschen(id) {
+    return oeffnen().then(function (d) {
+      if (!d) { global.localStorage.removeItem(LS_PRAEFIX + 'abgleich.' + id); return true; }
+      return alsPromise(tx(STORE_ABGLEICH, 'readwrite').delete(id)).then(function () { return true; });
+    }).catch(function () { return false; });
   }
 
   /* --- Einstellungen (Firmenkopf, Logo, eigene Systeme) -------------------- */
@@ -367,6 +442,10 @@
     projektLaden: projektLaden,
     projektSpeichern: projektSpeichern,
     projektLoeschen: projektLoeschen,
+    abgleichLesen: abgleichLesen,
+    abgleichSchreiben: abgleichSchreiben,
+    abgleichAlle: abgleichAlle,
+    abgleichLoeschen: abgleichLoeschen,
     einstellungenLaden: einstellungenLaden,
     einstellungenSpeichern: einstellungenSpeichern,
     EINSTELLUNGEN_STANDARD: EINSTELLUNGEN_STANDARD,

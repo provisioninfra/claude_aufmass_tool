@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Aufmaß">
+<meta name="theme-color" content="#02092b">
+<meta name="description" content="Aufmaß-Werkzeug für Schließanlagen und Zutrittslösungen mit PDF-Türliste und Kreuzschließplan.">
+<title>Aufmaß-Tool Schließanlagen</title>
+<script>
+/* Darstellung vor dem ersten Bild festlegen, damit beim Start nichts
+   aufblitzt. Der Wert liegt gespiegelt im einfachen Speicher, weil die
+   Datenbank mit den Einstellungen erst später antwortet. */
+(function () {
+  var wahl = 'dunkel';
+  try { wahl = localStorage.getItem('aufmass.erscheinungsbild') || wahl; } catch (e) {}
+  if (wahl === 'geraet') {
+    var dunkel = true;
+    try { dunkel = matchMedia('(prefers-color-scheme: dark)').matches; } catch (e2) {}
+    wahl = dunkel ? 'dunkel' : 'hell';
+  }
+  document.documentElement.setAttribute('data-darstellung', wahl === 'hell' ? 'hell' : 'dunkel');
+})();
+</script>
+<link rel="stylesheet" href="css/app.css">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+</head>
+<body>
+<div id="app">
+  <div style="padding:40px;text-align:center;color:#7b88a4;font:15px system-ui,sans-serif">
+    Anwendung wird geladen …
+  </div>
+</div>
+
+<script src="js/catalog.js"></script>
+<script src="js/model.js"></script>
+<script src="js/pdf.js"></script>
+<script src="js/reports.js"></script>
+<script src="js/store.js"></script>
+<!-- Abgleich mit der gemeinsamen Ablage. Diese drei Dateien sind der
+     EINZIGE Teil, der eine Serververbindung kennt. Die Einzeldatei
+     (dist/aufmass-tool.html) wird bewusst ohne sie gebaut und bleibt
+     damit vollständig eigenständig. -->
+<script src="js/zusammenfuehren.js"></script>
+<script src="js/abgleich.js"></script>
+<script src="js/verlauf.js"></script>
+<script src="js/freigabe.js"></script>
+<script src="js/pipedrive.js"></script>
+<script src="js/app.js"></script>
+<script src="js/views-projekt.js"></script>
+<script src="js/views-tueren.js"></script>
+<script src="js/views-plan.js"></script>
+<script src="js/abgleich-ui.js"></script>
+<script src="js/main.js"></script>
+<script>
+/* Offline-Bereitstellung; bei lokal geöffneter Datei (file://) nicht verfügbar
+   und dort auch nicht nötig, weil dann ohnehin alles lokal liegt. */
+if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function () { /* ohne Offline-Ablage weiterarbeiten */ });
+  });
+}
+</script>
+</body>
+</html>

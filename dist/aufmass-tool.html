@@ -204,6 +204,72 @@ header.kopf {
 .speicher-status.aktiv { color: var(--gruen); }
 .speicher-status .punkt { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 
+/* =============================================================================
+   Abgleich: Zustand, Anmeldung und Rückfragen
+   ========================================================================== */
+.abgleich-status {
+  display: flex; align-items: center; gap: 6px; white-space: nowrap;
+  background: var(--flaeche-2); border: 1px solid var(--rand);
+  border-radius: var(--radius-pille); padding: 7px 13px;
+  font-size: 12px; font-weight: 600; color: var(--text-schwach);
+  min-height: 36px; cursor: pointer; font-family: inherit;
+}
+.abgleich-status:hover { border-color: var(--akzent); }
+.abgleich-status .punkt { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+.abgleich-status.fertig  { color: var(--gruen); }
+.abgleich-status.offen   { color: var(--gelb); }
+.abgleich-status.laeuft  { color: var(--akzent); }
+.abgleich-status.laeuft .punkt { animation: pulsieren 1.1s ease-in-out infinite; }
+.abgleich-status.offline { color: var(--text-zart); }
+.abgleich-status.aus     { color: var(--text-zart); }
+.abgleich-status.frage   { color: var(--auf-hausfarbe); background: var(--hausfarbe); border-color: var(--hausfarbe); }
+@keyframes pulsieren { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+.anmelde-seite { display: flex; justify-content: center; padding: 20px 0 60px; }
+.anmelde-karte {
+  background: var(--flaeche); border: 1px solid var(--rand); border-radius: var(--radius);
+  box-shadow: var(--schatten); padding: 30px; max-width: 480px; width: 100%; text-align: center;
+}
+.anmelde-karte .logo { max-height: 54px; max-width: 220px; margin-bottom: 14px; }
+.anmelde-karte h1 { font-size: 22px; margin-bottom: 2px; }
+.anmelde-karte h2 { border: 0; padding: 0; }
+.anmelde-karte p { margin: 0 0 10px; }
+.anmelde-karte .meldung { text-align: left; }
+.google-knopf { display: flex; justify-content: center; min-height: 44px; }
+
+.liste-schlicht { list-style: none; margin: 12px 0; padding: 0; }
+.liste-schlicht li {
+  padding: 9px 0; border-bottom: 1px solid var(--rand-zart); font-size: 14px;
+}
+.liste-schlicht li:last-child { border-bottom: 0; }
+
+.konflikt-liste { display: flex; flex-direction: column; gap: 12px; }
+.konflikt {
+  border: 1px solid var(--rand); border-radius: var(--radius-klein);
+  padding: 12px; background: var(--flaeche-2);
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.konflikt .wo { grid-column: 1 / -1; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.konflikt .bereich {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--text-zart); background: var(--flaeche-3); padding: 2px 7px; border-radius: 4px;
+}
+.konflikt .fassung {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+  text-align: left; padding: 10px 12px; min-height: var(--tap);
+  border: 2px solid var(--rand); border-radius: var(--radius-klein);
+  background: var(--flaeche); color: var(--text); font-family: inherit; cursor: pointer;
+}
+.konflikt .fassung:hover { border-color: var(--akzent); }
+.konflikt .fassung.gewaehlt { border-color: var(--hausfarbe); background: var(--hausfarbe-flaeche); }
+.konflikt .fassung .herkunft { font-size: 11px; font-weight: 700; color: var(--text-zart); }
+.konflikt .fassung.gewaehlt .herkunft { color: var(--text-schwach); }
+.konflikt .fassung .wert { font-size: 15px; font-weight: 600; word-break: break-word; }
+@media (max-width: 560px) {
+  .konflikt { grid-template-columns: 1fr; }
+  .anmelde-karte { padding: 22px 18px; }
+}
+
 nav.reiter {
   display: flex; gap: 2px; padding: 0 10px; background: var(--flaeche);
   border-bottom: 1px solid var(--rand); overflow-x: auto; z-index: 25;
@@ -4993,15 +5059,24 @@ body.stift .zahl-knopf { min-width: 56px; }
 /* =============================================================================
  * store.js — Persistenz (IndexedDB mit localStorage-Rückfallebene),
  *            Export/Import und Bildverarbeitung.
- * Alles läuft ausschließlich auf dem Gerät; es werden keine Daten übertragen.
+ *
+ * Die Ablage auf dem Gerät ist und bleibt die führende: Das Werkzeug
+ * arbeitet vollständig ohne Netz. Ist der Abgleich eingerichtet (siehe
+ * abgleich.js), wird zusätzlich mit dem Server abgeglichen - aber erst,
+ * nachdem hier gespeichert wurde, und nie als Voraussetzung dafür.
  * ========================================================================== */
 (function (global) {
   'use strict';
 
   var DB_NAME = 'aufmass-tool';
-  var DB_VERSION = 1;
+  var DB_VERSION = 2;
   var STORE_PROJEKTE = 'projekte';
   var STORE_META = 'meta';
+  /* Was der Abgleich je Projekt wissen muss: zuletzt bestätigte Version,
+     der zuletzt abgeglichene Stand (für den Drei-Wege-Vergleich) und ob
+     noch etwas zu senden ist. Bewusst getrennt vom Projekt selbst - diese
+     Angaben gehören weder in einen Export noch auf den Server. */
+  var STORE_ABGLEICH = 'abgleich';
   var LS_PRAEFIX = 'aufmass.';
 
   var db = null;
@@ -5023,6 +5098,9 @@ body.stift .zahl-knopf { min-width: 56px; }
         }
         if (!d.objectStoreNames.contains(STORE_META)) {
           d.createObjectStore(STORE_META, { keyPath: 'schluessel' });
+        }
+        if (!d.objectStoreNames.contains(STORE_ABGLEICH)) {
+          d.createObjectStore(STORE_ABGLEICH, { keyPath: 'id' });
         }
       };
       anfrage.onsuccess = function (e) { db = e.target.result; resolve(db); };
@@ -5081,7 +5159,15 @@ body.stift .zahl-knopf { min-width: 56px; }
     });
   }
 
-  function projektSpeichern(projekt) {
+  /* Jede Speicherung meldet sich beim Abgleich - und zwar HIER, an der
+   * einen Stelle, durch die alle Wege laufen. Hinge die Meldung an den
+   * Aufrufern, würde sie beim nächsten neuen Weg (Import, Kopie, Übernahme
+   * aus Pipedrive) vergessen, und das Aufmaß bliebe still auf dem Gerät.
+   *
+   * Speichert der Abgleich selbst etwas, das er gerade empfangen hat, wird
+   * nicht gemeldet: Sonst schickte das Gerät sofort zurück, was es eben
+   * bekommen hat. */
+  function projektSpeichern(projekt, optionen) {
     projekt.geaendert = new Date().toISOString();
     return oeffnen().then(function (d) {
       if (!d) {
@@ -5093,6 +5179,11 @@ body.stift .zahl-knopf { min-width: 56px; }
         return projekt;
       }
       return alsPromise(tx(STORE_PROJEKTE, 'readwrite').put(projekt)).then(function () { return projekt; });
+    }).then(function (gespeichert) {
+      if (global.Abgleich && !(optionen && optionen.vomAbgleich)) {
+        try { global.Abgleich.projektGeaendert(gespeichert); } catch (e) { /* nie im Weg stehen */ }
+      }
+      return gespeichert;
     });
   }
 
@@ -5101,6 +5192,56 @@ body.stift .zahl-knopf { min-width: 56px; }
       if (!d) { global.localStorage.removeItem(LS_PRAEFIX + 'projekt.' + id); return true; }
       return alsPromise(tx(STORE_PROJEKTE, 'readwrite').delete(id)).then(function () { return true; });
     });
+  }
+
+  /* --- Abgleichstände ------------------------------------------------------ */
+  /* Je Projekt ein Satz: { id, version, basis, schmutzig, zuletzt, fehler }
+     'basis' ist der Stand, auf dem beide Seiten zuletzt übereinstimmten.
+     Ohne ihn ließe sich bei einem Konflikt nicht unterscheiden, wer was
+     geändert hat - und man müsste raten. */
+  function abgleichLesen(id) {
+    return oeffnen().then(function (d) {
+      if (!d) {
+        var roh = global.localStorage.getItem(LS_PRAEFIX + 'abgleich.' + id);
+        return roh ? JSON.parse(roh) : null;
+      }
+      return alsPromise(tx(STORE_ABGLEICH, 'readonly').get(id));
+    }).catch(function () { return null; });
+  }
+
+  function abgleichSchreiben(satz) {
+    if (!satz || !satz.id) return Promise.resolve(null);
+    return oeffnen().then(function (d) {
+      if (!d) {
+        try { global.localStorage.setItem(LS_PRAEFIX + 'abgleich.' + satz.id, JSON.stringify(satz)); }
+        catch (e) { /* Der Abgleich darf das Speichern nie blockieren */ }
+        return satz;
+      }
+      return alsPromise(tx(STORE_ABGLEICH, 'readwrite').put(satz)).then(function () { return satz; });
+    }).catch(function () { return satz; });
+  }
+
+  function abgleichAlle() {
+    return oeffnen().then(function (d) {
+      if (!d) {
+        var aus = [];
+        for (var i = 0; i < global.localStorage.length; i++) {
+          var k = global.localStorage.key(i);
+          if (k && k.indexOf(LS_PRAEFIX + 'abgleich.') === 0) {
+            try { aus.push(JSON.parse(global.localStorage.getItem(k))); } catch (e) {}
+          }
+        }
+        return aus.filter(Boolean);
+      }
+      return alsPromise(tx(STORE_ABGLEICH, 'readonly').getAll());
+    }).catch(function () { return []; });
+  }
+
+  function abgleichLoeschen(id) {
+    return oeffnen().then(function (d) {
+      if (!d) { global.localStorage.removeItem(LS_PRAEFIX + 'abgleich.' + id); return true; }
+      return alsPromise(tx(STORE_ABGLEICH, 'readwrite').delete(id)).then(function () { return true; });
+    }).catch(function () { return false; });
   }
 
   /* --- Einstellungen (Firmenkopf, Logo, eigene Systeme) -------------------- */
@@ -5359,6 +5500,10 @@ body.stift .zahl-knopf { min-width: 56px; }
     projektLaden: projektLaden,
     projektSpeichern: projektSpeichern,
     projektLoeschen: projektLoeschen,
+    abgleichLesen: abgleichLesen,
+    abgleichSchreiben: abgleichSchreiben,
+    abgleichAlle: abgleichAlle,
+    abgleichLoeschen: abgleichLoeschen,
     einstellungenLaden: einstellungenLaden,
     einstellungenSpeichern: einstellungenSpeichern,
     EINSTELLUNGEN_STANDARD: EINSTELLUNGEN_STANDARD,
@@ -6517,6 +6662,8 @@ body.stift .zahl-knopf { min-width: 56px; }
       Zustand.ungesichert = false;
       Zustand.speichertGerade = false;
       statusAnzeigen('gesichert');
+      /* Die Meldung an den Abgleich geschieht in Store.projektSpeichern -
+         dort laufen alle Speicherwege zusammen. */
     }).catch(function (e) {
       Zustand.speichertGerade = false;
       statusAnzeigen('fehler');
@@ -6941,6 +7088,10 @@ body.stift .zahl-knopf { min-width: 56px; }
                       if (Zustand.projekt && Zustand.projekt.id === p.id) {
                         Zustand.projekt = null; Zustand.ansicht = 'projekte';
                         if (global.Verlauf) global.Verlauf.beenden();
+                      }
+                      /* Auch auf den anderen Geräten entfernen */
+                      if (global.Abgleich) {
+                        try { global.Abgleich.projektGeloescht(p.id); } catch (e2) {}
                       }
                       A.toast('Projekt gelöscht.'); neuLaden();
                     });
@@ -7523,6 +7674,12 @@ body.stift .zahl-knopf { min-width: 56px; }
         })
       ])
     ]));
+
+    /* Nur in der abgeglichenen Fassung: Wer darf dieses Aufmaß ändern? */
+    if (global.AbgleichUI) {
+      var karte = global.AbgleichUI.zustaendigeKarte(p);
+      if (karte) { seite.appendChild(karte); }
+    }
   }
 
   /* =========================================================================
@@ -10451,6 +10608,8 @@ body.stift .zahl-knopf { min-width: 56px; }
         el('span', { text: [p.objekt, p.anlagenNr && ('Anlage ' + p.anlagenNr)].filter(Boolean).join('  ·  ') })
       ] : [el('span', { class: 'zart', text: 'Kein Projekt geöffnet' })]),
       p ? zurueckKnopfBauen() : (function () { zurueckKnopf = null; return null; })(),
+      /* Nur in der abgeglichenen Fassung vorhanden */
+      global.AbgleichUI ? global.AbgleichUI.statusKnoten() : null,
       el('div', { class: 'speicher-status', id: 'speicher-status' })
     ]));
 
@@ -10483,6 +10642,14 @@ body.stift .zahl-knopf { min-width: 56px; }
     var haupt = el('main', { class: 'inhalt' });
     wurzel.appendChild(haupt);
     A.toastBereich();      /* hängt am Dokument, nicht an der Ansicht */
+
+    /* Solange die gemeinsame Ablage eine Anmeldung erwartet, steht hier
+       die Anmeldung. Ohne Netz oder nach "ohne Abgleich weiterarbeiten"
+       geht es wie gewohnt weiter - das Werkzeug sperrt niemanden aus. */
+    if (global.AbgleichUI && global.AbgleichUI.brauchtAnmeldung()) {
+      global.AbgleichUI.anmeldeSeite(haupt, eins);
+      return;
+    }
 
     /* Die häufigste Aktion der jeweiligen Ansicht liegt als schwebender
      * Knopf in der Daumenzone - so ist sie mit einer Hand erreichbar. */
@@ -10658,6 +10825,11 @@ body.stift .zahl-knopf { min-width: 56px; }
       zeichnen();
       if (Store.nutztFallback()) {
         A.toast('Hinweis: Dieser Browser erlaubt keine Datenbank. Es wird der einfache Speicher genutzt – bitte häufiger exportieren.', 'fehler');
+      }
+      /* Der Abgleich wird nachgelagert aufgebaut: Das Werkzeug ist schon
+         bedienbar, bevor der Server geantwortet hat. */
+      if (global.AbgleichUI) {
+        global.AbgleichUI.starten(zeichnen).then(function () { zeichnen(); });
       }
     });
   }
