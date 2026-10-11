@@ -1098,6 +1098,26 @@
       logoVorschau
     ]));
 
+    /* --- Erscheinungsbild --------------------------------------------- */
+    seite.appendChild(el('div', { class: 'karte' }, [
+      el('h2', { text: 'Erscheinungsbild' }),
+      el('p', { class: 'hinweis',
+        text: 'Die dunkle Darstellung entspricht dem Auftritt von provision-infra.de. ' +
+              'Bei Sonne auf der Baustelle ist die helle oft besser abzulesen.' }),
+      el('div', { class: 'raster' }, [
+        A.auswahlFeld(e, 'erscheinungsbild', 'Darstellung', [
+          { id: 'dunkel', label: 'Dunkel  (wie unsere Website)' },
+          { id: 'hell',   label: 'Hell  (bei Sonne besser lesbar)' },
+          { id: 'geraet', label: 'Wie das Gerät' }
+        ], { leerText: '– Dunkel –', beiAenderung: function (wert) {
+          merken();
+          global.App.darstellungAnwenden(wert || 'dunkel');
+        } })
+      ]),
+      el('p', { class: 'zart', style: { marginTop: '8px' },
+        text: 'Die PDF-Ausgaben bleiben davon unberührt – gedruckt wird auf Weiß.' })
+    ]));
+
     /* --- Apple Pencil und Handschrift --------------------------------- */
     seite.appendChild(el('div', { class: 'karte' }, [
       el('h2', { text: 'Apple Pencil und Handschrift' }),

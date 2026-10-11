@@ -234,6 +234,57 @@ Wer stattdessen in der Türliste nach einem Bereich filtert, bekommt neue
 Türen ebenfalls gleich diesem Bereich zugeordnet – derselbe Gedanke, zweiter
 Weg.
 
+## Erscheinungsbild
+
+Farben und Formen sind von **provision-infra.de** abgenommen. Die Werte sind
+aus Bildschirmaufnahmen der Website ausgelesen, nicht geschätzt:
+
+| Rolle | Wert | Verwendung |
+|---|---|---|
+| Hausfarbe (Gold) | `#fcc91d` | gefüllte Hauptaktionen, gewählte Zustände |
+| Schrift darauf | `#0a1637` | dunkles Navy auf Gold |
+| Seitengrund | `#02092b` | Grundfläche der dunklen Darstellung |
+| Karte | `#0a1637` | Inhaltskarten |
+| Karte, zweite Ebene | `#131f40` | verschachtelte Karten, Leisten |
+
+Dazu die Formensprache der Website: Knöpfe als **Pillen**, Karten mit 16 px
+Rundung, kräftige Überschriften mit enger Laufweite.
+
+**Gold trägt die Hauptaktion, nie die Fließschrift.** Auf Weiß erreicht Gold
+nur 1,6:1 Kontrast und wäre nicht zu lesen. Für Schrift, Linien und den
+aktiven Reiter gilt deshalb `--akzent`: in der dunklen Darstellung ebenfalls
+Gold (wie auf der Website), in der hellen das Marken-Navy `#14306e`.
+
+### Hell, dunkel oder wie das Gerät
+
+*Einstellungen → Erscheinungsbild*. Vorbelegt ist **dunkel** – das ist der
+Auftritt der Website. Bei Sonne auf der Baustelle ist die helle Darstellung
+oft besser abzulesen; sie ist ebenso markengetreu (Navy-Schrift, goldene
+Hauptaktion). Die Wahl wird vor dem ersten Bild angewandt, damit beim Start
+nichts aufblitzt.
+
+Die **Kundenfreigabe-Seite** trägt dasselbe Erscheinungsbild, folgt aber dem
+Gerät des Kunden – sie hat keine Einstellungen.
+
+Die **PDF-Ausgaben** bleiben davon unberührt: Gedruckt wird auf Weiß, mit
+Marken-Navy für Überschriften und Linien und einem schmalen goldenen Streifen
+unter dem Seitenkopf.
+
+### Zur Schrift
+
+Die Website nutzt eine geometrische Grotesk. Das Werkzeug lädt bewusst
+**keine Schrift aus dem Netz** – es muss ohne Verbindung starten, und der
+Build weist jeden externen Verweis zurück. Verwendet wird deshalb die
+nächstliegende Schrift, die auf jedem iPad und Mac bereitliegt:
+*Avenir Next*, mit Segoe UI und der Systemschrift als Rückfall. Soll die
+echte Hausschrift verwendet werden, müssen die Schriftdateien (`.woff2`)
+beiliegen; sie werden dann in die Datei eingebettet.
+
+`tests/test-erscheinungsbild.js` prüft mit 40 Nachweisen, dass die gemessenen
+Hausfarben in der Gestaltung stehen, jede Schriftfarbe in beiden
+Darstellungen den Kontrast nach WCAG AA erreicht, die Wahl den Neustart
+überlebt und Gold auf Papier nicht als Schriftfarbe auftaucht.
+
 ## Bedienung mit dem Apple Pencil
 
 **Handschrift wird von iPadOS umgesetzt, nicht von diesem Werkzeug.** Apples
@@ -493,6 +544,7 @@ Die Testreihen prüfen:
 | `test-bereich-gruppen.js` | Bereich aus der Gliederung öffnen und dort Türen erfassen, Pflichtangaben und ihre Folgen für den Status, freiwillige Felder, Einzelpersonen und Gruppen samt errechneter Medienanzahl |
 | `test-exportlisten.js` | Materialliste: keine Doppelungen, Mengen stimmen mit dem Aufmaß überein, eigene Maßspalten je Bauteilart und die Leerspalten im erzeugten Dokument |
 | `test-bedienung.js` | Größe aller Bedienelemente (≥ 44 px), Schriftgröße der Eingabefelder (≥ 16 px gegen das Hineinzoomen auf iOS), Daumenzone, kein seitliches Scrollen |
+| `test-erscheinungsbild.js` | Hausfarben, Kontraste nach WCAG AA in beiden Darstellungen, Wahl der Darstellung samt Beständigkeit, Kundenseite, Farben auf dem Papier |
 | `test-stift.js` | Bedienbarkeit mit dem Apple Pencil: kein Zahlenfeld in irgendeiner Ansicht, feste Maße als Auswahl, Stückzahlen als Zähler, Schreibprobe in jedem Feld jedes Dialogs, Stiftmodus, kein stiller Datenverlust in Auswahllisten |
 | `test-standalone.js` | Einzeldatei aus `dist/`: startet per `file://`, stellt nachweislich keine einzige Netzanfrage |
 | `test-ueberall.js` | Einzeldatei per Doppelklick, von einer Website und als Einbettung — je mit Datenerhalt nach dem Neuladen |

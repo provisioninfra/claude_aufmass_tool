@@ -6,9 +6,24 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Aufmaß">
-<meta name="theme-color" content="#1a4b8c">
+<meta name="theme-color" content="#02092b">
 <meta name="description" content="Aufmaß-Werkzeug für Schließanlagen und Zutrittslösungen mit PDF-Türliste und Kreuzschließplan.">
 <title>Aufmaß-Tool Schließanlagen</title>
+<script>
+/* Darstellung vor dem ersten Bild festlegen, damit beim Start nichts
+   aufblitzt. Der Wert liegt gespiegelt im einfachen Speicher, weil die
+   Datenbank mit den Einstellungen erst später antwortet. */
+(function () {
+  var wahl = 'dunkel';
+  try { wahl = localStorage.getItem('aufmass.erscheinungsbild') || wahl; } catch (e) {}
+  if (wahl === 'geraet') {
+    var dunkel = true;
+    try { dunkel = matchMedia('(prefers-color-scheme: dark)').matches; } catch (e2) {}
+    wahl = dunkel ? 'dunkel' : 'hell';
+  }
+  document.documentElement.setAttribute('data-darstellung', wahl === 'hell' ? 'hell' : 'dunkel');
+})();
+</script>
 <link rel="stylesheet" href="css/app.css">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -17,7 +32,7 @@
 </head>
 <body>
 <div id="app">
-  <div style="padding:40px;text-align:center;color:#5c6670;font:15px system-ui,sans-serif">
+  <div style="padding:40px;text-align:center;color:#7b88a4;font:15px system-ui,sans-serif">
     Anwendung wird geladen …
   </div>
 </div>

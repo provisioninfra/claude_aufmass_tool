@@ -138,6 +138,9 @@
      * Vor Ort die Regel, deshalb vorbelegt; im Büro abschaltbar, dort ist
      * eine kompakte Ansicht angenehmer. */
     stiftModus: true,
+    /* 'dunkel' entspricht dem Erscheinungsbild der Website, 'hell' ist bei
+     * Sonne auf der Baustelle besser lesbar, 'geraet' folgt dem iPad. */
+    erscheinungsbild: 'dunkel',
     letztesProjekt: ''
   };
 

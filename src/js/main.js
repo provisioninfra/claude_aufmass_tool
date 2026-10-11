@@ -34,6 +34,7 @@
     /* Im Stiftmodus sind alle Schreibflächen größer - Handschrift braucht
      * mehr Platz als eine Tastatureingabe. */
     document.body.classList.toggle('stift', eins.stiftModus !== false);
+    darstellungAnwenden(eins.erscheinungsbild);
     wurzel.appendChild(el('header', { class: 'kopf' }, [
       eins.logoDataUrl
         ? el('img', { class: 'logo', src: eins.logoDataUrl, alt: eins.firma || 'Firmenlogo' })
@@ -134,6 +135,34 @@
     haupt.scrollTop = scrollPos;
   }
 
+  /* =========================================================================
+   * Darstellung: hell, dunkel oder wie das Gerät
+   * ======================================================================
+   * Die Wahl wird hier aufgelöst und als data-darstellung an <html>
+   * geschrieben; die Gestaltung kennt deshalb nur noch "hell" und "dunkel".
+   * Zusätzlich liegt sie im einfachen Speicher, damit das kurze Skript im
+   * Kopf der Seite sie schon vor dem ersten Bild kennt.
+   */
+  function darstellungAnwenden(wahl) {
+    var w = wahl || 'dunkel';
+    try { localStorage.setItem('aufmass.erscheinungsbild', w); } catch (e) { /* ohne Speicher */ }
+    if (w === 'geraet') {
+      var dunkel = true;
+      try { dunkel = matchMedia('(prefers-color-scheme: dark)').matches; } catch (e2) {}
+      w = dunkel ? 'dunkel' : 'hell';
+    }
+    document.documentElement.setAttribute('data-darstellung', w === 'hell' ? 'hell' : 'dunkel');
+  }
+
+  /* Wechselt das Gerät die Darstellung, zieht die Anwendung mit - aber nur,
+   * wenn "Wie das Gerät" gewählt ist. */
+  try {
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
+      var e = Zustand.einstellungen || {};
+      if ((e.erscheinungsbild || 'dunkel') === 'geraet') darstellungAnwenden('geraet');
+    });
+  } catch (e) { /* ältere Browser kennen das nicht */ }
+
   /* Knopf zum Zurücknehmen des letzten Arbeitsschritts. Steht überall
    * innerhalb eines Projekts zur Verfügung und lässt sich beliebig oft
    * betätigen, solange Schritte vorliegen. */
@@ -159,7 +188,10 @@
     var V = global.Verlauf;
     var moeglich = !!(V && V.moeglich());
     var was = moeglich ? V.naechsteBeschreibung() : '';
-    zurueckKnopf.className = 'zurueck-knopf' + (moeglich ? '' : ' leer');
+    /* Nicht "leer" nennen: diese Klasse gehört dem Leerzustand einer ganzen
+     * Ansicht (gestrichelter Rahmen, viel Innenabstand) und hat den Knopf
+     * bisher zu einem großen gestrichelten Kasten gemacht. */
+    zurueckKnopf.className = 'zurueck-knopf' + (moeglich ? '' : ' ohne-schritte');
     zurueckKnopf.disabled = !moeglich;
     zurueckKnopf.title = moeglich
       ? ('Zurücknehmen: ' + was + '  (' + V.anzahl() + ' Schritte möglich)')
@@ -227,7 +259,8 @@
     });
   }
 
-  global.App = { zeichnen: zeichnen, wechseln: wechseln, starten: starten };
+  global.App = { zeichnen: zeichnen, wechseln: wechseln, starten: starten,
+                 darstellungAnwenden: darstellungAnwenden };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', starten);

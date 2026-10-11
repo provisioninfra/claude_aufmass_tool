@@ -4,66 +4,108 @@
    ========================================================================== */
 
 /* -----------------------------------------------------------------------------
-   HAUSFARBE ÄNDERN
-   Die Hausfarbe steht an sechs Stellen. Wer sie ändert, muss alle sechs
-   anfassen - sonst bleibt irgendwo das alte Blau stehen:
-     1. hier: --akzent, --akzent-hell, --akzent-bg, --akzent-flaeche, --auf-akzent
-     2. hier: derselbe Satz im Block für die dunkle Darstellung
-     3. src/js/reports.js  -> FARBE.akzent  (die Farbe auf dem Papier)
+   ERSCHEINUNGSBILD — abgenommen von provision-infra.de
+   ----------------------------------------------------------------------------
+   Gemessen aus Bildschirmaufnahmen der Website, nicht geschätzt:
+     Gold (Hauptaktion)     #fcc91d   Knopffläche
+     Seitengrund dunkel     #02092b   Grundfläche der Seite
+     Karte                  #0a1637   Inhaltskarten
+     Karte, zweite Ebene    #131f40   verschachtelte Karten
+     Leiste / Navigation    #252c44   Navigationspille
+
+   Gold trägt die gefüllten Hauptaktionen (--hausfarbe), dunkles Navy steht
+   darauf (--auf-hausfarbe). Für Schrift, Linien und den aktiven Reiter gilt
+   --akzent: in der dunklen Darstellung ebenfalls Gold - wie auf der Website -,
+   in der hellen das Marken-Navy, weil Gold auf Weiß nicht zu lesen wäre.
+
+   DIE HAUSFARBE STEHT AN SECHS STELLEN. Wer sie ändert, muss alle anfassen:
+     1. hier: der helle Satz
+     2. hier: der dunkle Satz
+     3. src/js/reports.js  -> FARBE  (die Farben auf dem Papier)
      4. src/index.html     -> <meta name="theme-color">
      5. src/manifest.webmanifest -> theme_color
-     6. src/icon.svg       -> Hintergrund; danach `node tools/icons-erzeugen.js`
+     6. src/icon.svg       -> danach `node tools/icons-erzeugen.js`
    -------------------------------------------------------------------------- */
-:root {
-  --akzent:        #1a4b8c;
-  --akzent-hell:   #2a6ac0;
-  --akzent-bg:     #eaf1fa;
-  /* Zarte Fläche aus der Hausfarbe - etwa die gesetzten Felder der Matrix.
-     Sie steht ausgeschrieben da und nicht errechnet, damit sie in jedem
-     Browser gleich aussieht; beim Wechsel der Hausfarbe mit anpassen. */
-  --akzent-flaeche: rgba(26, 75, 140, .10);
-  /* Schrift auf der Hausfarbe. Bei einer hellen Hausfarbe gehört hier ein
-     dunkler Wert hin, sonst ist der Text darauf nicht zu lesen. */
+
+/* Die Darstellung wird von der Anwendung aufgelöst und als data-darstellung
+   an <html> geschrieben ("hell" oder "dunkel"). Die Einstellung "Wie das
+   Gerät" wird dabei über prefers-color-scheme in einen der beiden Werte
+   übersetzt - so steht jeder Satz hier genau einmal. */
+:root,
+:root[data-darstellung="hell"] {
+  /* --- Hausfarbe: gefüllte Hauptaktionen ---------------------------------- */
+  --hausfarbe:      #fcc91d;
+  --hausfarbe-hell: #ffd84a;
+  --auf-hausfarbe:  #0a1637;
+  --hausfarbe-flaeche: rgba(252, 201, 29, .18);
+
+  /* --- Akzent: Schrift, Linien, aktiver Reiter ---------------------------- */
+  --akzent:        #14306e;
+  --akzent-hell:   #1d4499;
+  --akzent-bg:     #e7ecf8;
+  --akzent-flaeche: rgba(20, 48, 110, .10);
   --auf-akzent:    #ffffff;
-  --text:          #1a1f26;
-  --text-schwach:  #5c6670;
-  --text-zart:     #8d969e;
+
+  --text:          #0a1637;
+  --text-schwach:  #46557f;
+  --text-zart:     #7985a3;
   --flaeche:       #ffffff;
-  --flaeche-2:     #f5f7f9;
-  --flaeche-3:     #eef1f4;
-  --rand:          #d6dce2;
-  --rand-zart:     #e6eaee;
-  --gruen:         #1f7a3d;
-  --gelb:          #b3721e;
+  --flaeche-2:     #eef2f9;
+  --flaeche-3:     #e5ebf6;
+  --rand:          #ccd6e8;
+  --rand-zart:     #e2e9f4;
+  --gruen:         #1b7a44;
+  --gelb:          #a8600f;
   --rot:           #b3261e;
-  --schatten:      0 1px 3px rgba(20,30,45,.10), 0 6px 18px rgba(20,30,45,.06);
-  --radius:        10px;
-  --radius-klein:  7px;
+  --schleier:      rgba(2, 9, 43, .58);
+  --schatten:      0 1px 3px rgba(10, 22, 55, .10), 0 8px 24px rgba(10, 22, 55, .08);
+}
+
+:root[data-darstellung="dunkel"] {
+  --hausfarbe:      #fcc91d;
+  --hausfarbe-hell: #ffd84a;
+  --auf-hausfarbe:  #0a1637;
+  --hausfarbe-flaeche: rgba(252, 201, 29, .18);
+
+  /* In der dunklen Darstellung ist der Akzent ebenfalls Gold - genau so
+     setzt die Website Überschriften und Hervorhebungen. */
+  --akzent:        #fcc91d;
+  --akzent-hell:   #ffd84a;
+  --akzent-bg:     rgba(252, 201, 29, .13);
+  --akzent-flaeche: rgba(252, 201, 29, .18);
+  --auf-akzent:    #0a1637;
+
+  --text:          #f4f7fd;
+  --text-schwach:  #aab6ce;
+  --text-zart:     #7b88a4;
+  --flaeche:       #0a1637;
+  --flaeche-2:     #02092b;
+  --flaeche-3:     #131f40;
+  --rand:          #2a3558;
+  --rand-zart:     #1b2748;
+  --gruen:         #45c07a;
+  /* Warnungen in Orange, damit sie nicht mit der goldenen Hausfarbe
+     verwechselt werden - die steht für Hauptaktionen, nicht für Hinweise. */
+  --gelb:          #f0893c;
+  --rot:           #f2655c;
+  --schleier:      rgba(0, 4, 18, .66);
+  --schatten:      0 1px 3px rgba(0, 0, 0, .45), 0 10px 28px rgba(0, 0, 0, .40);
+}
+
+/* Form und Maße gelten in beiden Darstellungen */
+:root {
+  --radius:        16px;
+  --radius-klein:  12px;
+  --radius-pille:  999px;
   --tap:           48px;          /* Mindestgröße für Touch-Ziele (Einhandbedienung) */
   --tap-gross:     56px;          /* Hauptaktionen */
   --daumen:        env(safe-area-inset-bottom);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --akzent:        #6fa8ee;
-    --akzent-hell:   #8cbcf5;
-    --akzent-bg:     #1b2836;
-    --akzent-flaeche: rgba(111, 168, 238, .16);
-    --auf-akzent:    #0d1219;
-    --text:          #e7ecf1;
-    --text-schwach:  #a4aeb8;
-    --text-zart:     #79838d;
-    --flaeche:       #151b22;
-    --flaeche-2:     #1b222b;
-    --flaeche-3:     #232c36;
-    --rand:          #333d48;
-    --rand-zart:     #28313b;
-    --gruen:         #4ec27a;
-    --gelb:          #e0a445;
-    --rot:           #ef6b62;
-    --schatten:      0 1px 3px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.3);
-  }
+  /* Geometrische Grotesk, der Schrift der Website nahe. Es wird bewusst
+     keine Schrift aus dem Netz geladen: Das Werkzeug muss ohne Verbindung
+     starten. Avenir Next liegt auf jedem iPad und Mac bereit. */
+  --schrift: "Avenir Next", Avenir, "Segoe UI Variable Text", "Segoe UI",
+             system-ui, -apple-system, BlinkMacSystemFont, Roboto,
+             "Helvetica Neue", Arial, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -71,7 +113,7 @@
 html, body {
   margin: 0; padding: 0; height: 100%;
   background: var(--flaeche-2); color: var(--text);
-  font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font: 15px/1.5 var(--schrift);
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
@@ -101,10 +143,13 @@ header.kopf {
 /* --- Zurück-Knopf: überall im Projekt erreichbar ------------------------ */
 .zurueck-knopf {
   display: inline-flex; align-items: center; gap: 7px;
-  min-height: var(--tap); padding: 8px 14px;
-  border: 1px solid var(--rand); border-radius: var(--radius-klein);
+  min-height: var(--tap); padding: 8px 16px;
+  border: 1px solid var(--rand); border-radius: var(--radius-pille);
   background: var(--flaeche); color: var(--text);
   font-size: 14.5px; font-weight: 600; flex-shrink: 0;
+  /* Ohne das streckt sich der Knopf über die ganze Höhe der Kopfzeile -
+     die Kopfzeile ist ein Flexkasten und streckt ihre Kinder. */
+  align-self: center;
 }
 .zurueck-knopf .pfeil { font-size: 19px; line-height: 1; }
 .zurueck-knopf .zahl {
@@ -112,7 +157,7 @@ header.kopf {
   background: var(--akzent-bg); color: var(--akzent);
 }
 .zurueck-knopf:hover:not(:disabled) { border-color: var(--akzent); color: var(--akzent); }
-.zurueck-knopf.leer { opacity: .4; }
+.zurueck-knopf.ohne-schritte { opacity: .4; }
 .zurueck-knopf:disabled { cursor: not-allowed; }
 @media (max-width: 700px) {
   .zurueck-knopf .beschriftung { display: none; }
@@ -135,12 +180,18 @@ nav.reiter {
 nav.reiter::-webkit-scrollbar { display: none; }
 nav.reiter button {
   appearance: none; border: 0; background: transparent; color: var(--text-schwach);
-  padding: 13px 16px; font-size: 15px; font-weight: 600; cursor: pointer;
+  padding: 13px 13px; font-size: 14.5px; font-weight: 700; cursor: pointer;
+  letter-spacing: -.005em;
   touch-action: manipulation;
   border-bottom: 3px solid transparent; white-space: nowrap; min-height: var(--tap);
   font-family: inherit;
 }
 nav.reiter button[aria-selected="true"] { color: var(--akzent); border-bottom-color: var(--akzent); }
+/* Am rechten Rand andeuten, dass die Leiste weitergeht - sonst sieht ein
+   abgeschnittener Reiter nach einem Fehler aus. */
+nav.reiter { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 18px), transparent);
+             mask-image: linear-gradient(to right, #000 calc(100% - 18px), transparent); }
+@media (min-width: 1100px) { nav.reiter { -webkit-mask-image: none; mask-image: none; } }
 nav.reiter button:disabled { opacity: .35; cursor: not-allowed; }
 nav.reiter button .zahl {
   display: inline-block; margin-left: 6px; padding: 1px 6px; font-size: 11px;
@@ -155,10 +206,12 @@ main.inhalt {
 .seite.breit { max-width: none; }
 
 /* --- Typografie ---------------------------------------------------------- */
-h1 { font-size: 21px; margin: 0 0 4px; }
-h2 { font-size: 16px; margin: 22px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--rand-zart); }
+h1 { font-size: 23px; font-weight: 700; letter-spacing: -.015em; margin: 0 0 5px; }
+h2 { font-size: 17px; font-weight: 700; letter-spacing: -.01em; margin: 24px 0 11px;
+     padding-bottom: 7px; border-bottom: 1px solid var(--rand-zart); }
 h2:first-child { margin-top: 0; }
-h3 { font-size: 14px; margin: 16px 0 8px; color: var(--text-schwach); }
+h3 { font-size: 14px; font-weight: 700; letter-spacing: .01em; margin: 16px 0 8px;
+     color: var(--text-schwach); }
 p.hinweis { color: var(--text-schwach); font-size: 13.5px; margin: 4px 0 14px; }
 
 /* --- Karten -------------------------------------------------------------- */
@@ -228,7 +281,8 @@ input::placeholder, textarea::placeholder { color: var(--text-zart); }
 }
 .chip:hover { border-color: var(--akzent); }
 .chip[aria-pressed="true"] {
-  background: var(--akzent); border-color: var(--akzent); color: var(--auf-akzent); font-weight: 600;
+  background: var(--hausfarbe); border-color: var(--hausfarbe);
+  color: var(--auf-hausfarbe); font-weight: 700;
 }
 
 /* --- Schaltflächen ------------------------------------------------------- */
@@ -236,17 +290,20 @@ button, .knopf {
   font: inherit; font-size: 15px; font-weight: 600; font-family: inherit;
   touch-action: manipulation;
   border: 1px solid var(--rand); background: var(--flaeche); color: var(--text);
-  border-radius: var(--radius-klein); padding: 12px 18px; cursor: pointer;
+  border-radius: var(--radius-pille); padding: 12px 20px; cursor: pointer;
   min-height: var(--tap); display: inline-flex; align-items: center; justify-content: center;
   gap: 7px; text-decoration: none; white-space: nowrap;
 }
 button:hover, .knopf:hover { border-color: var(--akzent); color: var(--akzent); }
 button:active, .knopf:active { transform: translateY(1px); }
 button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+/* Die Hauptaktion trägt die Hausfarbe - so wie der Knopf auf der Website */
 button.haupt, .knopf.haupt {
-  background: var(--akzent); border-color: var(--akzent); color: var(--auf-akzent);
+  background: var(--hausfarbe); border-color: var(--hausfarbe); color: var(--auf-hausfarbe);
 }
-button.haupt:hover { background: var(--akzent-hell); border-color: var(--akzent-hell); color: var(--auf-akzent); }
+button.haupt:hover {
+  background: var(--hausfarbe-hell); border-color: var(--hausfarbe-hell); color: var(--auf-hausfarbe);
+}
 button.gefahr { color: var(--rot); border-color: var(--rand); }
 button.gefahr:hover { background: var(--rot); border-color: var(--rot); color: #fff; }
 /* "klein" betrifft nur Innenabstand und Schrift - die Trefffläche bleibt
@@ -402,8 +459,8 @@ table.matrix td.zelle {
   min-width: 48px; height: 48px; color: var(--akzent); touch-action: manipulation;
 }
 table.matrix td.zelle:hover { background: var(--akzent-bg); }
-table.matrix td.zelle:active { background: var(--akzent); color: var(--auf-akzent); }
-table.matrix td.zelle.gesetzt-ja    { background: var(--akzent-flaeche); }
+table.matrix td.zelle:active { background: var(--hausfarbe); color: var(--auf-hausfarbe); }
+table.matrix td.zelle.gesetzt-ja    { background: var(--hausfarbe-flaeche); }
 table.matrix td.zelle.gesetzt-zeit  { background: rgba(179,114,30,.14); color: var(--gelb); }
 table.matrix td.zelle.gesetzt-temp  { background: rgba(179,114,30,.10); color: var(--gelb); }
 table.matrix td.zelle.gesetzt-sperr { background: rgba(179,38,30,.12); color: var(--rot); }
@@ -438,7 +495,7 @@ table.matrix td.tuername.entfernbar { background: rgba(179,38,30,.06); }
 
 /* --- Dialog -------------------------------------------------------------- */
 .dialog-hinter {
-  position: fixed; inset: 0; background: rgba(12,18,26,.55); z-index: 50;
+  position: fixed; inset: 0; background: var(--schleier); z-index: 50;
   display: flex; align-items: flex-start; justify-content: center;
   padding: 20px; overflow-y: auto; -webkit-overflow-scrolling: touch;
   backdrop-filter: blur(2px);
@@ -515,11 +572,11 @@ table.matrix td.tuername.entfernbar { background: rgba(179,38,30,.06); }
   bottom: calc(18px + env(safe-area-inset-bottom));
   min-height: var(--tap-gross); padding: 0 22px;
   border-radius: 28px; font-size: 16px; font-weight: 700;
-  background: var(--akzent); color: var(--auf-akzent); border: 0;
+  background: var(--hausfarbe); color: var(--auf-hausfarbe); border: 0;
   box-shadow: 0 4px 16px rgba(20,30,45,.28), 0 2px 4px rgba(20,30,45,.2);
   display: inline-flex; align-items: center; gap: 9px;
 }
-.schwebe-aktion:hover { background: var(--akzent-hell); color: var(--auf-akzent); border: 0; }
+.schwebe-aktion:hover { background: var(--hausfarbe-hell); color: var(--auf-hausfarbe); border: 0; }
 .schwebe-aktion:active { transform: translateY(1px); }
 /* Platz schaffen, damit der schwebende Knopf nichts verdeckt */
 main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
@@ -633,7 +690,13 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
   min-height: var(--tap); font-size: 14.5px; font-weight: 600; color: var(--text-schwach);
 }
 .modus-leiste .umschalter button + button { border-left: 1px solid var(--rand); }
-.modus-leiste .umschalter button.aktiv { background: var(--akzent); color: var(--auf-akzent); }
+/* Der gewählte Abschnitt wird hervorgehoben, aber nicht in der Hausfarbe
+   gefüllt: Gold steht für die Hauptaktion, und die liegt unten im Fuß.
+   Zweimal Gold auf einem Bildschirm nimmt beiden die Wirkung. */
+.modus-leiste .umschalter button.aktiv {
+  background: var(--flaeche-3); color: var(--akzent);
+  box-shadow: inset 0 -3px 0 var(--hausfarbe);
+}
 
 /* Kopfzeile mit dem Stand der Pflichtangaben */
 .pflicht-leiste {
@@ -669,8 +732,8 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
   content: ''; display: block; width: 100%; height: 8px;
   border-radius: 4px; background: var(--rand);
 }
-.schritt-fortschritt .stufe.erledigt::after { background: var(--akzent-hell); }
-.schritt-fortschritt .stufe.aktiv::after { background: var(--akzent); height: 12px; }
+.schritt-fortschritt .stufe.erledigt::after { background: var(--hausfarbe); opacity: .55; }
+.schritt-fortschritt .stufe.aktiv::after { background: var(--hausfarbe); height: 12px; }
 .schritt-fortschritt .stufe.offen::after { background: var(--gelb); }
 .schritt { padding-bottom: 4px; }
 .schritt > h2 { border: 0; padding: 0; margin-bottom: 14px; font-size: 18px; }

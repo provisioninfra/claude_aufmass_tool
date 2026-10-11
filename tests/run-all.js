@@ -14,6 +14,7 @@ const reihen = [
   ['Browser (E2E)',   'test-e2e.js'],
   ['Bereich & Gruppen','test-bereich-gruppen.js'],
   ['Stiftbedienung',  'test-stift.js'],
+  ['Erscheinungsbild','test-erscheinungsbild.js'],
   ['Einzeldatei',     'test-standalone.js'],
   ['Ausgabeweg',      'test-downloads.js'],
   ['Offline-Betrieb', 'test-offline-pwa.js'],

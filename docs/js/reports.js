@@ -13,15 +13,19 @@
    * src/css/app.css; die Hausfarbe steht dort und hier (siehe den Wegweiser
    * "HAUSFARBE ÄNDERN" am Anfang der CSS). */
   var FARBE = {
-    text:      '#1a1f26',
-    grau:      '#5c6670',
-    hellgrau:  '#8d969e',
-    linie:     '#b9c0c7',
-    linieHell: '#dde2e7',
-    kopfBg:    '#e8edf2',
-    zebraBg:   '#f5f7f9',
-    akzent:    '#1a4b8c',
-    warn:      '#b3541e',
+    text:      '#0a1637',     /* Marken-Navy */
+    grau:      '#46557f',
+    hellgrau:  '#7985a3',
+    linie:     '#b4c2da',
+    linieHell: '#dde4f0',
+    kopfBg:    '#e7ecf8',
+    zebraBg:   '#f4f7fc',
+    akzent:    '#14306e',     /* Überschriften und Linien */
+    /* Gold trägt auf dem Bildschirm die Hauptaktionen. Auf Papier steht es
+     * nur als schmaler Streifen unter dem Seitenkopf: Schrift in Gold wäre
+     * auf Weiß kaum zu lesen. */
+    hausfarbe: '#fcc91d',
+    warn:      '#a8600f',
     fehler:    '#a32020'
   };
 
@@ -116,8 +120,11 @@
         });
       });
 
+      /* Kopflinie in Navy, darunter ein kurzer goldener Streifen - dieselbe
+       * Aufteilung wie auf der Website, nur auf Papier übersetzt. */
       var trennY = y + 15;
       d.linie(x, trennY, rechts, trennY, { color: FARBE.akzent, width: 0.5 });
+      d.linie(x, trennY + 0.9, x + 26, trennY + 0.9, { color: FARBE.hausfarbe, width: 1.4 });
       d.y = trennY + 5;
     };
 
