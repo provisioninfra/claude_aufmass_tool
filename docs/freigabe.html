@@ -46,6 +46,25 @@
   table.matrix td.zelle.geaendert { box-shadow: inset 0 0 0 2px var(--gruen); }
   .schluessel-feld { width: 100%; min-height: 130px; font-family: ui-monospace, Menlo, Consolas, monospace;
                      font-size: 12px; word-break: break-all; }
+  /* Inhaberlisten: wer bekommt ein Medium */
+  .fr-inhaber { margin-top: 22px; }
+  .fr-inhaber-block { border: 1px solid var(--rand); border-radius: var(--radius-klein);
+                      padding: 12px 14px; margin-top: 12px; background: var(--flaeche); }
+  .fr-inhaber-block h3 { margin: 0 0 2px; font-size: 15px; }
+  .fr-inhaber-block .gruppe { font-size: 12.5px; color: var(--text-schwach); margin-bottom: 8px; }
+  .fr-inhaber-block.geaendert { border-color: var(--gruen); box-shadow: inset 0 0 0 1px var(--gruen); }
+  .fr-person-kopf, .fr-person-zeile { display: grid; grid-template-columns: 1.4fr 1.2fr 92px 48px;
+                                       gap: 8px; align-items: center; }
+  .fr-person-kopf { font-size: 11.5px; font-weight: 700; color: var(--text-zart); padding: 4px 0 2px; }
+  .fr-person-zeile { margin-bottom: 8px; }
+  .fr-person-zeile input { width: 100%; min-width: 0; }
+  .fr-person-zeile .anzahl { text-align: center; }
+  .fr-person-leer { font-size: 13px; color: var(--text-zart); padding: 6px 0 10px; }
+  @media (max-width: 560px) {
+    .fr-person-kopf { display: none; }
+    .fr-person-zeile { grid-template-columns: 1fr 72px 44px; }
+    .fr-person-zeile input.funktion { grid-column: 1 / -1; }
+  }
 </style>
 </head>
 <body>
@@ -117,6 +136,20 @@
   var arbeitsMatrix = daten.matrix.split('');
   var spalten = daten.s.length;
   var FOLGE = ['nein', 'ja', 'zeit'];       /* was der Kunde vergeben darf */
+
+  /* Inhaberlisten je Schließung: null, wo der Kunde nichts eintragen darf.
+     Das Original bleibt liegen, damit nur echte Änderungen zurückgehen. */
+  function listenKopie(l) { return l ? l.map(function (x) { return x.slice(); }) : null; }
+  var inhaberOriginal = daten.s.map(function (s) { return s[4] && Array.isArray(s[4].p) ? listenKopie(s[4].p) : null; });
+  var inhaber = inhaberOriginal.map(listenKopie);
+  function inhaberGeaendert() {
+    var n = 0;
+    inhaber.forEach(function (l, i) { if (l && !F.personenGleich(l, inhaberOriginal[i])) n++; });
+    return n;
+  }
+  function inhaberFuerAntwort() {
+    return inhaber.map(function (l, i) { return (l && !F.personenGleich(l, inhaberOriginal[i])) ? l : null; });
+  }
 
   function indexVon(zeile, spalte) { return zeile * spalten + spalte; }
   function geaendertAnzahl() {
@@ -217,17 +250,101 @@
     legende.appendChild(el('span', { text: 'Schraffiert = nicht zur Bearbeitung freigegeben' }));
     inhalt.appendChild(legende);
 
+    inhaberZeichnen(inhalt);
+
     /* Fußleiste */
     var zaehler = el('div', { class: 'zaehler', id: 'fr-zaehler' });
     WURZEL.appendChild(el('div', { class: 'fr-fuss' }, [
       zaehler,
       el('button', { text: 'Zurücksetzen', onclick: function () {
         arbeitsMatrix = daten.matrix.split('');
+        inhaber = inhaberOriginal.map(listenKopie);
         zeichnen();
       } }),
       el('button', { class: 'haupt', text: 'Rückmeldung erzeugen', onclick: antwortZeigen })
     ]));
     zaehlerAktualisieren();
+  }
+
+  /* --- Wer erhält ein Medium? ------------------------------------------- */
+  function inhaberZeichnen(inhalt) {
+    var bearbeitbar = [];
+    daten.s.forEach(function (s, i) { if (inhaber[i]) bearbeitbar.push(i); });
+    if (!bearbeitbar.length) return;
+
+    var karte = el('div', { class: 'karte fr-inhaber', id: 'fr-inhaber' });
+    karte.appendChild(el('h2', { style: { marginTop: '0' }, text: 'Wer erhält ein Medium?' }));
+    karte.appendChild(el('p', { class: 'hinweis', text:
+      'Für die freigegebenen Schließungen können Sie hier eintragen, wer einen Schlüssel, ' +
+      'eine Karte oder einen Transponder erhält - mit Funktion und Anzahl. Sie können Personen ' +
+      'ergänzen, ändern oder entfernen.' }));
+    bearbeitbar.forEach(function (i) { karte.appendChild(inhaberBlock(i)); });
+    inhalt.appendChild(karte);
+  }
+
+  function inhaberBlock(i) {
+    var s = daten.s[i], zusatz = s[4] || {};
+    var block = el('div', { class: 'fr-inhaber-block', 'data-index': String(i) });
+    var titel = ((s[1] ? s[1] + ' ' : '') + (s[2] || '')).trim() || 'Schließung';
+    block.appendChild(el('h3', { text: titel }));
+    if (zusatz.a === 'gruppe') {
+      block.appendChild(el('div', { class: 'gruppe', text: 'Gruppe' + (zusatz.g ? ' „' + zusatz.g + '“' : '') +
+        ' - bitte die Mitglieder eintragen' }));
+    }
+    var liste = el('div', { class: 'fr-personen' });
+    block.appendChild(liste);
+    block.appendChild(el('button', { class: 'klein', type: 'button', text: '+ Person',
+      onclick: function () {
+        inhaber[i].push(['', '', 1]);
+        listeZeichnen();
+        var felder = liste.querySelectorAll('input.name');
+        if (felder.length) felder[felder.length - 1].focus();
+      } }));
+
+    function markieren() {
+      var anders = !F.personenGleich(inhaber[i], inhaberOriginal[i]);
+      block.classList.toggle('geaendert', anders);
+      zaehlerAktualisieren();
+    }
+
+    function listeZeichnen() {
+      leeren(liste);
+      if (!inhaber[i].length) {
+        liste.appendChild(el('div', { class: 'fr-person-leer', text: 'Noch niemand eingetragen.' }));
+        markieren();
+        return;
+      }
+      liste.appendChild(el('div', { class: 'fr-person-kopf' }, [
+        el('span', { text: 'Name' }), el('span', { text: 'Funktion / Abteilung' }),
+        el('span', { text: 'Anzahl' }), el('span')
+      ]));
+      inhaber[i].forEach(function (person, j) {
+        var zeile = el('div', { class: 'fr-person-zeile' });
+        zeile.appendChild(el('input', { type: 'text', class: 'name', value: person[0],
+          placeholder: 'Name', autocomplete: 'off',
+          oninput: function (e) { inhaber[i][j][0] = e.target.value; markieren(); } }));
+        zeile.appendChild(el('input', { type: 'text', class: 'funktion', value: person[1],
+          placeholder: 'z. B. Hausmeister', autocomplete: 'off',
+          oninput: function (e) { inhaber[i][j][1] = e.target.value; markieren(); } }));
+        zeile.appendChild(el('input', { type: 'text', class: 'anzahl', inputmode: 'numeric',
+          value: String(person[2]), title: 'Anzahl Medien',
+          oninput: function (e) {
+            var roh = String(e.target.value).replace(/[^0-9]/g, '');
+            e.target.value = roh;
+            var n = parseInt(roh, 10);
+            inhaber[i][j][2] = isFinite(n) && n > 0 ? Math.min(99, n) : 1;
+            markieren();
+          },
+          onblur: function (e) { e.target.value = String(inhaber[i][j][2]); } }));
+        zeile.appendChild(el('button', { class: 'klein gefahr nur-symbol', type: 'button', text: '✕',
+          title: 'Person entfernen',
+          onclick: function () { inhaber[i].splice(j, 1); listeZeichnen(); } }));
+        liste.appendChild(zeile);
+      });
+      markieren();
+    }
+    listeZeichnen();
+    return block;
   }
 
   function zelleZeichnen(zelle, i, frei) {
@@ -245,18 +362,20 @@
   function zaehlerAktualisieren() {
     var z = document.getElementById('fr-zaehler');
     if (!z) return;
-    var n = geaendertAnzahl();
+    var n = geaendertAnzahl(), m = inhaberGeaendert();
     var frei = 0;
     for (var i = 0; i < daten.maske.length; i++) if (daten.maske[i] === '1') frei++;
-    z.textContent = n === 0
+    var text = n === 0
       ? (frei + ' Felder stehen zur Bearbeitung bereit')
       : (n === 1 ? '1 Änderung' : n + ' Änderungen') + ' von ' + frei + ' freigegebenen Feldern';
+    if (m) text += '  ·  ' + (m === 1 ? '1 Inhaberliste' : m + ' Inhaberlisten') + ' geändert';
+    z.textContent = text;
   }
 
   /* --- Rückmeldung -------------------------------------------------------- */
   function antwortZeigen() {
-    var n = geaendertAnzahl();
-    var antwort = F.antwortErstellen(daten, arbeitsMatrix.join(''));
+    var n = geaendertAnzahl() + inhaberGeaendert();
+    var antwort = F.antwortErstellen(daten, arbeitsMatrix.join(''), inhaberFuerAntwort());
     var schluessel = F.antwortAlsSchluessel(antwort);
 
     var feld = el('textarea', { class: 'schluessel-feld', readonly: true });

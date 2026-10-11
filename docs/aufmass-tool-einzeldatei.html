@@ -5803,7 +5803,22 @@ body.stift .zahl-knopf { min-width: 56px; }
       s: schliessungen.map(function (s) {
         var K2 = global.Katalog;
         var traeger = K2 && K2.traegerText ? K2.traegerText(s) : (s.person || s.abteilung || '');
-        return [s.id, s.kuerzel || '', s.bezeichnung || '', traeger];
+        var eintrag = [s.id, s.kuerzel || '', s.bezeichnung || '', traeger];
+        /* Bei einer freigegebenen Schließung darf der Kunde auch eintragen,
+           wer ein Medium bekommt. Dafür bekommt er die heutige Liste mit -
+           ohne die internen Kennungen, die braucht er nicht. */
+        if (frei.indexOf(s.id) !== -1) {
+          eintrag.push({
+            a: s.traegerArt || '',
+            g: s.gruppenName || '',
+            p: (s.personen || []).filter(function (x) { return x && String(x.name || '').trim(); })
+              .map(function (x) {
+                return [String(x.name || '').trim(), String(x.funktion || '').trim(),
+                        Math.max(1, parseInt(x.anzahlMedien, 10) || 1)];
+              })
+          });
+        }
+        return eintrag;
       }),
       m: packen(matrix),
       e: packen(maske)
@@ -5830,14 +5845,43 @@ body.stift .zahl-knopf { min-width: 56px; }
    * ====================================================================== */
 
   /* Nur die Abweichungen zurückgeben - das hält die Antwort kurz. */
-  function antwortErstellen(daten, geaenderteMatrix) {
+  /* Personen in die knappe Form [Name, Funktion, Anzahl] bringen und
+     dabei alles wegwerfen, was keinen Namen hat. */
+  function personenBereinigen(liste) {
+    return (Array.isArray(liste) ? liste : []).map(function (x) {
+      if (!x) return null;
+      var name = String(Array.isArray(x) ? x[0] : x.name || '').trim();
+      if (!name) return null;
+      var funktion = String(Array.isArray(x) ? (x[1] || '') : (x.funktion || '')).trim();
+      var anzahl = parseInt(Array.isArray(x) ? x[2] : x.anzahlMedien, 10);
+      return [name.slice(0, 120), funktion.slice(0, 120), Math.min(99, Math.max(1, anzahl || 1))];
+    }).filter(Boolean);
+  }
+
+  function personenGleich(a, b) {
+    return JSON.stringify(personenBereinigen(a)) === JSON.stringify(personenBereinigen(b));
+  }
+
+  /**
+   * @param personen  je Schließung (Reihenfolge wie daten.s) die vom Kunden
+   *                  bearbeitete Liste oder null, wenn er sie nicht angefasst hat
+   */
+  function antwortErstellen(daten, geaenderteMatrix, personen) {
     var aenderungen = [];
     for (var i = 0; i < geaenderteMatrix.length; i++) {
       if (geaenderteMatrix[i] !== daten.matrix[i] && daten.maske[i] === '1') {
         aenderungen.push(i.toString(36) + ':' + geaenderteMatrix[i]);
       }
     }
-    return {
+    /* Nur Listen, die sich wirklich geändert haben, und nur für
+       Schließungen, die dafür überhaupt freigegeben waren. */
+    var listen = {};
+    (personen || []).forEach(function (liste, index) {
+      if (!liste || !daten.s[index] || !daten.s[index][4]) return;
+      if (personenGleich(liste, daten.s[index][4].p)) return;
+      listen[index.toString(36)] = personenBereinigen(liste);
+    });
+    var antwort = {
       f: FORMAT, pid: daten.pid, typ: 'antwort',
       anzahl: daten.t.length + 'x' + daten.s.length,
       tIds: daten.t.map(function (t) { return t[0]; }),
@@ -5845,6 +5889,8 @@ body.stift .zahl-knopf { min-width: 56px; }
       a: aenderungen.join(','),
       gesendet: new Date().toISOString()
     };
+    if (Object.keys(listen).length) antwort.p = listen;
+    return antwort;
   }
 
   function antwortAlsSchluessel(antwort) { return textZuAnker(JSON.stringify(antwort)); }
@@ -5897,7 +5943,55 @@ body.stift .zahl-knopf { min-width: 56px; }
         vorher: vorher, nachher: wert
       });
     });
-    return { uebernommen: uebernommen, uebersprungen: uebersprungen, aenderungen: liste };
+
+    /* --- Inhaberlisten --- */
+    var personenListen = 0, personenUebersprungen = 0;
+    var p = (antwort.p && typeof antwort.p === 'object') ? antwort.p : {};
+    Object.keys(p).forEach(function (schluessel) {
+      var index = parseInt(schluessel, 36);
+      var schliessungId = isFinite(index) ? sIds[index] : null;
+      var sch = schliessungId ? projekt.schliessungen.filter(function (s) { return s.id === schliessungId; })[0] : null;
+      if (!sch) { personenUebersprungen++; return; }
+      /* Nur eine echte Liste zählt. Eine leere Liste ist eine Aussage
+         ("alle entfernt"); etwas, das keine Liste ist oder nur Unbrauchbares
+         enthält, ist keine - und darf die vorhandene Liste nicht löschen. */
+      var roh = p[schluessel];
+      if (!Array.isArray(roh)) { personenUebersprungen++; return; }
+      var neu = personenBereinigen(roh);
+      if (roh.length && !neu.length) { personenUebersprungen++; return; }
+      var vorher = (sch.personen || []).filter(function (x) { return x && String(x.name || '').trim(); });
+      var vorherKurz = personenBereinigen(vorher);
+      if (JSON.stringify(vorherKurz) === JSON.stringify(neu)) return;   /* nichts Neues */
+
+      /* Bekannte Personen behalten ihre Kennung: Dann erkennt auch der
+         Abgleich zwischen den Geräten, dass es dieselbe Person ist. */
+      var bekannt = {};
+      vorher.forEach(function (x) { bekannt[String(x.name).trim().toLowerCase()] = x; });
+      sch.personen = neu.map(function (eintrag) {
+        var alt2 = bekannt[eintrag[0].toLowerCase()];
+        if (alt2) {
+          alt2.name = eintrag[0]; alt2.funktion = eintrag[1]; alt2.anzahlMedien = eintrag[2];
+          delete bekannt[eintrag[0].toLowerCase()];
+          return alt2;
+        }
+        return M.neuePerson({ name: eintrag[0], funktion: eintrag[1], anzahlMedien: eintrag[2] });
+      });
+      /* Wer Personen einträgt, meint Einzelpersonen - sofern nicht schon
+         eine Gruppe festgelegt war. Eine Gruppe bleibt eine Gruppe. */
+      if (!sch.traegerArt && sch.personen.length) sch.traegerArt = 'einzel';
+      if (M.medienAngleichen) M.medienAngleichen(sch);
+      personenListen++;
+      liste.push({
+        schliessung: sch.kuerzel || sch.bezeichnung,
+        personen: true,
+        vorher: vorherKurz.length, nachher: sch.personen.length,
+        namen: sch.personen.map(function (x) { return x.name; })
+      });
+    });
+
+    return { uebernommen: uebernommen, uebersprungen: uebersprungen,
+             personenListen: personenListen, personenUebersprungen: personenUebersprungen,
+             aenderungen: liste };
   }
 
   global.Freigabe = {
@@ -5906,6 +6000,8 @@ body.stift .zahl-knopf { min-width: 56px; }
     wertZuZeichen: wertZuZeichen, zeichenZuWert: zeichenZuWert,
     erstellen: erstellen, alsAnker: alsAnker, ausAnker: ausAnker,
     antwortErstellen: antwortErstellen,
+    personenBereinigen: personenBereinigen,
+    personenGleich: personenGleich,
     antwortAlsSchluessel: antwortAlsSchluessel,
     antwortAusSchluessel: antwortAusSchluessel,
     antwortUebernehmen: antwortUebernehmen,
@@ -5923,13 +6019,36 @@ body.stift .zahl-knopf { min-width: 56px; }
  * nichts nach Pipedrive zurück: Es werden ausschließlich GET-Abfragen
  * gestellt, und die Aufrufhülle lässt kein anderes Verfahren zu.
  *
- * Der Zugriffsschlüssel liegt ausschließlich im Speicher dieses Geräts. Er
- * wird nie in ein Projekt, einen Export oder einen Freigabe-Link geschrieben.
+ * Zwei Wege zum Schlüssel:
+ *  - Über den eigenen Server (gemeinsame Fassung): Der Schlüssel liegt
+ *    verschlüsselt in WordPress und verlässt den Server nie. Das Gerät
+ *    ruft nur die Weiterleitung auf. Dieser Weg hat Vorrang.
+ *  - Auf dem Gerät (Einzeldatei): Der Schlüssel liegt im Speicher dieses
+ *    Geräts und wird nie in ein Projekt, einen Export oder einen
+ *    Freigabe-Link geschrieben.
  * ========================================================================== */
 (function (global) {
   'use strict';
 
   var STANDARD_HOST = 'api.pipedrive.com';
+
+  /* Ist die Weiterleitung über den eigenen Server verfügbar? Nur dann,
+     wenn dieses Gerät dort angemeldet ist und der Server meldet, dass ein
+     Schlüssel hinterlegt ist. */
+  function serverWeg() {
+    var Ab = global.Abgleich;
+    if (!Ab || typeof Ab.zustand !== 'function') return null;
+    var z = Ab.zustand();
+    if (!z || !z.angemeldet || !z.pipedrive) return null;
+    return { host: z.pipedriveHost || STANDARD_HOST };
+  }
+
+  /** 'server' | 'geraet' | null - woher der Zugriff kommt. */
+  function quelle(einstellungen) {
+    if (serverWeg()) return 'server';
+    if (einstellungen && String(einstellungen.pipedriveToken || '').trim()) return 'geraet';
+    return null;
+  }
 
   /* --- Fehler mit verständlicher Ursache ---------------------------------- */
   function PipedriveFehler(text, art, zusatz) {
@@ -5940,6 +6059,8 @@ body.stift .zahl-knopf { min-width: 56px; }
   }
 
   function hostAus(einstellungen) {
+    var server = serverWeg();
+    if (server) return server.host;
     var roh = String((einstellungen && einstellungen.pipedriveHost) || '').trim();
     if (!roh) return STANDARD_HOST;
     /* Auch eine vollständige Adresse aus dem Browser wird angenommen */
@@ -5950,7 +6071,95 @@ body.stift .zahl-knopf { min-width: 56px; }
   /* =========================================================================
    * Eine lesende Abfrage. Andere Verfahren sind hier nicht vorgesehen.
    * ====================================================================== */
+  /* Pipedrives Statuscode in eine verständliche Ursache übersetzen - für
+     beide Wege dieselbe Regel, nur der Hinweis, wo man nachsieht, ist anders. */
+  function statusBewerten(status, woPruefen) {
+    if (status === 401 || status === 403) {
+      return PipedriveFehler('Der Zugriffsschlüssel wurde abgelehnt.', 'schluessel-ungueltig', woPruefen);
+    }
+    if (status === 429) {
+      return PipedriveFehler('Pipedrive hat zu viele Abfragen gemeldet.', 'zu-viele',
+        'Bitte einen Moment warten und erneut versuchen.');
+    }
+    if (status === 404) {
+      return PipedriveFehler('Der angefragte Eintrag wurde nicht gefunden.', 'nicht-gefunden', '');
+    }
+    if (status < 200 || status >= 300) {
+      return PipedriveFehler('Pipedrive antwortete mit Fehler ' + status + '.', 'antwort-fehler', '');
+    }
+    return null;
+  }
+  function inhaltBewerten(daten) {
+    if (daten && daten.success === false) {
+      return PipedriveFehler(daten.error || 'Pipedrive meldet einen Fehler.', 'antwort-fehler',
+        daten.error_info || '');
+    }
+    return null;
+  }
+
+  /* --- Der Weg über den eigenen Server ---------------------------------- */
+  function holenUeberServer(pfad, parameter) {
+    var weg = String(pfad).replace(/^\/?api\//, '');
+    var url = (global.location ? global.location.origin : '') + '/wp-json/aufmass/v1/pipedrive/' + weg;
+    var teile = [];
+    Object.keys(parameter || {}).forEach(function (k) {
+      var w = parameter[k];
+      if (w === undefined || w === null || w === '') return;
+      teile.push(encodeURIComponent(k) + '=' + encodeURIComponent(w));
+    });
+    if (teile.length) url += '?' + teile.join('&');
+
+    var abbruch = new AbortController();
+    var zeitgeber = setTimeout(function () { abbruch.abort(); }, 30000);
+
+    return fetch(url, {
+      method: 'GET', credentials: 'same-origin', signal: abbruch.signal,
+      headers: { 'X-Aufmass-Abgleich': '1', 'Accept': 'application/json' }
+    }).then(function (antwort) {
+      clearTimeout(zeitgeber);
+      return antwort.text().then(function (text) {
+        var d = null;
+        try { d = text ? JSON.parse(text) : null; } catch (e) { d = null; }
+        if (antwort.status === 401) {
+          throw PipedriveFehler('Die Anmeldung am Server ist abgelaufen.', 'nicht-angemeldet',
+            'Bitte im Werkzeug erneut anmelden.');
+        }
+        if (antwort.status === 503) {
+          throw PipedriveFehler((d && d.message) || 'Pipedrive ist auf dem Server nicht eingerichtet.',
+            'nicht-eingerichtet', 'In WordPress unter Einstellungen → Aufmaß-Abgleich den Schlüssel hinterlegen.');
+        }
+        if (antwort.status === 502) {
+          throw PipedriveFehler((d && d.message) || 'Pipedrive war vom Server aus nicht erreichbar.',
+            'verbindung', 'Bitte später erneut versuchen.');
+        }
+        if (!antwort.ok || !d || typeof d.status !== 'number') {
+          throw PipedriveFehler('Der eigene Server antwortete unerwartet (' + antwort.status + ').',
+            'antwort-fehler', (d && d.message) || '');
+        }
+        var f = statusBewerten(d.status,
+          'Der in WordPress hinterlegte Schlüssel wurde von Pipedrive abgelehnt. ' +
+          'Bitte unter Einstellungen → Aufmaß-Abgleich prüfen.');
+        if (f) throw f;
+        f = inhaltBewerten(d.daten);
+        if (f) throw f;
+        return d.daten;
+      });
+    }).catch(function (fehler) {
+      clearTimeout(zeitgeber);
+      if (fehler && fehler.art) throw fehler;
+      if (fehler && fehler.name === 'AbortError') {
+        throw PipedriveFehler('Der Server hat nicht rechtzeitig geantwortet.', 'zeitueberschreitung',
+          'Bitte Netzverbindung prüfen und erneut versuchen.');
+      }
+      throw PipedriveFehler('Die Verbindung zum eigenen Server kam nicht zustande.', 'verbindung',
+        'Ohne Netz lässt sich kein Deal abholen. Das übrige Werkzeug arbeitet weiter.');
+    });
+  }
+
   function holen(einstellungen, pfad, parameter) {
+    /* Der Server hat Vorrang: Dort liegt der Schlüssel, nicht hier. */
+    if (serverWeg()) return holenUeberServer(pfad, parameter);
+
     var schluessel = (einstellungen && einstellungen.pipedriveToken || '').trim();
     if (!schluessel) {
       return Promise.reject(PipedriveFehler(
@@ -5978,26 +6187,13 @@ body.stift .zahl-knopf { min-width: 56px; }
       credentials: 'omit'
     }).then(function (antwort) {
       clearTimeout(zeitgeber);
-      if (antwort.status === 401 || antwort.status === 403) {
-        throw PipedriveFehler('Der Zugriffsschlüssel wurde abgelehnt.', 'schluessel-ungueltig',
-          'Bitte den Schlüssel in Pipedrive prüfen: Einstellungen → Persönliche Einstellungen → API.');
-      }
-      if (antwort.status === 429) {
-        throw PipedriveFehler('Pipedrive hat zu viele Abfragen gemeldet.', 'zu-viele',
-          'Bitte einen Moment warten und erneut versuchen.');
-      }
-      if (antwort.status === 404) {
-        throw PipedriveFehler('Der angefragte Eintrag wurde nicht gefunden.', 'nicht-gefunden', '');
-      }
-      if (!antwort.ok) {
-        throw PipedriveFehler('Pipedrive antwortete mit Fehler ' + antwort.status + '.', 'antwort-fehler', '');
-      }
+      var f = statusBewerten(antwort.status,
+        'Bitte den Schlüssel in Pipedrive prüfen: Einstellungen → Persönliche Einstellungen → API.');
+      if (f) throw f;
       return antwort.json();
     }).then(function (daten) {
-      if (daten && daten.success === false) {
-        throw PipedriveFehler(daten.error || 'Pipedrive meldet einen Fehler.', 'antwort-fehler',
-          daten.error_info || '');
-      }
+      var f = inhaltBewerten(daten);
+      if (f) throw f;
       return daten;
     }).catch(function (fehler) {
       clearTimeout(zeitgeber);
@@ -6453,6 +6649,7 @@ body.stift .zahl-knopf { min-width: 56px; }
   global.Pipedrive = {
     STANDARD_HOST: STANDARD_HOST,
     hostAus: hostAus,
+    quelle: quelle,
     verbindungPruefen: verbindungPruefen,
     pipelines: pipelines,
     phasen: phasen,
@@ -7024,7 +7221,7 @@ body.stift .zahl-knopf { min-width: 56px; }
         class: 'haupt', text: '+ Neues Aufmaß',
         onclick: function () { neuesProjektAnlegen(neuLaden); }
       }),
-      (Zustand.einstellungen && Zustand.einstellungen.pipedriveToken)
+      global.Pipedrive.quelle(Zustand.einstellungen)
         ? el('button', { text: 'Aus Pipedrive', title: 'Aufmaß aus einem Deal anlegen',
             onclick: function () { pipedriveDialog(neuLaden); } })
         : null,
@@ -7123,12 +7320,13 @@ body.stift .zahl-knopf { min-width: 56px; }
     var e = Zustand.einstellungen || {};
     var PD = global.Pipedrive;
 
-    if (!e.pipedriveToken) {
+    if (!PD.quelle(e)) {
       A.dialogOeffnen({
         titel: 'Pipedrive ist noch nicht verbunden', klein: true,
         inhalt: el('div', {}, [
           el('p', { class: 'hinweis', style: { marginTop: '0' },
-            text: 'Hinterlegen Sie zuerst unter Einstellungen den Zugriffsschlüssel aus Pipedrive. ' +
+            text: 'Hinterlegen Sie zuerst unter Einstellungen den Zugriffsschlüssel aus Pipedrive - ' +
+                  'oder lassen Sie ihn in WordPress hinterlegen, dann braucht kein Gerät einen. ' +
                   'Danach lassen sich Aufmaße direkt aus einem Deal anlegen.' })
         ]),
         knoepfe: [
@@ -9499,6 +9697,9 @@ body.stift .zahl-knopf { min-width: 56px; }
         text: 'Der Kunde öffnet den Link im Browser und trägt in den freigegebenen Feldern ' +
               'seine Berechtigungen ein. Seine Rückmeldung lesen Sie anschließend hier wieder ein.' }),
       el('h3', { text: 'Welche Schließungen darf der Kunde bearbeiten?' }),
+      el('p', { class: 'zart', style: { marginTop: '-6px' },
+        text: 'Für jede freigegebene Schließung kann der Kunde außerdem eintragen, wer ein ' +
+              'Medium erhält - Name, Funktion und Anzahl. Diese Listen kommen mit der Rückmeldung zurück.' }),
       auswahlBereich,
       el('div', { class: 'knopfleiste', style: { marginBottom: '12px' } }, [
         el('button', { class: 'klein', text: 'Alle auswählen', onclick: function () {
@@ -9570,8 +9771,11 @@ body.stift .zahl-knopf { min-width: 56px; }
       }
       var fremd = gelesen.pid !== p.id;
       var anzahl = (gelesen.a ? gelesen.a.split(',').filter(Boolean).length : 0);
+      var listen = (gelesen.p && typeof gelesen.p === 'object') ? Object.keys(gelesen.p).length : 0;
+      var ueberschrift = anzahl + (anzahl === 1 ? ' Änderung' : ' Änderungen') + ' im Plan';
+      if (listen) ueberschrift += ', ' + listen + (listen === 1 ? ' Inhaberliste' : ' Inhaberlisten');
       bericht.appendChild(el('div', { class: 'meldung ' + (fremd ? 'warn' : 'ok') }, el('div', {}, [
-        el('b', { text: anzahl + (anzahl === 1 ? ' Änderung' : ' Änderungen') + ' in der Rückmeldung' }),
+        el('b', { text: ueberschrift + ' in der Rückmeldung' }),
         el('div', { style: { marginTop: '4px', fontSize: '13px' },
           text: fremd ? 'Achtung: Die Rückmeldung gehört zu einem anderen Projekt. Ein Übernehmen '
                       + 'ist nicht möglich.'
@@ -9602,9 +9806,14 @@ body.stift .zahl-knopf { min-width: 56px; }
           try { ergebnis = global.Freigabe.antwortUebernehmen(p, gelesen); }
           catch (fehler) { A.toast(fehler.message, 'fehler'); return false; }
           A.alsGeaendertMarkieren(); A.speichern();
-          A.toast(ergebnis.uebernommen + ' Berechtigung(en) übernommen' +
-                  (ergebnis.uebersprungen ? (', ' + ergebnis.uebersprungen + ' übersprungen') : '') + '.',
-                  'ok');
+          var text = ergebnis.uebernommen + ' Berechtigung(en) übernommen';
+          if (ergebnis.personenListen) {
+            text += ', ' + ergebnis.personenListen + ' Inhaberliste(n) aktualisiert';
+          }
+          if (ergebnis.uebersprungen || ergebnis.personenUebersprungen) {
+            text += ', ' + ((ergebnis.uebersprungen || 0) + (ergebnis.personenUebersprungen || 0)) + ' übersprungen';
+          }
+          A.toast(text + '.', 'ok');
           schliessen(); neuZeichnen();
           return false;
         } }
@@ -10297,6 +10506,33 @@ body.stift .zahl-knopf { min-width: 56px; }
         text: 'Mit einer Verbindung zu Pipedrive lässt sich ein Aufmaß direkt aus einem Deal anlegen. ' +
               'Das Werkzeug liest dabei ausschließlich – es verändert in Pipedrive nichts.' }));
 
+      /* Liegt der Schlüssel auf dem Server, braucht dieses Gerät keinen -
+         und soll auch keinen mehr haben. */
+      var ueberServer = global.Pipedrive.quelle(e) === 'server';
+      if (ueberServer) {
+        pdBereich.appendChild(el('div', { class: 'meldung ok', style: { marginTop: '4px' } },
+          el('div', {}, [
+            el('b', { text: 'Über den Server verbunden.' }),
+            el('div', { style: { marginTop: '4px', fontSize: '13.5px' },
+              text: 'Der Pipedrive-Schlüssel liegt in WordPress (Einstellungen → Aufmaß-Abgleich) und ' +
+                    'verlässt den Server nicht. Auf diesem Gerät ist kein Schlüssel nötig.' +
+                    (global.Pipedrive.hostAus(e) !== global.Pipedrive.STANDARD_HOST
+                      ? ('  ·  Adresse: ' + global.Pipedrive.hostAus(e)) : '') })
+          ])));
+        if (e.pipedriveToken) {
+          pdBereich.appendChild(el('div', { class: 'meldung warn' }, el('div', {}, [
+            el('b', { text: 'Auf diesem Gerät liegt noch ein Schlüssel. ' }),
+            'Er wird nicht mehr gebraucht - der Server hat Vorrang. ',
+            el('button', { class: 'klein', style: { marginLeft: '8px' }, text: 'Vom Gerät entfernen',
+              onclick: function () {
+                e.pipedriveToken = ''; e.pipedriveHost = '';
+                merken(); pdZeichnen();
+                A.toast('Schlüssel von diesem Gerät entfernt.', 'ok');
+              } })
+          ])));
+        }
+      }
+
       var tokenFeld = el('input', {
         type: 'password', value: e.pipedriveToken || '',
         placeholder: 'Zugriffsschlüssel aus Pipedrive',
@@ -10309,31 +10545,35 @@ body.stift .zahl-knopf { min-width: 56px; }
         ev.target.textContent = versteckt ? 'Verbergen' : 'Anzeigen';
       } });
 
-      pdBereich.appendChild(el('div', { class: 'raster' }, [
-        /* Über A.feld, damit die Beschriftung auf das Feld zeigt - sonst
-           setzt ein Tippen darauf den Cursor nicht hinein. */
-        A.feld('Zugriffsschlüssel <span class="einheit">(API-Token)</span>',
-          el('div', { class: 'feld-mit-knopf' }, [
-            tokenFeld,
-            el('div', { class: 'knopfleiste', style: { marginTop: '6px' } }, [zeigen])
-          ])),
-        textE('pipedriveHost', 'Pipedrive-Adresse',
-              'z. B. meinefirma.pipedrive.com – leer lassen für die Standardadresse')
-      ]));
+      if (!ueberServer) {
+        pdBereich.appendChild(el('div', { class: 'raster' }, [
+          /* Über A.feld, damit die Beschriftung auf das Feld zeigt - sonst
+             setzt ein Tippen darauf den Cursor nicht hinein. */
+          A.feld('Zugriffsschlüssel <span class="einheit">(API-Token)</span>',
+            el('div', { class: 'feld-mit-knopf' }, [
+              tokenFeld,
+              el('div', { class: 'knopfleiste', style: { marginTop: '6px' } }, [zeigen])
+            ])),
+          textE('pipedriveHost', 'Pipedrive-Adresse',
+                'z. B. meinefirma.pipedrive.com – leer lassen für die Standardadresse')
+        ]));
 
-      pdBereich.appendChild(el('div', { class: 'meldung warn', style: { marginTop: '4px' } },
-        el('div', {}, [
-          el('b', { text: 'Zum Schlüssel: ' }),
-          'Er gilt in Pipedrive mit allen Rechten Ihres Benutzerkontos und lässt sich dort nicht ' +
-          'auf reines Lesen beschränken. Er verbleibt ausschließlich auf diesem Gerät, wird in ' +
-          'keinen Export und keinen Freigabe-Link geschrieben. Legen Sie ihn nur auf Geräten ab, ' +
-          'die Sie selbst kontrollieren, und ziehen Sie ihn in Pipedrive zurück, wenn ein Gerät ' +
-          'abhandenkommt. Sie finden ihn unter: Einstellungen → Persönliche Einstellungen → API.'
-        ])));
+        pdBereich.appendChild(el('div', { class: 'meldung warn', style: { marginTop: '4px' } },
+          el('div', {}, [
+            el('b', { text: 'Zum Schlüssel: ' }),
+            'Er gilt in Pipedrive mit allen Rechten Ihres Benutzerkontos und lässt sich dort nicht ' +
+            'auf reines Lesen beschränken. Er verbleibt ausschließlich auf diesem Gerät, wird in ' +
+            'keinen Export und keinen Freigabe-Link geschrieben. Legen Sie ihn nur auf Geräten ab, ' +
+            'die Sie selbst kontrollieren, und ziehen Sie ihn in Pipedrive zurück, wenn ein Gerät ' +
+            'abhandenkommt. Sie finden ihn unter: Einstellungen → Persönliche Einstellungen → API. ' +
+            'In der gemeinsamen Fassung lässt sich der Schlüssel stattdessen einmal in WordPress ' +
+            'hinterlegen - dann braucht kein Gerät einen.'
+          ])));
+      }
 
       pdBereich.appendChild(el('div', { class: 'knopfleiste', style: { marginTop: '12px' } }, [
         el('button', { class: 'haupt', text: 'Verbindung prüfen', onclick: function (ev) {
-          if (!e.pipedriveToken) { A.toast('Bitte zuerst den Schlüssel eintragen.', 'fehler'); return; }
+          if (!global.Pipedrive.quelle(e)) { A.toast('Bitte zuerst den Schlüssel eintragen.', 'fehler'); return; }
           ev.target.disabled = true; ev.target.textContent = 'Prüfe …';
           global.Pipedrive.verbindungPruefen(e).then(function (benutzer) {
             return global.Pipedrive.pipelines(e).then(function (liste) {
@@ -10343,7 +10583,7 @@ body.stift .zahl-knopf { min-width: 56px; }
             pdZeichnen({ gut: false, fehler: fehler });
           });
         } }),
-        e.pipedriveToken ? el('button', { class: 'gefahr', text: 'Verbindung entfernen', onclick: function () {
+        (e.pipedriveToken && !ueberServer) ? el('button', { class: 'gefahr', text: 'Verbindung entfernen', onclick: function () {
           A.bestaetigen('Verbindung entfernen?',
             'Der Zugriffsschlüssel wird von diesem Gerät gelöscht. In Pipedrive selbst ändert sich nichts.',
             'Entfernen').then(function (ja) {
@@ -10354,7 +10594,7 @@ body.stift .zahl-knopf { min-width: 56px; }
             A.toast('Verbindung entfernt.');
           });
         } }) : null,
-        e.pipedriveToken ? el('button', { text: 'Deals prüfen',
+        global.Pipedrive.quelle(e) ? el('button', { text: 'Deals prüfen',
           title: 'Zeigt, welche Deals Pipedrive liefert und warum sie angeboten werden oder nicht',
           onclick: function (ev) {
             global.ViewsProjekt.diagnoseLaufenLassen(ev.target, pdDiagnose);

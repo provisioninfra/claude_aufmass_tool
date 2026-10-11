@@ -97,6 +97,36 @@ function pruefe(b, t, i) { if (b) { ok++; console.log('  OK   ' + t); } else { f
   const zaehlerText = await kundeSeite.textContent('#fr-zaehler');
   pruefe(/Änderung/.test(zaehlerText), 'die Änderungen werden gezählt', zaehlerText.trim());
 
+  // --- Inhaberlisten: nur für die zwei freigegebenen Schließungen ---
+  const bloecke = await kundeSeite.$$('.fr-inhaber-block');
+  pruefe(bloecke.length === 2, 'genau die zwei freigegebenen Schließungen haben eine Inhaberliste (' + bloecke.length + ')');
+  const blockTitel = (await bloecke[0].$eval('h3', n => n.textContent)).trim();
+  const kuerzelKunde = blockTitel.split(' ')[0];
+  const personenVorher = await bloecke[0].$$eval('.fr-person-zeile', n => n.length);
+  pruefe(personenVorher > 0, 'die heutigen Inhaber stehen bereits drin (' + personenVorher + ')');
+  await bloecke[0].$eval('button:has-text("+ Person")', b => b.click());
+  await kundeSeite.waitForTimeout(150);
+  const neueZeile = (await bloecke[0].$$('.fr-person-zeile')).pop();
+  await neueZeile.$eval('input.name', n => { n.focus(); });
+  await kundeSeite.keyboard.type('Frau Kundenseitig');
+  await neueZeile.$eval('input.funktion', n => { n.focus(); });
+  await kundeSeite.keyboard.type('Empfang');
+  await neueZeile.$eval('input.anzahl', n => { n.focus(); n.select(); });
+  await kundeSeite.keyboard.type('3');
+  await kundeSeite.waitForTimeout(150);
+  pruefe(await bloecke[0].evaluate(n => n.classList.contains('geaendert')), 'die geänderte Liste wird markiert');
+  const zaehler2 = await kundeSeite.textContent('#fr-zaehler');
+  pruefe(/1 Inhaberliste geändert/.test(zaehler2), 'der Zähler nennt die geänderte Inhaberliste', zaehler2.trim());
+  // Die andere Liste: eine Person entfernen und wieder prüfen, dass der Zähler stimmt
+  const zweiter = bloecke[1];
+  const zeilen2 = await zweiter.$$('.fr-person-zeile');
+  if (zeilen2.length) {
+    await zeilen2[0].$eval('button[title="Person entfernen"]', b => b.click());
+    await kundeSeite.waitForTimeout(150);
+    const zaehler3 = await kundeSeite.textContent('#fr-zaehler');
+    pruefe(/2 Inhaberlisten geändert/.test(zaehler3), 'auch das Entfernen zählt', zaehler3.trim());
+  }
+
   // --- Rückmeldung erzeugen ---
   await kundeSeite.click('button:has-text("Rückmeldung erzeugen")');
   await kundeSeite.waitForSelector('.dialog .schluessel-feld');
@@ -134,6 +164,17 @@ function pruefe(b, t, i) { if (b) { ok++; console.log('  OK   ' + t); } else { f
   await page.waitForTimeout(600);
   const nachher = await page.evaluate(() => JSON.stringify(window.AppKern.Zustand.projekt.matrix));
   pruefe(vorher !== nachher, 'die Berechtigungen des Kunden stehen im Projekt');
+  pruefe(/Inhaberliste/.test(meldung), 'die Meldung nennt die übernommenen Inhaberlisten', meldung.trim().slice(0, 90));
+  const inhaberImProjekt = await page.evaluate(k => {
+    const s = window.AppKern.Zustand.projekt.schliessungen.filter(x => x.kuerzel === k)[0];
+    return s ? s.personen.map(x => [x.name, x.funktion, x.anzahlMedien, /^per-/.test(x.id)]) : null;
+  }, kuerzelKunde);
+  const neu = (inhaberImProjekt || []).filter(x => x[0] === 'Frau Kundenseitig')[0];
+  pruefe(!!neu, 'die vom Kunden eingetragene Person steht in der Schließung ' + kuerzelKunde,
+    JSON.stringify(inhaberImProjekt));
+  pruefe(neu && neu[1] === 'Empfang' && neu[2] === 3, 'mit Funktion und Anzahl', JSON.stringify(neu));
+  pruefe(neu && neu[3] === true, 'und hat eine eigene Kennung bekommen');
+  pruefe((inhaberImProjekt || []).every(x => x[3]), 'alle Personen der Liste tragen Kennungen');
 
   // Zurück-Knopf kann die Übernahme rücknehmen
   const zurueckMoeglich = await page.$('.zurueck-knopf:not([disabled])');

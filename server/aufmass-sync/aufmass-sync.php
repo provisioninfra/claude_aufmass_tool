@@ -27,6 +27,8 @@ require_once AUFMASS_PFAD . 'inc/jwt.php';
 require_once AUFMASS_PFAD . 'inc/anmeldung.php';
 require_once AUFMASS_PFAD . 'inc/projekte.php';
 require_once AUFMASS_PFAD . 'inc/fotos.php';
+require_once AUFMASS_PFAD . 'inc/verschluesselung.php';
+require_once AUFMASS_PFAD . 'inc/pipedrive.php';
 require_once AUFMASS_PFAD . 'inc/rest.php';
 require_once AUFMASS_PFAD . 'inc/einstellungen.php';
 

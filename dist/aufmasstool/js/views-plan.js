@@ -385,6 +385,9 @@
         text: 'Der Kunde öffnet den Link im Browser und trägt in den freigegebenen Feldern ' +
               'seine Berechtigungen ein. Seine Rückmeldung lesen Sie anschließend hier wieder ein.' }),
       el('h3', { text: 'Welche Schließungen darf der Kunde bearbeiten?' }),
+      el('p', { class: 'zart', style: { marginTop: '-6px' },
+        text: 'Für jede freigegebene Schließung kann der Kunde außerdem eintragen, wer ein ' +
+              'Medium erhält - Name, Funktion und Anzahl. Diese Listen kommen mit der Rückmeldung zurück.' }),
       auswahlBereich,
       el('div', { class: 'knopfleiste', style: { marginBottom: '12px' } }, [
         el('button', { class: 'klein', text: 'Alle auswählen', onclick: function () {
@@ -456,8 +459,11 @@
       }
       var fremd = gelesen.pid !== p.id;
       var anzahl = (gelesen.a ? gelesen.a.split(',').filter(Boolean).length : 0);
+      var listen = (gelesen.p && typeof gelesen.p === 'object') ? Object.keys(gelesen.p).length : 0;
+      var ueberschrift = anzahl + (anzahl === 1 ? ' Änderung' : ' Änderungen') + ' im Plan';
+      if (listen) ueberschrift += ', ' + listen + (listen === 1 ? ' Inhaberliste' : ' Inhaberlisten');
       bericht.appendChild(el('div', { class: 'meldung ' + (fremd ? 'warn' : 'ok') }, el('div', {}, [
-        el('b', { text: anzahl + (anzahl === 1 ? ' Änderung' : ' Änderungen') + ' in der Rückmeldung' }),
+        el('b', { text: ueberschrift + ' in der Rückmeldung' }),
         el('div', { style: { marginTop: '4px', fontSize: '13px' },
           text: fremd ? 'Achtung: Die Rückmeldung gehört zu einem anderen Projekt. Ein Übernehmen '
                       + 'ist nicht möglich.'
@@ -488,9 +494,14 @@
           try { ergebnis = global.Freigabe.antwortUebernehmen(p, gelesen); }
           catch (fehler) { A.toast(fehler.message, 'fehler'); return false; }
           A.alsGeaendertMarkieren(); A.speichern();
-          A.toast(ergebnis.uebernommen + ' Berechtigung(en) übernommen' +
-                  (ergebnis.uebersprungen ? (', ' + ergebnis.uebersprungen + ' übersprungen') : '') + '.',
-                  'ok');
+          var text = ergebnis.uebernommen + ' Berechtigung(en) übernommen';
+          if (ergebnis.personenListen) {
+            text += ', ' + ergebnis.personenListen + ' Inhaberliste(n) aktualisiert';
+          }
+          if (ergebnis.uebersprungen || ergebnis.personenUebersprungen) {
+            text += ', ' + ((ergebnis.uebersprungen || 0) + (ergebnis.personenUebersprungen || 0)) + ' übersprungen';
+          }
+          A.toast(text + '.', 'ok');
           schliessen(); neuZeichnen();
           return false;
         } }
@@ -1183,6 +1194,33 @@
         text: 'Mit einer Verbindung zu Pipedrive lässt sich ein Aufmaß direkt aus einem Deal anlegen. ' +
               'Das Werkzeug liest dabei ausschließlich – es verändert in Pipedrive nichts.' }));
 
+      /* Liegt der Schlüssel auf dem Server, braucht dieses Gerät keinen -
+         und soll auch keinen mehr haben. */
+      var ueberServer = global.Pipedrive.quelle(e) === 'server';
+      if (ueberServer) {
+        pdBereich.appendChild(el('div', { class: 'meldung ok', style: { marginTop: '4px' } },
+          el('div', {}, [
+            el('b', { text: 'Über den Server verbunden.' }),
+            el('div', { style: { marginTop: '4px', fontSize: '13.5px' },
+              text: 'Der Pipedrive-Schlüssel liegt in WordPress (Einstellungen → Aufmaß-Abgleich) und ' +
+                    'verlässt den Server nicht. Auf diesem Gerät ist kein Schlüssel nötig.' +
+                    (global.Pipedrive.hostAus(e) !== global.Pipedrive.STANDARD_HOST
+                      ? ('  ·  Adresse: ' + global.Pipedrive.hostAus(e)) : '') })
+          ])));
+        if (e.pipedriveToken) {
+          pdBereich.appendChild(el('div', { class: 'meldung warn' }, el('div', {}, [
+            el('b', { text: 'Auf diesem Gerät liegt noch ein Schlüssel. ' }),
+            'Er wird nicht mehr gebraucht - der Server hat Vorrang. ',
+            el('button', { class: 'klein', style: { marginLeft: '8px' }, text: 'Vom Gerät entfernen',
+              onclick: function () {
+                e.pipedriveToken = ''; e.pipedriveHost = '';
+                merken(); pdZeichnen();
+                A.toast('Schlüssel von diesem Gerät entfernt.', 'ok');
+              } })
+          ])));
+        }
+      }
+
       var tokenFeld = el('input', {
         type: 'password', value: e.pipedriveToken || '',
         placeholder: 'Zugriffsschlüssel aus Pipedrive',
@@ -1195,31 +1233,35 @@
         ev.target.textContent = versteckt ? 'Verbergen' : 'Anzeigen';
       } });
 
-      pdBereich.appendChild(el('div', { class: 'raster' }, [
-        /* Über A.feld, damit die Beschriftung auf das Feld zeigt - sonst
-           setzt ein Tippen darauf den Cursor nicht hinein. */
-        A.feld('Zugriffsschlüssel <span class="einheit">(API-Token)</span>',
-          el('div', { class: 'feld-mit-knopf' }, [
-            tokenFeld,
-            el('div', { class: 'knopfleiste', style: { marginTop: '6px' } }, [zeigen])
-          ])),
-        textE('pipedriveHost', 'Pipedrive-Adresse',
-              'z. B. meinefirma.pipedrive.com – leer lassen für die Standardadresse')
-      ]));
+      if (!ueberServer) {
+        pdBereich.appendChild(el('div', { class: 'raster' }, [
+          /* Über A.feld, damit die Beschriftung auf das Feld zeigt - sonst
+             setzt ein Tippen darauf den Cursor nicht hinein. */
+          A.feld('Zugriffsschlüssel <span class="einheit">(API-Token)</span>',
+            el('div', { class: 'feld-mit-knopf' }, [
+              tokenFeld,
+              el('div', { class: 'knopfleiste', style: { marginTop: '6px' } }, [zeigen])
+            ])),
+          textE('pipedriveHost', 'Pipedrive-Adresse',
+                'z. B. meinefirma.pipedrive.com – leer lassen für die Standardadresse')
+        ]));
 
-      pdBereich.appendChild(el('div', { class: 'meldung warn', style: { marginTop: '4px' } },
-        el('div', {}, [
-          el('b', { text: 'Zum Schlüssel: ' }),
-          'Er gilt in Pipedrive mit allen Rechten Ihres Benutzerkontos und lässt sich dort nicht ' +
-          'auf reines Lesen beschränken. Er verbleibt ausschließlich auf diesem Gerät, wird in ' +
-          'keinen Export und keinen Freigabe-Link geschrieben. Legen Sie ihn nur auf Geräten ab, ' +
-          'die Sie selbst kontrollieren, und ziehen Sie ihn in Pipedrive zurück, wenn ein Gerät ' +
-          'abhandenkommt. Sie finden ihn unter: Einstellungen → Persönliche Einstellungen → API.'
-        ])));
+        pdBereich.appendChild(el('div', { class: 'meldung warn', style: { marginTop: '4px' } },
+          el('div', {}, [
+            el('b', { text: 'Zum Schlüssel: ' }),
+            'Er gilt in Pipedrive mit allen Rechten Ihres Benutzerkontos und lässt sich dort nicht ' +
+            'auf reines Lesen beschränken. Er verbleibt ausschließlich auf diesem Gerät, wird in ' +
+            'keinen Export und keinen Freigabe-Link geschrieben. Legen Sie ihn nur auf Geräten ab, ' +
+            'die Sie selbst kontrollieren, und ziehen Sie ihn in Pipedrive zurück, wenn ein Gerät ' +
+            'abhandenkommt. Sie finden ihn unter: Einstellungen → Persönliche Einstellungen → API. ' +
+            'In der gemeinsamen Fassung lässt sich der Schlüssel stattdessen einmal in WordPress ' +
+            'hinterlegen - dann braucht kein Gerät einen.'
+          ])));
+      }
 
       pdBereich.appendChild(el('div', { class: 'knopfleiste', style: { marginTop: '12px' } }, [
         el('button', { class: 'haupt', text: 'Verbindung prüfen', onclick: function (ev) {
-          if (!e.pipedriveToken) { A.toast('Bitte zuerst den Schlüssel eintragen.', 'fehler'); return; }
+          if (!global.Pipedrive.quelle(e)) { A.toast('Bitte zuerst den Schlüssel eintragen.', 'fehler'); return; }
           ev.target.disabled = true; ev.target.textContent = 'Prüfe …';
           global.Pipedrive.verbindungPruefen(e).then(function (benutzer) {
             return global.Pipedrive.pipelines(e).then(function (liste) {
@@ -1229,7 +1271,7 @@
             pdZeichnen({ gut: false, fehler: fehler });
           });
         } }),
-        e.pipedriveToken ? el('button', { class: 'gefahr', text: 'Verbindung entfernen', onclick: function () {
+        (e.pipedriveToken && !ueberServer) ? el('button', { class: 'gefahr', text: 'Verbindung entfernen', onclick: function () {
           A.bestaetigen('Verbindung entfernen?',
             'Der Zugriffsschlüssel wird von diesem Gerät gelöscht. In Pipedrive selbst ändert sich nichts.',
             'Entfernen').then(function (ja) {
@@ -1240,7 +1282,7 @@
             A.toast('Verbindung entfernt.');
           });
         } }) : null,
-        e.pipedriveToken ? el('button', { text: 'Deals prüfen',
+        global.Pipedrive.quelle(e) ? el('button', { text: 'Deals prüfen',
           title: 'Zeigt, welche Deals Pipedrive liefert und warum sie angeboten werden oder nicht',
           onclick: function (ev) {
             global.ViewsProjekt.diagnoseLaufenLassen(ev.target, pdDiagnose);

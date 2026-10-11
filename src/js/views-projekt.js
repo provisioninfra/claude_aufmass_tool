@@ -34,7 +34,7 @@
         class: 'haupt', text: '+ Neues Aufmaß',
         onclick: function () { neuesProjektAnlegen(neuLaden); }
       }),
-      (Zustand.einstellungen && Zustand.einstellungen.pipedriveToken)
+      global.Pipedrive.quelle(Zustand.einstellungen)
         ? el('button', { text: 'Aus Pipedrive', title: 'Aufmaß aus einem Deal anlegen',
             onclick: function () { pipedriveDialog(neuLaden); } })
         : null,
@@ -133,12 +133,13 @@
     var e = Zustand.einstellungen || {};
     var PD = global.Pipedrive;
 
-    if (!e.pipedriveToken) {
+    if (!PD.quelle(e)) {
       A.dialogOeffnen({
         titel: 'Pipedrive ist noch nicht verbunden', klein: true,
         inhalt: el('div', {}, [
           el('p', { class: 'hinweis', style: { marginTop: '0' },
-            text: 'Hinterlegen Sie zuerst unter Einstellungen den Zugriffsschlüssel aus Pipedrive. ' +
+            text: 'Hinterlegen Sie zuerst unter Einstellungen den Zugriffsschlüssel aus Pipedrive - ' +
+                  'oder lassen Sie ihn in WordPress hinterlegen, dann braucht kein Gerät einen. ' +
                   'Danach lassen sich Aufmaße direkt aus einem Deal anlegen.' })
         ]),
         knoepfe: [

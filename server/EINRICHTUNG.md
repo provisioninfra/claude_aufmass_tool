@@ -131,6 +131,36 @@ kommt.
 
 ---
 
+## Schritt 6 — Pipedrive (optional)
+
+Bisher musste der Pipedrive-Zugriffsschlüssel auf **jedem** Gerät einzeln
+eingetragen werden – und lag dort mit allen Rechten des Pipedrive-Kontos.
+Jetzt genügt es, ihn **einmal** in WordPress zu hinterlegen:
+
+1. In Pipedrive: **Einstellungen → Persönliche Einstellungen → API** –
+   den Token kopieren.
+2. In WordPress: **Einstellungen → Aufmaß-Abgleich → Pipedrive** – den
+   Token eintragen, speichern.
+
+Danach kann jedes angemeldete Gerät Aufmaße aus Deals anlegen, ohne dass
+der Schlüssel das Gerät je erreicht. Der Server hängt ihn an die Abfragen
+an; das Werkzeug sieht nur Pipedrives Antworten.
+
+> **Wie der Schlüssel abgelegt ist:** verschlüsselt, und der Schlüssel
+> dafür steckt in der `wp-config.php` – nicht in der Datenbank. Ein
+> Datenbank-Backup allein verrät ihn also nicht.
+> **Folge:** Werden die Salts in der `wp-config.php` jemals erneuert, ist
+> der Token nicht mehr lesbar. Die Einstellungsseite sagt das dann klar,
+> und er wird einfach neu eingetragen.
+
+Geräte, auf denen noch ein Schlüssel liegt, bekommen in den Einstellungen
+einen Hinweis und einen Knopf, ihn zu entfernen. Der Server hat Vorrang.
+
+Die Einzeldatei (ohne Server) arbeitet weiter wie bisher mit dem Schlüssel
+auf dem Gerät.
+
+---
+
 ## Was danach gilt
 
 **Alle sehen alles, ändern darf nur, wer zuständig ist.**
@@ -195,6 +225,10 @@ Dort muss eine kurze Antwort mit `eingerichtet: true` erscheinen.
 Fast immer ein Zwischenspeicher. Unter Raidboxes den Seiten-Cache leeren.
 Der Bereich `/wp-json/` darf nicht zwischengespeichert werden.
 
+**„Der hinterlegte Schlüssel ist nicht mehr lesbar"** (Pipedrive)
+Die Salts in der `wp-config.php` wurden geändert. Token in WordPress neu
+eintragen – mehr ist nicht nötig.
+
 ---
 
 ## Für Techniker
@@ -211,4 +245,11 @@ Der Bereich `/wp-json/` darf nicht zwischengespeichert werden.
   über einen Drei-Wege-Vergleich zusammen.
 - Tabellen: `wp_aufmass_benutzer`, `_projekte`, `_zustaendig`, `_fotos`,
   `_sitzungen`.
+- Pipedrive: `GET /wp-json/aufmass/v1/pipedrive/<weg>` für Angemeldete.
+  Nur lesend, nur die sieben Wege, die das Werkzeug braucht (Positivliste
+  in `inc/pipedrive.php`); Parameter werden auf Form geprüft, `limit`
+  auf 500 gedeckelt. Der Token geht im Kopffeld mit, nie in der Adresse,
+  und wird aus Pipedrives Antworten getilgt, falls er darin vorkommt.
+  Ablage: XSalsa20-Poly1305 (sodium) bzw. AES-256-GCM, Schlüssel aus
+  `AUTH_KEY`/`SECURE_AUTH_KEY` + Installationsgeheimnis.
 - Prüfläufe: `npm test` (umfasst Server und Abgleich, PHP vorausgesetzt).

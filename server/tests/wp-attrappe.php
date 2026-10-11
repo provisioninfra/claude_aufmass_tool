@@ -12,6 +12,10 @@
 define('ABSPATH', __DIR__ . '/');
 define('ARRAY_A', 'ARRAY_A');
 define('AUFMASS_VERSION', '1.0.0-test');
+/* Salts wie in einer wp-config.php - daraus entsteht der Schlüssel für
+   abgelegte Geheimnisse. Prüfläufe dürfen sie umsetzen (AUFMASS_TEST_SALZ). */
+if (!defined('AUTH_KEY')) { define('AUTH_KEY', getenv('AUFMASS_TEST_SALZ') ?: 'pruef-salz-eins'); }
+if (!defined('SECURE_AUTH_KEY')) { define('SECURE_AUTH_KEY', 'pruef-salz-zwei'); }
 if (!defined('COOKIEPATH')) { define('COOKIEPATH', '/'); }
 if (!defined('COOKIE_DOMAIN')) { define('COOKIE_DOMAIN', ''); }
 
@@ -75,10 +79,32 @@ function register_setting() {} function add_options_page() {} function add_setti
 function current_user_can() { return true; } function wp_nonce_field() {}
 function check_admin_referer() { return true; } function settings_fields() {}
 function submit_button() {}
-function wp_remote_get() { return new WP_Error('offline', 'kein Netz im Test'); }
-function wp_remote_retrieve_response_code() { return 0; }
-function wp_remote_retrieve_body() { return ''; }
-function wp_remote_retrieve_header() { return ''; }
+/* Ausgehende Anfragen: Ein Prüflauf kann eine Antwort unterschieben
+   ($GLOBALS['wp_remote_attrappe']); der Mini-Server ruft eine Attrappe von
+   Pipedrive auf dem eigenen Rechner wirklich auf. Alles andere: kein Netz. */
+$GLOBALS['wp_remote_attrappe'] = null;
+$GLOBALS['wp_remote_letzte'] = null;
+function wp_remote_get($url, $args = array()) {
+    $GLOBALS['wp_remote_letzte'] = array('url' => $url, 'args' => $args);
+    if (is_callable($GLOBALS['wp_remote_attrappe'])) { return call_user_func($GLOBALS['wp_remote_attrappe'], $url, $args); }
+    if (!preg_match('#^http://127\.0\.0\.1(:[0-9]+)?/#', $url)) { return new WP_Error('offline', 'kein Netz im Test'); }
+    $kopf = array();
+    foreach ((isset($args['headers']) ? $args['headers'] : array()) as $k => $w) { $kopf[] = $k . ': ' . $w; }
+    $c = curl_init($url);
+    curl_setopt_array($c, array(CURLOPT_RETURNTRANSFER => true, CURLOPT_HTTPHEADER => $kopf,
+        CURLOPT_TIMEOUT => isset($args['timeout']) ? (int) $args['timeout'] : 10, CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_USERAGENT => isset($args['user-agent']) ? $args['user-agent'] : 'WordPress-Attrappe'));
+    $body = curl_exec($c);
+    if ($body === false) { $f = curl_error($c); curl_close($c); return new WP_Error('http', $f); }
+    $code = (int) curl_getinfo($c, CURLINFO_RESPONSE_CODE);
+    curl_close($c);
+    return array('response' => array('code' => $code), 'body' => $body, 'headers' => array());
+}
+function wp_remote_retrieve_response_code($a) { return is_array($a) && isset($a['response']['code']) ? $a['response']['code'] : 0; }
+function wp_remote_retrieve_body($a) { return is_array($a) && isset($a['body']) ? $a['body'] : ''; }
+function wp_remote_retrieve_header($a, $n) { return is_array($a) && isset($a['headers'][$n]) ? $a['headers'][$n] : ''; }
+function delete_option($name) { unset($GLOBALS['wp_optionen'][$name]); wp_optionen_sichern(); return true; }
+function delete_transient($n) { unset($GLOBALS['wp_zwischen'][$n]); return true; }
 function wp_next_scheduled() { return true; } function wp_schedule_event() {}
 function wp_clear_scheduled_hook() {}
 function plugin_dir_path($f) { return dirname($f) . '/'; }
@@ -202,6 +228,8 @@ require_once __DIR__ . '/../aufmass-sync/inc/jwt.php';
 require_once __DIR__ . '/../aufmass-sync/inc/anmeldung.php';
 require_once __DIR__ . '/../aufmass-sync/inc/projekte.php';
 require_once __DIR__ . '/../aufmass-sync/inc/fotos.php';
+require_once __DIR__ . '/../aufmass-sync/inc/verschluesselung.php';
+require_once __DIR__ . '/../aufmass-sync/inc/pipedrive.php';
 
 /* Im reinen Prüflauf gibt es keine Kopfzeilen; im Mini-Server schon. */
 Aufmass_Anmeldung::$cookie_schreiben = (php_sapi_name() !== 'cli');

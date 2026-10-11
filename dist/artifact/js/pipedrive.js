@@ -5,13 +5,36 @@
  * nichts nach Pipedrive zurück: Es werden ausschließlich GET-Abfragen
  * gestellt, und die Aufrufhülle lässt kein anderes Verfahren zu.
  *
- * Der Zugriffsschlüssel liegt ausschließlich im Speicher dieses Geräts. Er
- * wird nie in ein Projekt, einen Export oder einen Freigabe-Link geschrieben.
+ * Zwei Wege zum Schlüssel:
+ *  - Über den eigenen Server (gemeinsame Fassung): Der Schlüssel liegt
+ *    verschlüsselt in WordPress und verlässt den Server nie. Das Gerät
+ *    ruft nur die Weiterleitung auf. Dieser Weg hat Vorrang.
+ *  - Auf dem Gerät (Einzeldatei): Der Schlüssel liegt im Speicher dieses
+ *    Geräts und wird nie in ein Projekt, einen Export oder einen
+ *    Freigabe-Link geschrieben.
  * ========================================================================== */
 (function (global) {
   'use strict';
 
   var STANDARD_HOST = 'api.pipedrive.com';
+
+  /* Ist die Weiterleitung über den eigenen Server verfügbar? Nur dann,
+     wenn dieses Gerät dort angemeldet ist und der Server meldet, dass ein
+     Schlüssel hinterlegt ist. */
+  function serverWeg() {
+    var Ab = global.Abgleich;
+    if (!Ab || typeof Ab.zustand !== 'function') return null;
+    var z = Ab.zustand();
+    if (!z || !z.angemeldet || !z.pipedrive) return null;
+    return { host: z.pipedriveHost || STANDARD_HOST };
+  }
+
+  /** 'server' | 'geraet' | null - woher der Zugriff kommt. */
+  function quelle(einstellungen) {
+    if (serverWeg()) return 'server';
+    if (einstellungen && String(einstellungen.pipedriveToken || '').trim()) return 'geraet';
+    return null;
+  }
 
   /* --- Fehler mit verständlicher Ursache ---------------------------------- */
   function PipedriveFehler(text, art, zusatz) {
@@ -22,6 +45,8 @@
   }
 
   function hostAus(einstellungen) {
+    var server = serverWeg();
+    if (server) return server.host;
     var roh = String((einstellungen && einstellungen.pipedriveHost) || '').trim();
     if (!roh) return STANDARD_HOST;
     /* Auch eine vollständige Adresse aus dem Browser wird angenommen */
@@ -32,7 +57,95 @@
   /* =========================================================================
    * Eine lesende Abfrage. Andere Verfahren sind hier nicht vorgesehen.
    * ====================================================================== */
+  /* Pipedrives Statuscode in eine verständliche Ursache übersetzen - für
+     beide Wege dieselbe Regel, nur der Hinweis, wo man nachsieht, ist anders. */
+  function statusBewerten(status, woPruefen) {
+    if (status === 401 || status === 403) {
+      return PipedriveFehler('Der Zugriffsschlüssel wurde abgelehnt.', 'schluessel-ungueltig', woPruefen);
+    }
+    if (status === 429) {
+      return PipedriveFehler('Pipedrive hat zu viele Abfragen gemeldet.', 'zu-viele',
+        'Bitte einen Moment warten und erneut versuchen.');
+    }
+    if (status === 404) {
+      return PipedriveFehler('Der angefragte Eintrag wurde nicht gefunden.', 'nicht-gefunden', '');
+    }
+    if (status < 200 || status >= 300) {
+      return PipedriveFehler('Pipedrive antwortete mit Fehler ' + status + '.', 'antwort-fehler', '');
+    }
+    return null;
+  }
+  function inhaltBewerten(daten) {
+    if (daten && daten.success === false) {
+      return PipedriveFehler(daten.error || 'Pipedrive meldet einen Fehler.', 'antwort-fehler',
+        daten.error_info || '');
+    }
+    return null;
+  }
+
+  /* --- Der Weg über den eigenen Server ---------------------------------- */
+  function holenUeberServer(pfad, parameter) {
+    var weg = String(pfad).replace(/^\/?api\//, '');
+    var url = (global.location ? global.location.origin : '') + '/wp-json/aufmass/v1/pipedrive/' + weg;
+    var teile = [];
+    Object.keys(parameter || {}).forEach(function (k) {
+      var w = parameter[k];
+      if (w === undefined || w === null || w === '') return;
+      teile.push(encodeURIComponent(k) + '=' + encodeURIComponent(w));
+    });
+    if (teile.length) url += '?' + teile.join('&');
+
+    var abbruch = new AbortController();
+    var zeitgeber = setTimeout(function () { abbruch.abort(); }, 30000);
+
+    return fetch(url, {
+      method: 'GET', credentials: 'same-origin', signal: abbruch.signal,
+      headers: { 'X-Aufmass-Abgleich': '1', 'Accept': 'application/json' }
+    }).then(function (antwort) {
+      clearTimeout(zeitgeber);
+      return antwort.text().then(function (text) {
+        var d = null;
+        try { d = text ? JSON.parse(text) : null; } catch (e) { d = null; }
+        if (antwort.status === 401) {
+          throw PipedriveFehler('Die Anmeldung am Server ist abgelaufen.', 'nicht-angemeldet',
+            'Bitte im Werkzeug erneut anmelden.');
+        }
+        if (antwort.status === 503) {
+          throw PipedriveFehler((d && d.message) || 'Pipedrive ist auf dem Server nicht eingerichtet.',
+            'nicht-eingerichtet', 'In WordPress unter Einstellungen → Aufmaß-Abgleich den Schlüssel hinterlegen.');
+        }
+        if (antwort.status === 502) {
+          throw PipedriveFehler((d && d.message) || 'Pipedrive war vom Server aus nicht erreichbar.',
+            'verbindung', 'Bitte später erneut versuchen.');
+        }
+        if (!antwort.ok || !d || typeof d.status !== 'number') {
+          throw PipedriveFehler('Der eigene Server antwortete unerwartet (' + antwort.status + ').',
+            'antwort-fehler', (d && d.message) || '');
+        }
+        var f = statusBewerten(d.status,
+          'Der in WordPress hinterlegte Schlüssel wurde von Pipedrive abgelehnt. ' +
+          'Bitte unter Einstellungen → Aufmaß-Abgleich prüfen.');
+        if (f) throw f;
+        f = inhaltBewerten(d.daten);
+        if (f) throw f;
+        return d.daten;
+      });
+    }).catch(function (fehler) {
+      clearTimeout(zeitgeber);
+      if (fehler && fehler.art) throw fehler;
+      if (fehler && fehler.name === 'AbortError') {
+        throw PipedriveFehler('Der Server hat nicht rechtzeitig geantwortet.', 'zeitueberschreitung',
+          'Bitte Netzverbindung prüfen und erneut versuchen.');
+      }
+      throw PipedriveFehler('Die Verbindung zum eigenen Server kam nicht zustande.', 'verbindung',
+        'Ohne Netz lässt sich kein Deal abholen. Das übrige Werkzeug arbeitet weiter.');
+    });
+  }
+
   function holen(einstellungen, pfad, parameter) {
+    /* Der Server hat Vorrang: Dort liegt der Schlüssel, nicht hier. */
+    if (serverWeg()) return holenUeberServer(pfad, parameter);
+
     var schluessel = (einstellungen && einstellungen.pipedriveToken || '').trim();
     if (!schluessel) {
       return Promise.reject(PipedriveFehler(
@@ -60,26 +173,13 @@
       credentials: 'omit'
     }).then(function (antwort) {
       clearTimeout(zeitgeber);
-      if (antwort.status === 401 || antwort.status === 403) {
-        throw PipedriveFehler('Der Zugriffsschlüssel wurde abgelehnt.', 'schluessel-ungueltig',
-          'Bitte den Schlüssel in Pipedrive prüfen: Einstellungen → Persönliche Einstellungen → API.');
-      }
-      if (antwort.status === 429) {
-        throw PipedriveFehler('Pipedrive hat zu viele Abfragen gemeldet.', 'zu-viele',
-          'Bitte einen Moment warten und erneut versuchen.');
-      }
-      if (antwort.status === 404) {
-        throw PipedriveFehler('Der angefragte Eintrag wurde nicht gefunden.', 'nicht-gefunden', '');
-      }
-      if (!antwort.ok) {
-        throw PipedriveFehler('Pipedrive antwortete mit Fehler ' + antwort.status + '.', 'antwort-fehler', '');
-      }
+      var f = statusBewerten(antwort.status,
+        'Bitte den Schlüssel in Pipedrive prüfen: Einstellungen → Persönliche Einstellungen → API.');
+      if (f) throw f;
       return antwort.json();
     }).then(function (daten) {
-      if (daten && daten.success === false) {
-        throw PipedriveFehler(daten.error || 'Pipedrive meldet einen Fehler.', 'antwort-fehler',
-          daten.error_info || '');
-      }
+      var f = inhaltBewerten(daten);
+      if (f) throw f;
       return daten;
     }).catch(function (fehler) {
       clearTimeout(zeitgeber);
@@ -535,6 +635,7 @@
   global.Pipedrive = {
     STANDARD_HOST: STANDARD_HOST,
     hostAus: hostAus,
+    quelle: quelle,
     verbindungPruefen: verbindungPruefen,
     pipelines: pipelines,
     phasen: phasen,

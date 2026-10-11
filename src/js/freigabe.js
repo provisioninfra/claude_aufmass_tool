@@ -137,7 +137,22 @@
       s: schliessungen.map(function (s) {
         var K2 = global.Katalog;
         var traeger = K2 && K2.traegerText ? K2.traegerText(s) : (s.person || s.abteilung || '');
-        return [s.id, s.kuerzel || '', s.bezeichnung || '', traeger];
+        var eintrag = [s.id, s.kuerzel || '', s.bezeichnung || '', traeger];
+        /* Bei einer freigegebenen Schließung darf der Kunde auch eintragen,
+           wer ein Medium bekommt. Dafür bekommt er die heutige Liste mit -
+           ohne die internen Kennungen, die braucht er nicht. */
+        if (frei.indexOf(s.id) !== -1) {
+          eintrag.push({
+            a: s.traegerArt || '',
+            g: s.gruppenName || '',
+            p: (s.personen || []).filter(function (x) { return x && String(x.name || '').trim(); })
+              .map(function (x) {
+                return [String(x.name || '').trim(), String(x.funktion || '').trim(),
+                        Math.max(1, parseInt(x.anzahlMedien, 10) || 1)];
+              })
+          });
+        }
+        return eintrag;
       }),
       m: packen(matrix),
       e: packen(maske)
@@ -164,14 +179,43 @@
    * ====================================================================== */
 
   /* Nur die Abweichungen zurückgeben - das hält die Antwort kurz. */
-  function antwortErstellen(daten, geaenderteMatrix) {
+  /* Personen in die knappe Form [Name, Funktion, Anzahl] bringen und
+     dabei alles wegwerfen, was keinen Namen hat. */
+  function personenBereinigen(liste) {
+    return (Array.isArray(liste) ? liste : []).map(function (x) {
+      if (!x) return null;
+      var name = String(Array.isArray(x) ? x[0] : x.name || '').trim();
+      if (!name) return null;
+      var funktion = String(Array.isArray(x) ? (x[1] || '') : (x.funktion || '')).trim();
+      var anzahl = parseInt(Array.isArray(x) ? x[2] : x.anzahlMedien, 10);
+      return [name.slice(0, 120), funktion.slice(0, 120), Math.min(99, Math.max(1, anzahl || 1))];
+    }).filter(Boolean);
+  }
+
+  function personenGleich(a, b) {
+    return JSON.stringify(personenBereinigen(a)) === JSON.stringify(personenBereinigen(b));
+  }
+
+  /**
+   * @param personen  je Schließung (Reihenfolge wie daten.s) die vom Kunden
+   *                  bearbeitete Liste oder null, wenn er sie nicht angefasst hat
+   */
+  function antwortErstellen(daten, geaenderteMatrix, personen) {
     var aenderungen = [];
     for (var i = 0; i < geaenderteMatrix.length; i++) {
       if (geaenderteMatrix[i] !== daten.matrix[i] && daten.maske[i] === '1') {
         aenderungen.push(i.toString(36) + ':' + geaenderteMatrix[i]);
       }
     }
-    return {
+    /* Nur Listen, die sich wirklich geändert haben, und nur für
+       Schließungen, die dafür überhaupt freigegeben waren. */
+    var listen = {};
+    (personen || []).forEach(function (liste, index) {
+      if (!liste || !daten.s[index] || !daten.s[index][4]) return;
+      if (personenGleich(liste, daten.s[index][4].p)) return;
+      listen[index.toString(36)] = personenBereinigen(liste);
+    });
+    var antwort = {
       f: FORMAT, pid: daten.pid, typ: 'antwort',
       anzahl: daten.t.length + 'x' + daten.s.length,
       tIds: daten.t.map(function (t) { return t[0]; }),
@@ -179,6 +223,8 @@
       a: aenderungen.join(','),
       gesendet: new Date().toISOString()
     };
+    if (Object.keys(listen).length) antwort.p = listen;
+    return antwort;
   }
 
   function antwortAlsSchluessel(antwort) { return textZuAnker(JSON.stringify(antwort)); }
@@ -231,7 +277,55 @@
         vorher: vorher, nachher: wert
       });
     });
-    return { uebernommen: uebernommen, uebersprungen: uebersprungen, aenderungen: liste };
+
+    /* --- Inhaberlisten --- */
+    var personenListen = 0, personenUebersprungen = 0;
+    var p = (antwort.p && typeof antwort.p === 'object') ? antwort.p : {};
+    Object.keys(p).forEach(function (schluessel) {
+      var index = parseInt(schluessel, 36);
+      var schliessungId = isFinite(index) ? sIds[index] : null;
+      var sch = schliessungId ? projekt.schliessungen.filter(function (s) { return s.id === schliessungId; })[0] : null;
+      if (!sch) { personenUebersprungen++; return; }
+      /* Nur eine echte Liste zählt. Eine leere Liste ist eine Aussage
+         ("alle entfernt"); etwas, das keine Liste ist oder nur Unbrauchbares
+         enthält, ist keine - und darf die vorhandene Liste nicht löschen. */
+      var roh = p[schluessel];
+      if (!Array.isArray(roh)) { personenUebersprungen++; return; }
+      var neu = personenBereinigen(roh);
+      if (roh.length && !neu.length) { personenUebersprungen++; return; }
+      var vorher = (sch.personen || []).filter(function (x) { return x && String(x.name || '').trim(); });
+      var vorherKurz = personenBereinigen(vorher);
+      if (JSON.stringify(vorherKurz) === JSON.stringify(neu)) return;   /* nichts Neues */
+
+      /* Bekannte Personen behalten ihre Kennung: Dann erkennt auch der
+         Abgleich zwischen den Geräten, dass es dieselbe Person ist. */
+      var bekannt = {};
+      vorher.forEach(function (x) { bekannt[String(x.name).trim().toLowerCase()] = x; });
+      sch.personen = neu.map(function (eintrag) {
+        var alt2 = bekannt[eintrag[0].toLowerCase()];
+        if (alt2) {
+          alt2.name = eintrag[0]; alt2.funktion = eintrag[1]; alt2.anzahlMedien = eintrag[2];
+          delete bekannt[eintrag[0].toLowerCase()];
+          return alt2;
+        }
+        return M.neuePerson({ name: eintrag[0], funktion: eintrag[1], anzahlMedien: eintrag[2] });
+      });
+      /* Wer Personen einträgt, meint Einzelpersonen - sofern nicht schon
+         eine Gruppe festgelegt war. Eine Gruppe bleibt eine Gruppe. */
+      if (!sch.traegerArt && sch.personen.length) sch.traegerArt = 'einzel';
+      if (M.medienAngleichen) M.medienAngleichen(sch);
+      personenListen++;
+      liste.push({
+        schliessung: sch.kuerzel || sch.bezeichnung,
+        personen: true,
+        vorher: vorherKurz.length, nachher: sch.personen.length,
+        namen: sch.personen.map(function (x) { return x.name; })
+      });
+    });
+
+    return { uebernommen: uebernommen, uebersprungen: uebersprungen,
+             personenListen: personenListen, personenUebersprungen: personenUebersprungen,
+             aenderungen: liste };
   }
 
   global.Freigabe = {
@@ -240,6 +334,8 @@
     wertZuZeichen: wertZuZeichen, zeichenZuWert: zeichenZuWert,
     erstellen: erstellen, alsAnker: alsAnker, ausAnker: ausAnker,
     antwortErstellen: antwortErstellen,
+    personenBereinigen: personenBereinigen,
+    personenGleich: personenGleich,
     antwortAlsSchluessel: antwortAlsSchluessel,
     antwortAusSchluessel: antwortAusSchluessel,
     antwortUebernehmen: antwortUebernehmen,

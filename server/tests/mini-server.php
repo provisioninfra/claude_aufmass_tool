@@ -68,7 +68,16 @@ if ($rest === '/start' && $art === 'GET') {
         'clientId' => get_option('aufmass_client_id', ''),
         'domaene' => get_option('aufmass_domaene', ''),
         'angemeldet' => !!$b, 'benutzer' => $b,
-        'marke' => Aufmass_Datenbank::marke(), 'version' => '1.0.0-test'));
+        'marke' => Aufmass_Datenbank::marke(),
+        'pipedrive' => Aufmass_Pipedrive::eingerichtet(),
+        'pipedriveHost' => Aufmass_Pipedrive::eingerichtet() ? Aufmass_Pipedrive::host_anzeige() : '',
+        'version' => '1.0.0-test'));
+}
+if (preg_match('#^/pipedrive/(v[12]/[A-Za-z0-9_/]{1,80})$#', $rest, $t) && $art === 'GET') {
+    benutzerOderRaus();
+    $e = Aufmass_Pipedrive::anfrage($t[1], $_GET);
+    if (is_wp_error($e)) { fehler($e); }
+    raus($e);
 }
 if ($rest === '/anmelden' && $art === 'POST') {
     kopffeldPruefen();
@@ -90,7 +99,10 @@ if ($rest === '/benutzer' && $art === 'GET') {
 }
 if ($rest === '/projekte' && $art === 'GET') {
     benutzerOderRaus();
-    raus(Aufmass_Projekte::liste(isset($_GET['seit']) ? $_GET['seit'] : ''));
+    $d = Aufmass_Projekte::liste(isset($_GET['seit']) ? $_GET['seit'] : '');
+    $d['pipedrive'] = Aufmass_Pipedrive::eingerichtet();
+    $d['pipedriveHost'] = $d['pipedrive'] ? Aufmass_Pipedrive::host_anzeige() : '';
+    raus($d);
 }
 if (preg_match('#^/projekte/([A-Za-z0-9_-]{1,64})$#', $rest, $t)) {
     $id = $t[1];

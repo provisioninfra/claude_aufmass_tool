@@ -35,6 +35,10 @@
     benutzer: null,
     clientId: '',
     domaene: '',
+    /* Liegt ein Pipedrive-Schlüssel auf dem Server? Dann läuft die
+       Pipedrive-Anbindung dort, und dieses Gerät braucht keinen. */
+    pipedrive: false,
+    pipedriveHost: '',
     laeuft: false,
     offen: 0,                /* noch nicht gesendete Projekte */
     letzterAbgleich: null,
@@ -119,6 +123,7 @@
          ist - eine zweite, absehbar abgewiesene Anfrage erübrigt sich. */
       zustand.angemeldet = !!(d && d.angemeldet);
       zustand.benutzer = (d && d.benutzer) || null;
+      pipedriveMerken(d);
       melden();
       return zustand;
     }).catch(function (f) {
@@ -128,6 +133,19 @@
       melden();
       return zustand;
     });
+  }
+
+  /* Der Server sagt bei jedem Abgleich mit, ob Pipedrive dort eingerichtet
+     ist. So wirkt ein in WordPress hinterlegter Schlüssel auf allen Geräten,
+     ohne dass jemand das Werkzeug neu laden müsste. */
+  function pipedriveMerken(d) {
+    if (!d || d.pipedrive === undefined) { return; }
+    var neu = !!d.pipedrive, host = d.pipedriveHost || '';
+    if (neu !== zustand.pipedrive || host !== zustand.pipedriveHost) {
+      zustand.pipedrive = neu;
+      zustand.pipedriveHost = host;
+      melden();
+    }
   }
 
   function anmelden(googleToken) {
@@ -194,6 +212,7 @@
   /* --- Was gibt es Neues? --- */
   function holen() {
     return anfrage('/projekte?seit=' + encodeURIComponent(marke)).then(function (d) {
+      pipedriveMerken(d);
       var reihe = Promise.resolve();
       (d.projekte || []).forEach(function (eintrag) {
         reihe = reihe.then(function () { return eintragVerarbeiten(eintrag); });

@@ -34,7 +34,10 @@ Es gibt es in zwei Fassungen:
 * **Projektdatei** zum Austausch zwischen iPad und Büro-Rechner
 * **Gemeinsame Ablage** (nur in der Fassung für den eigenen Webserver) –
   alle Aufmaße auf allen Geräten, Zuständigkeiten je Aufmaß, Zusammenführen
-  bei gleichzeitiger Arbeit
+  bei gleichzeitiger Arbeit; der Pipedrive-Schlüssel liegt dann einmal auf
+  dem Server statt auf jedem Gerät
+* **Kundenfreigabe** – der Kunde trägt im Browser Berechtigungen ein und
+  benennt, wer ein Medium erhält; die Rückmeldung wird eingelesen
 
 In der Einzeldatei verbleiben alle Daten auf dem jeweiligen Gerät; es findet
 keinerlei Datenübertragung statt. In der gemeinsamen Fassung werden die

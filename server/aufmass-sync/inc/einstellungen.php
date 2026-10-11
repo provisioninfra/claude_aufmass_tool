@@ -25,6 +25,47 @@ class Aufmass_Einstellungen {
         register_setting('aufmass_sync', 'aufmass_domaene', array(
             'type' => 'string', 'sanitize_callback' => array(__CLASS__, 'domaene_pruefen'), 'default' => ''
         ));
+        /* Der Pipedrive-Schlüssel wird verschlüsselt abgelegt. Das Formular
+           zeigt ihn nie an; ein leeres Feld heißt "unverändert lassen". */
+        register_setting('aufmass_sync', 'aufmass_pipedrive_token', array(
+            'type' => 'string', 'sanitize_callback' => array(__CLASS__, 'pipedrive_token_pruefen'), 'default' => ''
+        ));
+        register_setting('aufmass_sync', 'aufmass_pipedrive_host', array(
+            'type' => 'string', 'sanitize_callback' => array(__CLASS__, 'pipedrive_host_pruefen'), 'default' => ''
+        ));
+    }
+
+    public static function pipedrive_token_pruefen($wert) {
+        /* Ausdrücklich entfernen */
+        /* Die Seite selbst ist durch manage_options und den Nonce von
+           options.php geschützt - das genügt hier. */
+        if (!empty($_POST['aufmass_pipedrive_entfernen'])) { return ''; }
+        $wert = trim((string) $wert);
+        if ($wert === '') { return (string) get_option('aufmass_pipedrive_token', ''); }   /* unverändert */
+        if (!preg_match('/^[A-Za-z0-9]{20,128}$/', $wert)) {
+            add_settings_error('aufmass_sync', 'pipedrive',
+                'Der Pipedrive-Schlüssel sieht nicht wie ein API-Token aus (nur Buchstaben und Ziffern, 20-128 Zeichen).');
+            return (string) get_option('aufmass_pipedrive_token', '');
+        }
+        $chiffre = Aufmass_Verschluesselung::verschluesseln($wert);
+        if ($chiffre === null) {
+            add_settings_error('aufmass_sync', 'pipedrive',
+                'Der Schlüssel konnte nicht verschlüsselt abgelegt werden (weder sodium noch openssl verfügbar).');
+            return (string) get_option('aufmass_pipedrive_token', '');
+        }
+        return $chiffre;
+    }
+
+    public static function pipedrive_host_pruefen($wert) {
+        $wert = trim((string) $wert);
+        if ($wert === '') { return ''; }
+        $wert = preg_replace('#^https?://#i', '', $wert);
+        $wert = preg_replace('#/.*$#', '', $wert);
+        if (!preg_match('/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i', $wert)) {
+            add_settings_error('aufmass_sync', 'pipedrive_host', 'Das ist keine gültige Pipedrive-Adresse.');
+            return (string) get_option('aufmass_pipedrive_host', '');
+        }
+        return strtolower($wert);
     }
 
     public static function client_pruefen($wert) {
@@ -99,6 +140,43 @@ class Aufmass_Einstellungen {
                          placeholder="provision-infra.de">
                   <p class="description">Nur Google-Konten dieser Organisation dürfen sich anmelden.
                      <strong>Bleibt das Feld leer, darf sich jedes beliebige Google-Konto anmelden.</strong></p>
+                </td>
+              </tr>
+            </table>
+
+            <h2>Pipedrive</h2>
+            <p>Mit dem Schlüssel hier kann jedes angemeldete Gerät Aufmaße aus Pipedrive-Deals anlegen -
+               ohne dass der Schlüssel auf den Geräten liegt. Er wird verschlüsselt abgelegt; der
+               Schlüssel dafür steckt in der <code>wp-config.php</code>, nicht in der Datenbank.</p>
+            <?php $pd_da = Aufmass_Pipedrive::eingerichtet(); $pd_kaputt = Aufmass_Pipedrive::token_unlesbar(); ?>
+            <table class="form-table" role="presentation">
+              <tr>
+                <th scope="row"><label for="aufmass_pipedrive_token">Pipedrive-Zugriffsschlüssel</label></th>
+                <td>
+                  <?php if ($pd_da) : ?>
+                    <p><strong style="color:#1b7a44">✓ Hinterlegt.</strong> Zum Ändern neuen Schlüssel eintragen, sonst leer lassen.</p>
+                  <?php elseif ($pd_kaputt) : ?>
+                    <p><strong style="color:#a32020">Der hinterlegte Schlüssel ist nicht mehr lesbar.</strong>
+                       Das passiert, wenn die Salts in der wp-config.php geändert wurden. Bitte neu eintragen.</p>
+                  <?php else : ?>
+                    <p>Noch nicht hinterlegt.</p>
+                  <?php endif; ?>
+                  <input name="aufmass_pipedrive_token" id="aufmass_pipedrive_token" type="password" class="regular-text code"
+                         value="" autocomplete="new-password" placeholder="API-Token aus Pipedrive">
+                  <p class="description">In Pipedrive unter Einstellungen → Persönliche Einstellungen → API.
+                     Er gilt mit allen Rechten dieses Pipedrive-Kontos; das Werkzeug liest nur.</p>
+                  <?php if ($pd_da || $pd_kaputt) : ?>
+                    <label><input type="checkbox" name="aufmass_pipedrive_entfernen" value="1"> Schlüssel entfernen</label>
+                  <?php endif; ?>
+                </td>
+              </tr>
+              <tr>
+                <th scope="row"><label for="aufmass_pipedrive_host">Pipedrive-Adresse</label></th>
+                <td>
+                  <input name="aufmass_pipedrive_host" id="aufmass_pipedrive_host" type="text" class="regular-text code"
+                         value="<?php echo esc_attr(get_option('aufmass_pipedrive_host', '')); ?>"
+                         placeholder="api.pipedrive.com">
+                  <p class="description">Leer lassen für die Standardadresse. Nur ändern, wenn Pipedrive eine eigene Firmenadresse vorgibt.</p>
                 </td>
               </tr>
             </table>

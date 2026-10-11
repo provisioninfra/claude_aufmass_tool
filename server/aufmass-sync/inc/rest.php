@@ -60,6 +60,11 @@ class Aufmass_Rest {
             'methods' => 'GET', 'callback' => array(__CLASS__, 'fotoliste'),
             'permission_callback' => array(__CLASS__, 'angemeldet')
         ));
+        /* Pipedrive: nur lesend, nur die vorgesehenen Wege (siehe pipedrive.php) */
+        register_rest_route(self::RAUM, '/pipedrive/(?P<weg>v[12]/[A-Za-z0-9_/]{1,80})', array(
+            'methods' => 'GET', 'callback' => array(__CLASS__, 'pipedrive'),
+            'permission_callback' => array(__CLASS__, 'angemeldet')
+        ));
         register_rest_route(self::RAUM, '/fotos/(?P<id>[A-Za-z0-9_-]{1,64})', array(
             array('methods' => 'GET', 'callback' => array(__CLASS__, 'foto_holen'),
                   'permission_callback' => array(__CLASS__, 'angemeldet')),
@@ -111,8 +116,16 @@ class Aufmass_Rest {
             'angemeldet' => !!$benutzer,
             'benutzer' => $benutzer,
             'marke' => Aufmass_Datenbank::marke(),
+            /* Nur OB Pipedrive eingerichtet ist und wo - nie der Schlüssel. */
+            'pipedrive' => Aufmass_Pipedrive::eingerichtet(),
+            'pipedriveHost' => Aufmass_Pipedrive::eingerichtet() ? Aufmass_Pipedrive::host_anzeige() : '',
             'version' => AUFMASS_VERSION
         ));
+    }
+
+    public static function pipedrive($anfrage) {
+        $e = Aufmass_Pipedrive::anfrage($anfrage['weg'], $anfrage->get_query_params());
+        return is_wp_error($e) ? $e : self::antwort($e);
     }
 
     public static function anmelden($anfrage) {
@@ -145,7 +158,12 @@ class Aufmass_Rest {
     }
 
     public static function liste($anfrage) {
-        return self::antwort(Aufmass_Projekte::liste((string) $anfrage->get_param('seit')));
+        $d = Aufmass_Projekte::liste((string) $anfrage->get_param('seit'));
+        /* Mit jedem Abgleich mitgeben, ob Pipedrive hier eingerichtet ist -
+           ein neu hinterlegter Schlüssel wirkt so ohne Neuladen. */
+        $d['pipedrive'] = Aufmass_Pipedrive::eingerichtet();
+        $d['pipedriveHost'] = $d['pipedrive'] ? Aufmass_Pipedrive::host_anzeige() : '';
+        return self::antwort($d);
     }
 
     public static function laden($anfrage) {
