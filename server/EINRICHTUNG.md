@@ -101,22 +101,99 @@ Speichern.
 
 ## Schritt 4 — Das Werkzeug ablegen
 
-1. Den Ordner **`dist/aufmasstool`** vollständig per SFTP in das
-   **Wurzelverzeichnis** der Website legen (dorthin, wo auch
-   `wp-content`, `wp-admin` und `wp-config.php` liegen).
-   Bequemer: **`dist/aufmasstool.zip`** hochladen und dort entpacken –
-   es enthält den Ordner mit allen 25 Dateien.
-2. Der Ordner muss danach `aufmasstool` heißen:
-   ```
-   /aufmasstool/index.html
-   /aufmasstool/js/…
-   /aufmasstool/css/app.css
-   ```
-3. Aufrufen: **https://www.provision-infra.de/aufmasstool/**
+Das Werkzeug besteht aus 25 normalen Dateien. Sie werden **nicht in
+WordPress installiert**, sondern *neben* WordPress auf denselben Webspace
+gelegt. Der Webserver liefert einen echten Ordner direkt aus und reicht
+nur Anfragen an WordPress weiter, zu denen es keine Datei gibt – deshalb
+braucht es weder eine WordPress-Seite noch eine Anpassung am Theme.
 
-WordPress leitet Anfragen nur dann um, wenn die Datei nicht existiert –
-ein echter Ordner wird direkt ausgeliefert. Es ist also keine Anpassung
-an WordPress nötig.
+### Das Wurzelverzeichnis finden
+
+Gemeint ist der Ordner, in dem WordPress selbst liegt. Er ist daran zu
+erkennen, dass diese drei Einträge nebeneinander stehen:
+
+```
+wp-admin/        (Ordner)
+wp-content/      (Ordner)
+wp-config.php    (Datei)
+```
+
+Bei Raidboxes heißt er je nach Box `public_html`, `web`, `www` oder
+`wordpress` – der Name ist egal, **maßgeblich ist die `wp-config.php`
+darin**. Nach dem SFTP-Login landet man meist eine Ebene darüber.
+
+Zugangsdaten: Raidboxes-Dashboard → Box → **SFTP**. FTP-Programm:
+[FileZilla](https://filezilla-project.org/) (kostenlos) oder Cyberduck.
+Protokoll SFTP, Port 22.
+
+### Hochladen
+
+**Weg 1 – Ordner per SFTP** (ohne SSH, für jeden machbar):
+
+1. `dist/aufmasstool.zip` **auf dem eigenen Rechner** entpacken – heraus
+   kommt ein Ordner `aufmasstool`. (Ein FTP-Programm kann auf dem Server
+   nichts entpacken, deshalb vorher.)
+2. Im FTP-Programm rechts ins Wurzelverzeichnis gehen.
+3. Den **ganzen Ordner `aufmasstool`** hinüberziehen – den Ordner, nicht
+   nur seinen Inhalt. Die Unterordner `js/` und `css/` kommen so mit.
+4. Warten, bis die Warteschlange leer ist: 26 Dateien (25 plus
+   `LIESMICH.txt`, die darf mit).
+
+**Weg 2 – ZIP per SSH** (wer SSH ohnehin nutzt):
+
+```
+scp dist/aufmasstool.zip <benutzer>@<server>:~/
+ssh <benutzer>@<server>
+cd <wurzelverzeichnis>        # dort, wo wp-config.php liegt
+unzip ~/aufmasstool.zip       # legt den Ordner aufmasstool an
+```
+
+### So muss es danach aussehen
+
+```
+<wurzelverzeichnis>/
+├── wp-admin/
+├── wp-content/
+├── wp-config.php
+└── aufmasstool/                      ← neu
+    ├── index.html
+    ├── freigabe.html
+    ├── sw.js
+    ├── manifest.webmanifest
+    ├── icon.svg, icon-180.png, icon-192.png, icon-512.png
+    ├── css/app.css
+    └── js/…                          (16 Dateien)
+```
+
+Typische Fehler: Der Ordner heißt anders (`aufmasstool (1)`,
+`Aufmasstool` – Groß-/Kleinschreibung zählt); nur der Inhalt wurde
+hochgeladen und liegt lose neben `wp-config.php`; der Ordner liegt in
+`wp-content/` statt im Wurzelverzeichnis. Dateirechte müssen nicht
+angefasst werden.
+
+### Prüfen
+
+Drei Adressen im Browser, in dieser Reihenfolge:
+
+1. `https://www.provision-infra.de/aufmasstool/js/abgleich.js`
+   → JavaScript-Quelltext. Erscheint eine WordPress-Fehlerseite, liegt
+   der Ordner am falschen Ort oder heißt anders.
+2. `https://www.provision-infra.de/wp-json/aufmass/v1/start`
+   → kurze Antwort mit `"eingerichtet":true`. Bei `false` fehlt die
+   Client-ID (Schritt 3); bei einer Fehlerseite ist das Plugin nicht
+   aktiv (Schritt 2).
+3. `https://www.provision-infra.de/aufmasstool/`
+   → die Anmeldeseite mit dem Google-Knopf.
+
+### Zwei Dinge, die man leicht übersieht
+
+**Immer dieselbe Adresse benutzen.** `www.provision-infra.de` und
+`provision-infra.de` sind für den Browser zwei verschiedene Herkünfte –
+mit getrennter Anmeldung und getrenntem Offline-Speicher. Eine festlegen
+(die, auf die die Website ohnehin umleitet) und allen genau diese geben.
+
+**Der erste Aufruf braucht Netz.** Dabei legt das Gerät alle Dateien für
+den Offline-Betrieb ab; ab dann startet das Werkzeug auch ohne Empfang.
 
 ---
 
