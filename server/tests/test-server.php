@@ -297,6 +297,91 @@ update_option('aufmass_client_id', '');
 $e = Aufmass_Anmeldung::anmelden(token($paar));
 pruefe(is_wp_error($e) && $e->get_error_code() === 'nicht_eingerichtet',
     'ohne Client-ID meldet der Server, dass er nicht eingerichtet ist', fehlertext($e));
+update_option('aufmass_client_id', '111-abc.apps.googleusercontent.com');
+
+echo "\n== Gehämmerte Anmeldung ==\n";
+/* Jede Prüfung eines Ausweises kostet eine RSA-Unterschrift. Wer mit
+   erfundenen Ausweisen hämmert, wird je Herkunft gedrosselt - echte
+   Anmeldungen zählen nicht mit. */
+$_SERVER['REMOTE_ADDR'] = '203.0.113.9';
+$stati = array();
+for ($i = 0; $i < 30; $i++) {
+    $e = Aufmass_Anmeldung::anmelden('kein.ausweis.' . $i);
+    $stati[] = is_wp_error($e) ? $e->get_error_data()['status'] : 200;
+}
+pruefe(count(array_unique($stati)) === 1 && $stati[0] === 401, '30 erfundene Ausweise: jedes Mal 401', implode(',', array_unique($stati)));
+$e = Aufmass_Anmeldung::anmelden('kein.ausweis.31');
+pruefe(is_wp_error($e) && $e->get_error_code() === 'zu_viele' && $e->get_error_data()['status'] === 429, 'der 31. Versuch wird gedrosselt (429)', fehlertext($e));
+$e = Aufmass_Anmeldung::anmelden(token($paar));
+pruefe(is_wp_error($e) && $e->get_error_data()['status'] === 429, 'bis dahin gilt auch ein echter Ausweis dieser Herkunft nicht', fehlertext($e));
+$_SERVER['REMOTE_ADDR'] = '203.0.113.10';
+$e = Aufmass_Anmeldung::anmelden(token($paar));
+pruefe(!is_wp_error($e), 'eine andere Herkunft meldet sich weiter an', fehlertext($e));
+/* IPv6: das /64-Netz zählt, nicht die einzelne Adresse - sonst reichte ein Netz voller Adressen */
+$_SERVER['REMOTE_ADDR'] = '2001:db8:1:2:aaaa::1';
+for ($i = 0; $i < 30; $i++) { Aufmass_Anmeldung::anmelden('kein.ausweis.' . $i); }
+$_SERVER['REMOTE_ADDR'] = '2001:db8:1:2:bbbb::2';
+$e = Aufmass_Anmeldung::anmelden(token($paar));
+pruefe(is_wp_error($e) && $e->get_error_data()['status'] === 429, 'bei IPv6 zählt das ganze /64-Netz', fehlertext($e));
+$_SERVER['REMOTE_ADDR'] = '2001:db8:1:3::1';
+$e = Aufmass_Anmeldung::anmelden(token($paar));
+pruefe(!is_wp_error($e), 'ein anderes /64-Netz ist davon unberührt', fehlertext($e));
+$_SERVER['REMOTE_ADDR'] = '203.0.113.11';
+for ($i = 0; $i < 35; $i++) { $e = Aufmass_Anmeldung::anmelden(token($paar)); }
+pruefe(!is_wp_error($e), '35 echte Anmeldungen hintereinander bleiben ungedrosselt', fehlertext($e));
+pruefe(Aufmass_Drossel::voll('anmelden', 1) === false, 'und hinterlassen keinen Zähler');
+$_SERVER['REMOTE_ADDR'] = '10.0.0.1';
+
+echo "\n== Zugang löschen ==\n";
+$neu = array('id' => 'u-neu', 'email' => 'neu@provision-infra.de', 'name' => 'Neue Person', 'bild' => '', 'rolle' => 'mitarbeit');
+$e = Aufmass_Anmeldung::anmelden(token($paar));
+$_COOKIE['aufmass_sitzung'] = $e['sitzung']; vergessen();
+pruefe(Aufmass_Anmeldung::aktueller_benutzer() !== null, 'Vorbereitung: u-neu ist angemeldet');
+$e = Aufmass_Projekte::speichern('prj-neu', mappe(array('id' => 'prj-neu', 'kunde' => 'Von Neu')), 0, $neu);
+pruefe(!is_wp_error($e) && count(Aufmass_Projekte::zustaendige_von('prj-neu')) === 1, 'Vorbereitung: u-neu ist für ein Aufmaß zuständig', fehlertext($e));
+pruefe(Aufmass_Anmeldung::zugang_loeschen('u-neu') === true, 'der Zugang wird gelöscht');
+pruefe((int) $wpdb->get_var("SELECT COUNT(*) FROM wp_aufmass_benutzer WHERE id = 'u-neu'") === 0, 'Name und Adresse sind weg');
+pruefe((int) $wpdb->get_var("SELECT COUNT(*) FROM wp_aufmass_sitzungen WHERE benutzer_id = 'u-neu'") === 0, 'alle Sitzungen sind weg');
+vergessen();
+pruefe(Aufmass_Anmeldung::aktueller_benutzer() === null, 'das Cookie des Geräts gilt nicht mehr');
+pruefe(count(Aufmass_Projekte::zustaendige_von('prj-neu')) === 0, 'die Zuständigkeit ist weg');
+$p = Aufmass_Projekte::laden('prj-neu');
+pruefe($p && $p['daten']['kunde'] === 'Von Neu' && $p['geaendertVon'] === '', 'das Aufmaß bleibt - „geändert von“ zeigt ins Leere', json_encode($p ? $p['geaendertVon'] : null));
+$e = Aufmass_Projekte::speichern('prj-neu', mappe(array('id' => 'prj-neu', 'kunde' => 'Übernommen von Kraus')), $p['version'], $kraus);
+pruefe(!is_wp_error($e), 'das nun herrenlose Aufmaß kann übernommen werden', fehlertext($e));
+
+echo "\n== Einstellungsseite: Zugänge sperren und löschen ==\n";
+require_once __DIR__ . '/../aufmass-sync/inc/einstellungen.php';
+function seite_rendern() { ob_start(); Aufmass_Einstellungen::seite(); return ob_get_clean(); }
+$geht = test_benutzer('u-geht', 'G. Geht');
+$e = Aufmass_Anmeldung::anmelden(token($paar, array('sub' => 'u-geht', 'email' => 'u-geht@provision-infra.de', 'name' => 'G. Geht')));
+pruefe(!is_wp_error($e), 'Vorbereitung: u-geht ist mit einem Gerät angemeldet', fehlertext($e));
+$_POST = array();
+$html = seite_rendern();
+pruefe(preg_match('/Warning|Notice|Deprecated|Fatal/', $html) === 0, 'die Seite entsteht ohne PHP-Meldungen');
+pruefe(strpos($html, 'u-geht@provision-infra.de') !== false && strpos($html, '>sperren<') !== false, 'sie listet die Zugänge mit „sperren“');
+pruefe(strpos($html, 'aufmass_benutzer_loeschen') === false, 'ein aktiver Zugang hat keinen Löschknopf');
+pruefe(strpos($html, '<h2>Aufbewahrung</h2>') !== false && strpos($html, '90 Tage im Papierkorb') !== false && strpos($html, '180 Tage') !== false,
+    'sie nennt die Aufbewahrungsfristen');
+$_POST = array('aufmass_benutzer_loeschen' => 'u-geht');
+$html = seite_rendern();
+pruefe(strpos($html, 'Nur ein gesperrter Zugang') !== false && (int) $wpdb->get_var("SELECT COUNT(*) FROM wp_aufmass_benutzer WHERE id = 'u-geht'") === 1,
+    'ein aktiver Zugang lässt sich nicht löschen');
+$_POST = array('aufmass_benutzer' => 'u-geht', 'aufmass_aktiv' => '0');
+$html = seite_rendern();
+pruefe((int) $wpdb->get_var("SELECT aktiv FROM wp_aufmass_benutzer WHERE id = 'u-geht'") === 0 && strpos($html, 'gesperrt und alle Geräte abgemeldet') !== false,
+    'sperren über die Seite');
+pruefe((int) $wpdb->get_var("SELECT COUNT(*) FROM wp_aufmass_sitzungen WHERE benutzer_id = 'u-geht'") === 0, 'das Gerät ist damit abgemeldet');
+pruefe(preg_match('/name="aufmass_benutzer_loeschen" value="u-geht"/', $html) === 1, 'jetzt gibt es den Löschknopf');
+$_POST = array('aufmass_benutzer_loeschen' => 'u-geht');
+$html = seite_rendern();
+pruefe(strpos($html, 'Zugang gelöscht') !== false && (int) $wpdb->get_var("SELECT COUNT(*) FROM wp_aufmass_benutzer WHERE id = 'u-geht'") === 0,
+    'ein gesperrter Zugang lässt sich löschen');
+pruefe(strpos($html, 'u-geht@provision-infra.de') === false, 'und steht nicht mehr auf der Seite');
+$_POST = array('aufmass_benutzer_loeschen' => 'gibt-es-nicht');
+$html = seite_rendern();
+pruefe(strpos($html, 'Nur ein gesperrter Zugang') !== false, 'eine erfundene Kennung wird abgewiesen');
+$_POST = array();
 
 echo "\n== Erfundene Kennungen ==\n";
 /* Ohne Existenzprüfung griffe die Regel "herrenlos darf jeder übernehmen"

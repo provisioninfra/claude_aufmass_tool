@@ -135,6 +135,21 @@ class Aufmass_Einstellungen {
             echo '<div class="notice notice-success"><p>Zugang ' . ($aktiv ? 'freigegeben' : 'gesperrt und alle Geräte abgemeldet') . '.</p></div>';
             $benutzer = $wpdb->get_results("SELECT * FROM $bt ORDER BY name", ARRAY_A) ?: array();
         }
+        /* Einen gesperrten Zugang endgültig löschen (Löschkonzept): Name,
+           Adresse, Sitzungen und Zuständigkeiten verschwinden, die Aufmaße
+           bleiben. Nur gesperrte Zugänge lassen sich löschen - ein Klick zu
+           viel soll niemanden mitten in der Arbeit aussperren. */
+        if (isset($_POST['aufmass_benutzer_loeschen']) && check_admin_referer('aufmass_benutzer_loeschen')) {
+            $id = sanitize_text_field(wp_unslash($_POST['aufmass_benutzer_loeschen']));
+            $z = $wpdb->get_row($wpdb->prepare("SELECT id, aktiv FROM $bt WHERE id = %s", $id), ARRAY_A);
+            if ($z && (int) $z['aktiv'] === 0) {
+                Aufmass_Anmeldung::zugang_loeschen($id);
+                echo '<div class="notice notice-success"><p>Zugang gelöscht. Die Aufmaße bleiben erhalten.</p></div>';
+            } else {
+                echo '<div class="notice notice-error"><p>Nur ein gesperrter Zugang lässt sich löschen.</p></div>';
+            }
+            $benutzer = $wpdb->get_results("SELECT * FROM $bt ORDER BY name", ARRAY_A) ?: array();
+        }
         ?>
         <div class="wrap">
           <h1>Aufmaß-Abgleich</h1>
@@ -268,7 +283,7 @@ class Aufmass_Einstellungen {
                 <td><?php echo $b['rolle'] === 'verwaltung' ? 'Verwaltung' : 'Mitarbeit'; ?></td>
                 <td><?php echo $b['letzte_anmeldung'] ? esc_html(mysql2date('d.m.Y H:i', $b['letzte_anmeldung'])) : '–'; ?></td>
                 <td>
-                  <form method="post" style="margin:0">
+                  <form method="post" style="margin:0;display:inline">
                     <?php wp_nonce_field('aufmass_benutzer'); ?>
                     <input type="hidden" name="aufmass_benutzer" value="<?php echo esc_attr($b['id']); ?>">
                     <input type="hidden" name="aufmass_aktiv" value="<?php echo (int) $b['aktiv'] ? 0 : 1; ?>">
@@ -278,13 +293,39 @@ class Aufmass_Einstellungen {
                       <button class="button button-small button-primary">freigeben</button>
                     <?php endif; ?>
                   </form>
+                  <?php if (!(int) $b['aktiv']) : ?>
+                  <form method="post" style="margin:0 0 0 .5em;display:inline"
+                        onsubmit="return confirm('Diesen Zugang endgültig löschen? Name, Adresse und Zuständigkeiten dieser Person werden entfernt. Die Aufmaße bleiben.');">
+                    <?php wp_nonce_field('aufmass_benutzer_loeschen'); ?>
+                    <input type="hidden" name="aufmass_benutzer_loeschen" value="<?php echo esc_attr($b['id']); ?>">
+                    <button class="button button-small button-link-delete">löschen</button>
+                  </form>
+                  <?php endif; ?>
                 </td>
               </tr>
             <?php endforeach; ?>
             </tbody>
           </table>
-          <p class="description">Sperren meldet sofort alle Geräte dieser Person ab.</p>
+          <p class="description">Sperren meldet sofort alle Geräte dieser Person ab. Löschen entfernt danach
+             Name, Adresse, Sitzungen und Zuständigkeiten dieser Person – die Aufmaße bleiben erhalten.</p>
           <?php endif; ?>
+
+          <h2>Aufbewahrung</h2>
+          <p>Was das Plugin ablegt und wann es von selbst wieder verschwindet (ein täglicher
+             WordPress-Zeitplan räumt auf):</p>
+          <ul style="list-style:disc;margin-left:1.5em">
+            <li><strong>Zugänge:</strong> Google-Kennung, Name, E-Mail-Adresse, erste und letzte Anmeldung.
+                Kein Profilbild. Bleiben, bis der Zugang hier gelöscht wird.</li>
+            <li><strong>Sitzungen:</strong> je Gerät <?php echo (int) Aufmass_Anmeldung::DAUER_TAGE; ?> Tage,
+                dann von selbst weg; Sperren beendet sie sofort.</li>
+            <li><strong>Aufmaße, Fotos, Zuständigkeiten:</strong> bis zum Löschen im Werkzeug, danach noch
+                <?php echo (int) Aufmass_Projekte::PAPIERKORB_TAGE; ?> Tage im Papierkorb, dann endgültig entfernt.</li>
+            <li><strong>Kundenfreigaben:</strong> die Plandaten eines Links bis zu seinem Ablauf oder Rückzug
+                (dann sofort entfernt); die Rückmeldung des Kunden – Name, Anmerkung, Eintragungen – bis
+                <?php echo (int) Aufmass_Freigaben::AUFBEWAHRUNG_TAGE; ?> Tage nach der Prüfung.</li>
+            <li><strong>Drosselung:</strong> ein Zähler je Herkunft (gekürzter, gehashter Adressbereich,
+                keine IP-Adresse) für zehn Minuten.</li>
+          </ul>
         </div>
         <?php
     }

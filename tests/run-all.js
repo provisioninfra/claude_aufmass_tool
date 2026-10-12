@@ -25,6 +25,7 @@ const reihen = [
   ['Pipedrive über Server', 'test-pipedrive-server.js'],
   ['Freigabe über Server', 'test-freigabe-server.js'],
   ['Angriffsproben',   'test-angriffe.js'],
+  ['Gleichlauf PHP↔JS','test-gleichlauf.js'],
   ['Offline-Betrieb', 'test-offline-pwa.js'],
   ['Aktualisierung',  'test-aktualisierung.js'],
   ['Alle Öffnungswege','test-ueberall.js']

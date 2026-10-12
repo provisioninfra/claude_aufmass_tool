@@ -91,11 +91,20 @@
     });
   }
 
+  /* Ein Eintrag aus dem localStorage-Ersatz. Ein kaputter Eintrag (etwa
+     halb geschrieben, weil der Speicher voll war) darf das Werkzeug nicht
+     zum Stillstand bringen - er zählt als "nicht vorhanden". */
+  function lsLesen(schluessel, sonst) {
+    try {
+      var roh = global.localStorage.getItem(schluessel);
+      return roh ? JSON.parse(roh) : sonst;
+    } catch (e) { return sonst; }
+  }
+
   function projektLaden(id) {
     return oeffnen().then(function (d) {
       if (!d) {
-        var roh = global.localStorage.getItem(LS_PRAEFIX + 'projekt.' + id);
-        return roh ? JSON.parse(roh) : null;
+        return lsLesen(LS_PRAEFIX + 'projekt.' + id, null);
       }
       return alsPromise(tx(STORE_PROJEKTE, 'readonly').get(id));
     });
@@ -144,8 +153,7 @@
   function abgleichLesen(id) {
     return oeffnen().then(function (d) {
       if (!d) {
-        var roh = global.localStorage.getItem(LS_PRAEFIX + 'abgleich.' + id);
-        return roh ? JSON.parse(roh) : null;
+        return lsLesen(LS_PRAEFIX + 'abgleich.' + id, null);
       }
       return alsPromise(tx(STORE_ABGLEICH, 'readonly').get(id));
     }).catch(function () { return null; });
@@ -222,8 +230,7 @@
   function einstellungenLaden() {
     return oeffnen().then(function (d) {
       if (!d) {
-        var roh = global.localStorage.getItem(LS_PRAEFIX + 'einstellungen');
-        return roh ? JSON.parse(roh) : {};
+        return lsLesen(LS_PRAEFIX + 'einstellungen', {});
       }
       return alsPromise(tx(STORE_META, 'readonly').get('einstellungen')).then(function (e) {
         return e ? e.wert : {};

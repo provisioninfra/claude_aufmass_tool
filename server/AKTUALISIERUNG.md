@@ -2,8 +2,9 @@
 
 Diese Anleitung gilt, wenn das Werkzeug **schon läuft**: Plugin
 „Aufmaß-Abgleich“ 1.0 in WordPress, Ordner `aufmasstool` auf dem Webspace,
-Geräte angemeldet. Sie bringt beides auf den neuen Stand (Plugin 1.1.0,
-Werkzeug mit Kurzlink-Freigabe und Sicherheitsrichtlinie).
+Geräte angemeldet. Sie bringt beides auf den neuen Stand (Plugin 1.1.1,
+Werkzeug 1.1.1 mit Kurzlink-Freigabe, Sicherheitsrichtlinie und
+Aktualisierungshinweis).
 
 **Zeitbedarf:** etwa 15 Minuten. **Ausfall:** keiner, die Aufmaße bleiben
 unberührt, niemand muss sich neu anmelden.

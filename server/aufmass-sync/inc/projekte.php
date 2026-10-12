@@ -190,6 +190,34 @@ class Aufmass_Projekte {
         return array('ok' => true);
     }
 
+    /** Nach so vielen Tagen im Papierkorb wird ein Aufmaß endgültig entfernt. */
+    const PAPIERKORB_TAGE = 90;
+
+    /**
+     * Täglich: gelöschte Aufmaße, deren Papierkorbfrist abgelaufen ist,
+     * endgültig entfernen - samt Fotos, Zuständigkeiten und Freigaben.
+     * Bis dahin lässt sich ein versehentlich gelöschtes Aufmaß noch
+     * zurückholen (ein erneutes Speichern von einem Gerät genügt).
+     */
+    public static function papierkorb_leeren($tage = null) {
+        global $wpdb;
+        $tage = $tage === null ? self::PAPIERKORB_TAGE : (int) $tage;
+        $tab = self::tabelle_projekte();
+        $grenze = gmdate('Y-m-d H:i:s', time() - $tage * 86400) . '.000000';
+        $ids = $wpdb->get_col($wpdb->prepare(
+            "SELECT id FROM $tab WHERE geloescht = 1 AND geloescht_am IS NOT NULL AND geloescht_am < %s", $grenze));
+        $ft = Aufmass_Datenbank::tabelle('fotos');
+        foreach (($ids ?: array()) as $id) {
+            foreach (($wpdb->get_col($wpdb->prepare("SELECT id FROM $ft WHERE projekt_id = %s", $id)) ?: array()) as $foto_id) {
+                Aufmass_Fotos::loeschen($foto_id);
+            }
+            $wpdb->delete(Aufmass_Datenbank::tabelle('zustaendig'), array('projekt_id' => $id));
+            if (class_exists('Aufmass_Freigaben')) { Aufmass_Freigaben::alle_loeschen($id); }
+            $wpdb->delete($tab, array('id' => $id));
+        }
+        return count($ids ?: array());
+    }
+
     /* ---------------------------------------------------------------- */
     /* Zuständigkeiten                                                   */
     /* ---------------------------------------------------------------- */

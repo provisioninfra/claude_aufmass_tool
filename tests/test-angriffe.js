@@ -194,6 +194,22 @@ async function ruf(weg, opt) {
     p((await ruf('/abmelden', { methode: 'POST', kopf: echt })).status === 200, 'abgemeldet');
     p((await ruf('/ich', { kopf: echt })).status === 401, 'das alte Cookie gilt nicht mehr');
 
+    console.log('\n== Gehämmerte Anmeldung ==');
+    /* Von dieser Herkunft kamen oben schon einige falsche Ausweise. Nach
+       höchstens 30 Fehlversuchen in zehn Minuten ist Schluss - dann gilt
+       vorübergehend auch ein echter Ausweis nicht mehr. */
+    let gedrosseltBei = -1;
+    for (let i = 0; i < 40; i++) {
+      const r = await ruf('/anmelden', { methode: 'POST', kopf: { 'X-Aufmass-Abgleich': '1' }, json: { token: 'kauderwelsch.' + i } });
+      if (r.status === 429) { gedrosseltBei = i; break; }
+      if (r.status !== 401) { gedrosseltBei = -2; break; }
+    }
+    p(gedrosseltBei >= 0 && gedrosseltBei <= 30, 'nach höchstens 30 Fehlversuchen antwortet der Server mit 429', String(gedrosseltBei));
+    const gedrosselt = await ruf('/anmelden', { methode: 'POST', kopf: { 'X-Aufmass-Abgleich': '1' }, json: { token: ausweis('u-weber', 'M. Weber') } });
+    p(gedrosselt.status === 429 && !(gedrosselt.kopf.get('set-cookie') || '').includes('aufmass_sitzung='),
+      'solange gilt auch ein echter Ausweis nicht - und es gibt kein Cookie', String(gedrosselt.status));
+    p(/Zu viele Versuche/.test(gedrosselt.d && gedrosselt.d.message), 'mit einer verständlichen Meldung', JSON.stringify(gedrosselt.d));
+
     p(serverFehler === '', 'der Server blieb ohne Warnungen und Fehler', serverFehler.slice(0, 300));
   } catch (e) {
     p(false, 'Durchlauf ohne Ausnahme', e.stack || String(e));

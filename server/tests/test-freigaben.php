@@ -281,6 +281,9 @@ $e = Aufmass_Freigaben::zurueckziehen($f0['code'], $fremd);
 pruefe(is_wp_error($e) && status_von($e) === 403, 'nur Zuständige ziehen zurück', fehlertext($e));
 $r = Aufmass_Freigaben::zurueckziehen($f0['code'], $weber);
 pruefe(!is_wp_error($r) && $r['status'] === 'zurueckgezogen', 'ein offener Link wird zurückgezogen', fehlertext($r));
+$zz = Aufmass_Freigaben::zeile($f0['code']);
+pruefe($zz !== null && $zz['daten'] === '', 'die Plandaten des Links sind damit sofort entfernt (Datensparsamkeit)',
+    $zz ? strlen((string) $zz['daten']) . ' Zeichen' : 'keine Zeile');
 $k = Aufmass_Freigaben::oeffentlich($f0['code']);
 pruefe(is_wp_error($k) && $k->get_error_code() === 'zurueckgezogen' && status_von($k) === 410, 'der Kunde bekommt 410', fehlertext($k));
 $e = Aufmass_Freigaben::antwort_annehmen($f0['code'], antwort(), 'Frau Spät', '');
@@ -293,6 +296,12 @@ pruefe(!is_wp_error($r) && $r['status'] === 'beantwortet', 'die wartende Antwort
 $k = Aufmass_Freigaben::oeffentlich($f14['code']);
 pruefe(is_wp_error($k) && $k->get_error_code() === 'abgelaufen', 'der Kunde kommt trotzdem nicht mehr hinein', fehlertext($k));
 pruefe(count(Aufmass_Freigaben::offene_fuer($weber)) === 1, 'die Antwort wartet weiter auf die Prüfung');
+$zz = Aufmass_Freigaben::zeile($f14['code']);
+pruefe($zz['daten'] === '' && $zz['antwort'] !== '' && $zz['antwort_name'] === 'Frau Dritt',
+    'auch hier sind die Plandaten weg - die Antwort samt Name bleibt zur Prüfung', json_encode(array(strlen($zz['daten']), $zz['antwort_name'])));
+$offen = Aufmass_Freigaben::offene_fuer($weber);
+pruefe(is_array($offen[0]['antwort']) && !isset($offen[0]['daten']),
+    'die Prüfung auf dem Gerät bekommt die Antwort und braucht die Plandaten nicht', implode(',', array_keys($offen[0])));
 $u = Aufmass_Freigaben::uebernommen_markieren($f14['code'], 1, $weber);
 pruefe(!is_wp_error($u) && $u['status'] === 'abgelaufen', 'nach der Übernahme gilt der Link als abgelaufen', fehlertext($u));
 
@@ -401,13 +410,56 @@ echo "\n== Aufräumen ==\n";
 $alt = gmdate('Y-m-d H:i:s', time() - 200 * 86400) . '.000000';
 $wpdb->update('wp_aufmass_freigaben', array('geaendert_am' => $alt), array('code' => $f0['code']));          /* zurückgezogen, alt */
 $wpdb->update('wp_aufmass_freigaben', array('gueltig_bis' => $alt, 'status' => 'beantwortet'), array('code' => $fa['code']));  /* abgelaufen, aber mit wartender Antwort */
+/* Ein gestern abgelaufener, nie beantworteter Link: bleibt als Eintrag, verliert aber seine Plandaten */
+$fb = Aufmass_Freigaben::anlegen('prj-f', freigabedaten(), '', $weber);
+$wpdb->update('wp_aufmass_freigaben', array('gueltig_bis' => gmdate('Y-m-d H:i:s', time() - 86400) . '.000000'), array('code' => $fb['code']));
 $vorher = (int) $wpdb->get_var('SELECT COUNT(*) FROM wp_aufmass_freigaben');
 Aufmass_Freigaben::aufraeumen();
+$zb = Aufmass_Freigaben::zeile($fb['code']);
+pruefe($zb !== null && $zb['daten'] === '', 'ein frisch abgelaufener Link verliert sofort seine Plandaten', $zb ? strlen($zb['daten']) . ' Zeichen' : 'weg');
+$k = Aufmass_Freigaben::oeffentlich($fb['code']);
+pruefe(is_wp_error($k) && $k->get_error_code() === 'abgelaufen' && status_von($k) === 410, 'der Kunde sieht dann „abgelaufen“ - keinen Serverfehler', fehlertext($k));
+$lb = array_values(array_filter(Aufmass_Freigaben::liste('prj-f'), function ($x) use ($fb) { return $x['code'] === $fb['code']; }));
+pruefe(count($lb) === 1 && $lb[0]['status'] === 'abgelaufen', 'und im Werkzeug steht er als abgelaufen', json_encode($lb));
+pruefe(Aufmass_Freigaben::zeile($fa['code'])['daten'] !== '', 'die Plandaten einer wartenden Antwort bleiben bis zur Prüfung');
 $nachher = (int) $wpdb->get_var('SELECT COUNT(*) FROM wp_aufmass_freigaben');
 pruefe($nachher === $vorher - 1, 'eine alte, zurückgezogene Freigabe wird gelöscht', "$vorher -> $nachher");
 pruefe(Aufmass_Freigaben::zeile($f0['code']) === null, 'und zwar genau die');
 pruefe(Aufmass_Freigaben::zeile($fa['code']) !== null, 'eine abgelaufene mit wartender Antwort bleibt');
 pruefe(Aufmass_Freigaben::zeile($code) !== null, 'frisch Erledigtes bleibt');
+
+echo "\n== Papierkorb leeren ==\n";
+/* Zwei gelöschte Aufmaße mit Foto und Freigabe: eines seit 100 Tagen im
+   Papierkorb, eines seit gestern. Nur das alte ist fällig. */
+$jpeg = "\xFF\xD8\xFF\xE0" . str_repeat("\x00", 200) . "\xFF\xD9";
+$pfade = array();
+foreach (array('prj-alt' => 100, 'prj-jung' => 1) as $pid => $tage) {
+    $e = Aufmass_Projekte::speichern($pid, array('id' => $pid, 'kunde' => 'K', 'objekt' => 'O',
+        'tueren' => array(array('id' => 't1')), 'schliessungen' => array(array('id' => 's1'))), 0, $weber);
+    pruefe(!is_wp_error($e), "Vorbereitung: $pid liegt", fehlertext($e));
+    $e = Aufmass_Fotos::speichern('foto-' . $pid, $pid, 't1', $jpeg, 'image/jpeg', $weber);
+    pruefe(!is_wp_error($e), "Vorbereitung: $pid hat ein Foto", fehlertext($e));
+    $pfade[$pid] = Aufmass_Fotos::holen('foto-' . $pid)['pfad'];
+    $e = Aufmass_Freigaben::anlegen($pid, array('f' => 1, 'pid' => $pid, 't' => array(array('t1', '1', 'Tür', '')),
+        's' => array(array('s1', 'A', 'A', '', array('a' => '', 'g' => '', 'p' => array()))), 'm' => '0', 'e' => '1'), '', $weber);
+    pruefe(!is_wp_error($e), "Vorbereitung: $pid hat eine Freigabe", fehlertext($e));
+    $e = Aufmass_Projekte::loeschen($pid, $weber);
+    pruefe(!is_wp_error($e), "Vorbereitung: $pid liegt im Papierkorb", fehlertext($e));
+    $wpdb->update('wp_aufmass_projekte', array('geloescht_am' => gmdate('Y-m-d H:i:s', time() - $tage * 86400) . '.000000'), array('id' => $pid));
+}
+pruefe(file_exists($pfade['prj-alt']) && file_exists($pfade['prj-jung']), 'Vorbereitung: beide Fotodateien liegen auf der Platte');
+$n = Aufmass_Projekte::papierkorb_leeren();
+pruefe($n === 1, 'genau ein Aufmaß war fällig', $n);
+pruefe(Aufmass_Projekte::laden('prj-alt') === null, 'das alte ist endgültig weg');
+pruefe(count(Aufmass_Fotos::vorhandene('prj-alt')) === 0 && !file_exists($pfade['prj-alt']), 'samt Foto - auch die Datei auf der Platte');
+pruefe(count(Aufmass_Freigaben::liste('prj-alt')) === 0, 'samt Freigaben');
+pruefe((int) $wpdb->get_var("SELECT COUNT(*) FROM wp_aufmass_zustaendig WHERE projekt_id = 'prj-alt'") === 0, 'samt Zuständigkeiten');
+$jung = Aufmass_Projekte::laden('prj-jung');
+pruefe($jung !== null && $jung['geloescht'] === true, 'das junge bleibt im Papierkorb');
+pruefe(count(Aufmass_Fotos::vorhandene('prj-jung')) === 1 && file_exists($pfade['prj-jung']) && count(Aufmass_Freigaben::liste('prj-jung')) === 1,
+    'mit Foto und Freigabe');
+pruefe(Aufmass_Projekte::papierkorb_leeren(0) >= 1 && Aufmass_Projekte::laden('prj-jung') === null && !file_exists($pfade['prj-jung']),
+    'mit Frist 0 wird auch das junge samt Foto geleert');
 
 echo "\nErgebnis Freigaben: $ok ok, $fehler Fehler\n";
 exit($fehler ? 1 : 0);

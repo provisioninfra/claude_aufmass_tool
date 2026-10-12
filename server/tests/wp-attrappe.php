@@ -95,6 +95,7 @@ function wp_mkdir_p($p) { return is_dir($p) || mkdir($p, 0777, true); }
 function nocache_headers() {}
 function mysql2date($f, $d) { return date($f, strtotime($d)); }
 function sanitize_text_field($t) { return trim(strip_tags((string) $t)); }
+function wp_unslash($v) { return is_array($v) ? array_map('wp_unslash', $v) : stripslashes((string) $v); }
 function esc_html($t) { return htmlspecialchars((string) $t, ENT_QUOTES, 'UTF-8'); }
 function esc_attr($t) { return htmlspecialchars((string) $t, ENT_QUOTES, 'UTF-8'); }
 function add_action() {} function add_filter() {} function register_rest_route() {}
@@ -276,6 +277,7 @@ class WPDB_Attrappe {
 $GLOBALS['wpdb'] = new WPDB_Attrappe();
 
 require_once __DIR__ . '/../aufmass-sync/inc/datenbank.php';
+require_once __DIR__ . '/../aufmass-sync/inc/drossel.php';
 require_once __DIR__ . '/../aufmass-sync/inc/jwt.php';
 require_once __DIR__ . '/../aufmass-sync/inc/anmeldung.php';
 require_once __DIR__ . '/../aufmass-sync/inc/projekte.php';

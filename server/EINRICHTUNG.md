@@ -318,17 +318,77 @@ alle. Niemand sonst kann sie übernehmen - auch nicht aus Versehen.
 
 Ein Schließplan nennt Personen und ihre Zutrittsrechte. Das sind
 personenbezogene Daten und zugleich sicherheitsrelevante Angaben über
-fremde Gebäude.
+fremde Gebäude. Deshalb gilt im Werkzeug: so wenig wie möglich ablegen,
+nichts länger als nötig behalten, nichts an Dritte geben.
 
-- Die Daten liegen auf **eurem** Raidboxes-Server in Deutschland. Es
-  kommt kein weiterer Anbieter hinzu, der Auftragsverarbeitungsvertrag
-  mit Raidboxes deckt das mit ab.
+### Wo die Daten liegen
+
+- Alles liegt auf **eurem** Raidboxes-Server in Deutschland. Es kommt kein
+  weiterer Anbieter hinzu; der Auftragsverarbeitungsvertrag mit Raidboxes
+  deckt das mit ab.
 - An Google geht **nichts** außer der Anmeldung selbst. Google erfährt,
-  dass sich jemand angemeldet hat – nicht, woran gearbeitet wird.
+  dass sich jemand angemeldet hat – nicht, woran gearbeitet wird. Das
+  Profilbild aus dem Google-Konto wird nicht gespeichert.
 - Die Fotos liegen außerhalb des öffentlich erreichbaren Bereichs und
   tragen zusätzlich einen nicht erratbaren Dateinamen.
-- Ausscheidende Mitarbeiter: Zugang sperren (Schritt 5). Die Aufmaße
-  bleiben, die Geräte sind sofort abgemeldet.
+- Auf jedem angemeldeten Gerät liegt eine Offline-Kopie der Aufmaße im
+  Browserspeicher. Deshalb: Gerätesperre mit Code, und bevor ein Gerät
+  weitergegeben wird, im Werkzeug abmelden und die Website-Daten des
+  Browsers löschen. Das Sperren eines Zugangs in WordPress beendet den
+  Abgleich sofort, leert aber nicht den Speicher des Geräts.
+
+### Was das Plugin speichert – und wie lange
+
+| Daten | Inhalt | Bleibt |
+|---|---|---|
+| Zugänge | Google-Kennung, Name, E-Mail-Adresse, erste und letzte Anmeldung | bis der Zugang in WordPress gelöscht wird |
+| Sitzungen | je Gerät eine Kennung; das Geheimnis nur als Prüfwert | 30 Tage, dann von selbst weg; Sperren beendet sie sofort |
+| Aufmaße, Fotos, Zuständigkeiten | was im Werkzeug angelegt wird | bis zum Löschen im Werkzeug, danach 90 Tage im Papierkorb, dann endgültig |
+| Kundenfreigaben | die Plandaten des Links (Türen, Schließungen, bekannte Inhaber) | bis der Link abläuft oder zurückgezogen wird – dann sofort entfernt |
+| Rückmeldungen | Name und Anmerkung des Kunden, seine Eintragungen | bis eine zuständige Person sie übernommen oder verworfen hat, danach noch 180 Tage |
+| Drosselung | ein Zähler je Herkunft (gekürzter, gehashter Adressbereich – keine IP-Adresse) | 10 Minuten |
+
+Die Fristen räumt ein täglicher WordPress-Zeitplan ab; er läuft, sobald
+die Website besucht wird. Die Gültigkeit der Links lässt sich unter
+*Einstellungen → Aufmaß-Abgleich* ändern; dieselbe Seite zeigt die
+Aufbewahrung noch einmal an.
+
+### E-Mails
+
+Die Benachrichtigung über eine Rückmeldung geht an den Ersteller des
+Links und alle Zuständigen des Aufmaßes. Sie nennt Kunde und Objekt, die
+Zahl der Änderungen sowie den vom Kunden eingegebenen Namen und seine
+Anmerkung – keine Berechtigungen und keine Inhaber. Wer das nicht
+möchte, schaltet den Versand in den Einstellungen ab; die Rückmeldung
+liegt in jedem Fall im Werkzeug.
+
+### Was der Kunde sieht
+
+Über seinen Link sieht der Kunde nur den freigegebenen Ausschnitt: die
+Türen, die freigegebenen Schließungen und die bisher bekannten Inhaber.
+Er sieht keine Kennungen, keine Namen von Mitarbeitern und keine anderen
+Aufmaße. Der Kurzlink taucht in den Zugriffsprotokollen des Hosters auf,
+die Raidboxes nach eigener Regel aufbewahrt; wer das vermeiden will,
+zieht den Link nach der Rückmeldung zurück – dann ist er wertlos.
+
+### Ausscheidende Mitarbeiter
+
+Unter *Einstellungen → Aufmaß-Abgleich → Zugänge* den Zugang **sperren**:
+Alle Geräte dieser Person sind sofort abgemeldet, die Aufmaße bleiben.
+Anschließend **löschen**: Name, Adresse, Sitzungen und Zuständigkeiten
+dieser Person werden entfernt; die Aufmaße bleiben erhalten, „geändert
+von“ zeigt dann ins Leere.
+
+### Auskunft und Löschung
+
+Fragt eine Person nach ihren Daten, stehen sie an drei Stellen: in der
+Tabelle `wp_aufmass_benutzer` (Mitarbeiter), in `wp_aufmass_freigaben`
+(Name und Anmerkung des Kunden in den Spalten `antwort_name` und
+`antwort_anmerkung`) und in den Aufmaßen selbst (Inhaber der
+Schließungen). Inhaber lassen sich im Werkzeug ändern oder entfernen, der
+Abgleich trägt es auf den Server. Eine Rückmeldung verschwindet nach der
+Frist oben von selbst; wer sie früher loswerden will, löscht die Zeile in
+`wp_aufmass_freigaben`.
 
 ---
 
@@ -409,15 +469,18 @@ hinterlegen (Schritt 6), der Server übernimmt die Abfrage.
   Geräte sofort ab.
 - **Der Google-Ausweis** wird serverseitig gegen Googles Schlüssel geprüft
   (Unterschrift, Aussteller, Client-ID, Ablauf, bestätigte Adresse,
-  Organisationsdomäne).
+  Organisationsdomäne). Fehlgeschlagene Anmeldungen werden je Herkunft
+  gedrosselt (30 in zehn Minuten), damit niemand den Server mit
+  erfundenen Ausweisen beschäftigt.
 - **Kundenfreigabe:** Code mit rund 50 Bit Zufall; je Herkunft werden
   unbekannte Codes (30), Aufrufe (120) und Übertragungen (12) in zehn
   Minuten gedrosselt, je Link höchstens 40 Übertragungen am Tag;
   IPv6-Adressen zählen als /64-Netz. Jede Antwort wird gegen die Freigabe
   geprüft und bereinigt abgelegt; nichts gelangt ohne Bestätigung einer
-  zuständigen Person ins Aufmaß. Links laufen ab, lassen sich zurückziehen
-  und werden nach 180 Tagen gelöscht. Der Kurzlink leitet nur auf die
-  eigene Website weiter.
+  zuständigen Person ins Aufmaß. Links laufen ab und lassen sich
+  zurückziehen; die Plandaten eines toten Links werden sofort entfernt,
+  der Rest nach 180 Tagen. Der Kurzlink leitet nur auf die eigene Website
+  weiter.
 - **E-Mails** sind reiner Text; was der Kunde eingegeben hat, ist darin
   als ungeprüft gekennzeichnet und gekürzt. Der Betreff kann keine
   Kopfzeilen einschleusen.

@@ -29,6 +29,9 @@ class Aufmass_Anmeldung {
     /* ---------------------------------------------------------------- */
     /* Anmelden                                                          */
     /* ---------------------------------------------------------------- */
+    /** Fehlgeschlagene Anmeldungen je Herkunft in zehn Minuten. */
+    const DROSSEL_FEHLVERSUCHE = 30;
+
     public static function anmelden($token) {
         $client = trim((string) get_option('aufmass_client_id', ''));
         $domaene = trim((string) get_option('aufmass_domaene', ''));
@@ -37,9 +40,13 @@ class Aufmass_Anmeldung {
                 'Der Abgleich ist noch nicht eingerichtet: Es fehlt die Google-Client-ID.',
                 array('status' => 503));
         }
+        /* Jede Prüfung kostet eine RSA-Unterschrift. Wer mit erfundenen
+           Ausweisen hämmert, wird gedrosselt - echte Anmeldungen zählen nicht. */
+        if (Aufmass_Drossel::voll('anmelden', self::DROSSEL_FEHLVERSUCHE)) { return Aufmass_Drossel::zu_viele(); }
 
         $ergebnis = Aufmass_JWT::pruefen($token, $client, $domaene);
         if (empty($ergebnis['ok'])) {
+            Aufmass_Drossel::zaehlen('anmelden', self::DROSSEL_FEHLVERSUCHE, 600);
             return new WP_Error('anmeldung_abgelehnt', $ergebnis['grund'], array('status' => 401));
         }
         $a = $ergebnis['daten'];
@@ -55,10 +62,12 @@ class Aufmass_Anmeldung {
                     'Dieser Zugang wurde gesperrt. Bitte in der Verwaltung melden.',
                     array('status' => 403));
             }
+            /* Das Profilbild von Google wird nicht abgelegt: Das Werkzeug
+               zeigt es nirgends, also wird es auch nicht gespeichert. */
             $wpdb->update($tab, array(
                 'email' => $a['email'],
                 'name' => isset($a['name']) ? $a['name'] : $vorhanden['name'],
-                'bild' => isset($a['picture']) ? $a['picture'] : '',
+                'bild' => '',
                 'letzte_anmeldung' => $jetzt
             ), array('id' => $a['sub']));
             $rolle = $vorhanden['rolle'];
@@ -71,7 +80,7 @@ class Aufmass_Anmeldung {
                 'id' => $a['sub'],
                 'email' => $a['email'],
                 'name' => isset($a['name']) ? $a['name'] : $a['email'],
-                'bild' => isset($a['picture']) ? $a['picture'] : '',
+                'bild' => '',
                 'rolle' => $rolle,
                 'aktiv' => 1,
                 'erste_anmeldung' => $jetzt,
@@ -130,6 +139,19 @@ class Aufmass_Anmeldung {
         self::$geprueft = true;
     }
 
+    /**
+     * Einen Zugang endgültig entfernen: Benutzer, Sitzungen und
+     * Zuständigkeiten. Aufmaße bleiben - die Namensangabe „angelegt von“
+     * zeigt dann ins Leere, das ist beabsichtigt (Löschkonzept).
+     */
+    public static function zugang_loeschen($benutzer_id) {
+        global $wpdb;
+        self::alle_beenden($benutzer_id);
+        $wpdb->delete(Aufmass_Datenbank::tabelle('zustaendig'), array('benutzer_id' => $benutzer_id));
+        $wpdb->delete(Aufmass_Datenbank::tabelle('benutzer'), array('id' => $benutzer_id));
+        return true;
+    }
+
     /** Alle Sitzungen eines Benutzers beenden (z. B. Gerät verloren). */
     public static function alle_beenden($benutzer_id) {
         global $wpdb;
@@ -185,7 +207,6 @@ class Aufmass_Anmeldung {
             'id' => $benutzer['id'],
             'email' => $benutzer['email'],
             'name' => $benutzer['name'],
-            'bild' => $benutzer['bild'],
             'rolle' => $benutzer['rolle']
         );
         return self::$benutzer;

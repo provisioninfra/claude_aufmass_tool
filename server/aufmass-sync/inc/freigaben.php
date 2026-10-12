@@ -562,7 +562,10 @@ class Aufmass_Freigaben {
         $darf = Aufmass_Projekte::darf_aendern($z['projekt_id'], $benutzer);
         if (is_wp_error($darf)) { return $darf; }
         $jetzt = Aufmass_Datenbank::jetzt();
-        $neu = array('gueltig_bis' => $jetzt, 'geaendert_am' => $jetzt);
+        /* Die Plandaten (Türen, Schließungen, Inhaber des Kunden) werden
+           sofort entfernt: Der Link ist tot, niemand braucht sie mehr. Eine
+           wartende Antwort bleibt - sie ist klein und wird noch geprüft. */
+        $neu = array('gueltig_bis' => $jetzt, 'geaendert_am' => $jetzt, 'daten' => '');
         if ($z['status'] !== 'beantwortet') { $neu['status'] = 'zurueckgezogen'; }
         $wpdb->update(self::tabelle(), $neu, array('code' => $code));
         return self::beschreiben(self::zeile($code), true);
@@ -578,16 +581,33 @@ class Aufmass_Freigaben {
         return $seite . '#' . $code;
     }
 
-    /** Erledigtes und Abgelaufenes nach der Aufbewahrungsfrist löschen. */
+    /**
+     * Täglich: Erledigtes und Abgelaufenes nach der Aufbewahrungsfrist
+     * löschen - und vorher schon die Plandaten jedes toten Links entfernen.
+     * Was der Kunde nicht mehr öffnen kann, muss nicht mehr vorgehalten
+     * werden; übrig bleibt der Vorgang (wer, wann, welcher Zustand).
+     */
     public static function aufraeumen() {
         global $wpdb;
         $tab = self::tabelle();
+        $jetzt = gmdate('Y-m-d H:i:s') . '.000000';
+        $wpdb->query($wpdb->prepare(
+            "UPDATE $tab SET daten = ''
+             WHERE daten <> '' AND status <> 'beantwortet'
+               AND (status = 'zurueckgezogen' OR (gueltig_bis IS NOT NULL AND gueltig_bis < %s))",
+            $jetzt));
         $grenze = gmdate('Y-m-d H:i:s', time() - self::AUFBEWAHRUNG_TAGE * 86400) . '.000000';
         $wpdb->query($wpdb->prepare(
             "DELETE FROM $tab
              WHERE (status IN ('zurueckgezogen','uebernommen','verworfen') AND geaendert_am < %s)
                 OR (gueltig_bis IS NOT NULL AND gueltig_bis < %s AND status <> 'beantwortet')",
             $grenze, $grenze));
+    }
+
+    /** Alle Freigaben eines Aufmaßes endgültig entfernen (Papierkorb leeren). */
+    public static function alle_loeschen($projekt_id) {
+        global $wpdb;
+        $wpdb->delete(self::tabelle(), array('projekt_id' => (string) $projekt_id));
     }
 
     /* ---------------------------------------------------------------- */
@@ -849,50 +869,12 @@ class Aufmass_Freigaben {
         return str_replace(' ', 'T', substr($zeit, 0, 26)) . 'Z';
     }
 
-    /* Drosselung je Herkunftsadresse. REMOTE_ADDR lässt sich - anders als
-       ein X-Forwarded-For-Kopffeld - nicht vom Aufrufer vorgeben. */
-    private static function drossel_schluessel($art) {
-        return 'aufmass_fr_' . $art . '_' . substr(hash('sha256', self::herkunft()), 0, 20);
-    }
-
-    /**
-     * Die Herkunft für die Drosselung. Bei IPv6 zählt das /64-Netz: Ein
-     * Anschluss bekommt dort ganze Blöcke, und wer die Drossel umgehen
-     * will, würde sonst einfach die hinteren Stellen durchzählen.
-     */
-    public static function herkunft() {
-        $ip = isset($_SERVER['REMOTE_ADDR']) ? trim((string) $_SERVER['REMOTE_ADDR']) : '';
-        if ($ip === '') { return 'unbekannt'; }
-        if (strpos($ip, ':') !== false) {
-            $roh = @inet_pton($ip);
-            if ($roh !== false && strlen($roh) === 16) { return 'v6:' . bin2hex(substr($roh, 0, 8)); }
-        }
-        return 'v4:' . $ip;
-    }
-
+    /* Drosselung: siehe drossel.php (Zähler je Herkunft bzw. je Code). */
+    public static function herkunft() { return Aufmass_Drossel::herkunft(); }
+    private static function drossel($art, $max) { return Aufmass_Drossel::zaehlen($art, $max, self::DROSSEL_FENSTER); }
+    private static function drossel_voll($art, $max) { return Aufmass_Drossel::voll($art, $max); }
     private static function drossel_je_code($code) {
-        $schluessel = 'aufmass_fc_' . substr(hash('sha256', $code), 0, 20);
-        $n = (int) get_transient($schluessel);
-        if ($n >= self::DROSSEL_JE_CODE) { return false; }
-        set_transient($schluessel, $n + 1, self::DROSSEL_JE_CODE_FENSTER);
-        return true;
+        return Aufmass_Drossel::zaehlen_fuer('freigabe:' . $code, self::DROSSEL_JE_CODE, self::DROSSEL_JE_CODE_FENSTER);
     }
-
-    /** Zählt einen Versuch; false, wenn die Grenze schon erreicht war. */
-    private static function drossel($art, $max) {
-        $schluessel = self::drossel_schluessel($art);
-        $n = (int) get_transient($schluessel);
-        if ($n >= $max) { return false; }
-        set_transient($schluessel, $n + 1, self::DROSSEL_FENSTER);
-        return true;
-    }
-
-    /** Nur nachsehen, ohne zu zählen. */
-    private static function drossel_voll($art, $max) {
-        return (int) get_transient(self::drossel_schluessel($art)) >= $max;
-    }
-
-    private static function zu_viele() {
-        return new WP_Error('zu_viele', 'Zu viele Versuche. Bitte in einigen Minuten erneut versuchen.', array('status' => 429));
-    }
+    private static function zu_viele() { return Aufmass_Drossel::zu_viele(); }
 }
