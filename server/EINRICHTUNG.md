@@ -240,6 +240,55 @@ auf dem Gerät.
 
 ---
 
+## Schritt 7 — Kundenfreigabe per Kurzlink
+
+Der Kunde bekommt einen **kurzen Link**, zum Beispiel
+`https://www.provision-infra.de/f/k7m2p9x4qa`. Er öffnet ihn im Browser,
+trägt in den freigegebenen Feldern ein, wer welche Tür öffnen darf, gibt
+seinen Namen an und klickt auf **Übertragen**. Mehr muss er nicht tun -
+kein Konto, keine Datei, kein Zurückschicken.
+
+**Was dann passiert**
+
+1. Der Server legt die Rückmeldung ab und schickt eine **E-Mail** an die
+   Person, die den Link erzeugt hat, und an alle, die für das Aufmaß
+   zuständig sind.
+2. Im Werkzeug erscheint auf jedem zuständigen Gerät mit Internet oben in
+   der Kopfzeile **„1 Rückmeldung"** und im Schließplan ein Hinweis.
+3. **Prüfen und übernehmen** zeigt einen Bericht: welche Tür, welche
+   Schließung, bisher → neu, dazu geänderte Inhaberlisten und die
+   Anmerkung des Kunden. **Erst „Übernehmen" ändert das Aufmaß.**
+   „Verwerfen" legt die Rückmeldung ab, ohne etwas zu ändern. Der Kunde
+   kann jederzeit erneut übertragen; dann wartet eine neue Rückmeldung.
+
+Der Link wird im Werkzeug unter *Schließplan → Kundenfreigabe* erzeugt.
+Dort stehen auch alle bisherigen Links des Aufmaßes mit ihrem Zustand
+(offen, wartet auf Prüfung, übernommen, verworfen, abgelaufen) und ein
+Knopf **Zurückziehen**, der einen Link sofort unbrauchbar macht.
+
+**Einstellungen in WordPress** (*Einstellungen → Aufmaß-Abgleich →
+Kundenfreigabe*): Gültigkeit der Links in Tagen (Vorgabe 30, 0 =
+unbegrenzt) und ob die E-Mail verschickt wird.
+
+**Voraussetzung für die kurze Form `/f/…`:** Die Permalinks dürfen nicht
+auf „Einfach" stehen (*Einstellungen → Permalinks*). Steht dort „Einfach",
+lautet der Link `https://www.provision-infra.de/?aufmass_f=k7m2p9x4qa` -
+länger, aber ebenfalls gültig. Das Plugin übernimmt seine Umschreibregel
+beim Aktivieren und bei jeder neuen Fassung von selbst.
+
+> **Warum das sicher ist:** Der Code hat zehn Zeichen aus 31 (rund 50 Bit)
+> und stammt aus dem Zufallsgenerator des Systems. Wer Codes rät, wird je
+> Herkunftsadresse gedrosselt. Jeder Link läuft ab und lässt sich
+> zurückziehen. Der Server prüft jede Antwort gegen die Freigabe: Nur
+> Felder, die freigegeben waren, werden angenommen - alles andere wird
+> abgewiesen. Und ins Aufmaß kommt nichts ohne die Bestätigung einer
+> zuständigen Person. Erledigte Freigaben werden nach 180 Tagen gelöscht.
+
+Die Einzeldatei (ohne Server) erzeugt weiterhin den langen Link mit den
+Daten im Anker; die Rückmeldung kommt dort wie bisher als Rückschlüssel.
+
+---
+
 ## Was danach gilt
 
 **Alle sehen alles, ändern darf nur, wer zuständig ist.**
@@ -258,6 +307,10 @@ Fassungen nebeneinander.
 
 **Fotos** werden einzeln übertragen und liegen geschützt unter
 `wp-content/uploads/aufmass-fotos/`.
+
+**Kundenrückmeldungen warten auf eine Prüfung.** Sie erscheinen auf allen
+zuständigen Geräten; wer zuerst übernimmt oder verwirft, erledigt sie für
+alle. Niemand sonst kann sie übernehmen - auch nicht aus Versehen.
 
 ---
 
@@ -308,6 +361,25 @@ Der Bereich `/wp-json/` darf nicht zwischengespeichert werden.
 Die Salts in der `wp-config.php` wurden geändert. Token in WordPress neu
 eintragen – mehr ist nicht nötig.
 
+**Der Kurzlink `/f/…` zeigt die 404-Seite von WordPress**
+Die Umschreibregel ist noch nicht übernommen. *Einstellungen →
+Permalinks* öffnen und einmal auf „Änderungen speichern" klicken – das
+genügt. Steht dort „Einfach", eine andere Struktur wählen.
+
+**Der Kunde sieht „Dieser Freigabe-Link ist nicht mehr gültig"**
+Der Link ist abgelaufen, wurde zurückgezogen oder das Aufmaß gelöscht.
+Im Werkzeug einen neuen Link erzeugen.
+
+**Keine E-Mail angekommen**
+Erst den Spam-Ordner prüfen. WordPress verschickt über die Mailfunktion
+des Servers; bleibt das unzuverlässig, hilft ein SMTP-Plugin (z. B.
+„WP Mail SMTP") mit dem Postfach der Firma. Die Rückmeldung selbst ist
+davon unabhängig – sie liegt in jedem Fall im Werkzeug.
+
+**„Dieses Aufmaß liegt noch nicht auf dem Server"** beim Erzeugen des Links
+Der Abgleich hat das Aufmaß noch nicht gesendet. Ein paar Sekunden warten
+und erneut versuchen; die Kopfzeile zeigt, wann alles abgeglichen ist.
+
 ---
 
 ## Bei jeder neuen Fassung
@@ -331,7 +403,17 @@ baut: `npm run build` erzeugt alle Fassungen auf einmal.
   der Server mit `409` und legt seine Fassung bei. Das Gerät führt dann
   über einen Drei-Wege-Vergleich zusammen.
 - Tabellen: `wp_aufmass_benutzer`, `_projekte`, `_zustaendig`, `_fotos`,
-  `_sitzungen`.
+  `_sitzungen`, `_freigaben`.
+- Kundenfreigabe: `POST /freigaben` (Zuständige) legt die Freigabe ab;
+  `GET /freigaben/<code>` und `POST /freigaben/<code>/antwort` sind
+  öffentlich – der Code ist der Ausweis (31^10 Möglichkeiten, Drosselung
+  je Herkunftsadresse: 30 unbekannte Codes bzw. 12 Übertragungen in zehn
+  Minuten). Die Antwort wird serverseitig gegen Maske und Freigabe geprüft
+  und bereinigt abgelegt. `uebernommen`, `verwerfen`, `zurueckziehen`
+  verlangen die Anmeldung und das Änderungsrecht am Aufmaß; wartende
+  Antworten kommen mit `GET /projekte` als `antworten` mit. Der Kurzlink
+  `/f/<code>` ist eine WordPress-Umschreibregel auf `?aufmass_f=<code>`
+  mit Weiterleitung (nur auf die eigene Website) zur Freigabeseite.
 - Pipedrive: `GET /wp-json/aufmass/v1/pipedrive/<weg>` für Angemeldete.
   Nur lesend, nur die sieben Wege, die das Werkzeug braucht (Positivliste
   in `inc/pipedrive.php`); Parameter werden auf Form geprüft, `limit`

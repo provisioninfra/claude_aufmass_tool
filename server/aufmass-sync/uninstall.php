@@ -18,10 +18,14 @@ delete_option('aufmass_client_id');
 delete_option('aufmass_domaene');
 delete_option('aufmass_schema');
 delete_option('aufmass_google_schluessel_sicherung');
+delete_option('aufmass_freigabe_tage');
+delete_option('aufmass_freigabe_mail');
+delete_option('aufmass_freigabe_seite');
+delete_option('aufmass_rewrite_stand');
 delete_transient('aufmass_google_schluessel');
 
 if (defined('AUFMASS_DATEN_LOESCHEN') && AUFMASS_DATEN_LOESCHEN === true) {
-    foreach (array('sitzungen', 'zustaendig', 'fotos', 'projekte', 'benutzer') as $t) {
+    foreach (array('sitzungen', 'zustaendig', 'fotos', 'freigaben', 'projekte', 'benutzer') as $t) {
         $wpdb->query('DROP TABLE IF EXISTS ' . $wpdb->prefix . 'aufmass_' . $t);
     }
     delete_option('aufmass_geheimnis');

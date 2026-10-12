@@ -196,7 +196,40 @@ header.kopf {
 .abgleich-status.offline { color: var(--text-zart); }
 .abgleich-status.aus     { color: var(--text-zart); }
 .abgleich-status.frage   { color: var(--auf-hausfarbe); background: var(--hausfarbe); border-color: var(--hausfarbe); }
+/* Eine Kundenrückmeldung wartet auf Prüfung: so auffällig wie eine Rückfrage */
+.abgleich-status.antwort { color: var(--auf-hausfarbe); background: var(--hausfarbe); border-color: var(--hausfarbe); }
+.abgleich-status.antwort .punkt { animation: pulsieren 1.6s ease-in-out infinite; }
 @keyframes pulsieren { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+/* Kundenfreigabe über Kurzlink */
+.kurzlink-feld {
+  width: 100%; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 16px;
+  padding: 12px 14px; letter-spacing: .02em; font-weight: 600;
+}
+.freigabe-liste { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.freigabe-eintrag {
+  border: 1px solid var(--rand); border-radius: var(--radius-klein); padding: 10px 12px;
+  display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; background: var(--flaeche);
+}
+.freigabe-eintrag .code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13.5px; word-break: break-all; }
+.freigabe-eintrag .stand { flex: 1 1 220px; font-size: 13px; color: var(--text-schwach); }
+.freigabe-eintrag.wartet { border-color: var(--hausfarbe); box-shadow: inset 0 0 0 1px var(--hausfarbe); }
+.antworten-liste .eintrag {
+  display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center;
+  padding: 10px 0; border-bottom: 1px solid var(--rand-zart);
+}
+.antworten-liste .eintrag:last-child { border-bottom: 0; }
+.antworten-hinweis { margin-bottom: 14px; }
+.antworten-hinweis > div + div { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--rand-zart); }
+.antwort-bericht h3 { margin: 14px 0 6px; font-size: 14px; }
+.antwort-bericht table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.antwort-bericht th, .antwort-bericht td {
+  text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--rand-zart); vertical-align: top;
+}
+.antwort-bericht th { font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-zart); }
+.antwort-bericht td.neu { font-weight: 700; color: var(--gruen); }
+.antwort-bericht .liste { padding: 6px 0; border-bottom: 1px solid var(--rand-zart); font-size: 13.5px; }
+.antwort-bericht .liste .namen { color: var(--text-schwach); margin-top: 2px; }
 
 .anmelde-seite { display: flex; justify-content: center; padding: 20px 0 60px; }
 .anmelde-karte {

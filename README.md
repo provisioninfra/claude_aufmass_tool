@@ -37,7 +37,10 @@ Es gibt es in zwei Fassungen:
   bei gleichzeitiger Arbeit; der Pipedrive-Schlüssel liegt dann einmal auf
   dem Server statt auf jedem Gerät
 * **Kundenfreigabe** – der Kunde trägt im Browser Berechtigungen ein und
-  benennt, wer ein Medium erhält; die Rückmeldung wird eingelesen
+  benennt, wer ein Medium erhält. Mit gemeinsamer Ablage bekommt er einen
+  kurzen Link und klickt am Ende nur auf „Übertragen"; die Rückmeldung
+  wartet dann im Werkzeug und wird nach Prüfung übernommen. Ohne Server
+  kommt sie wie bisher als Rückschlüssel zurück
 
 In der Einzeldatei verbleiben alle Daten auf dem jeweiligen Gerät; es findet
 keinerlei Datenübertragung statt. In der gemeinsamen Fassung werden die
@@ -196,7 +199,20 @@ anklicken, die zuvor freigegeben wurden – alle übrigen sind schraffiert und
 gesperrt. Freigeben lässt sich spaltenweise je Schließung, wahlweise
 beschränkt auf noch leere Felder. Hinweis und Rückmeldefrist werden mitgegeben.
 
-Seine Rückmeldung kommt als Datei oder als Textschlüssel zurück und wird
+**Mit gemeinsamer Ablage** (Fassung für den eigenen Webserver, angemeldet)
+entsteht ein kurzer Link wie `https://www.provision-infra.de/f/k7m2p9x4qa`.
+Der Kunde trägt ein, nennt seinen Namen und klickt auf „Übertragen". Die
+Rückmeldung liegt dann auf dem Server; Ersteller und Zuständige bekommen
+eine E-Mail, und jedes zuständige Gerät zeigt sie in der Kopfzeile und im
+Schließplan. Ein Bericht nennt jede Abweichung (Tür, Schließung, bisher →
+neu, Inhaberlisten, Anmerkung des Kunden). **Erst „Übernehmen" ändert das
+Aufmaß**; „Verwerfen" legt die Rückmeldung ab. Der Server nimmt nur Felder
+an, die freigegeben waren, drosselt das Raten von Codes und löscht
+erledigte Freigaben nach 180 Tagen. Jeder Link läuft ab (Vorgabe 30 Tage)
+und lässt sich zurückziehen. Einzelheiten in `server/EINRICHTUNG.md`.
+
+**Ohne Server** (Einzeldatei) kommt die Rückmeldung als Datei oder als
+Textschlüssel zurück und wird
 unter *Schließplan → Rückmeldung* eingelesen. Übernommen werden ausschließlich
 Felder, die tatsächlich freigegeben waren; eine veränderte Rückmeldung kann
 keine gesperrten Berechtigungen setzen. Die Übernahme lässt sich über den
@@ -367,7 +383,11 @@ das sind, hängt davon ab, welche Bauteile die Tür hat:
 | Zylinder | Art (Bauform) · Länge außen · Länge innen · Knaufseite beim Knaufzylinder · Zutrittsseite |
 | Beschlag | Bauform · Ausführung · Bestückung · Dornmaß · Entfernung · Vierkant/Nuss · Türblattstärke · DIN-Richtung |
 | Schloss | Bauform · Funktion · Dornmaß · Entfernung · DIN-Richtung |
-| Wandleser oder elektronischer Beschlag | Stromversorgung · Vernetzung |
+
+Stromversorgung und Vernetzung sind bewusst **keine** Pflichtangaben – auch
+nicht beim Wandleser oder beim elektronischen Beschlag. Vor Ort ist oft noch
+nicht geklärt, woher der Strom kommt; das wird später mit der Technik
+abgestimmt. Die Felder bleiben im Formular, zählen aber nicht als fehlend.
 
 Die Liste denkt mit: Beim Briefkastenzylinder wird keine Länge verlangt, beim
 Halbzylinder nur die Außenlänge, beim Stoßgriff kein Dornmaß. Die Längen
@@ -523,6 +543,7 @@ src/
   js/freigabe.js          Kundenfreigabe der Matrix (Kodierung)
   js/pipedrive.js         Pipedrive-Anbindung (ausschließlich lesend)
   freigabe.html           Seite, die der Kunde über den Link öffnet
+                          (Kurzlink über den Server oder Daten im Anker)
   js/app.js               Grundgerüst der Oberfläche, Autospeicherung
   js/views-*.js           Die einzelnen Ansichten
   js/main.js              Navigation und Start

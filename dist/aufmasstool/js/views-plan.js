@@ -37,6 +37,12 @@
         onclick: function () { antwortDialog(neuZeichnen); } })
     ]));
 
+    /* Wartet zu diesem Aufmaß eine Kundenrückmeldung vom Server? */
+    if (global.AbgleichUI && global.AbgleichUI.antwortenHinweis) {
+      var hinweis = global.AbgleichUI.antwortenHinweis(p.id, neuZeichnen);
+      if (hinweis) seite.appendChild(hinweis);
+    }
+
     if (!p.tueren.length) {
       seite.appendChild(el('div', { class: 'leer' }, [
         el('h3', { text: 'Noch keine Türen erfasst' }),
@@ -259,19 +265,59 @@
    * Kunden-Freigabe der Matrix
    * ======================================================================
    * Der Kunde erhält einen Link und trägt in den freigegebenen Feldern seine
-   * Berechtigungen ein. Es gibt keinen Server: Die Plandaten stehen im Anker
-   * der Adresse und werden von Browsern nie an einen Server gesendet.
+   * Berechtigungen ein. Zwei Wege:
+   *  - Mit gemeinsamer Ablage (angemeldet, online): Die Freigabe liegt auf
+   *    dem Server, der Kunde bekommt einen kurzen Link und klickt am Ende
+   *    auf „Übertragen“. Die Rückmeldung wartet dann im Werkzeug auf die
+   *    Prüfung (siehe abgleich-ui.js).
+   *  - Ohne Server (Einzeldatei, ohne Netz): Die Plandaten stehen im Anker
+   *    der Adresse, die Rückmeldung kommt als Rückschlüssel zurück und wird
+   *    unten im antwortDialog eingelesen.
    * -------------------------------------------------------------------- */
+  /* Steht die gemeinsame Ablage bereit? Dann entsteht ein Kurzlink über
+     den Server; sonst der lange Link mit den Daten im Anker. */
+  function abgleichBereit() {
+    var Ab = global.Abgleich;
+    if (!Ab) return false;
+    var z = Ab.zustand();
+    return !!(z.angemeldet && z.erreichbar !== false);
+  }
+
+  function datumKurz(iso) {
+    if (!iso) return '';
+    try { return new Date(iso).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+    catch (e) { return String(iso).slice(0, 10); }
+  }
+  function datumZeit(iso) {
+    if (!iso) return '–';
+    try { return new Date(iso).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+    catch (e) { return String(iso).slice(0, 16).replace('T', ' '); }
+  }
+
+  function inZwischenablage(feld, text, knopf) {
+    feld.select();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        knopf.textContent = 'Kopiert ✓';
+      }).catch(function () { knopf.textContent = 'Bitte von Hand markieren'; });
+    } else {
+      try { document.execCommand('copy'); knopf.textContent = 'Kopiert ✓'; }
+      catch (err) { knopf.textContent = 'Bitte von Hand markieren'; }
+    }
+  }
+
   function freigabeDialog(neuZeichnen) {
     var p = Zustand.projekt;
     var eins = Zustand.einstellungen || {};
     var gewaehlt = {};
     p.schliessungen.forEach(function (s) { gewaehlt[s.id] = false; });
     var einstellungenFreigabe = { nurLeereFelder: false, hinweis: '', frist: '' };
+    var online = abgleichBereit();
 
     var auswahlBereich = el('div', { class: 'chips', style: { marginBottom: '10px' } });
     var vorschau = el('div', { class: 'meldung info' });
     var ergebnisBereich = el('div');
+    var listeBereich = el('div');
 
     function anzahlGewaehlt() {
       return Object.keys(gewaehlt).filter(function (k) { return gewaehlt[k]; }).length;
@@ -314,19 +360,150 @@
     auswahlZeichnen();
     vorschauAktualisieren();
 
-    function linkErzeugen() {
+    /* Adresse der Freigabeseite neben der Anwendung */
+    var seite = location.href.replace(/[^\/]*(\?.*)?(#.*)?$/, '') + 'freigabe.html';
+
+    function freigabeDaten() {
       var ids = Object.keys(gewaehlt).filter(function (k) { return gewaehlt[k]; });
-      var daten = global.Freigabe.erstellen(p, {
+      return global.Freigabe.erstellen(p, {
         freigegebeneSchliessungen: ids,
         nurLeereFelder: einstellungenFreigabe.nurLeereFelder,
         hinweis: einstellungenFreigabe.hinweis,
         frist: einstellungenFreigabe.frist,
         firma: eins.firma || ''
       });
-      var anker = global.Freigabe.alsAnker(daten);
+    }
 
-      /* Adresse der Freigabeseite neben der Anwendung */
-      var basis = location.href.replace(/[^\/]*(\?.*)?(#.*)?$/, '') + 'freigabe.html';
+    function linkErzeugen() {
+      var daten = freigabeDaten();
+      if (abgleichBereit()) { kurzlinkErzeugen(daten); return; }
+      langenLinkZeigen(daten);
+    }
+
+    /* --- Kurzlink: die Freigabe liegt auf dem Server ----------------- */
+    function kurzlinkErzeugen(daten) {
+      A.leeren(ergebnisBereich);
+      ergebnisBereich.appendChild(el('hr', { class: 'trenner' }));
+      ergebnisBereich.appendChild(el('p', { class: 'zart', text: 'Freigabe wird auf dem Server abgelegt …' }));
+
+      global.Abgleich.freigabeErstellen(p.id, daten, seite).then(function (f) {
+        A.leeren(ergebnisBereich);
+        ergebnisBereich.appendChild(el('hr', { class: 'trenner' }));
+        ergebnisBereich.appendChild(el('h3', { text: 'Freigabe-Link für den Kunden', style: { marginTop: '0' } }));
+        var feld = el('input', { type: 'text', class: 'kurzlink-feld', readonly: true, value: f.kurzlink,
+          'aria-label': 'Freigabe-Link' });
+        ergebnisBereich.appendChild(feld);
+        var betreff = 'Zutrittsberechtigungen ' + (p.objekt || p.kunde || '');
+        var text = 'Guten Tag,\n\nbitte tragen Sie unter folgendem Link ein, wer welche Türen öffnen darf. '
+          + 'Am Ende auf „Übertragen“ klicken - mehr ist nicht nötig.\n\n' + f.kurzlink + '\n\n'
+          + (f.gueltigBis ? 'Der Link gilt bis ' + datumKurz(f.gueltigBis) + '.\n\n' : '')
+          + 'Mit freundlichen Grüßen\n' + (eins.firma || '');
+        ergebnisBereich.appendChild(el('div', { class: 'knopfleiste', style: { marginTop: '10px' } }, [
+          el('button', { class: 'haupt', text: 'Link kopieren', onclick: function (e) {
+            inZwischenablage(feld, f.kurzlink, e.target);
+          } }),
+          el('button', { text: 'Per E-Mail senden', onclick: function () {
+            location.href = 'mailto:?subject=' + encodeURIComponent(betreff) + '&body=' + encodeURIComponent(text);
+          } })
+        ]));
+        ergebnisBereich.appendChild(el('p', { class: 'hinweis', text:
+          (f.gueltigBis ? 'Gültig bis ' + datumKurz(f.gueltigBis) + '. ' : 'Gültig, bis er zurückgezogen wird. ')
+          + 'Der Kunde trägt ein und klickt auf „Übertragen“. Seine Rückmeldung erscheint dann hier im Werkzeug '
+          + '(in der Kopfzeile und im Schließplan) und wird erst übernommen, wenn eine zuständige Person sie geprüft hat. '
+          + 'Ersteller und Zuständige werden per E-Mail benachrichtigt.' }));
+        listeLaden();
+      }).catch(function (f) {
+        A.leeren(ergebnisBereich);
+        ergebnisBereich.appendChild(el('hr', { class: 'trenner' }));
+        var text;
+        if (f && f.status === 404) {
+          text = 'Dieses Aufmaß liegt noch nicht auf dem Server. Der Abgleich sendet es gleich - '
+               + 'bitte in ein paar Sekunden erneut auf „Freigabe-Link erzeugen“ tippen.';
+          global.Abgleich.jetzt();
+        } else if (f && f.status === 403) {
+          text = f.message;
+        } else if (f && f.status) {
+          text = f.message || 'Die Freigabe ließ sich nicht anlegen.';
+        } else {
+          text = 'Keine Verbindung zum Server. Ohne Verbindung gibt es nur den langen Link mit den Daten im Anker.';
+        }
+        ergebnisBereich.appendChild(el('div', { class: 'meldung fehler' }, el('div', { text: text })));
+        if (!(f && f.status)) {
+          ergebnisBereich.appendChild(el('div', { class: 'knopfleiste', style: { marginTop: '10px' } }, [
+            el('button', { text: 'Langen Link stattdessen erzeugen', onclick: function () { langenLinkZeigen(daten); } })
+          ]));
+        }
+      });
+    }
+
+    /* --- Bisherige Freigaben dieses Aufmaßes -------------------------- */
+    function statusText(f) {
+      switch (f.status) {
+        case 'offen': return 'Offen – noch keine Rückmeldung';
+        case 'beantwortet': return 'Rückmeldung von ' + (f.antwortName || 'dem Kunden') + ' am ' + datumZeit(f.antwortAm) + ' wartet auf Prüfung';
+        case 'uebernommen': return 'Übernommen am ' + datumZeit(f.uebernommenAm) + (f.uebernommenVon ? ' von ' + f.uebernommenVon : '');
+        case 'verworfen': return 'Rückmeldung geprüft und verworfen';
+        case 'zurueckgezogen': return 'Zurückgezogen';
+        case 'abgelaufen': return 'Abgelaufen';
+        default: return f.status;
+      }
+    }
+
+    function listeLaden() {
+      if (!abgleichBereit()) { A.leeren(listeBereich); return; }
+      global.Abgleich.freigabenListe(p.id).then(function (liste) {
+        A.leeren(listeBereich);
+        if (!liste.length) return;
+        listeBereich.appendChild(el('hr', { class: 'trenner' }));
+        listeBereich.appendChild(el('h3', { text: 'Bisherige Freigabe-Links', style: { marginTop: '0' } }));
+        var behaelter = el('div', { class: 'freigabe-liste' });
+        liste.forEach(function (f) {
+          var zeile = el('div', { class: 'freigabe-eintrag' + (f.status === 'beantwortet' ? ' wartet' : '') });
+          zeile.appendChild(el('div', { class: 'code', text: f.kurzlink.replace(/^https?:\/\//, '') }));
+          zeile.appendChild(el('div', { class: 'stand', text:
+            'Erstellt am ' + datumZeit(f.erstelltAm) + (f.erstelltVon ? ' von ' + f.erstelltVon : '') + '  ·  ' + statusText(f) }));
+          var knoepfe = el('div', { class: 'knopfleiste' });
+          var tot = f.status === 'zurueckgezogen' || f.status === 'abgelaufen';
+          if (!tot) {
+            knoepfe.appendChild(el('button', { class: 'klein', text: 'Kopieren', onclick: function (e) {
+              var feld = el('input', { type: 'text', value: f.kurzlink, style: { position: 'absolute', left: '-9999px' } });
+              document.body.appendChild(feld);
+              inZwischenablage(feld, f.kurzlink, e.target);
+              setTimeout(function () { if (feld.parentNode) feld.parentNode.removeChild(feld); }, 500);
+            } }));
+          }
+          if (f.status === 'beantwortet' && global.AbgleichUI && global.AbgleichUI.antwortDialog) {
+            var wartend = (global.Abgleich.antwortenFuer(p.id) || []).filter(function (a) { return a.code === f.code; })[0];
+            if (wartend) {
+              knoepfe.appendChild(el('button', { class: 'haupt klein', text: 'Rückmeldung prüfen', onclick: function () {
+                global.AbgleichUI.antwortDialog(wartend, listeLaden);
+              } }));
+            }
+          }
+          if (!tot) {
+            knoepfe.appendChild(el('button', { class: 'klein gefahr', text: 'Zurückziehen', onclick: function () {
+              A.bestaetigen('Freigabe-Link zurückziehen?',
+                'Der Link funktioniert danach nicht mehr. Eine bereits übertragene Rückmeldung bleibt zur Prüfung erhalten.',
+                'Zurückziehen').then(function (ja) {
+                if (!ja) return;
+                global.Abgleich.freigabeZurueckziehen(f.code).then(function () {
+                  A.toast('Freigabe-Link zurückgezogen.', 'ok');
+                  listeLaden();
+                }).catch(function (fehler) { A.toast(fehler.message || 'Das ging gerade nicht.', 'fehler'); });
+              });
+            } }));
+          }
+          zeile.appendChild(knoepfe);
+          behaelter.appendChild(zeile);
+        });
+        listeBereich.appendChild(behaelter);
+      }).catch(function () { A.leeren(listeBereich); });
+    }
+
+    /* --- Langer Link: alles im Anker, ohne Server ---------------------- */
+    function langenLinkZeigen(daten) {
+      var anker = global.Freigabe.alsAnker(daten);
+      var basis = seite;
       var link = basis + '#plan=' + anker;
       var lokal = location.protocol === 'file:';
 
@@ -382,8 +559,18 @@
 
     var inhalt = el('div', {}, [
       el('p', { class: 'hinweis', style: { marginTop: '0' },
-        text: 'Der Kunde öffnet den Link im Browser und trägt in den freigegebenen Feldern ' +
-              'seine Berechtigungen ein. Seine Rückmeldung lesen Sie anschließend hier wieder ein.' }),
+        text: online
+          ? 'Der Kunde öffnet den kurzen Link im Browser, trägt in den freigegebenen Feldern seine ' +
+            'Berechtigungen ein und klickt auf „Übertragen“. Seine Rückmeldung erscheint dann hier im ' +
+            'Werkzeug und wird erst nach Ihrer Prüfung übernommen.'
+          : 'Der Kunde öffnet den Link im Browser und trägt in den freigegebenen Feldern ' +
+            'seine Berechtigungen ein. Seine Rückmeldung lesen Sie anschließend hier wieder ein.' }),
+      /* Nur wenn es die gemeinsame Ablage überhaupt gibt und sie gerade
+         nicht erreichbar ist - in der Einzeldatei gibt es keinen Server,
+         da wäre der Hinweis nur verwirrend. */
+      (global.Abgleich && global.Abgleich.zustand().eingerichtet && !online) ? el('div', { class: 'meldung warn' }, el('div', { text:
+        'Ohne Verbindung zur gemeinsamen Ablage entsteht nur der lange Link mit den Daten im Anker. ' +
+        'Für den kurzen Link bitte anmelden und online gehen.' })) : null,
       el('h3', { text: 'Welche Schließungen darf der Kunde bearbeiten?' }),
       el('p', { class: 'zart', style: { marginTop: '-6px' },
         text: 'Für jede freigegebene Schließung kann der Kunde außerdem eintragen, wer ein ' +
@@ -416,13 +603,15 @@
           linkErzeugen();
         } })
       ]),
-      ergebnisBereich
+      ergebnisBereich,
+      listeBereich
     ]);
 
     A.dialogOeffnen({
       titel: 'Matrix zur Freigabe an den Kunden senden', inhalt: inhalt,
       knoepfe: [{ fuellen: true }, { text: 'Schließen' }]
     });
+    listeLaden();
   }
 
   /* --- Rückmeldung des Kunden einlesen ------------------------------------ */

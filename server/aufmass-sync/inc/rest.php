@@ -65,6 +65,28 @@ class Aufmass_Rest {
             'methods' => 'GET', 'callback' => array(__CLASS__, 'pipedrive'),
             'permission_callback' => array(__CLASS__, 'angemeldet')
         ));
+        /* Kundenfreigabe über Kurzlink (siehe freigaben.php). Zwei Wege sind
+           bewusst OHNE Anmeldung erreichbar - der Kunde hat kein Konto. Der
+           Code im Weg ist dort der Ausweis; die Drosselung und die Prüfung
+           der Antwort gegen die Freigabe stehen in freigaben.php. */
+        register_rest_route(self::RAUM, '/freigaben', array(
+            array('methods' => 'GET', 'callback' => array(__CLASS__, 'freigaben_liste'),
+                  'permission_callback' => array(__CLASS__, 'angemeldet')),
+            array('methods' => 'POST', 'callback' => array(__CLASS__, 'freigabe_anlegen'),
+                  'permission_callback' => array(__CLASS__, 'angemeldet_schreibend'))
+        ));
+        register_rest_route(self::RAUM, '/freigaben/(?P<code>[A-Za-z0-9]{6,16})', array(
+            'methods' => 'GET', 'callback' => array(__CLASS__, 'freigabe_oeffentlich'),
+            'permission_callback' => '__return_true'
+        ));
+        register_rest_route(self::RAUM, '/freigaben/(?P<code>[A-Za-z0-9]{6,16})/antwort', array(
+            'methods' => 'POST', 'callback' => array(__CLASS__, 'freigabe_antwort'),
+            'permission_callback' => array(__CLASS__, 'schreibschutz')
+        ));
+        register_rest_route(self::RAUM, '/freigaben/(?P<code>[A-Za-z0-9]{6,16})/(?P<aktion>uebernommen|verwerfen|zurueckziehen)', array(
+            'methods' => 'POST', 'callback' => array(__CLASS__, 'freigabe_aktion'),
+            'permission_callback' => array(__CLASS__, 'angemeldet_schreibend')
+        ));
         register_rest_route(self::RAUM, '/fotos/(?P<id>[A-Za-z0-9_-]{1,64})', array(
             array('methods' => 'GET', 'callback' => array(__CLASS__, 'foto_holen'),
                   'permission_callback' => array(__CLASS__, 'angemeldet')),
@@ -163,7 +185,55 @@ class Aufmass_Rest {
            ein neu hinterlegter Schlüssel wirkt so ohne Neuladen. */
         $d['pipedrive'] = Aufmass_Pipedrive::eingerichtet();
         $d['pipedriveHost'] = $d['pipedrive'] ? Aufmass_Pipedrive::host_anzeige() : '';
+        /* Kundenrückmeldungen, die auf diese Person warten: immer vollständig,
+           nicht als Unterschied seit der Marke. So kann keine verloren gehen,
+           und was übernommen wurde, verschwindet von selbst aus der Liste. */
+        $d['antworten'] = Aufmass_Freigaben::offene_fuer(Aufmass_Anmeldung::aktueller_benutzer());
         return self::antwort($d);
+    }
+
+    /* --- Kundenfreigabe ------------------------------------------------ */
+    public static function freigaben_liste($anfrage) {
+        $projekt = (string) $anfrage->get_param('projekt');
+        if ($projekt === '') {
+            return new WP_Error('projekt_fehlt', 'Für welches Aufmaß?', array('status' => 400));
+        }
+        return self::antwort(array('freigaben' => Aufmass_Freigaben::liste($projekt)));
+    }
+
+    public static function freigabe_anlegen($anfrage) {
+        $e = Aufmass_Freigaben::anlegen(
+            (string) $anfrage->get_param('projektId'),
+            $anfrage->get_param('daten'),
+            (string) $anfrage->get_param('seite'),
+            Aufmass_Anmeldung::aktueller_benutzer());
+        return is_wp_error($e) ? $e : self::antwort($e);
+    }
+
+    public static function freigabe_oeffentlich($anfrage) {
+        $e = Aufmass_Freigaben::oeffentlich($anfrage['code']);
+        return is_wp_error($e) ? $e : self::antwort($e);
+    }
+
+    public static function freigabe_antwort($anfrage) {
+        $e = Aufmass_Freigaben::antwort_annehmen(
+            $anfrage['code'],
+            $anfrage->get_param('antwort'),
+            (string) $anfrage->get_param('name'),
+            (string) $anfrage->get_param('anmerkung'));
+        return is_wp_error($e) ? $e : self::antwort($e);
+    }
+
+    public static function freigabe_aktion($anfrage) {
+        $b = Aufmass_Anmeldung::aktueller_benutzer();
+        $nr = (int) $anfrage->get_param('antwortNr');
+        switch ($anfrage['aktion']) {
+            case 'uebernommen':   $e = Aufmass_Freigaben::uebernommen_markieren($anfrage['code'], $nr, $b); break;
+            case 'verwerfen':     $e = Aufmass_Freigaben::verwerfen($anfrage['code'], $nr, $b); break;
+            case 'zurueckziehen': $e = Aufmass_Freigaben::zurueckziehen($anfrage['code'], $b); break;
+            default: $e = new WP_Error('unbekannt', 'Unbekannte Aktion.', array('status' => 404));
+        }
+        return is_wp_error($e) ? $e : self::antwort(array('freigabe' => $e));
     }
 
     public static function laden($anfrage) {

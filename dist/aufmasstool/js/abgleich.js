@@ -43,7 +43,11 @@
     offen: 0,                /* noch nicht gesendete Projekte */
     letzterAbgleich: null,
     letzterFehler: '',
-    konflikte: []            /* [{ projektId, name, konflikte, ergebnis, server }] */
+    konflikte: [],           /* [{ projektId, name, konflikte, ergebnis, server }] */
+    /* Rückmeldungen von Kunden, die auf die Prüfung durch diese Person
+       warten. Der Server liefert sie mit jedem Abgleich vollständig mit;
+       übernommen wird erst nach ausdrücklicher Bestätigung. */
+    antworten: []            /* [{ code, projektId, kunde, objekt, antwortNr, antwortName, antwortAm, antwort, ... }] */
   };
 
   var marke = '';
@@ -148,6 +152,18 @@
     }
   }
 
+  /* Wartende Kundenrückmeldungen kommen bei jedem Abgleich vollständig
+     mit. Gemeldet wird nur, wenn sich etwas geändert hat - sonst zuckte
+     die Oberfläche alle fünfzehn Sekunden. */
+  function antwortenMerken(d) {
+    if (!d || d.antworten === undefined) { return; }
+    var neu = Array.isArray(d.antworten) ? d.antworten.filter(function (a) { return a && a.code; }) : [];
+    function kurz(a) { return a.code + ':' + a.antwortNr; }
+    var vorher = zustand.antworten.map(kurz).join(','), nachher = neu.map(kurz).join(',');
+    zustand.antworten = neu;
+    if (vorher !== nachher) { melden(); }
+  }
+
   function anmelden(googleToken) {
     return anfrage('/anmelden', { methode: 'POST', json: { token: googleToken } })
       .then(function (d) {
@@ -166,6 +182,7 @@
       .then(function () {
         zustand.angemeldet = false;
         zustand.benutzer = null;
+        zustand.antworten = [];
         stopp();
         melden();
       });
@@ -199,7 +216,7 @@
       .catch(function (f) {
         zustand.erreichbar = (f && f.status) ? true : false;
         zustand.letzterFehler = (f && f.message) || 'Der Abgleich ist gescheitert.';
-        if (f && f.status === 401) { zustand.angemeldet = false; zustand.benutzer = null; }
+        if (f && f.status === 401) { zustand.angemeldet = false; zustand.benutzer = null; zustand.antworten = []; }
       })
       .then(function () {
         amLaufen = false;
@@ -213,6 +230,7 @@
   function holen() {
     return anfrage('/projekte?seit=' + encodeURIComponent(marke)).then(function (d) {
       pipedriveMerken(d);
+      antwortenMerken(d);
       var reihe = Promise.resolve();
       (d.projekte || []).forEach(function (eintrag) {
         reihe = reihe.then(function () { return eintragVerarbeiten(eintrag); });
@@ -663,6 +681,123 @@
     });
   }
 
+  /* ----------------------------------------------------------------
+   * Kundenfreigabe über Kurzlink
+   *
+   * Die Freigabe liegt auf dem Server (siehe server/.../freigaben.php);
+   * der Kunde bekommt nur den Code. Seine Rückmeldung wartet dort und
+   * kommt mit dem Abgleich hierher - übernommen wird sie erst, wenn ein
+   * Zuständiger den Bericht gesehen und bestätigt hat.
+   * ---------------------------------------------------------------- */
+  function freigabeErstellen(projektId, daten, seite) {
+    return anfrage('/freigaben', { methode: 'POST', json: { projektId: projektId, daten: daten, seite: seite || '' } });
+  }
+
+  function freigabenListe(projektId) {
+    return anfrage('/freigaben?projekt=' + encodeURIComponent(projektId))
+      .then(function (d) { return (d && d.freigaben) || []; });
+  }
+
+  function freigabeZurueckziehen(code) {
+    return anfrage('/freigaben/' + encodeURIComponent(code) + '/zurueckziehen', { methode: 'POST', json: {} })
+      .then(function (d) { return d && d.freigabe; });
+  }
+
+  function antwortFinden(code) {
+    var aus = null;
+    zustand.antworten.forEach(function (a) { if (a.code === code) { aus = a; } });
+    return aus;
+  }
+
+  function antwortenFuer(projektId) {
+    return zustand.antworten.filter(function (a) { return a.projektId === projektId; });
+  }
+
+  function antwortEntfernen(code) {
+    zustand.antworten = zustand.antworten.filter(function (a) { return a.code !== code; });
+    melden();
+  }
+
+  /* Der frischeste eigene Stand als Kopie: das geöffnete Aufmaß, sonst
+     die Datenbank. Null, wenn das Aufmaß hier (noch) nicht liegt. */
+  function projektKopie(id) {
+    var offen = offenesProjekt(id);
+    if (offen) { return Promise.resolve(JSON.parse(JSON.stringify(offen))); }
+    return Store.projektLaden(id).then(function (p) { return p ? JSON.parse(JSON.stringify(p)) : null; });
+  }
+
+  function nichtDa() {
+    return new Error('Das Aufmaß liegt auf diesem Gerät noch nicht vor. Bitte kurz warten, bis der Abgleich es geholt hat.');
+  }
+
+  /** Was würde die Übernahme ändern? Ein Bericht, ohne etwas zu ändern. */
+  function antwortVorschau(code) {
+    var eintrag = antwortFinden(code);
+    if (!eintrag) { return Promise.reject(new Error('Diese Rückmeldung liegt nicht mehr vor.')); }
+    return projektKopie(eintrag.projektId).then(function (kopie) {
+      if (!kopie) { throw nichtDa(); }
+      var bericht = global.Freigabe.antwortUebernehmen(kopie, eintrag.antwort || {});
+      return { eintrag: eintrag, bericht: bericht, projekt: kopie };
+    });
+  }
+
+  /**
+   * Übernehmen - in dieser Reihenfolge:
+   *  1. hier auf einer Kopie eintragen (zeigt, ob die Antwort passt)
+   *  2. drüben als übernommen markieren (lehnt ab, wenn jemand schneller
+   *     war oder der Kunde inzwischen erneut übertragen hat)
+   *  3. erst dann die Kopie zum eigenen Stand machen und speichern
+   * Scheitert Schritt 2, bleibt hier alles unverändert.
+   */
+  function antwortUebernehmen(code) {
+    var eintrag = antwortFinden(code);
+    if (!eintrag) { return Promise.reject(new Error('Diese Rückmeldung liegt nicht mehr vor.')); }
+    var Kern = global.AppKern;
+    return projektKopie(eintrag.projektId).then(function (kopie) {
+      if (!kopie) { throw nichtDa(); }
+      var bericht = global.Freigabe.antwortUebernehmen(kopie, eintrag.antwort || {});
+      return anfrage('/freigaben/' + encodeURIComponent(code) + '/uebernommen',
+          { methode: 'POST', json: { antwortNr: eintrag.antwortNr } })
+        .catch(function (f) {
+          /* Nicht mehr offen: Der nächste Abgleich bringt den neuen Stand. */
+          if (f && f.status === 409) { antwortEntfernen(code); setTimeout(jetzt, 0); }
+          throw f;
+        })
+        .then(function () {
+          antwortEntfernen(code);
+          var offen = offenesProjekt(eintrag.projektId);
+          if (offen) {
+            if (Kern && typeof Kern.schrittMerken === 'function') {
+              try { Kern.schrittMerken('Kundenrückmeldung übernommen'); } catch (e) {}
+            }
+            inPlatzUebernehmen(offen, kopie);
+            if (Kern && typeof Kern.alsGeaendertMarkieren === 'function') {
+              try { Kern.alsGeaendertMarkieren(); } catch (e) {}
+            }
+            if (global.App && global.App.zeichnen) { try { global.App.zeichnen(); } catch (e) {} }
+            return (Kern && typeof Kern.speichern === 'function') ? Kern.speichern() : Promise.resolve();
+          }
+          /* Nicht geöffnet: in die Datenbank - das meldet sich von selbst
+             beim Abgleich und geht mit dem nächsten Durchgang raus. */
+          return Store.projektSpeichern(kopie);
+        })
+        .then(function () { return bericht; });
+    });
+  }
+
+  /** Geprüft und NICHT übernommen. */
+  function antwortVerwerfen(code) {
+    var eintrag = antwortFinden(code);
+    if (!eintrag) { return Promise.resolve(false); }
+    return anfrage('/freigaben/' + encodeURIComponent(code) + '/verwerfen',
+        { methode: 'POST', json: { antwortNr: eintrag.antwortNr } })
+      .catch(function (f) {
+        if (f && f.status === 409) { antwortEntfernen(code); setTimeout(jetzt, 0); }
+        throw f;
+      })
+      .then(function () { antwortEntfernen(code); return true; });
+  }
+
   /* Einmal angelegt und wiederverwendet: Würde bei jedem start() ein
      neuer Empfänger angemeldet, liefen nach mehrfachem Ab- und Anmelden
      mehrere Abgleiche gleichzeitig los. */
@@ -706,6 +841,13 @@
     konfliktAufloesen: konfliktAufloesen,
     zustaendigeLesen: zustaendigeLesen,
     zustaendigeSetzen: zustaendigeSetzen,
+    freigabeErstellen: freigabeErstellen,
+    freigabenListe: freigabenListe,
+    freigabeZurueckziehen: freigabeZurueckziehen,
+    antwortenFuer: antwortenFuer,
+    antwortVorschau: antwortVorschau,
+    antwortUebernehmen: antwortUebernehmen,
+    antwortVerwerfen: antwortVerwerfen,
     zustand: function () { return zustand; },
     /* für Tests */
     _intern: { ohneBilddaten: ohneBilddaten, fotoListe: fotoListe,

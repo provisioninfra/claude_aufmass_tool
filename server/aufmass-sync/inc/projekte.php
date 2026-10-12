@@ -228,6 +228,24 @@ class Aufmass_Projekte {
             array('status' => 403));
     }
 
+    /**
+     * Dieselbe Frage wie darf_aendern(), aber OHNE Nebenwirkung: Ein
+     * herrenloses Aufmaß wird hier nicht übernommen, nur gemeldet. Das
+     * braucht der Abgleich, wenn er bei jedem Durchgang nachsieht, welche
+     * Kundenrückmeldungen diese Person übernehmen dürfte - das darf
+     * niemanden still zum Zuständigen machen.
+     */
+    public static function darf_pruefen($id, $benutzer) {
+        if (!$benutzer) { return false; }
+        if ($benutzer['rolle'] === 'verwaltung') { return true; }
+        $liste = self::zustaendige_von($id);
+        if (!count($liste)) { return true; }
+        foreach ($liste as $z) {
+            if ($z['id'] === $benutzer['id']) { return true; }
+        }
+        return false;
+    }
+
     public static function zustaendige_setzen($id, $benutzer_ids, $benutzer) {
         global $wpdb;
         $darf = self::darf_aendern($id, $benutzer);

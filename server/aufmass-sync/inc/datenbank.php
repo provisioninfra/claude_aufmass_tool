@@ -33,6 +33,7 @@ class Aufmass_Datenbank {
         $zustaendig = self::tabelle('zustaendig');
         $fotos = self::tabelle('fotos');
         $sitzungen = self::tabelle('sitzungen');
+        $freigaben = self::tabelle('freigaben');
 
         /* Wer sich anmelden darf. Die Kennung ist Googles unveränderliche
            Benutzerkennung (sub), nicht die Adresse: Eine Adresse kann
@@ -107,6 +108,36 @@ class Aufmass_Datenbank {
   PRIMARY KEY  (id),
   KEY benutzer_id (benutzer_id),
   KEY gueltig_bis (gueltig_bis)
+) $sortierung;");
+
+        /* Eine Kundenfreigabe: Der Plan liegt hier, der Kunde bekommt nur
+           den kurzen Code. Seine Antwort landet in derselben Zeile und
+           wartet dort, bis ein Zuständiger sie geprüft und übernommen
+           hat. Die Antwort selbst ist klein - nur die Abweichungen. */
+        dbDelta("CREATE TABLE $freigaben (
+  code varchar(16) NOT NULL,
+  projekt_id varchar(64) NOT NULL,
+  seite varchar(500) NOT NULL DEFAULT '',
+  daten longtext NOT NULL,
+  status varchar(20) NOT NULL DEFAULT 'offen',
+  erstellt_am datetime(6) DEFAULT NULL,
+  erstellt_von varchar(64) NOT NULL DEFAULT '',
+  gueltig_bis datetime(6) DEFAULT NULL,
+  antwort longtext,
+  antwort_nr int(10) unsigned NOT NULL DEFAULT 0,
+  antwort_am datetime(6) DEFAULT NULL,
+  antwort_name varchar(190) NOT NULL DEFAULT '',
+  antwort_anmerkung text,
+  antwort_anzahl int(10) unsigned NOT NULL DEFAULT 0,
+  antwort_listen int(10) unsigned NOT NULL DEFAULT 0,
+  uebernommen_nr int(10) unsigned NOT NULL DEFAULT 0,
+  uebernommen_am datetime(6) DEFAULT NULL,
+  uebernommen_von varchar(64) NOT NULL DEFAULT '',
+  geaendert_am datetime(6) DEFAULT NULL,
+  PRIMARY KEY  (code),
+  KEY projekt_id (projekt_id),
+  KEY status (status),
+  KEY geaendert_am (geaendert_am)
 ) $sortierung;");
     }
 

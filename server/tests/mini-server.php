@@ -44,6 +44,16 @@ function benutzerOderRaus() {
 }
 
 $basis = '/wp-json/aufmass/v1';
+/* Der Kurzlink: wie WordPress ihn über die Umschreibregel bzw. die
+   Abfragevariable auflöst - eine Weiterleitung auf die Freigabeseite. */
+if (preg_match('#^/f/([A-Za-z0-9]{1,32})/?$#', $weg, $t) || ($weg === '/' && isset($_GET['aufmass_f']))) {
+    $code = isset($t[1]) ? $t[1] : $_GET['aufmass_f'];
+    $ziel = Aufmass_Freigaben::umleitung_ziel($code);
+    if ($ziel === '') { raus(array('message' => 'unbekannter Kurzlink'), 404); }
+    http_response_code(302);
+    header('Location: ' . $ziel);
+    exit;
+}
 if (strpos($weg, $basis) !== 0) {
     /* Alles außerhalb der Schnittstelle liefert der eingebaute Webserver
        selbst aus - so lässt sich das Werkzeug im Browser prüfen. */
@@ -98,11 +108,48 @@ if ($rest === '/benutzer' && $art === 'GET') {
         'SELECT id, name, email, rolle FROM wp_aufmass_benutzer WHERE aktiv = 1 ORDER BY name', ARRAY_A)));
 }
 if ($rest === '/projekte' && $art === 'GET') {
-    benutzerOderRaus();
+    $b = benutzerOderRaus();
     $d = Aufmass_Projekte::liste(isset($_GET['seit']) ? $_GET['seit'] : '');
     $d['pipedrive'] = Aufmass_Pipedrive::eingerichtet();
     $d['pipedriveHost'] = $d['pipedrive'] ? Aufmass_Pipedrive::host_anzeige() : '';
+    $d['antworten'] = Aufmass_Freigaben::offene_fuer($b);
     raus($d);
+}
+/* --- Kundenfreigabe --- */
+if ($rest === '/freigaben' && $art === 'GET') {
+    benutzerOderRaus();
+    if (empty($_GET['projekt'])) { raus(array('code' => 'projekt_fehlt', 'message' => 'Für welches Aufmaß?'), 400); }
+    raus(array('freigaben' => Aufmass_Freigaben::liste($_GET['projekt'])));
+}
+if ($rest === '/freigaben' && $art === 'POST') {
+    kopffeldPruefen();
+    $b = benutzerOderRaus();
+    $e = Aufmass_Freigaben::anlegen(isset($json['projektId']) ? $json['projektId'] : '',
+        isset($json['daten']) ? $json['daten'] : null, isset($json['seite']) ? $json['seite'] : '', $b);
+    if (is_wp_error($e)) { fehler($e); }
+    raus($e);
+}
+if (preg_match('#^/freigaben/([A-Za-z0-9]{6,16})$#', $rest, $t) && $art === 'GET') {
+    $e = Aufmass_Freigaben::oeffentlich($t[1]);
+    if (is_wp_error($e)) { fehler($e); }
+    raus($e);
+}
+if (preg_match('#^/freigaben/([A-Za-z0-9]{6,16})/antwort$#', $rest, $t) && $art === 'POST') {
+    kopffeldPruefen();
+    $e = Aufmass_Freigaben::antwort_annehmen($t[1], isset($json['antwort']) ? $json['antwort'] : null,
+        isset($json['name']) ? $json['name'] : '', isset($json['anmerkung']) ? $json['anmerkung'] : '');
+    if (is_wp_error($e)) { fehler($e); }
+    raus($e);
+}
+if (preg_match('#^/freigaben/([A-Za-z0-9]{6,16})/(uebernommen|verwerfen|zurueckziehen)$#', $rest, $t) && $art === 'POST') {
+    kopffeldPruefen();
+    $b = benutzerOderRaus();
+    $nr = isset($json['antwortNr']) ? (int) $json['antwortNr'] : 0;
+    if ($t[2] === 'uebernommen') { $e = Aufmass_Freigaben::uebernommen_markieren($t[1], $nr, $b); }
+    elseif ($t[2] === 'verwerfen') { $e = Aufmass_Freigaben::verwerfen($t[1], $nr, $b); }
+    else { $e = Aufmass_Freigaben::zurueckziehen($t[1], $b); }
+    if (is_wp_error($e)) { fehler($e); }
+    raus(array('freigabe' => $e));
 }
 if (preg_match('#^/projekte/([A-Za-z0-9_-]{1,64})$#', $rest, $t)) {
     $id = $t[1];

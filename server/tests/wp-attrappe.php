@@ -38,9 +38,32 @@ function add_option($name, $wert, $x = '', $auto = true) {
     if (!array_key_exists($name, $GLOBALS['wp_optionen'])) { $GLOBALS['wp_optionen'][$name] = $wert; wp_optionen_sichern(); }
     return true;
 }
-$GLOBALS['wp_zwischen'] = array();
-function get_transient($n) { return isset($GLOBALS['wp_zwischen'][$n]) ? $GLOBALS['wp_zwischen'][$n] : false; }
-function set_transient($n, $w, $d = 0) { $GLOBALS['wp_zwischen'][$n] = $w; return true; }
+/* Transients mit Ablauf - und, wenn die Optionen in einer Datei liegen,
+   über Anfragen hinweg erhalten: Die Drosselung der Freigabe zählt je
+   Herkunft, und das muss der Mini-Server über mehrere Aufrufe sehen. */
+function wp_zwischen_laden() {
+    if (!isset($GLOBALS['wp_zwischen'])) {
+        $GLOBALS['wp_zwischen'] = isset($GLOBALS['wp_optionen']['__zwischen__']) && is_array($GLOBALS['wp_optionen']['__zwischen__'])
+            ? $GLOBALS['wp_optionen']['__zwischen__'] : array();
+    }
+}
+function wp_zwischen_sichern() {
+    $GLOBALS['wp_optionen']['__zwischen__'] = $GLOBALS['wp_zwischen'];
+    wp_optionen_sichern();
+}
+function get_transient($n) {
+    wp_zwischen_laden();
+    if (!isset($GLOBALS['wp_zwischen'][$n])) { return false; }
+    $e = $GLOBALS['wp_zwischen'][$n];
+    if (!empty($e['bis']) && $e['bis'] < time()) { unset($GLOBALS['wp_zwischen'][$n]); return false; }
+    return $e['wert'];
+}
+function set_transient($n, $w, $d = 0) {
+    wp_zwischen_laden();
+    $GLOBALS['wp_zwischen'][$n] = array('wert' => $w, 'bis' => $d > 0 ? time() + (int) $d : 0);
+    wp_zwischen_sichern();
+    return true;
+}
 
 /* --- Fehlerobjekte ------------------------------------------------------- */
 class WP_Error {
@@ -104,7 +127,29 @@ function wp_remote_retrieve_response_code($a) { return is_array($a) && isset($a[
 function wp_remote_retrieve_body($a) { return is_array($a) && isset($a['body']) ? $a['body'] : ''; }
 function wp_remote_retrieve_header($a, $n) { return is_array($a) && isset($a['headers'][$n]) ? $a['headers'][$n] : ''; }
 function delete_option($name) { unset($GLOBALS['wp_optionen'][$name]); wp_optionen_sichern(); return true; }
-function delete_transient($n) { unset($GLOBALS['wp_zwischen'][$n]); return true; }
+function delete_transient($n) { wp_zwischen_laden(); unset($GLOBALS['wp_zwischen'][$n]); wp_zwischen_sichern(); return true; }
+/* Die Adresse der Website: im Mini-Server die des Servers selbst, sonst
+   eine Prüfadresse oder die aus der Umgebung. */
+function home_url($pfad = '', $schema = null) {
+    $basis = getenv('AUFMASS_TEST_HOME');
+    if (!$basis && !empty($_SERVER['HTTP_HOST'])) { $basis = 'http://' . $_SERVER['HTTP_HOST']; }
+    if (!$basis) { $basis = 'http://example.test'; }
+    return rtrim($basis, '/') . $pfad;
+}
+function wp_parse_url($url, $teil = -1) { return parse_url($url, $teil); }
+function is_email($a) { return (bool) filter_var($a, FILTER_VALIDATE_EMAIL); }
+function wp_date($format, $zeit = null) { return gmdate($format, $zeit === null ? time() : $zeit); }
+function checked($b) { echo $b ? ' checked="checked"' : ''; }
+/* E-Mails werden nicht verschickt, sondern protokolliert: in den Speicher
+   und - für den Mini-Server - in eine Datei, die der Prüflauf liest. */
+$GLOBALS['wp_mails'] = array();
+function wp_mail($an, $betreff, $text, $kopf = '', $anhaenge = array()) {
+    $eintrag = array('an' => (array) $an, 'betreff' => $betreff, 'text' => $text, 'kopf' => $kopf, 'zeit' => time());
+    $GLOBALS['wp_mails'][] = $eintrag;
+    $datei = getenv('AUFMASS_TEST_MAIL');
+    if ($datei) { file_put_contents($datei, json_encode($eintrag, JSON_UNESCAPED_UNICODE) . "\n", FILE_APPEND); }
+    return true;
+}
 function wp_next_scheduled() { return true; } function wp_schedule_event() {}
 function wp_clear_scheduled_hook() {}
 function plugin_dir_path($f) { return dirname($f) . '/'; }
@@ -156,6 +201,13 @@ class WPDB_Attrappe {
         $this->pdo->exec("CREATE TABLE wp_aufmass_sitzungen (
             id TEXT PRIMARY KEY, pruefwert TEXT DEFAULT '', benutzer_id TEXT, geraet TEXT DEFAULT '',
             erstellt_am TEXT, gesehen_am TEXT, gueltig_bis TEXT)");
+        $this->pdo->exec("CREATE TABLE wp_aufmass_freigaben (
+            code TEXT PRIMARY KEY, projekt_id TEXT NOT NULL, seite TEXT DEFAULT '', daten TEXT NOT NULL,
+            status TEXT DEFAULT 'offen', erstellt_am TEXT, erstellt_von TEXT DEFAULT '', gueltig_bis TEXT,
+            antwort TEXT, antwort_nr INTEGER DEFAULT 0, antwort_am TEXT, antwort_name TEXT DEFAULT '',
+            antwort_anmerkung TEXT, antwort_anzahl INTEGER DEFAULT 0, antwort_listen INTEGER DEFAULT 0,
+            uebernommen_nr INTEGER DEFAULT 0, uebernommen_am TEXT, uebernommen_von TEXT DEFAULT '',
+            geaendert_am TEXT)");
     }
 
     public function get_charset_collate() { return ''; }
@@ -228,6 +280,7 @@ require_once __DIR__ . '/../aufmass-sync/inc/jwt.php';
 require_once __DIR__ . '/../aufmass-sync/inc/anmeldung.php';
 require_once __DIR__ . '/../aufmass-sync/inc/projekte.php';
 require_once __DIR__ . '/../aufmass-sync/inc/fotos.php';
+require_once __DIR__ . '/../aufmass-sync/inc/freigaben.php';
 require_once __DIR__ . '/../aufmass-sync/inc/verschluesselung.php';
 require_once __DIR__ . '/../aufmass-sync/inc/pipedrive.php';
 

@@ -174,6 +174,21 @@
     return daten;
   }
 
+  /* Dieselben Daten, aber nicht aus dem Anker, sondern vom Server geholt
+     (Kurzlink). Die Matrix wird genauso aufgelöst und geprüft. */
+  function ausDaten(daten) {
+    if (!daten || typeof daten !== 'object') throw new Error('Die Freigabe ist leer.');
+    if (daten.f !== FORMAT) throw new Error('Die Freigabe stammt aus einer anderen Fassung des Werkzeugs.');
+    if (!Array.isArray(daten.t) || !Array.isArray(daten.s)) throw new Error('Die Freigabe ist unvollständig.');
+    daten.matrix = entpacken(String(daten.m || ''));
+    daten.maske = entpacken(String(daten.e || ''));
+    var erwartet = daten.t.length * daten.s.length;
+    if (daten.matrix.length !== erwartet || daten.maske.length !== erwartet) {
+      throw new Error('Die Freigabe ist unvollständig.');
+    }
+    return daten;
+  }
+
   /* =========================================================================
    * Antwort des Kunden
    * ====================================================================== */
@@ -332,7 +347,7 @@
     FORMAT: FORMAT,
     WERTE: WERTE, ZEICHEN: ZEICHEN,
     wertZuZeichen: wertZuZeichen, zeichenZuWert: zeichenZuWert,
-    erstellen: erstellen, alsAnker: alsAnker, ausAnker: ausAnker,
+    erstellen: erstellen, alsAnker: alsAnker, ausAnker: ausAnker, ausDaten: ausDaten,
     antwortErstellen: antwortErstellen,
     personenBereinigen: personenBereinigen,
     personenGleich: personenGleich,

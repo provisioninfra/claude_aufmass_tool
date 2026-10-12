@@ -368,6 +368,20 @@ const pflichtNamen = Object.keys(M.pflichtSchluessel(pProj, alleTuer));
 const falsch = freiwillig.filter(k => pflichtNamen.includes(k));
 pruefe(falsch.length === 0, 'kein freiwilliges Feld wird zur Pflicht', falsch.join(', '));
 
+/* Stromversorgung und Vernetzung sind ausdrücklich freiwillig - auch
+   beim Wandleser und beim elektronischen Beschlag, wo sie früher
+   verlangt wurden. */
+const elTuer = M.neueTuer({ bezeichnung: 'Tor', etage: 'EG', strukturId: (pProj.standorte[0] || {}).id || null,
+  brauchtZylinder: false, brauchtWandleser: true,
+  brauchtBeschlag: true, beschlagBauform: 'Rosettengarnitur', beschlagAusfuehrung: 'elektronisch',
+  beschlagBestueckung: 'Drücker / Drücker', tuerblattstaerke: '40', dornmass: '55', entfernung: '72',
+  vierkant: '8', dinRichtung: 'DIN links' });
+const elPflicht = Object.keys(M.pflichtSchluessel(pProj, elTuer));
+pruefe(elPflicht.indexOf('elStromversorgung') === -1 && elPflicht.indexOf('elVernetzung') === -1,
+  'Stromversorgung und Vernetzung sind keine Pflichtangaben (Wandleser, elektronischer Beschlag)', elPflicht.join(', '));
+pruefe(M.pflichtfelder(pProj, elTuer).length === 0, 'eine solche Tür gilt ohne beide Angaben als vollständig',
+  M.pflichtfelder(pProj, elTuer).map(x => x.schluessel).join(', '));
+
 console.log('\n== Materialliste: eigene Maßspalten je Bauteilart ==');
 const { baueTestprojekt } = require('./fixture.js');
 const mp = M.migriere(baueTestprojekt());

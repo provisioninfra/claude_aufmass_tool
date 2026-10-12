@@ -129,8 +129,10 @@
       onclick: function () { uebersichtZeigen(); } });
 
     var art, text;
+    var antworten = (z.antworten || []).length;
     if (!z.angemeldet) { art = 'aus'; text = 'Nicht angemeldet'; }
     else if (z.konflikte.length) { art = 'frage'; text = z.konflikte.length + ' Rückfrage' + (z.konflikte.length > 1 ? 'n' : ''); }
+    else if (antworten) { art = 'antwort'; text = antworten + (antworten === 1 ? ' Rückmeldung' : ' Rückmeldungen'); }
     else if (z.erreichbar === false) { art = 'offline'; text = z.offen ? z.offen + ' wartet' : 'Offline'; }
     else if (z.laeuft) { art = 'laeuft'; text = 'Gleicht ab …'; }
     else if (z.offen) { art = 'offen'; text = z.offen + ' wartet'; }
@@ -154,6 +156,29 @@
       ]));
     } else {
       inhalt.appendChild(el('p', { text: 'Dieses Gerät ist nicht angemeldet. Die Aufmaße bleiben hier.' }));
+    }
+    /* Wartende Kundenrückmeldungen zuerst - das ist der Grund, warum man
+       meist hier hineinschaut. */
+    if ((z.antworten || []).length) {
+      var liste = el('div', { class: 'antworten-liste' });
+      inhalt.appendChild(el('h3', { text: 'Rückmeldungen von Kunden', style: { marginBottom: '2px' } }));
+      inhalt.appendChild(el('p', { class: 'zart', style: { marginTop: '0' },
+        text: 'Warten auf Ihre Prüfung. Übernommen wird erst, wenn Sie es bestätigen.' }));
+      z.antworten.forEach(function (a) {
+        liste.appendChild(el('div', { class: 'eintrag' }, [
+          el('div', { class: 'fuellen' }, [
+            el('b', { text: (a.kunde || 'Aufmaß') + (a.objekt ? ' – ' + a.objekt : '') }),
+            el('div', { class: 'zart', style: { fontSize: '13px' },
+              text: 'von ' + (a.antwortName || 'dem Kunden') + ' am ' + datum(a.antwortAm) + '  ·  ' + zusammenfassung(a) })
+          ]),
+          el('button', { class: 'haupt klein', text: 'Prüfen', onclick: function () {
+            dlg.schliessen();
+            antwortDialog(a);
+          } })
+        ]));
+      });
+      inhalt.appendChild(liste);
+      inhalt.appendChild(el('hr', { class: 'trenner' }));
     }
     inhalt.appendChild(el('ul', { class: 'liste-schlicht' }, [
       el('li', { text: 'Verbindung: ' + (z.erreichbar === false ? 'nicht erreichbar' : 'in Ordnung') }),
@@ -179,7 +204,163 @@
       } });
       knoepfe.splice(2, 0, { fuellen: true });
     }
-    A.dialogOeffnen({ titel: 'Abgleich', klein: true, inhalt: inhalt, knoepfe: knoepfe });
+    var dlg = A.dialogOeffnen({ titel: 'Abgleich', klein: !(z.antworten || []).length, inhalt: inhalt, knoepfe: knoepfe });
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Kundenrückmeldung prüfen und übernehmen                           */
+  /* ---------------------------------------------------------------- */
+  function datum(iso) {
+    if (!iso) { return '–'; }
+    try { return new Date(iso).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+    catch (e) { return String(iso).slice(0, 16).replace('T', ' '); }
+  }
+
+  function zusammenfassung(a) {
+    var n = a.antwortAnzahl || 0, m = a.antwortListen || 0;
+    var teile = [n + (n === 1 ? ' Berechtigung' : ' Berechtigungen')];
+    if (m) { teile.push(m + (m === 1 ? ' Inhaberliste' : ' Inhaberlisten')); }
+    return teile.join(', ');
+  }
+
+  function wertText(w) {
+    var K = global.Katalog;
+    var zeichen = K && K.berechtigungZeichen ? K.berechtigungZeichen(w) : '';
+    var namen = { nein: 'keine Berechtigung', ja: 'berechtigt', zeit: 'zeitlich begrenzt', temp: 'vorübergehend', sperr: 'gesperrt' };
+    return (zeichen ? zeichen + '  ' : '') + (namen[w] || w || '–');
+  }
+
+  function berichtZeichnen(ziel, b) {
+    A.leeren(ziel);
+    var zellen = b.aenderungen.filter(function (x) { return !x.personen; });
+    var listen = b.aenderungen.filter(function (x) { return x.personen; });
+    if (!zellen.length && !listen.length) {
+      ziel.appendChild(el('div', { class: 'meldung warn' }, el('div', { text:
+        'Diese Rückmeldung enthält keine Änderungen gegenüber dem aktuellen Stand des Aufmaßes'
+        + (b.uebersprungen || b.personenUebersprungen ? ' – ' + ((b.uebersprungen || 0) + (b.personenUebersprungen || 0))
+          + ' Einträge betreffen Türen oder Schließungen, die es nicht mehr gibt.' : '.') })));
+      return;
+    }
+    if (zellen.length) {
+      ziel.appendChild(el('h3', { text: zellen.length + (zellen.length === 1 ? ' Berechtigung' : ' Berechtigungen') }));
+      var tabelle = el('table');
+      tabelle.appendChild(el('thead', {}, el('tr', {}, [
+        el('th', { text: 'Tür' }), el('th', { text: 'Schließung' }), el('th', { text: 'Bisher' }), el('th', { text: 'Neu' })
+      ])));
+      var koerper = el('tbody');
+      zellen.forEach(function (x) {
+        koerper.appendChild(el('tr', {}, [
+          el('td', { text: x.tuer || '–' }), el('td', { text: x.schliessung || '–' }),
+          el('td', { text: wertText(x.vorher) }), el('td', { class: 'neu', text: wertText(x.nachher) })
+        ]));
+      });
+      tabelle.appendChild(koerper);
+      ziel.appendChild(tabelle);
+    }
+    if (listen.length) {
+      ziel.appendChild(el('h3', { text: listen.length + (listen.length === 1 ? ' Inhaberliste' : ' Inhaberlisten') }));
+      listen.forEach(function (x) {
+        ziel.appendChild(el('div', { class: 'liste' }, [
+          el('b', { text: x.schliessung || '–' }),
+          el('span', { class: 'zart', text: '  ' + x.vorher + ' → ' + x.nachher + (x.nachher === 1 ? ' Person' : ' Personen') }),
+          el('div', { class: 'namen', text: (x.namen || []).join(', ') || 'niemand' })
+        ]));
+      });
+    }
+    if (b.uebersprungen || b.personenUebersprungen) {
+      ziel.appendChild(el('p', { class: 'hinweis', text:
+        ((b.uebersprungen || 0) + (b.personenUebersprungen || 0)) + ' Einträge betreffen Türen oder Schließungen, '
+        + 'die es im Aufmaß nicht mehr gibt - sie werden übersprungen.' }));
+    }
+  }
+
+  function antwortDialog(eintrag, beiFertig) {
+    var inhalt = el('div');
+    inhalt.appendChild(el('div', { class: 'meldung info' }, el('div', {}, [
+      el('b', { text: (eintrag.kunde || 'Aufmaß') + (eintrag.objekt ? ' – ' + eintrag.objekt : '') }),
+      el('div', { style: { marginTop: '4px', fontSize: '13.5px' },
+        text: 'Übertragen von ' + (eintrag.antwortName || 'dem Kunden') + ' am ' + datum(eintrag.antwortAm)
+              + (eintrag.antwortNr > 1 ? '  ·  Rückmeldung Nr. ' + eintrag.antwortNr : '') }),
+      eintrag.antwortAnmerkung ? el('div', { style: { marginTop: '6px', fontSize: '13.5px', whiteSpace: 'pre-wrap' } }, [
+        el('b', { text: 'Anmerkung: ' }), eintrag.antwortAnmerkung
+      ]) : null
+    ])));
+    var bericht = el('div', { class: 'antwort-bericht' }, el('p', { class: 'zart', text: 'Bericht wird erstellt …' }));
+    inhalt.appendChild(bericht);
+    inhalt.appendChild(el('p', { class: 'hinweis', text:
+      'Am Aufmaß ändert sich erst etwas, wenn Sie unten auf „Übernehmen“ tippen. '
+      + '„Verwerfen“ legt die Rückmeldung ab, ohne sie zu übernehmen - der Kunde kann jederzeit erneut übertragen.' }));
+
+    var laeuft = false;
+    function fertig(schliessen, text) {
+      A.toast(text, 'ok');
+      schliessen();
+      if (beiFertig) { try { beiFertig(); } catch (e) {} }
+      if (neuZeichnen) { neuZeichnen(); }
+    }
+    A.dialogOeffnen({
+      titel: 'Rückmeldung des Kunden prüfen', inhalt: inhalt,
+      knoepfe: [
+        { text: 'Später' },
+        { text: 'Verwerfen', klasse: 'gefahr', schliesst: false, aktion: function (schliessen) {
+          if (laeuft) { return false; }
+          A.bestaetigen('Rückmeldung verwerfen?',
+            'Die Rückmeldung wird abgelegt, ohne das Aufmaß zu ändern. Der Kunde kann jederzeit erneut übertragen.',
+            'Verwerfen').then(function (ja) {
+            if (!ja) { return; }
+            laeuft = true;
+            Abgleich.antwortVerwerfen(eintrag.code).then(function () {
+              fertig(schliessen, 'Rückmeldung verworfen.');
+            }).catch(function (f) {
+              laeuft = false;
+              A.toast(fehlerText(f, 'Das ließ sich gerade nicht ablegen.'), 'fehler');
+              if (f && f.status === 409) { schliessen(); if (neuZeichnen) { neuZeichnen(); } }
+            });
+          });
+          return false;
+        } },
+        { fuellen: true },
+        { text: 'Übernehmen', klasse: 'haupt', schliesst: false, aktion: function (schliessen) {
+          if (laeuft) { return false; }
+          laeuft = true;
+          Abgleich.antwortUebernehmen(eintrag.code).then(function (b) {
+            var text = b.uebernommen + (b.uebernommen === 1 ? ' Berechtigung' : ' Berechtigungen') + ' übernommen';
+            if (b.personenListen) { text += ', ' + b.personenListen + (b.personenListen === 1 ? ' Inhaberliste' : ' Inhaberlisten') + ' aktualisiert'; }
+            fertig(schliessen, text + '.');
+          }).catch(function (f) {
+            laeuft = false;
+            A.toast(fehlerText(f, 'Die Übernahme ist gescheitert.'), 'fehler');
+            if (f && f.status === 409) { schliessen(); if (neuZeichnen) { neuZeichnen(); } }
+          });
+          return false;
+        } }
+      ]
+    });
+    Abgleich.antwortVorschau(eintrag.code).then(function (v) {
+      berichtZeichnen(bericht, v.bericht);
+    }).catch(function (f) {
+      A.leeren(bericht);
+      bericht.appendChild(el('div', { class: 'meldung warn' }, el('div', { text: f.message || 'Der Bericht ließ sich nicht erstellen.' })));
+    });
+  }
+
+  /* Hinweis im Schließplan, wenn zu diesem Aufmaß eine Rückmeldung wartet. */
+  function antwortenHinweis(projektId, beiFertig) {
+    var liste = Abgleich.antwortenFuer ? Abgleich.antwortenFuer(projektId) : [];
+    if (!liste.length) { return null; }
+    var kasten = el('div', { class: 'meldung info antworten-hinweis' });
+    liste.forEach(function (a) {
+      kasten.appendChild(el('div', { class: 'zeile-verteilt', style: { width: '100%', gap: '10px' } }, [
+        el('div', { class: 'fuellen' }, [
+          el('b', { text: 'Rückmeldung des Kunden liegt vor' }),
+          el('div', { style: { fontSize: '13px', marginTop: '2px' },
+            text: 'von ' + (a.antwortName || 'dem Kunden') + ' am ' + datum(a.antwortAm) + '  ·  ' + zusammenfassung(a) })
+        ]),
+        el('button', { class: 'haupt klein', text: 'Prüfen und übernehmen',
+          onclick: function () { antwortDialog(a, beiFertig); } })
+      ]));
+    });
+    return kasten;
   }
 
   /* ---------------------------------------------------------------- */
@@ -249,6 +430,13 @@
           } }
       ]
     });
+  }
+
+  /* Eine Netzstörung heißt im Browser „Failed to fetch“ - das sagt
+     niemandem etwas. */
+  function fehlerText(f, sonst) {
+    if (f && !f.status) { return 'Keine Verbindung zum Server. Bitte später erneut versuchen.'; }
+    return (f && f.message) || sonst;
   }
 
   function anzeige(wert) {
@@ -341,6 +529,28 @@
     var alt = document.querySelector('.abgleich-status');
     if (!alt || !alt.parentNode) { return; }
     alt.parentNode.replaceChild(statusKnoten(), alt);
+    hinweisAktualisieren();
+  }
+
+  /* Der Hinweis im Schließplan zieht ebenfalls mit, ohne die Ansicht neu
+     zu bauen: Trifft eine Rückmeldung ein, während der Plan offen ist,
+     erscheint er; ist sie erledigt, verschwindet er. */
+  function hinweisAktualisieren() {
+    if (!A.Zustand || A.Zustand.ansicht !== 'plan' || !A.Zustand.projekt) { return; }
+    var haupt = document.querySelector('main.inhalt .seite');
+    if (!haupt) { return; }
+    var alt = haupt.querySelector('.antworten-hinweis');
+    var neu = antwortenHinweis(A.Zustand.projekt.id, neuZeichnen);
+    if (alt && neu) {
+      if (alt.textContent !== neu.textContent) { alt.parentNode.replaceChild(neu, alt); }
+      return;
+    }
+    if (alt && !neu) { alt.parentNode.removeChild(alt); return; }
+    if (!alt && neu) {
+      var kopf = haupt.querySelector('.zeile-verteilt');
+      if (kopf && kopf.nextSibling) { haupt.insertBefore(neu, kopf.nextSibling); }
+      else { haupt.appendChild(neu); }
+    }
   }
 
   function brauchtAnmeldung() {
@@ -358,6 +568,8 @@
     statusAktualisieren: statusAktualisieren,
     brauchtAnmeldung: brauchtAnmeldung,
     konfliktDialog: konfliktDialog,
+    antwortDialog: antwortDialog,
+    antwortenHinweis: antwortenHinweis,
     zustaendigeKarte: zustaendigeKarte,
     uebersichtZeigen: uebersichtZeigen
   };

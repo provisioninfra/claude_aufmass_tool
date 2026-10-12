@@ -33,6 +33,28 @@ class Aufmass_Einstellungen {
         register_setting('aufmass_sync', 'aufmass_pipedrive_host', array(
             'type' => 'string', 'sanitize_callback' => array(__CLASS__, 'pipedrive_host_pruefen'), 'default' => ''
         ));
+        /* Kundenfreigabe: Gültigkeit der Links und Benachrichtigung */
+        register_setting('aufmass_sync', 'aufmass_freigabe_tage', array(
+            'type' => 'integer', 'sanitize_callback' => array(__CLASS__, 'tage_pruefen'), 'default' => 30
+        ));
+        register_setting('aufmass_sync', 'aufmass_freigabe_mail', array(
+            'type' => 'string', 'sanitize_callback' => array(__CLASS__, 'schalter_pruefen'), 'default' => '1'
+        ));
+    }
+
+    public static function tage_pruefen($wert) {
+        $wert = trim((string) $wert);
+        if ($wert === '' || !preg_match('/^[0-9]{1,4}$/', $wert)) {
+            add_settings_error('aufmass_sync', 'freigabe_tage',
+                'Die Gültigkeit muss eine Zahl von Tagen sein (0 = unbegrenzt).');
+            return (int) get_option('aufmass_freigabe_tage', 30);
+        }
+        $t = (int) $wert;
+        return $t > 3650 ? 3650 : $t;
+    }
+
+    public static function schalter_pruefen($wert) {
+        return ((string) $wert === '1') ? '1' : '0';
     }
 
     public static function pipedrive_token_pruefen($wert) {
@@ -177,6 +199,55 @@ class Aufmass_Einstellungen {
                          value="<?php echo esc_attr(get_option('aufmass_pipedrive_host', '')); ?>"
                          placeholder="api.pipedrive.com">
                   <p class="description">Leer lassen für die Standardadresse. Nur ändern, wenn Pipedrive eine eigene Firmenadresse vorgibt.</p>
+                </td>
+              </tr>
+            </table>
+
+            <h2>Kundenfreigabe</h2>
+            <p>Aus dem Schließplan heraus bekommt der Kunde einen kurzen Link. Er trägt seine
+               Berechtigungen ein und klickt auf „Übertragen“. Die Rückmeldung wartet dann im Werkzeug,
+               bis eine zuständige Person sie geprüft und übernommen hat.</p>
+            <?php
+              $fr_tage = (int) get_option('aufmass_freigabe_tage', 30);
+              $fr_mail = Aufmass_Freigaben::mail_gewuenscht();
+              $fr_beispiel = Aufmass_Freigaben::kurzlink('k7m2p9x4qa');
+              $fr_sprechend = (string) get_option('permalink_structure', '') !== '';
+              $ft = Aufmass_Datenbank::tabelle('freigaben');
+              $fr_offen = (int) $wpdb->get_var("SELECT COUNT(*) FROM $ft WHERE status = 'beantwortet'");
+            ?>
+            <table class="form-table" role="presentation">
+              <tr>
+                <th scope="row"><label for="aufmass_freigabe_tage">Gültigkeit der Links</label></th>
+                <td>
+                  <input name="aufmass_freigabe_tage" id="aufmass_freigabe_tage" type="number" min="0" max="3650"
+                         class="small-text" value="<?php echo esc_attr($fr_tage); ?>"> Tage
+                  <p class="description">Nach dieser Zeit meldet der Link „abgelaufen“. 0 = unbegrenzt.
+                     Jeder Link lässt sich im Werkzeug jederzeit zurückziehen.</p>
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Benachrichtigung</th>
+                <td>
+                  <input type="hidden" name="aufmass_freigabe_mail" value="0">
+                  <label><input type="checkbox" name="aufmass_freigabe_mail" value="1" <?php checked($fr_mail); ?>>
+                    Bei jeder Rückmeldung eine E-Mail an den Ersteller des Links und alle Zuständigen des Aufmaßes senden</label>
+                  <p class="description">Versand über die E-Mail-Funktion von WordPress
+                     (Absender <code>wordpress@<?php echo esc_html(parse_url(home_url(), PHP_URL_HOST)); ?></code>,
+                     sofern kein Mail-Plugin etwas anderes vorgibt).</p>
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">So sieht ein Link aus</th>
+                <td>
+                  <code><?php echo esc_html($fr_beispiel); ?></code>
+                  <?php if (!$fr_sprechend) : ?>
+                    <p class="description" style="color:#a32020">Die Permalinks stehen auf „Einfach“. Mit einer
+                       anderen Einstellung unter <em>Einstellungen → Permalinks</em> wird der Link kürzer:
+                       <code><?php echo esc_html(home_url('/f/k7m2p9x4qa')); ?></code></p>
+                  <?php else : ?>
+                    <p class="description">Der Link führt auf die Freigabeseite des Werkzeugs. Zurzeit warten
+                       <strong><?php echo $fr_offen; ?></strong> Rückmeldungen auf eine Prüfung.</p>
+                  <?php endif; ?>
                 </td>
               </tr>
             </table>

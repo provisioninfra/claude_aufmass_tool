@@ -223,7 +223,40 @@ header.kopf {
 .abgleich-status.offline { color: var(--text-zart); }
 .abgleich-status.aus     { color: var(--text-zart); }
 .abgleich-status.frage   { color: var(--auf-hausfarbe); background: var(--hausfarbe); border-color: var(--hausfarbe); }
+/* Eine Kundenrückmeldung wartet auf Prüfung: so auffällig wie eine Rückfrage */
+.abgleich-status.antwort { color: var(--auf-hausfarbe); background: var(--hausfarbe); border-color: var(--hausfarbe); }
+.abgleich-status.antwort .punkt { animation: pulsieren 1.6s ease-in-out infinite; }
 @keyframes pulsieren { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+/* Kundenfreigabe über Kurzlink */
+.kurzlink-feld {
+  width: 100%; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 16px;
+  padding: 12px 14px; letter-spacing: .02em; font-weight: 600;
+}
+.freigabe-liste { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.freigabe-eintrag {
+  border: 1px solid var(--rand); border-radius: var(--radius-klein); padding: 10px 12px;
+  display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; background: var(--flaeche);
+}
+.freigabe-eintrag .code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13.5px; word-break: break-all; }
+.freigabe-eintrag .stand { flex: 1 1 220px; font-size: 13px; color: var(--text-schwach); }
+.freigabe-eintrag.wartet { border-color: var(--hausfarbe); box-shadow: inset 0 0 0 1px var(--hausfarbe); }
+.antworten-liste .eintrag {
+  display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center;
+  padding: 10px 0; border-bottom: 1px solid var(--rand-zart);
+}
+.antworten-liste .eintrag:last-child { border-bottom: 0; }
+.antworten-hinweis { margin-bottom: 14px; }
+.antworten-hinweis > div + div { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--rand-zart); }
+.antwort-bericht h3 { margin: 14px 0 6px; font-size: 14px; }
+.antwort-bericht table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.antwort-bericht th, .antwort-bericht td {
+  text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--rand-zart); vertical-align: top;
+}
+.antwort-bericht th { font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-zart); }
+.antwort-bericht td.neu { font-weight: 700; color: var(--gruen); }
+.antwort-bericht .liste { padding: 6px 0; border-bottom: 1px solid var(--rand-zart); font-size: 13.5px; }
+.antwort-bericht .liste .namen { color: var(--text-schwach); margin-top: 2px; }
 
 .anmelde-seite { display: flex; justify-content: center; padding: 20px 0 60px; }
 .anmelde-karte {
@@ -969,7 +1002,7 @@ body.stift .zahl-knopf { min-width: 56px; }
 <link rel="icon" type="image/png" sizes="192x192" href="data:image/png;base64,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">
 <!-- Eigenständige Fassung: enthält Programm und Gestaltung vollständig.
      Kann lokal gespeichert und ohne Internetverbindung geöffnet werden.
-     Erzeugt am 2026-10-11 -->
+     Erzeugt am 2026-10-12 -->
 </head>
 <body>
 <div id="app">
@@ -2587,7 +2620,6 @@ body.stift .zahl-knopf { min-width: 56px; }
     var alle = [];
     var t = tuer || {};
     var p = projekt || {};
-    var K2 = kat();
 
     function verlangen(schluessel, label, abschnitt) {
       alle.push({ schluessel: schluessel, label: label, abschnitt: abschnitt,
@@ -2652,15 +2684,11 @@ body.stift .zahl-knopf { min-width: 56px; }
     }
 
     /* --- Elektronik ---
-     * Nur beim Wandleser und beim elektronischen Beschlag: Dort muss
-     * geklärt sein, woher der Strom kommt und wie angebunden wird. Ein
-     * elektronischer Zylinder arbeitet mit Batterie und braucht die
-     * Angaben nicht zwingend. */
-    var elektronisch = t.brauchtWandleser || (K2 && K2.beschlagIstElektronisch(t));
-    if (elektronisch) {
-      verlangen('elStromversorgung', 'Stromversorgung', 'elektronik');
-      verlangen('elVernetzung', 'Vernetzung', 'elektronik');
-    }
+     * Stromversorgung und Vernetzung sind bewusst KEINE Pflichtangaben
+     * (so festgelegt): Vor Ort ist oft noch nicht geklärt, woher der Strom
+     * kommt und wie angebunden wird - das wird später mit der Technik
+     * abgestimmt. Die Felder bleiben im Formular, werden aber weder
+     * angemahnt noch als fehlend gezählt. */
 
     /* Dieselbe Angabe kann aus zwei Bauteilen verlangt werden (das Dornmaß
      * gilt für Beschlag und Schloss). Sie wird dann nur einmal geführt. */
@@ -5840,6 +5868,21 @@ body.stift .zahl-knopf { min-width: 56px; }
     return daten;
   }
 
+  /* Dieselben Daten, aber nicht aus dem Anker, sondern vom Server geholt
+     (Kurzlink). Die Matrix wird genauso aufgelöst und geprüft. */
+  function ausDaten(daten) {
+    if (!daten || typeof daten !== 'object') throw new Error('Die Freigabe ist leer.');
+    if (daten.f !== FORMAT) throw new Error('Die Freigabe stammt aus einer anderen Fassung des Werkzeugs.');
+    if (!Array.isArray(daten.t) || !Array.isArray(daten.s)) throw new Error('Die Freigabe ist unvollständig.');
+    daten.matrix = entpacken(String(daten.m || ''));
+    daten.maske = entpacken(String(daten.e || ''));
+    var erwartet = daten.t.length * daten.s.length;
+    if (daten.matrix.length !== erwartet || daten.maske.length !== erwartet) {
+      throw new Error('Die Freigabe ist unvollständig.');
+    }
+    return daten;
+  }
+
   /* =========================================================================
    * Antwort des Kunden
    * ====================================================================== */
@@ -5998,7 +6041,7 @@ body.stift .zahl-knopf { min-width: 56px; }
     FORMAT: FORMAT,
     WERTE: WERTE, ZEICHEN: ZEICHEN,
     wertZuZeichen: wertZuZeichen, zeichenZuWert: zeichenZuWert,
-    erstellen: erstellen, alsAnker: alsAnker, ausAnker: ausAnker,
+    erstellen: erstellen, alsAnker: alsAnker, ausAnker: ausAnker, ausDaten: ausDaten,
     antwortErstellen: antwortErstellen,
     personenBereinigen: personenBereinigen,
     personenGleich: personenGleich,
@@ -9349,6 +9392,12 @@ body.stift .zahl-knopf { min-width: 56px; }
         onclick: function () { antwortDialog(neuZeichnen); } })
     ]));
 
+    /* Wartet zu diesem Aufmaß eine Kundenrückmeldung vom Server? */
+    if (global.AbgleichUI && global.AbgleichUI.antwortenHinweis) {
+      var hinweis = global.AbgleichUI.antwortenHinweis(p.id, neuZeichnen);
+      if (hinweis) seite.appendChild(hinweis);
+    }
+
     if (!p.tueren.length) {
       seite.appendChild(el('div', { class: 'leer' }, [
         el('h3', { text: 'Noch keine Türen erfasst' }),
@@ -9571,19 +9620,59 @@ body.stift .zahl-knopf { min-width: 56px; }
    * Kunden-Freigabe der Matrix
    * ======================================================================
    * Der Kunde erhält einen Link und trägt in den freigegebenen Feldern seine
-   * Berechtigungen ein. Es gibt keinen Server: Die Plandaten stehen im Anker
-   * der Adresse und werden von Browsern nie an einen Server gesendet.
+   * Berechtigungen ein. Zwei Wege:
+   *  - Mit gemeinsamer Ablage (angemeldet, online): Die Freigabe liegt auf
+   *    dem Server, der Kunde bekommt einen kurzen Link und klickt am Ende
+   *    auf „Übertragen“. Die Rückmeldung wartet dann im Werkzeug auf die
+   *    Prüfung (siehe abgleich-ui.js).
+   *  - Ohne Server (Einzeldatei, ohne Netz): Die Plandaten stehen im Anker
+   *    der Adresse, die Rückmeldung kommt als Rückschlüssel zurück und wird
+   *    unten im antwortDialog eingelesen.
    * -------------------------------------------------------------------- */
+  /* Steht die gemeinsame Ablage bereit? Dann entsteht ein Kurzlink über
+     den Server; sonst der lange Link mit den Daten im Anker. */
+  function abgleichBereit() {
+    var Ab = global.Abgleich;
+    if (!Ab) return false;
+    var z = Ab.zustand();
+    return !!(z.angemeldet && z.erreichbar !== false);
+  }
+
+  function datumKurz(iso) {
+    if (!iso) return '';
+    try { return new Date(iso).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+    catch (e) { return String(iso).slice(0, 10); }
+  }
+  function datumZeit(iso) {
+    if (!iso) return '–';
+    try { return new Date(iso).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+    catch (e) { return String(iso).slice(0, 16).replace('T', ' '); }
+  }
+
+  function inZwischenablage(feld, text, knopf) {
+    feld.select();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        knopf.textContent = 'Kopiert ✓';
+      }).catch(function () { knopf.textContent = 'Bitte von Hand markieren'; });
+    } else {
+      try { document.execCommand('copy'); knopf.textContent = 'Kopiert ✓'; }
+      catch (err) { knopf.textContent = 'Bitte von Hand markieren'; }
+    }
+  }
+
   function freigabeDialog(neuZeichnen) {
     var p = Zustand.projekt;
     var eins = Zustand.einstellungen || {};
     var gewaehlt = {};
     p.schliessungen.forEach(function (s) { gewaehlt[s.id] = false; });
     var einstellungenFreigabe = { nurLeereFelder: false, hinweis: '', frist: '' };
+    var online = abgleichBereit();
 
     var auswahlBereich = el('div', { class: 'chips', style: { marginBottom: '10px' } });
     var vorschau = el('div', { class: 'meldung info' });
     var ergebnisBereich = el('div');
+    var listeBereich = el('div');
 
     function anzahlGewaehlt() {
       return Object.keys(gewaehlt).filter(function (k) { return gewaehlt[k]; }).length;
@@ -9626,19 +9715,150 @@ body.stift .zahl-knopf { min-width: 56px; }
     auswahlZeichnen();
     vorschauAktualisieren();
 
-    function linkErzeugen() {
+    /* Adresse der Freigabeseite neben der Anwendung */
+    var seite = location.href.replace(/[^\/]*(\?.*)?(#.*)?$/, '') + 'freigabe.html';
+
+    function freigabeDaten() {
       var ids = Object.keys(gewaehlt).filter(function (k) { return gewaehlt[k]; });
-      var daten = global.Freigabe.erstellen(p, {
+      return global.Freigabe.erstellen(p, {
         freigegebeneSchliessungen: ids,
         nurLeereFelder: einstellungenFreigabe.nurLeereFelder,
         hinweis: einstellungenFreigabe.hinweis,
         frist: einstellungenFreigabe.frist,
         firma: eins.firma || ''
       });
-      var anker = global.Freigabe.alsAnker(daten);
+    }
 
-      /* Adresse der Freigabeseite neben der Anwendung */
-      var basis = location.href.replace(/[^\/]*(\?.*)?(#.*)?$/, '') + 'freigabe.html';
+    function linkErzeugen() {
+      var daten = freigabeDaten();
+      if (abgleichBereit()) { kurzlinkErzeugen(daten); return; }
+      langenLinkZeigen(daten);
+    }
+
+    /* --- Kurzlink: die Freigabe liegt auf dem Server ----------------- */
+    function kurzlinkErzeugen(daten) {
+      A.leeren(ergebnisBereich);
+      ergebnisBereich.appendChild(el('hr', { class: 'trenner' }));
+      ergebnisBereich.appendChild(el('p', { class: 'zart', text: 'Freigabe wird auf dem Server abgelegt …' }));
+
+      global.Abgleich.freigabeErstellen(p.id, daten, seite).then(function (f) {
+        A.leeren(ergebnisBereich);
+        ergebnisBereich.appendChild(el('hr', { class: 'trenner' }));
+        ergebnisBereich.appendChild(el('h3', { text: 'Freigabe-Link für den Kunden', style: { marginTop: '0' } }));
+        var feld = el('input', { type: 'text', class: 'kurzlink-feld', readonly: true, value: f.kurzlink,
+          'aria-label': 'Freigabe-Link' });
+        ergebnisBereich.appendChild(feld);
+        var betreff = 'Zutrittsberechtigungen ' + (p.objekt || p.kunde || '');
+        var text = 'Guten Tag,\n\nbitte tragen Sie unter folgendem Link ein, wer welche Türen öffnen darf. '
+          + 'Am Ende auf „Übertragen“ klicken - mehr ist nicht nötig.\n\n' + f.kurzlink + '\n\n'
+          + (f.gueltigBis ? 'Der Link gilt bis ' + datumKurz(f.gueltigBis) + '.\n\n' : '')
+          + 'Mit freundlichen Grüßen\n' + (eins.firma || '');
+        ergebnisBereich.appendChild(el('div', { class: 'knopfleiste', style: { marginTop: '10px' } }, [
+          el('button', { class: 'haupt', text: 'Link kopieren', onclick: function (e) {
+            inZwischenablage(feld, f.kurzlink, e.target);
+          } }),
+          el('button', { text: 'Per E-Mail senden', onclick: function () {
+            location.href = 'mailto:?subject=' + encodeURIComponent(betreff) + '&body=' + encodeURIComponent(text);
+          } })
+        ]));
+        ergebnisBereich.appendChild(el('p', { class: 'hinweis', text:
+          (f.gueltigBis ? 'Gültig bis ' + datumKurz(f.gueltigBis) + '. ' : 'Gültig, bis er zurückgezogen wird. ')
+          + 'Der Kunde trägt ein und klickt auf „Übertragen“. Seine Rückmeldung erscheint dann hier im Werkzeug '
+          + '(in der Kopfzeile und im Schließplan) und wird erst übernommen, wenn eine zuständige Person sie geprüft hat. '
+          + 'Ersteller und Zuständige werden per E-Mail benachrichtigt.' }));
+        listeLaden();
+      }).catch(function (f) {
+        A.leeren(ergebnisBereich);
+        ergebnisBereich.appendChild(el('hr', { class: 'trenner' }));
+        var text;
+        if (f && f.status === 404) {
+          text = 'Dieses Aufmaß liegt noch nicht auf dem Server. Der Abgleich sendet es gleich - '
+               + 'bitte in ein paar Sekunden erneut auf „Freigabe-Link erzeugen“ tippen.';
+          global.Abgleich.jetzt();
+        } else if (f && f.status === 403) {
+          text = f.message;
+        } else if (f && f.status) {
+          text = f.message || 'Die Freigabe ließ sich nicht anlegen.';
+        } else {
+          text = 'Keine Verbindung zum Server. Ohne Verbindung gibt es nur den langen Link mit den Daten im Anker.';
+        }
+        ergebnisBereich.appendChild(el('div', { class: 'meldung fehler' }, el('div', { text: text })));
+        if (!(f && f.status)) {
+          ergebnisBereich.appendChild(el('div', { class: 'knopfleiste', style: { marginTop: '10px' } }, [
+            el('button', { text: 'Langen Link stattdessen erzeugen', onclick: function () { langenLinkZeigen(daten); } })
+          ]));
+        }
+      });
+    }
+
+    /* --- Bisherige Freigaben dieses Aufmaßes -------------------------- */
+    function statusText(f) {
+      switch (f.status) {
+        case 'offen': return 'Offen – noch keine Rückmeldung';
+        case 'beantwortet': return 'Rückmeldung von ' + (f.antwortName || 'dem Kunden') + ' am ' + datumZeit(f.antwortAm) + ' wartet auf Prüfung';
+        case 'uebernommen': return 'Übernommen am ' + datumZeit(f.uebernommenAm) + (f.uebernommenVon ? ' von ' + f.uebernommenVon : '');
+        case 'verworfen': return 'Rückmeldung geprüft und verworfen';
+        case 'zurueckgezogen': return 'Zurückgezogen';
+        case 'abgelaufen': return 'Abgelaufen';
+        default: return f.status;
+      }
+    }
+
+    function listeLaden() {
+      if (!abgleichBereit()) { A.leeren(listeBereich); return; }
+      global.Abgleich.freigabenListe(p.id).then(function (liste) {
+        A.leeren(listeBereich);
+        if (!liste.length) return;
+        listeBereich.appendChild(el('hr', { class: 'trenner' }));
+        listeBereich.appendChild(el('h3', { text: 'Bisherige Freigabe-Links', style: { marginTop: '0' } }));
+        var behaelter = el('div', { class: 'freigabe-liste' });
+        liste.forEach(function (f) {
+          var zeile = el('div', { class: 'freigabe-eintrag' + (f.status === 'beantwortet' ? ' wartet' : '') });
+          zeile.appendChild(el('div', { class: 'code', text: f.kurzlink.replace(/^https?:\/\//, '') }));
+          zeile.appendChild(el('div', { class: 'stand', text:
+            'Erstellt am ' + datumZeit(f.erstelltAm) + (f.erstelltVon ? ' von ' + f.erstelltVon : '') + '  ·  ' + statusText(f) }));
+          var knoepfe = el('div', { class: 'knopfleiste' });
+          var tot = f.status === 'zurueckgezogen' || f.status === 'abgelaufen';
+          if (!tot) {
+            knoepfe.appendChild(el('button', { class: 'klein', text: 'Kopieren', onclick: function (e) {
+              var feld = el('input', { type: 'text', value: f.kurzlink, style: { position: 'absolute', left: '-9999px' } });
+              document.body.appendChild(feld);
+              inZwischenablage(feld, f.kurzlink, e.target);
+              setTimeout(function () { if (feld.parentNode) feld.parentNode.removeChild(feld); }, 500);
+            } }));
+          }
+          if (f.status === 'beantwortet' && global.AbgleichUI && global.AbgleichUI.antwortDialog) {
+            var wartend = (global.Abgleich.antwortenFuer(p.id) || []).filter(function (a) { return a.code === f.code; })[0];
+            if (wartend) {
+              knoepfe.appendChild(el('button', { class: 'haupt klein', text: 'Rückmeldung prüfen', onclick: function () {
+                global.AbgleichUI.antwortDialog(wartend, listeLaden);
+              } }));
+            }
+          }
+          if (!tot) {
+            knoepfe.appendChild(el('button', { class: 'klein gefahr', text: 'Zurückziehen', onclick: function () {
+              A.bestaetigen('Freigabe-Link zurückziehen?',
+                'Der Link funktioniert danach nicht mehr. Eine bereits übertragene Rückmeldung bleibt zur Prüfung erhalten.',
+                'Zurückziehen').then(function (ja) {
+                if (!ja) return;
+                global.Abgleich.freigabeZurueckziehen(f.code).then(function () {
+                  A.toast('Freigabe-Link zurückgezogen.', 'ok');
+                  listeLaden();
+                }).catch(function (fehler) { A.toast(fehler.message || 'Das ging gerade nicht.', 'fehler'); });
+              });
+            } }));
+          }
+          zeile.appendChild(knoepfe);
+          behaelter.appendChild(zeile);
+        });
+        listeBereich.appendChild(behaelter);
+      }).catch(function () { A.leeren(listeBereich); });
+    }
+
+    /* --- Langer Link: alles im Anker, ohne Server ---------------------- */
+    function langenLinkZeigen(daten) {
+      var anker = global.Freigabe.alsAnker(daten);
+      var basis = seite;
       var link = basis + '#plan=' + anker;
       var lokal = location.protocol === 'file:';
 
@@ -9694,8 +9914,18 @@ body.stift .zahl-knopf { min-width: 56px; }
 
     var inhalt = el('div', {}, [
       el('p', { class: 'hinweis', style: { marginTop: '0' },
-        text: 'Der Kunde öffnet den Link im Browser und trägt in den freigegebenen Feldern ' +
-              'seine Berechtigungen ein. Seine Rückmeldung lesen Sie anschließend hier wieder ein.' }),
+        text: online
+          ? 'Der Kunde öffnet den kurzen Link im Browser, trägt in den freigegebenen Feldern seine ' +
+            'Berechtigungen ein und klickt auf „Übertragen“. Seine Rückmeldung erscheint dann hier im ' +
+            'Werkzeug und wird erst nach Ihrer Prüfung übernommen.'
+          : 'Der Kunde öffnet den Link im Browser und trägt in den freigegebenen Feldern ' +
+            'seine Berechtigungen ein. Seine Rückmeldung lesen Sie anschließend hier wieder ein.' }),
+      /* Nur wenn es die gemeinsame Ablage überhaupt gibt und sie gerade
+         nicht erreichbar ist - in der Einzeldatei gibt es keinen Server,
+         da wäre der Hinweis nur verwirrend. */
+      (global.Abgleich && global.Abgleich.zustand().eingerichtet && !online) ? el('div', { class: 'meldung warn' }, el('div', { text:
+        'Ohne Verbindung zur gemeinsamen Ablage entsteht nur der lange Link mit den Daten im Anker. ' +
+        'Für den kurzen Link bitte anmelden und online gehen.' })) : null,
       el('h3', { text: 'Welche Schließungen darf der Kunde bearbeiten?' }),
       el('p', { class: 'zart', style: { marginTop: '-6px' },
         text: 'Für jede freigegebene Schließung kann der Kunde außerdem eintragen, wer ein ' +
@@ -9728,13 +9958,15 @@ body.stift .zahl-knopf { min-width: 56px; }
           linkErzeugen();
         } })
       ]),
-      ergebnisBereich
+      ergebnisBereich,
+      listeBereich
     ]);
 
     A.dialogOeffnen({
       titel: 'Matrix zur Freigabe an den Kunden senden', inhalt: inhalt,
       knoepfe: [{ fuellen: true }, { text: 'Schließen' }]
     });
+    listeLaden();
   }
 
   /* --- Rückmeldung des Kunden einlesen ------------------------------------ */

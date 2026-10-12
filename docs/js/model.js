@@ -1007,7 +1007,6 @@
     var alle = [];
     var t = tuer || {};
     var p = projekt || {};
-    var K2 = kat();
 
     function verlangen(schluessel, label, abschnitt) {
       alle.push({ schluessel: schluessel, label: label, abschnitt: abschnitt,
@@ -1072,15 +1071,11 @@
     }
 
     /* --- Elektronik ---
-     * Nur beim Wandleser und beim elektronischen Beschlag: Dort muss
-     * geklärt sein, woher der Strom kommt und wie angebunden wird. Ein
-     * elektronischer Zylinder arbeitet mit Batterie und braucht die
-     * Angaben nicht zwingend. */
-    var elektronisch = t.brauchtWandleser || (K2 && K2.beschlagIstElektronisch(t));
-    if (elektronisch) {
-      verlangen('elStromversorgung', 'Stromversorgung', 'elektronik');
-      verlangen('elVernetzung', 'Vernetzung', 'elektronik');
-    }
+     * Stromversorgung und Vernetzung sind bewusst KEINE Pflichtangaben
+     * (so festgelegt): Vor Ort ist oft noch nicht geklärt, woher der Strom
+     * kommt und wie angebunden wird - das wird später mit der Technik
+     * abgestimmt. Die Felder bleiben im Formular, werden aber weder
+     * angemahnt noch als fehlend gezählt. */
 
     /* Dieselbe Angabe kann aus zwei Bauteilen verlangt werden (das Dornmaß
      * gilt für Beschlag und Schloss). Sie wird dann nur einmal geführt. */
