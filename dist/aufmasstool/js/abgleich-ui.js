@@ -101,7 +101,8 @@
         'Das Werkzeug arbeitet auch ohne Anmeldung vollständig auf diesem Gerät. '
         + 'Ohne Anmeldung bleiben die Aufmaße aber nur hier.' }),
       el('button', { class: 'klein', text: 'Ohne Abgleich weiterarbeiten',
-        onclick: function () { uebersprungen = true; if (neuZeichnen) { neuZeichnen(); } } })
+        onclick: function () { uebersprungen = true; if (neuZeichnen) { neuZeichnen(); } } }),
+      el('p', { class: 'zart', style: { marginTop: '16px', fontSize: '12px' }, text: 'Werkzeug-Fassung ' + A.FASSUNG })
     ]));
     ziel.appendChild(seite);
   }
@@ -184,7 +185,8 @@
       el('li', { text: 'Verbindung: ' + (z.erreichbar === false ? 'nicht erreichbar' : 'in Ordnung') }),
       el('li', { text: 'Noch nicht gesendet: ' + z.offen + (z.offen === 1 ? ' Aufmaß' : ' Aufmaße') }),
       el('li', { text: 'Zuletzt abgeglichen: ' + (z.letzterAbgleich
-        ? new Date(z.letzterAbgleich).toLocaleString('de-DE') : 'noch nie') })
+        ? new Date(z.letzterAbgleich).toLocaleString('de-DE') : 'noch nie') }),
+      el('li', { text: 'Fassung: Werkzeug ' + A.FASSUNG + (z.serverVersion ? '  ·  Server-Plugin ' + z.serverVersion : '') })
     ]));
     if (z.letzterFehler) {
       inhalt.appendChild(el('p', { class: 'meldung warn', text: z.letzterFehler }));

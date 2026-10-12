@@ -1602,15 +1602,38 @@
     ]));
 
     /* --- Über --- */
+    var Ab = global.Abgleich ? global.Abgleich.zustand() : null;
+    var Akt = global.Aktualisierung;
+    var ablage = Akt && Akt.eingerichtet()
+      ? 'eingerichtet - das Werkzeug startet auch ohne Netz'
+      : (location.protocol.indexOf('http') === 0 ? 'noch nicht eingerichtet' : 'nicht nötig (lokale Datei)');
+    var pruefKnopf = Akt ? el('button', { class: 'klein', text: 'Auf neue Fassung prüfen', onclick: function (ev) {
+      ev.target.disabled = true;
+      Akt.pruefen().then(function (ging) {
+        ev.target.disabled = false;
+        A.toast(ging ? 'Geprüft. Liegt eine neue Fassung vor, erscheint oben ein Hinweis oder das Werkzeug startet neu.'
+                     : 'Prüfen ist hier nicht möglich (keine Offline-Ablage).', ging ? 'ok' : 'fehler');
+      });
+    } }) : null;
     seite.appendChild(el('div', { class: 'karte' }, [
       el('h2', { text: 'Über dieses Werkzeug' }),
       el('p', { class: 'hinweis', text:
         'Aufmaß-Tool für Schließanlagen und Zutrittslösungen. Läuft vollständig im Browser; ' +
         'alle Daten verbleiben auf diesem Gerät und werden nirgendwohin übertragen. ' +
         'Die PDF-Erzeugung erfolgt lokal und benötigt keine Internetverbindung.' }),
-      el('p', { class: 'zart', text: 'Speicherart: ' +
-        (Store.nutztFallback() ? 'Browserspeicher (eingeschränkt)' : 'IndexedDB') }),
+      /* Welche Fassung läuft auf diesem Gerät? Nach einer Aktualisierung
+         sieht man hier in einer Sekunde, ob sie angekommen ist. */
+      el('ul', { class: 'liste-schlicht' }, [
+        el('li', { id: 'fassung-werkzeug', text: 'Fassung des Werkzeugs: ' + A.FASSUNG }),
+        Ab ? el('li', { text: 'Server-Plugin: ' + (Ab.angemeldet && Ab.serverVersion ? Ab.serverVersion
+                                                   : (Ab.angemeldet ? 'unbekannt' : 'erst nach Anmeldung sichtbar')) }) : null,
+        el('li', { text: 'Offline-Ablage: ' + ablage }),
+        el('li', { text: 'Speicherart: ' + (Store.nutztFallback() ? 'Browserspeicher (eingeschränkt)' : 'IndexedDB') })
+      ]),
+      Akt ? el('p', { class: 'hinweis', text: 'Nach dem Einspielen einer neuen Fassung holt das Werkzeug sie beim nächsten Start mit Netz von selbst. ' +
+        'Erscheint oben der Hinweis „Neue Fassung“, einmal auf „Jetzt neu starten“ tippen.' }) : null,
       el('div', { class: 'knopfleiste', style: { marginTop: '10px' } }, [
+        pruefKnopf,
         el('button', { class: 'gefahr', text: 'Einstellungen zurücksetzen', onclick: function () {
           A.bestaetigen('Einstellungen zurücksetzen?',
             'Firmenkopf, Logo und eigene Katalogeinträge werden entfernt. Projekte bleiben erhalten.',
@@ -1624,6 +1647,7 @@
         } })
       ])
     ]));
+
   }
 
   function listenPflege(schluessel, beschriftung, einstellungen, merken) {

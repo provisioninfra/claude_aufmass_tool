@@ -201,6 +201,13 @@ header.kopf {
 .abgleich-status.antwort .punkt { animation: pulsieren 1.6s ease-in-out infinite; }
 @keyframes pulsieren { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
 
+/* Hinweis, dass eine neue Fassung geladen ist */
+.fassung-hinweis {
+  display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: center;
+  padding: 10px 16px; background: var(--hausfarbe-flaeche); border-bottom: 1px solid var(--hausfarbe);
+  font-size: 14px; color: var(--text);
+}
+
 /* Kundenfreigabe über Kurzlink */
 .kurzlink-feld {
   width: 100%; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 16px;

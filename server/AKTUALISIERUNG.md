@@ -94,13 +94,25 @@ Raidboxes hält Seiten im Zwischenspeicher. Nach dem Hochladen im
 Raidboxes-Dashboard der Box **„Cache leeren“** anklicken. Sonst bekommen
 die Geräte unter Umständen noch die alte `index.html`.
 
-Auf den Geräten selbst ist nichts zu tun: Das Werkzeug trägt eine neue
-Kennung für den Offline-Speicher und holt sich beim nächsten Start mit
-Netz den neuen Stand. Wer es sofort sehen will: Werkzeug schließen und
-neu öffnen, bei einem Browser-Tab einmal neu laden. Ein Gerät, das gerade
-ohne Netz ist, arbeitet mit der alten Fassung weiter, bis es wieder
-online war – auch das ist in Ordnung, die Aufmaße gleichen sich wie
-gewohnt ab.
+Auf den Geräten selbst ist nichts zu tun. Beim nächsten Start mit Netz
+holt das Werkzeug die neue Fassung direkt vom Server – am Browser-Cache
+vorbei – und meldet sich dann:
+
+- Auf der Projektübersicht startet es von selbst neu.
+- Ist gerade ein Aufmaß geöffnet, erscheint oben ein gelber Hinweis
+  „Eine neue Fassung des Werkzeugs ist geladen“ mit dem Knopf **Jetzt neu
+  starten**. Der speichert und schließt zuerst; es geht nichts verloren.
+
+Unter *Einstellungen → Über dieses Werkzeug* steht, welche Fassung auf
+dem Gerät läuft, und ein Knopf **Auf neue Fassung prüfen** stößt die
+Prüfung sofort an. Ein Gerät, das gerade ohne Netz ist, arbeitet mit der
+alten Fassung weiter, bis es wieder online war – auch das ist in Ordnung,
+die Aufmaße gleichen sich wie gewohnt ab.
+
+> **Geräte, die noch auf der Fassung 1.1.0 oder älter hängen**, kennen
+> den Hinweis noch nicht. Dort: Werkzeug ganz schließen und zweimal mit
+> Netz öffnen. Der erste Start holt die neue Fassung, der zweite zeigt
+> sie. Am Rechner genügt Strg+F5 (Mac: Cmd+Shift+R).
 
 ---
 
@@ -128,8 +140,10 @@ zu ändern: Das übernimmt die Umschreibregel des Plugins auf jeden Fall.
 ## Schritt 5 — Durchprobieren (fünf Minuten)
 
 1. `https://www.provision-infra.de/aufmasstool/` öffnen. Die Anmeldeseite
-   mit dem Google-Knopf muss erscheinen; anmelden. Oben rechts steht
-   danach **„Abgeglichen“**.
+   mit dem Google-Knopf muss erscheinen; ganz unten steht die
+   Werkzeug-Fassung. Anmelden. Oben rechts steht danach **„Abgeglichen“**,
+   und unter *Einstellungen → Über dieses Werkzeug* stehen die Fassung des
+   Werkzeugs und die des Server-Plugins.
 2. Ein Aufmaß öffnen → **Schließplan → Kundenfreigabe**. Eine Schließung
    antippen, **Freigabe-Link erzeugen**. Es erscheint ein kurzer Link
    `https://www.provision-infra.de/f/…` und darunter die Liste

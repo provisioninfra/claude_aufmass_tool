@@ -1,7 +1,12 @@
 /* Service Worker: legt die Anwendung im Gerätespeicher ab, damit sie auch
  * ohne Netzverbindung startet (z. B. im Keller oder in der Tiefgarage).
- * Wirkt nur, wenn die Anwendung über http(s) ausgeliefert wird. */
-var CACHE = 'aufmass-tool-v12';
+ * Wirkt nur, wenn die Anwendung über http(s) ausgeliefert wird.
+ *
+ * Die Fassung hier muss mit FASSUNG in js/app.js übereinstimmen (der
+ * Prüflauf achtet darauf). Jede neue Fassung bekommt damit eine neue
+ * Ablage, und alle Geräte holen beim nächsten Start den neuen Stand. */
+var FASSUNG = '1.1.1';
+var CACHE = 'aufmass-tool-' + FASSUNG;
 var DATEIEN = [
   './', './index.html', './freigabe.html', './css/app.css', './manifest.webmanifest',
   './icon.svg', './icon-180.png', './icon-192.png', './icon-512.png',
@@ -10,13 +15,22 @@ var DATEIEN = [
   './js/views-plan.js', './js/main.js',
   /* Der Abgleich gehört mit in die Ablage: Sonst stünde das Werkzeug
      beim Start ohne Netz ohne diese Dateien da. */
-  './js/zusammenfuehren.js', './js/abgleich.js', './js/abgleich-ui.js'
+  './js/zusammenfuehren.js', './js/abgleich.js', './js/abgleich-ui.js',
+  './js/aktualisierung.js'
 ];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(
     caches.open(CACHE)
-      .then(function (c) { return c.addAll(DATEIEN); })
+      /* Am Browser-Cache vorbei (cache: 'reload'): Die Dateinamen bleiben
+         von Fassung zu Fassung gleich, und Webserver geben Skripten gern
+         lange Haltbarkeiten mit. Ohne diese Anweisung landete beim
+         Einspielen einer neuen Fassung die ALTE Datei aus dem Browser-
+         Cache in der NEUEN Ablage - und das Gerät blieb auf dem alten
+         Stand, obwohl der Server längst den neuen hatte. */
+      .then(function (c) {
+        return c.addAll(DATEIEN.map(function (d) { return new Request(d, { cache: 'reload' }); }));
+      })
       .then(function () { return self.skipWaiting(); })
       .catch(function () { /* einzelne Datei nicht erreichbar: Start trotzdem zulassen */ })
   );
@@ -32,7 +46,7 @@ self.addEventListener('activate', function (e) {
 });
 
 /* Zuerst der Zwischenspeicher (die Anwendung ändert sich selten),
- * im Hintergrund wird auf eine neuere Fassung geprüft. */
+ * im Hintergrund wird beim Server nachgefragt, ob es Neueres gibt. */
 self.addEventListener('fetch', function (e) {
   if (e.request.method !== 'GET') return;
   var url = new URL(e.request.url);
@@ -44,7 +58,10 @@ self.addEventListener('fetch', function (e) {
   if (url.pathname.indexOf('/wp-json/') !== -1) return;
   e.respondWith(
     caches.match(e.request).then(function (treffer) {
-      var netz = fetch(e.request).then(function (antwort) {
+      /* no-cache: beim Server rückfragen statt dem Browser-Cache glauben.
+         Unverändertes kostet so nur eine kurze Rückfrage, Geändertes
+         kommt wirklich an. */
+      var netz = fetch(new Request(url.href, { cache: 'no-cache', credentials: 'same-origin' })).then(function (antwort) {
         if (antwort && antwort.status === 200) {
           var kopie = antwort.clone();
           caches.open(CACHE).then(function (c) { c.put(e.request, kopie); });

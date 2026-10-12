@@ -69,10 +69,14 @@ console.log('\n== Veröffentlichte Fassungen ==');
       'fehlen: ' + fehlend.join(', '));
   });
 
-  /* Der Service Worker muss seine eigene Liste ausliefern können */
+  /* Der Service Worker muss seine eigene Liste ausliefern können. Die
+     Anmeldung steht seit der Aktualisierungsstufe in js/aktualisierung.js. */
   const sw = path.join(ziel, 'sw.js');
-  if (fs.existsSync(path.join(ziel, 'index.html')) &&
-      /serviceWorker\.register/.test(fs.readFileSync(path.join(ziel, 'index.html'), 'utf8'))) {
+  const akt = path.join(ziel, 'js', 'aktualisierung.js');
+  const meldetSwAn = (fs.existsSync(path.join(ziel, 'index.html')) &&
+      /serviceWorker\.register/.test(fs.readFileSync(path.join(ziel, 'index.html'), 'utf8')))
+    || (fs.existsSync(akt) && /serviceWorker\.register|sw\.register\('sw\.js'\)/.test(fs.readFileSync(akt, 'utf8')));
+  if (meldetSwAn) {
     pruefe(fs.existsSync(sw), name + ': der angemeldete Service Worker liegt auch dort',
       'sw.js fehlt, der Offline-Betrieb wäre still ohne Wirkung');
     const liste = swDateien(sw);
@@ -227,6 +231,22 @@ if (!fs.existsSync(onlineZip)) {
     'Webserver-ZIP: enthält alle ' + imOrdner + ' Dateien des Ordners', ende >= 0 ? String(roh.readUInt16LE(ende + 10)) : 'kein Abschluss');
 }
 
+/* --- 1e2. Die Fassung steht an zwei Stellen - und zwar dieselbe ------------- */
+const fassungApp = (/var FASSUNG = '([^']+)'/.exec(fs.readFileSync(path.join(QUELLE, 'js', 'app.js'), 'utf8')) || [])[1];
+const fassungSw = (/var FASSUNG = '([^']+)'/.exec(fs.readFileSync(path.join(QUELLE, 'sw.js'), 'utf8')) || [])[1];
+pruefe(!!fassungApp && /^\d+\.\d+\.\d+$/.test(fassungApp), 'app.js nennt eine Fassung (x.y.z)', String(fassungApp));
+pruefe(fassungApp === fassungSw, 'sw.js trägt dieselbe Fassung wie app.js - sonst holten die Geräte keinen neuen Stand',
+  fassungApp + ' / ' + fassungSw);
+pruefe(/cache: 'reload'/.test(fs.readFileSync(path.join(QUELLE, 'sw.js'), 'utf8')),
+  'sw.js holt beim Einrichten am Browser-Cache vorbei (cache: reload)');
+pruefe(/cache: 'no-cache'/.test(fs.readFileSync(path.join(QUELLE, 'sw.js'), 'utf8')),
+  'sw.js fragt im Hintergrund wirklich beim Server nach (cache: no-cache)');
+pruefe(swDateien(path.join(QUELLE, 'sw.js')).indexOf('js/aktualisierung.js') !== -1,
+  'sw.js legt auch die Aktualisierungslogik in die Ablage');
+if (fs.existsSync(onlineOrdner)) {
+  pruefe(fs.existsSync(path.join(onlineOrdner, 'js', 'aktualisierung.js')), 'Webserver-Fassung: js/aktualisierung.js liegt bei');
+}
+
 /* --- 1f. Content-Security-Policy: Prüfwerte passen zu den Skripten ------- */
 const CSP = require('../tools/csp.js');
 ['src/index.html', 'src/freigabe.html', 'dist/aufmasstool/index.html', 'dist/aufmasstool/freigabe.html',
@@ -260,6 +280,7 @@ einzel.forEach(([pfad, name]) => {
   pruefe(!/<script[^>]+src=|<link[^>]+href="(?!data:)[^"]*\.css"/.test(text),
     name + ': lädt keine Datei von außen nach');
   pruefe(text.indexOf('serviceWorker') === -1, name + ': enthält keine Service-Worker-Anmeldung');
+  pruefe(text.indexOf('global.Aktualisierung = {') === -1, name + ': enthält keine Aktualisierungslogik (die braucht einen Webserver)');
   /* Die Einzeldatei ist die Fassung ohne Server. Sie darf den Abgleich
      nicht mitbringen - sonst verlangte sie unterwegs eine Anmeldung. */
   pruefe(text.indexOf('global.Abgleich = {') === -1 && text.indexOf('global.AbgleichUI = {') === -1,

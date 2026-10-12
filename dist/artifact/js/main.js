@@ -53,6 +53,19 @@
       el('div', { class: 'speicher-status', id: 'speicher-status' })
     ]));
 
+    /* Eine neue Fassung hat die Seite übernommen, während hier gearbeitet
+       wurde: nicht einfach neu laden, sondern anbieten. Der Neustart
+       speichert und schließt zuerst - es geht nichts verloren. */
+    if (Zustand.neueFassung) {
+      wurzel.appendChild(el('div', { class: 'fassung-hinweis', role: 'status' }, [
+        el('span', { text: 'Eine neue Fassung des Werkzeugs ist geladen. Beim Neustart wird zuerst gespeichert.' }),
+        el('button', { class: 'haupt klein', text: 'Jetzt neu starten', onclick: function () {
+          if (global.Aktualisierung) { global.Aktualisierung.neuStarten(); }
+          else { location.reload(); }
+        } })
+      ]));
+    }
+
     /* --- Reiter --- */
     var reiterLeiste = el('nav', { class: 'reiter', role: 'tablist' });
     REITER.forEach(function (r) {
@@ -274,8 +287,21 @@
     });
   }
 
+  /* Wird von aktualisierung.js gerufen, sobald eine neue Fassung die
+     Seite übernommen hat. Auf der Projektübersicht ohne offenen Dialog
+     gibt es nichts zu verlieren: sofort neu laden. Sonst Hinweis. */
+  function neueFassung() {
+    var dialogOffen = !!document.querySelector('.dialog-hinter');
+    if (!Zustand.projekt && Zustand.ansicht === 'projekte' && !dialogOffen) {
+      location.reload();
+      return;
+    }
+    Zustand.neueFassung = true;
+    zeichnen();
+  }
+
   global.App = { zeichnen: zeichnen, wechseln: wechseln, starten: starten,
-                 darstellungAnwenden: darstellungAnwenden };
+                 darstellungAnwenden: darstellungAnwenden, neueFassung: neueFassung };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', starten);

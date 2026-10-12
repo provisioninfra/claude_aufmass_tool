@@ -39,6 +39,7 @@
        Pipedrive-Anbindung dort, und dieses Gerät braucht keinen. */
     pipedrive: false,
     pipedriveHost: '',
+    serverVersion: '',       /* Fassung des Plugins - nennt der Server nur Angemeldeten */
     laeuft: false,
     offen: 0,                /* noch nicht gesendete Projekte */
     letzterAbgleich: null,
@@ -127,6 +128,7 @@
          ist - eine zweite, absehbar abgewiesene Anfrage erübrigt sich. */
       zustand.angemeldet = !!(d && d.angemeldet);
       zustand.benutzer = (d && d.benutzer) || null;
+      zustand.serverVersion = (d && d.version) || '';
       pipedriveMerken(d);
       melden();
       return zustand;

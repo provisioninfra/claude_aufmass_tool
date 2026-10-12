@@ -6,7 +6,7 @@
      sind damit ausgeschlossen; die eigenen eingebetteten Skripte stehen über
      ihren Prüfwert darin (tools/csp.js). Google nur für die Anmeldung,
      Pipedrive nur für die Anbindung vom Gerät aus. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client 'sha256-ATd/qncZOuseNHDhesrmQB0UNi/MtAwqVZA3leY7wTY=' 'sha256-jsiuRrVoAtIsIoZhl3dvdHE5PaM9ZXUm2jmtpfffKGE='; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: blob:; connect-src 'self' https://accounts.google.com/gsi/ https://*.pipedrive.com; frame-src https://accounts.google.com/gsi/; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client 'sha256-ATd/qncZOuseNHDhesrmQB0UNi/MtAwqVZA3leY7wTY='; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: blob:; connect-src 'self' https://accounts.google.com/gsi/ https://*.pipedrive.com; frame-src https://accounts.google.com/gsi/; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -63,14 +63,8 @@
 <script src="js/views-plan.js"></script>
 <script src="js/abgleich-ui.js"></script>
 <script src="js/main.js"></script>
-<script>
-/* Offline-Bereitstellung; bei lokal geöffneter Datei (file://) nicht verfügbar
-   und dort auch nicht nötig, weil dann ohnehin alles lokal liegt. */
-if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
-  window.addEventListener('load', function () {
-    navigator.serviceWorker.register('sw.js').catch(function () { /* ohne Offline-Ablage weiterarbeiten */ });
-  });
-}
-</script>
+<!-- Offline-Ablage und Erkennen einer neuen Fassung. Nur in der Fassung
+     für den Webserver; die Einzeldatei (file://) braucht beides nicht. -->
+<script src="js/aktualisierung.js"></script>
 </body>
 </html>

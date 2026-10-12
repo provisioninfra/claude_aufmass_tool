@@ -26,6 +26,7 @@ const reihen = [
   ['Freigabe über Server', 'test-freigabe-server.js'],
   ['Angriffsproben',   'test-angriffe.js'],
   ['Offline-Betrieb', 'test-offline-pwa.js'],
+  ['Aktualisierung',  'test-aktualisierung.js'],
   ['Alle Öffnungswege','test-ueberall.js']
 ];
 /* Der Serverteil ist in PHP geschrieben und wird mit PHP geprüft. Fehlt

@@ -23,7 +23,7 @@ const DATEIEN = [
   'js/verlauf.js', 'js/freigabe.js', 'js/pipedrive.js',
   'js/zusammenfuehren.js', 'js/abgleich.js',
   'js/app.js', 'js/views-projekt.js', 'js/views-tueren.js', 'js/views-plan.js',
-  'js/abgleich-ui.js', 'js/main.js'
+  'js/abgleich-ui.js', 'js/main.js', 'js/aktualisierung.js'
 ];
 
 function bauen() {
