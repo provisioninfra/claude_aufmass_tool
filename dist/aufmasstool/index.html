@@ -2,6 +2,12 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
+<!-- Was diese Seite laden und wohin sie sich verbinden darf. Fremde Skripte
+     sind damit ausgeschlossen; die eigenen eingebetteten Skripte stehen über
+     ihren Prüfwert darin (tools/csp.js). Google nur für die Anmeldung,
+     Pipedrive nur für die Anbindung vom Gerät aus. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client 'sha256-ATd/qncZOuseNHDhesrmQB0UNi/MtAwqVZA3leY7wTY=' 'sha256-jsiuRrVoAtIsIoZhl3dvdHE5PaM9ZXUm2jmtpfffKGE='; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: blob:; connect-src 'self' https://accounts.google.com/gsi/ https://*.pipedrive.com; frame-src https://accounts.google.com/gsi/; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">

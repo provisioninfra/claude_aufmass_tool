@@ -21,6 +21,11 @@ function lauf(datei) {
   execFileSync(process.execPath, [path.join(__dirname, datei)], { stdio: 'inherit' });
 }
 
+/* 0: Die Prüfwerte der eingebetteten Skripte in der Content-Security-Policy
+      nachziehen - sonst sperrte die Richtlinie ein eben geändertes Skript aus. */
+execFileSync(process.execPath, [path.join(__dirname, 'csp.js'), '--schreiben',
+  path.join(QUELLE, 'index.html'), path.join(QUELLE, 'freigabe.html')], { stdio: 'inherit' });
+
 /* 1 + 2 + 3: die erzeugten Fassungen */
 lauf('build.js');
 lauf('build-online.js');

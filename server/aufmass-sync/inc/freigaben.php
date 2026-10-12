@@ -39,11 +39,19 @@ class Aufmass_Freigaben {
     const TUEREN_MAX = 5000;
     const SCHLIESSUNGEN_MAX = 500;
 
+    /** Obergrenze für den rohen Anfragekörper beim Übertragen (vor dem Entziffern). */
+    const KOERPER_MAX = 393216;       /* 384 KiB */
+
     /* Drosselung je Herkunftsadresse, jeweils innerhalb von zehn Minuten */
     const DROSSEL_FENSTER = 600;
     const DROSSEL_UNBEKANNT = 30;     /* Aufrufe mit unbekanntem Code */
+    const DROSSEL_LESEN = 120;        /* Aufrufe mit gültigem Code */
     const DROSSEL_SENDEN = 12;        /* angenommene Übertragungen */
     const DROSSEL_ABGEWIESEN = 30;    /* abgewiesene Übertragungen */
+    /* Je Freigabe-Link, innerhalb eines Tages - gegen Mailfluten über
+       wechselnde Herkunftsadressen. */
+    const DROSSEL_JE_CODE = 40;
+    const DROSSEL_JE_CODE_FENSTER = 86400;
 
     /** Vorgabe: so viele Tage gilt ein Link (0 = unbegrenzt). */
     const TAGE_VORGABE = 30;
@@ -279,6 +287,10 @@ class Aufmass_Freigaben {
         }
         $sperre = self::gesperrt($z);
         if ($sperre) { return $sperre; }
+        /* Auch gültige Aufrufe werden gezählt - großzügig, ein Kunde lädt
+           die Seite ein paarmal. Wer sie im Sekundentakt abruft, will den
+           Server beschäftigen, nicht eintragen. */
+        if (!self::drossel('lesen', self::DROSSEL_LESEN)) { return self::zu_viele(); }
 
         $daten = json_decode($z['daten'], true);
         if (!is_array($daten)) {
@@ -331,6 +343,12 @@ class Aufmass_Freigaben {
         if (is_wp_error($sauber)) {
             self::drossel('abgewiesen', self::DROSSEL_ABGEWIESEN);
             return $sauber;
+        }
+        /* Je Link nur so viele Übertragungen am Tag - unabhängig von der
+           Herkunft. Mehr braucht kein Kunde; mehr wäre ein Versuch, die
+           Zuständigen mit E-Mails zu überschwemmen. */
+        if (!self::drossel_je_code($code)) {
+            return new WP_Error('zu_viele', 'Für diesen Link wurden heute schon sehr viele Rückmeldungen übertragen. Bitte morgen erneut versuchen.', array('status' => 429));
         }
         self::drossel('senden', self::DROSSEL_SENDEN);
 
@@ -615,19 +633,28 @@ class Aufmass_Freigaben {
         $werkzeug = preg_replace('#[^/]*$#', '', (string) $z['seite']);
         $anzahl = (int) $z['antwort_anzahl'];
         $listen = (int) $z['antwort_listen'];
-        $anmerkung = trim((string) $z['antwort_anmerkung']);
-        $betreff = 'Kundenrückmeldung zum Aufmaß' . ($titel !== '' ? ' ' . $titel : '');
+        /* Was vom Kunden stammt, wird als solches gekennzeichnet und
+           gekürzt: Niemand soll in einer Mail von „uns“ einem Text trauen,
+           den ein Fremder geschrieben hat. */
+        $name = self::einzeilig(self::text($z['antwort_name'], self::NAME_MAX));
+        $anmerkung = trim(self::text($z['antwort_anmerkung'], 500));
+        if (strlen((string) $z['antwort_anmerkung']) > strlen($anmerkung)) { $anmerkung .= ' […]'; }
+        /* Der Betreff ist eine Kopfzeile: nie mit Zeilenumbrüchen. */
+        $betreff = self::einzeilig('Kundenrückmeldung zum Aufmaß' . ($titel !== '' ? ' ' . self::text($titel, 150) : ''));
         $text = "Hallo,\n\n"
-            . $z['antwort_name'] . " hat über den Freigabe-Link Änderungen übertragen.\n\n"
-            . "Aufmaß:      " . ($titel !== '' ? $titel : '(ohne Namen)') . "\n"
-            . "Übertragen:  " . self::datum($z['antwort_am']) . " von " . $z['antwort_name'] . "\n"
+            . "über den Freigabe-Link zum Aufmaß " . ($titel !== '' ? $titel : '(ohne Namen)')
+            . " wurden Änderungen übertragen.\n\n"
+            . "Übertragen:  " . self::datum($z['antwort_am']) . "\n"
             . "Änderungen:  " . $anzahl . ($anzahl === 1 ? ' Berechtigung' : ' Berechtigungen')
-            . ', ' . $listen . ($listen === 1 ? ' Inhaberliste' : ' Inhaberlisten') . "\n"
-            . "Anmerkung:   " . ($anmerkung !== '' ? $anmerkung : '–') . "\n\n"
+            . ', ' . $listen . ($listen === 1 ? ' Inhaberliste' : ' Inhaberlisten') . "\n\n"
+            . "Angaben des Kunden (ungeprüft, so wie eingegeben):\n"
+            . "  Name:       " . $name . "\n"
+            . "  Anmerkung:  " . ($anmerkung !== '' ? str_replace("\n", "\n              ", $anmerkung) : '–') . "\n\n"
             . "Die Rückmeldung liegt jetzt im Aufmaß-Werkzeug bereit. Sie wird erst übernommen, "
             . "wenn eine zuständige Person sie dort geprüft und bestätigt hat:\n"
             . $werkzeug . "\n\n"
-            . "Diese Nachricht wurde automatisch vom Aufmaß-Abgleich erzeugt.\n";
+            . "Diese Nachricht wurde automatisch vom Aufmaß-Abgleich erzeugt. "
+            . "Sie enthält keine Links, die angeklickt werden müssten - das Werkzeug wie gewohnt öffnen.\n";
         try {
             return (bool) wp_mail($empfaenger, $betreff, $text, array('Content-Type: text/plain; charset=UTF-8'));
         } catch (\Throwable $e) {
@@ -825,8 +852,30 @@ class Aufmass_Freigaben {
     /* Drosselung je Herkunftsadresse. REMOTE_ADDR lässt sich - anders als
        ein X-Forwarded-For-Kopffeld - nicht vom Aufrufer vorgeben. */
     private static function drossel_schluessel($art) {
-        $ip = isset($_SERVER['REMOTE_ADDR']) ? (string) $_SERVER['REMOTE_ADDR'] : 'unbekannt';
-        return 'aufmass_fr_' . $art . '_' . substr(hash('sha256', $ip), 0, 20);
+        return 'aufmass_fr_' . $art . '_' . substr(hash('sha256', self::herkunft()), 0, 20);
+    }
+
+    /**
+     * Die Herkunft für die Drosselung. Bei IPv6 zählt das /64-Netz: Ein
+     * Anschluss bekommt dort ganze Blöcke, und wer die Drossel umgehen
+     * will, würde sonst einfach die hinteren Stellen durchzählen.
+     */
+    public static function herkunft() {
+        $ip = isset($_SERVER['REMOTE_ADDR']) ? trim((string) $_SERVER['REMOTE_ADDR']) : '';
+        if ($ip === '') { return 'unbekannt'; }
+        if (strpos($ip, ':') !== false) {
+            $roh = @inet_pton($ip);
+            if ($roh !== false && strlen($roh) === 16) { return 'v6:' . bin2hex(substr($roh, 0, 8)); }
+        }
+        return 'v4:' . $ip;
+    }
+
+    private static function drossel_je_code($code) {
+        $schluessel = 'aufmass_fc_' . substr(hash('sha256', $code), 0, 20);
+        $n = (int) get_transient($schluessel);
+        if ($n >= self::DROSSEL_JE_CODE) { return false; }
+        set_transient($schluessel, $n + 1, self::DROSSEL_JE_CODE_FENSTER);
+        return true;
     }
 
     /** Zählt einen Versuch; false, wenn die Grenze schon erreicht war. */

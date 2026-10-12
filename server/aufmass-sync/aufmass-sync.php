@@ -82,6 +82,7 @@ add_action('template_redirect', function () {
     $code = get_query_var('aufmass_f', '');
     if ($code === '' || $code === null) { return; }
     nocache_headers();
+    header('X-Robots-Tag: noindex, nofollow');
     $ziel = Aufmass_Freigaben::umleitung_ziel($code);
     if ($ziel === '') {
         global $wp_query;

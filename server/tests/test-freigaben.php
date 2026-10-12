@@ -335,6 +335,68 @@ $e = Aufmass_Freigaben::antwort_annehmen($fs['code'], antwort(array('a' => '1:1'
 pruefe(is_wp_error($e) && status_von($e) === 429, 'die dreizehnte wird gedrosselt', fehlertext($e));
 $_SERVER['REMOTE_ADDR'] = '10.0.0.1';
 
+echo "\n== Herkunft für die Drosselung ==\n";
+$_SERVER['REMOTE_ADDR'] = '2001:db8:abcd:1234:1111:2222:3333:4444';
+$h1 = Aufmass_Freigaben::herkunft();
+$_SERVER['REMOTE_ADDR'] = '2001:db8:abcd:1234:ffff:eeee:dddd:cccc';
+$h2 = Aufmass_Freigaben::herkunft();
+$_SERVER['REMOTE_ADDR'] = '2001:db8:abcd:1235::1';
+$h3 = Aufmass_Freigaben::herkunft();
+pruefe($h1 === $h2, 'zwei IPv6-Adressen aus demselben /64-Netz zählen als eine Herkunft', "$h1 / $h2");
+pruefe($h1 !== $h3, 'ein anderes /64-Netz zählt getrennt', "$h1 / $h3");
+$_SERVER['REMOTE_ADDR'] = '203.0.113.7';
+pruefe(Aufmass_Freigaben::herkunft() === 'v4:203.0.113.7', 'IPv4 zählt je Adresse', Aufmass_Freigaben::herkunft());
+unset($_SERVER['REMOTE_ADDR']);
+pruefe(Aufmass_Freigaben::herkunft() === 'unbekannt', 'ohne Adresse: unbekannt');
+$_SERVER['REMOTE_ADDR'] = '10.0.0.1';
+
+echo "\n== Drosselung auch für gültige Aufrufe ==\n";
+$_SERVER['REMOTE_ADDR'] = '10.0.0.20';
+$fl = Aufmass_Freigaben::anlegen('prj-f', freigabedaten(), '', $weber);
+$letzter = null;
+for ($i = 0; $i < 120; $i++) { $letzter = Aufmass_Freigaben::oeffentlich($fl['code']); }
+pruefe(!is_wp_error($letzter), '120 Aufrufe in zehn Minuten gehen durch', fehlertext($letzter));
+$k = Aufmass_Freigaben::oeffentlich($fl['code']);
+pruefe(is_wp_error($k) && status_von($k) === 429, 'der 121. wird gedrosselt', fehlertext($k));
+$_SERVER['REMOTE_ADDR'] = '10.0.0.21';
+pruefe(!is_wp_error(Aufmass_Freigaben::oeffentlich($fl['code'])), 'eine andere Herkunft darf weiter lesen');
+
+echo "\n== Je Link höchstens 40 Übertragungen am Tag - egal woher ==\n";
+$fk = Aufmass_Freigaben::anlegen('prj-f', freigabedaten(), '', $weber);
+$angenommen = 0;
+for ($i = 0; $i < 40; $i++) {
+    /* jede Übertragung von einer anderen Herkunft - die Drossel je Herkunft greift nicht */
+    $_SERVER['REMOTE_ADDR'] = '198.51.100.' . ($i + 1);
+    $a = Aufmass_Freigaben::antwort_annehmen($fk['code'], antwort(array('a' => '1:1')), 'Herr Fleißig', '');
+    if (!is_wp_error($a)) { $angenommen++; }
+}
+pruefe($angenommen === 40, '40 Übertragungen von 40 Herkünften werden angenommen', (string) $angenommen);
+$_SERVER['REMOTE_ADDR'] = '198.51.100.250';
+$e = Aufmass_Freigaben::antwort_annehmen($fk['code'], antwort(array('a' => '1:1')), 'Herr Fleißig', '');
+pruefe(is_wp_error($e) && status_von($e) === 429, 'die 41. wird abgewiesen, obwohl die Herkunft neu ist', fehlertext($e));
+$anzahlMails = count($GLOBALS['wp_mails']);
+$e = Aufmass_Freigaben::antwort_annehmen($fk['code'], antwort(array('a' => '1:1')), 'Herr Fleißig', '');
+pruefe(count($GLOBALS['wp_mails']) === $anzahlMails, 'und löst keine E-Mail mehr aus');
+$_SERVER['REMOTE_ADDR'] = '10.0.0.1';
+
+echo "\n== Die E-Mail bleibt sauber, was auch immer der Kunde eingibt ==\n";
+Aufmass_Projekte::speichern('prj-m', array('id' => 'prj-m', 'kunde' => "Böse\r\nBcc: opfer@example.com", 'objekt' => 'Haus',
+    'tueren' => array(array('id' => 't1')), 'schliessungen' => array(array('id' => 's1'))), 0, $weber);
+$fm = Aufmass_Freigaben::anlegen('prj-m', array('f' => 1, 'pid' => 'prj-m', 't' => array(array('t1', '1', 'Tür', '')),
+    's' => array(array('s1', 'A', 'A', '', array('a' => '', 'g' => '', 'p' => array()))), 'm' => '0', 'e' => '1'), '', $weber);
+$lang = str_repeat('Sehr lange Anmerkung. ', 60);
+$a = Aufmass_Freigaben::antwort_annehmen($fm['code'],
+    array('f' => 1, 'pid' => 'prj-m', 'typ' => 'antwort', 'tIds' => array('t1'), 'sIds' => array('s1'), 'a' => '0:1'),
+    "Herr\nUmbruch\r\nSubject: Gewonnen", "Bitte hier klicken: http://boese.example\n" . $lang);
+pruefe(!is_wp_error($a), 'Vorbereitung: Übertragung angenommen', fehlertext($a));
+$m = $GLOBALS['wp_mails'][count($GLOBALS['wp_mails']) - 1];
+pruefe(strpos($m['betreff'], "\n") === false && strpos($m['betreff'], "\r") === false, 'der Betreff enthält keinen Zeilenumbruch', json_encode($m['betreff']));
+pruefe(strpos($m['betreff'], 'Bcc:') !== false && strpos($m['betreff'], "\r\n") === false, 'ein eingeschleuster Zeilenumbruch im Kundennamen des Aufmaßes wird zu einem Leerzeichen', json_encode($m['betreff']));
+pruefe(strpos($m['text'], 'Herr Umbruch Subject: Gewonnen') !== false, 'der Name des Kunden steht einzeilig im Text', json_encode($m['text']));
+pruefe(strpos($m['text'], 'ungeprüft') !== false, 'der Text kennzeichnet die Angaben des Kunden als ungeprüft');
+pruefe(strpos($m['text'], '[…]') !== false && strpos($m['text'], $lang) === false, 'eine überlange Anmerkung wird in der Mail gekürzt');
+pruefe(strpos($m['text'], 'http://boese.example') !== false, 'der Inhalt selbst bleibt sichtbar - gekennzeichnet, nicht versteckt');
+
 echo "\n== Aufräumen ==\n";
 $alt = gmdate('Y-m-d H:i:s', time() - 200 * 86400) . '.000000';
 $wpdb->update('wp_aufmass_freigaben', array('geaendert_am' => $alt), array('code' => $f0['code']));          /* zurückgezogen, alt */

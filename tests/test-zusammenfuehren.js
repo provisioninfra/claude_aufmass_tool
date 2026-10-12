@@ -263,5 +263,20 @@ p(Z.feldName('tuerblattstaerke') === 'Türblattstärke', 'bekannte Feldnamen wer
 p(Z.feldName('irgendeinNeuesFeld') === 'Irgendein neues feld', 'unbekannte Felder werden lesbar gemacht',
   Z.feldName('irgendeinNeuesFeld'));
 
+console.log('\n== Schlüssel, die den Bauplan treffen würden, werden übergangen ==');
+/* Daten vom Server sind JSON; ein Schlüssel "__proto__" darin ist dort eine
+   gewöhnliche Eigenschaft. Beim Zusammenführen darf er nicht in den
+   Prototyp des Ergebnisses wandern. */
+const boese = JSON.parse('{"id":"x","kunde":"A","__proto__":{"vergiftet":true},"constructor":{"x":1}}');
+e = Z.projekte({ id: 'x', kunde: 'A' }, { id: 'x', kunde: 'A' }, boese);
+p(!('vergiftet' in e.ergebnis), 'ein __proto__-Schlüssel aus den Serverdaten vergiftet das Ergebnis nicht');
+p(!Object.prototype.hasOwnProperty.call(e.ergebnis, '__proto__') && Object.getPrototypeOf(e.ergebnis) === Object.prototype,
+  'das Ergebnis behält seinen gewöhnlichen Bauplan');
+p(!({}).vergiftet, 'und der allgemeine Bauplan bleibt unberührt');
+p(e.ergebnis.kunde === 'A' && e.konflikte.length === 0, 'die übrigen Angaben werden normal zusammengeführt');
+const tuerBoese = JSON.parse('{"id":"x","tueren":[{"id":"t1","bezeichnung":"Tür","__proto__":{"vergiftet":true}}]}');
+e = Z.projekte({ id: 'x', tueren: [] }, { id: 'x', tueren: [] }, tuerBoese);
+p(e.ergebnis.tueren.length === 1 && !('vergiftet' in e.ergebnis.tueren[0]), 'auch in Untereinträgen (Türen) nicht');
+
 console.log('\nErgebnis Zusammenführen: ' + ok + ' ok, ' + fehler + ' Fehler');
 process.exit(fehler ? 1 : 0);

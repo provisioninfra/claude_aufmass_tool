@@ -74,14 +74,18 @@ $rest = substr($weg, strlen($basis));
 
 if ($rest === '/start' && $art === 'GET') {
     $b = Aufmass_Anmeldung::aktueller_benutzer();
-    raus(array('eingerichtet' => get_option('aufmass_client_id', '') !== '',
+    $aus = array('eingerichtet' => get_option('aufmass_client_id', '') !== '',
         'clientId' => get_option('aufmass_client_id', ''),
         'domaene' => get_option('aufmass_domaene', ''),
         'angemeldet' => !!$b, 'benutzer' => $b,
-        'marke' => Aufmass_Datenbank::marke(),
-        'pipedrive' => Aufmass_Pipedrive::eingerichtet(),
-        'pipedriveHost' => Aufmass_Pipedrive::eingerichtet() ? Aufmass_Pipedrive::host_anzeige() : '',
-        'version' => '1.0.0-test'));
+        'marke' => Aufmass_Datenbank::marke());
+    /* Wie im Plugin: Anbindungen und Fassung nur für Angemeldete */
+    if ($b) {
+        $aus['pipedrive'] = Aufmass_Pipedrive::eingerichtet();
+        $aus['pipedriveHost'] = $aus['pipedrive'] ? Aufmass_Pipedrive::host_anzeige() : '';
+        $aus['version'] = '1.0.0-test';
+    }
+    raus($aus);
 }
 if (preg_match('#^/pipedrive/(v[12]/[A-Za-z0-9_/]{1,80})$#', $rest, $t) && $art === 'GET') {
     benutzerOderRaus();
@@ -136,6 +140,9 @@ if (preg_match('#^/freigaben/([A-Za-z0-9]{6,16})$#', $rest, $t) && $art === 'GET
 }
 if (preg_match('#^/freigaben/([A-Za-z0-9]{6,16})/antwort$#', $rest, $t) && $art === 'POST') {
     kopffeldPruefen();
+    if (strlen($koerper) > Aufmass_Freigaben::KOERPER_MAX) {
+        raus(array('code' => 'zu_gross', 'message' => 'Die Rückmeldung ist zu umfangreich.'), 413);
+    }
     $e = Aufmass_Freigaben::antwort_annehmen($t[1], isset($json['antwort']) ? $json['antwort'] : null,
         isset($json['name']) ? $json['name'] : '', isset($json['anmerkung']) ? $json['anmerkung'] : '');
     if (is_wp_error($e)) { fehler($e); }

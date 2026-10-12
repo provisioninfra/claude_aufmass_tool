@@ -221,7 +221,7 @@ class Aufmass_Anmeldung {
             'expires' => $bis,
             'path' => $pfad,
             'domain' => defined('COOKIE_DOMAIN') && COOKIE_DOMAIN ? COOKIE_DOMAIN : '',
-            'secure' => is_ssl(),
+            'secure' => self::verschluesselt(),
             'httponly' => true,
             /* Strict: Das Cookie wird bei Aufrufen von fremden Seiten gar
                nicht erst mitgeschickt. Zusammen mit dem verlangten
@@ -229,6 +229,20 @@ class Aufmass_Anmeldung {
                untergeschobenen Anfragen. */
             'samesite' => 'Strict'
         ));
+    }
+
+    /**
+     * Läuft die Verbindung über HTTPS? Hinter einem vorgeschalteten Proxy
+     * (bei Hostern üblich) sieht PHP manchmal nur HTTP, obwohl der Besucher
+     * HTTPS benutzt. Dann würde das Cookie ohne „Secure“ gesetzt und
+     * könnte über eine unverschlüsselte Verbindung mitgelesen werden.
+     * Darum zählt auch die Website-Adresse: Ist sie https, ist das Cookie
+     * ausschließlich für https bestimmt.
+     */
+    public static function verschluesselt() {
+        if (is_ssl()) { return true; }
+        if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower((string) $_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https') { return true; }
+        return function_exists('home_url') && strpos((string) home_url('/'), 'https://') === 0;
     }
 
     private static function geraet_beschreiben() {

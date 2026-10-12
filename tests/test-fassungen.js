@@ -227,6 +227,26 @@ if (!fs.existsSync(onlineZip)) {
     'Webserver-ZIP: enthält alle ' + imOrdner + ' Dateien des Ordners', ende >= 0 ? String(roh.readUInt16LE(ende + 10)) : 'kein Abschluss');
 }
 
+/* --- 1f. Content-Security-Policy: Prüfwerte passen zu den Skripten ------- */
+const CSP = require('../tools/csp.js');
+['src/index.html', 'src/freigabe.html', 'dist/aufmasstool/index.html', 'dist/aufmasstool/freigabe.html',
+ 'docs/index.html', 'docs/freigabe.html'].forEach(rel => {
+  const voll = path.join(WURZEL, rel);
+  if (!fs.existsSync(voll)) return;
+  const e = CSP.pruefen(voll);
+  pruefe(!e.grund && e.stimmt, rel + ': die Content-Security-Policy gibt genau die eingebetteten Skripte frei',
+    e.grund || ('vorhanden: ' + e.vorhanden + '\n         erwartet:  ' + e.erwartet));
+  const html = fs.readFileSync(voll, 'utf8');
+  pruefe(!/'unsafe-inline'[^;]*;/.test((/script-src([^;]*)/.exec(html) || ['', ''])[1] + ';'),
+    rel + ': Skripte sind nicht pauschal eingebettet erlaubt');
+  pruefe(/<meta name="referrer" content="no-referrer">/.test(html), rel + ': die Seite verrät keinen Verweis nach außen');
+});
+const einzelCsp = path.join(WURZEL, 'dist', 'aufmass-tool.html');
+if (fs.existsSync(einzelCsp)) {
+  pruefe(!/Content-Security-Policy/.test(fs.readFileSync(einzelCsp, 'utf8')),
+    'dist/aufmass-tool.html: die Einzeldatei trägt keine CSP (alles ist eingebettet, Doppelklick ohne Website)');
+}
+
 /* --- 2. Die Einzeldateien: eigenständig und gleich ----------------------- */
 const einzel = [
   [path.join(WURZEL, 'dist', 'aufmass-tool.html'), 'dist/aufmass-tool.html'],

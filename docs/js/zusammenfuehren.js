@@ -80,6 +80,21 @@
   /* Angaben, die das Gerät selbst führt und über die nie gestritten wird. */
   var EGAL = { geaendert: true, schemaVersion: true, statusVonHand: true };
 
+  /* Schlüssel, die nie aus Daten in ein Objekt gelangen dürfen: Sie
+     würden nicht das Objekt, sondern seinen Bauplan verändern. (Als
+     Vergleich, nicht als Nachschlagetabelle: In einem Objekt-Literal
+     setzt "__proto__:" den Bauplan, statt einen Eintrag anzulegen.) */
+  function schluesselErlaubt(k) { return k !== '__proto__' && k !== 'constructor' && k !== 'prototype'; }
+  function schluesselVon(objekte) {
+    var alle = {};
+    objekte.forEach(function (o) {
+      Object.keys(o || {}).forEach(function (k) {
+        if (schluesselErlaubt(k)) { alle[k] = true; }
+      });
+    });
+    return Object.keys(alle);
+  }
+
   function feldName(schluessel) {
     if (FELDNAMEN[schluessel]) { return FELDNAMEN[schluessel]; }
     /* Aus "schlossIrgendwas" wird "Schloss irgendwas" - besser als nichts. */
@@ -123,10 +138,9 @@
   function satz(basis, meins, server, zusammenhang, konflikte, bericht, unterlisten) {
     var b = basis || {}, m = meins || {}, s = server || {};
     var ergebnis = {};
-    var schluessel = {};
-    [b, m, s].forEach(function (o) { Object.keys(o).forEach(function (k) { schluessel[k] = true; }); });
+    var schluessel = schluesselVon([b, m, s]);
 
-    Object.keys(schluessel).forEach(function (k) {
+    schluessel.forEach(function (k) {
       if (EGAL[k]) { ergebnis[k] = norm(m[k] !== undefined ? m[k] : s[k]); return; }
 
       /* Unterlisten (Fotos, Personen) nach id zusammenführen statt als
@@ -247,12 +261,11 @@
     var b = basis || {}, m = meins || {}, s = server || {};
     var ergebnis = {};
 
-    var schluessel = {};
-    [b, m, s].forEach(function (o) { Object.keys(o).forEach(function (k) { schluessel[k] = true; }); });
+    var schluessel = schluesselVon([b, m, s]);
 
     var oben = { bereich: 'Aufmaß', bezeichnung: m.kunde || s.kunde || 'Aufmaß', pfad: 'projekt' };
 
-    Object.keys(schluessel).forEach(function (k) {
+    schluessel.forEach(function (k) {
       if (EGAL[k]) { ergebnis[k] = norm(m[k] !== undefined ? m[k] : s[k]); return; }
 
       if (LISTEN[k]) {
@@ -286,10 +299,9 @@
   function matrix(basis, meins, server, konflikte, bericht) {
     var b = basis || {}, m = meins || {}, s = server || {};
     var aus = {};
-    var schluessel = {};
-    [b, m, s].forEach(function (o) { Object.keys(o).forEach(function (k) { schluessel[k] = true; }); });
+    var schluessel = schluesselVon([b, m, s]);
 
-    Object.keys(schluessel).forEach(function (k) {
+    schluessel.forEach(function (k) {
       var e = dreiWege(b[k], m[k], s[k]);
       if (e.herkunft === 'streit') {
         konflikte.push({

@@ -24,6 +24,7 @@ const reihen = [
   ['Abgleich-Oberfläche', 'test-abgleich-oberflaeche.js'],
   ['Pipedrive über Server', 'test-pipedrive-server.js'],
   ['Freigabe über Server', 'test-freigabe-server.js'],
+  ['Angriffsproben',   'test-angriffe.js'],
   ['Offline-Betrieb', 'test-offline-pwa.js'],
   ['Alle Öffnungswege','test-ueberall.js']
 ];

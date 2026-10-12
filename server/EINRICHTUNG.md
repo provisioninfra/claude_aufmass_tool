@@ -380,7 +380,62 @@ davon unabhängig – sie liegt in jedem Fall im Werkzeug.
 Der Abgleich hat das Aufmaß noch nicht gesendet. Ein paar Sekunden warten
 und erneut versuchen; die Kopfzeile zeigt, wann alles abgeglichen ist.
 
+**Alles bleibt „Offline“, obwohl die Website läuft – und ein Sicherheits-Plugin ist aktiv**
+Manche Sicherheits-Plugins (Wordfence, Solid Security, „Disable REST API“)
+sperren die WordPress-Schnittstelle für nicht angemeldete Besucher. Das
+Werkzeug braucht den Bereich `/wp-json/aufmass/v1/` **ohne** WordPress-
+Anmeldung: Die Anmeldung läuft dort über Google, und der Kunde öffnet
+seine Freigabe ohne jedes Konto. In dem Plugin eine Ausnahme für
+`aufmass/v1` eintragen.
+
+**Die Pipedrive-Anbindung vom Gerät aus meldet „keine Verbindung“, obwohl der Schlüssel stimmt**
+Die Seite erlaubt Verbindungen nur zu `*.pipedrive.com` (siehe
+„Sicherheit“ unten). Eine Pipedrive-Adresse außerhalb dieser Domäne
+lässt sich nicht vom Gerät aus abfragen – dann den Schlüssel in WordPress
+hinterlegen (Schritt 6), der Server übernimmt die Abfrage.
+
 ---
+
+## Sicherheit – was gegen Angriffe von außen vorgesehen ist
+
+- **Ohne Anmeldung erreichbar sind nur drei Dinge:** die Startauskunft
+  (ob die Anmeldung eingerichtet ist), die Google-Anmeldung selbst und die
+  Kundenfreigabe über ihren Code. Alles andere verlangt die Sitzung, und
+  jede ändernde Anfrage zusätzlich ein eigenes Kopffeld, das fremde
+  Seiten nicht setzen können. JSONP ist für die Schnittstelle abgeschaltet.
+- **Sitzungen** liegen in der Datenbank (nur als Prüfwert), das Cookie ist
+  HttpOnly, SameSite=Strict und nur für HTTPS bestimmt – auch hinter dem
+  vorgeschalteten Proxy des Hosters. Sperren einer Person meldet alle ihre
+  Geräte sofort ab.
+- **Der Google-Ausweis** wird serverseitig gegen Googles Schlüssel geprüft
+  (Unterschrift, Aussteller, Client-ID, Ablauf, bestätigte Adresse,
+  Organisationsdomäne).
+- **Kundenfreigabe:** Code mit rund 50 Bit Zufall; je Herkunft werden
+  unbekannte Codes (30), Aufrufe (120) und Übertragungen (12) in zehn
+  Minuten gedrosselt, je Link höchstens 40 Übertragungen am Tag;
+  IPv6-Adressen zählen als /64-Netz. Jede Antwort wird gegen die Freigabe
+  geprüft und bereinigt abgelegt; nichts gelangt ohne Bestätigung einer
+  zuständigen Person ins Aufmaß. Links laufen ab, lassen sich zurückziehen
+  und werden nach 180 Tagen gelöscht. Der Kurzlink leitet nur auf die
+  eigene Website weiter.
+- **E-Mails** sind reiner Text; was der Kunde eingegeben hat, ist darin
+  als ungeprüft gekennzeichnet und gekürzt. Der Betreff kann keine
+  Kopfzeilen einschleusen.
+- **Die Seiten selbst** tragen eine Content-Security-Policy: Skripte nur
+  aus dem eigenen Ordner (eingebettete über Prüfwert) und für die
+  Anmeldung von Google, Verbindungen nur zur eigenen Website, zu Google
+  und zu `*.pipedrive.com`, keine Einbettung fremder Inhalte. Wer eine der
+  Seiten von Hand ändert, zieht die Prüfwerte mit `node tools/csp.js
+  --schreiben` nach (`npm run build` tut das von selbst).
+- **Fotos** liegen außerhalb des Webroots erratbarer Namen (Zufallsteil im
+  Dateinamen, `.htaccess`, leere `index.html`) und werden nur an
+  Angemeldete ausgeliefert, mit Prüfung der Bildart am Inhalt.
+- **Pipedrive-Schlüssel** verschlüsselt mit einem Schlüssel aus der
+  `wp-config.php`; die Weiterleitung kennt nur lesende Wege.
+
+Was das Plugin nicht leisten kann: Kopfzeilen des Webservers (HSTS,
+`X-Frame-Options`) setzt der Hoster. Bei Raidboxes ist HTTPS erzwungen;
+HSTS lässt sich dort im Dashboard einschalten.
 
 ## Bei jeder neuen Fassung
 

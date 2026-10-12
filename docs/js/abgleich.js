@@ -537,12 +537,19 @@
    * Würde das Projekt als Ganzes ersetzt, zeigten diese Verweise ins
    * Leere und Eingaben liefen ins Nichts.
    * ---------------------------------------------------------------- */
+  /* Schlüssel, die nie aus Daten kommen dürfen: Sie würden nicht in das
+     Objekt, sondern in dessen Bauplan schreiben. (Bewusst als Vergleich,
+     nicht als Nachschlagetabelle: In einem Objekt-Literal setzt
+     "__proto__:" den Bauplan, statt einen Eintrag anzulegen.) */
+  function schluesselErlaubt(k) { return k !== '__proto__' && k !== 'constructor' && k !== 'prototype'; }
+
   function inPlatzUebernehmen(ziel, quelle) {
     if (!ziel || !quelle || typeof ziel !== 'object' || typeof quelle !== 'object') { return; }
     Object.keys(ziel).forEach(function (k) {
       if (!Object.prototype.hasOwnProperty.call(quelle, k)) { delete ziel[k]; }
     });
     Object.keys(quelle).forEach(function (k) {
+      if (!schluesselErlaubt(k)) { return; }
       var q = quelle[k], z = ziel[k];
       if (Array.isArray(q) && Array.isArray(z) && q.length && q[0] && q[0].id) {
         var bekannt = {};

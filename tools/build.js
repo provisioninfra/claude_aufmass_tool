@@ -28,6 +28,12 @@ function bauen() {
 
   /* Manifest und Service Worker entfallen in der Einzeldatei */
   html = html.replace(/<link rel="manifest"[^>]*>\s*/g, '');
+  /* Die Content-Security-Policy auch: Sie gibt die eingebetteten Skripte
+     über Prüfwerte frei, und in der Einzeldatei ist das gesamte Programm
+     eingebettet. Die Datei wird lokal per Doppelklick geöffnet; dort gibt
+     es keine Website, von der aus etwas untergeschoben werden könnte. */
+  html = html.replace(/<!-- Was diese Seite laden[\s\S]*?-->\s*/, '');
+  html = html.replace(/<meta http-equiv="Content-Security-Policy"[^>]*>\s*/i, '');
   html = html.replace(/<script>\s*\/\* Offline-Bereitstellung[\s\S]*?<\/script>/, '');
 
   /* Symbole als Daten-URL einbetten, damit keine Datei danebenliegen muss */

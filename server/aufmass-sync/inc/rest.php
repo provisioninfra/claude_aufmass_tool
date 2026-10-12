@@ -131,18 +131,24 @@ class Aufmass_Rest {
      */
     public static function start() {
         $benutzer = Aufmass_Anmeldung::aktueller_benutzer();
-        return self::antwort(array(
+        $aus = array(
             'eingerichtet' => trim((string) get_option('aufmass_client_id', '')) !== '',
             'clientId' => (string) get_option('aufmass_client_id', ''),
             'domaene' => (string) get_option('aufmass_domaene', ''),
             'angemeldet' => !!$benutzer,
             'benutzer' => $benutzer,
-            'marke' => Aufmass_Datenbank::marke(),
+            'marke' => Aufmass_Datenbank::marke()
+        );
+        /* Wer nicht angemeldet ist, erfährt nur, was die Anmeldeseite
+           braucht - nicht, welche Anbindungen eingerichtet sind oder welche
+           Fassung läuft. */
+        if ($benutzer) {
             /* Nur OB Pipedrive eingerichtet ist und wo - nie der Schlüssel. */
-            'pipedrive' => Aufmass_Pipedrive::eingerichtet(),
-            'pipedriveHost' => Aufmass_Pipedrive::eingerichtet() ? Aufmass_Pipedrive::host_anzeige() : '',
-            'version' => AUFMASS_VERSION
-        ));
+            $aus['pipedrive'] = Aufmass_Pipedrive::eingerichtet();
+            $aus['pipedriveHost'] = $aus['pipedrive'] ? Aufmass_Pipedrive::host_anzeige() : '';
+            $aus['version'] = AUFMASS_VERSION;
+        }
+        return self::antwort($aus);
     }
 
     public static function pipedrive($anfrage) {
@@ -216,6 +222,11 @@ class Aufmass_Rest {
     }
 
     public static function freigabe_antwort($anfrage) {
+        /* Erst die Größe, dann der Inhalt: Ein übergroßer Körper wird
+           abgewiesen, bevor er überhaupt entziffert wird. */
+        if (strlen((string) $anfrage->get_body()) > Aufmass_Freigaben::KOERPER_MAX) {
+            return new WP_Error('zu_gross', 'Die Rückmeldung ist zu umfangreich.', array('status' => 413));
+        }
         $e = Aufmass_Freigaben::antwort_annehmen(
             $anfrage['code'],
             $anfrage->get_param('antwort'),
@@ -324,6 +335,19 @@ add_action('rest_api_init', array('Aufmass_Rest', 'starten'));
 add_filter('rest_pre_serve_request', function ($bedient, $ergebnis, $anfrage) {
     if (strpos((string) $anfrage->get_route(), '/' . Aufmass_Rest::RAUM) === 0) {
         header_remove('Access-Control-Allow-Origin');
+        header('X-Robots-Tag: noindex, nofollow');
     }
     return $bedient;
 }, 10, 3);
+
+/* Kein JSONP für diese Schnittstelle: Damit ließe sich eine Antwort als
+   Skript in eine fremde Seite laden. Andere Teile von WordPress bleiben
+   davon unberührt. */
+add_filter('rest_jsonp_enabled', function ($erlaubt) {
+    $weg = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
+    $rest = isset($_GET['rest_route']) ? (string) $_GET['rest_route'] : '';
+    if (strpos($weg, '/' . Aufmass_Rest::RAUM) !== false || strpos($rest, '/' . Aufmass_Rest::RAUM) !== false) {
+        return false;
+    }
+    return $erlaubt;
+});

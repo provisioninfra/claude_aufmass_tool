@@ -411,6 +411,17 @@ const JPEG = Buffer.concat([Buffer.from([0xFF, 0xD8, 0xFF, 0xE0]), Buffer.alloc(
       JSON.stringify([db.tueren[0].tuerblattstaerke, da.tueren[0].tuerblattstaerke]));
     p(db.tueren[2].dornmass === '55' && da.tueren[2].dornmass === '55', 'und die Änderung von B ebenfalls');
 
+    console.log('\n== Schlüssel, die den Bauplan treffen würden ==');
+    /* Was vom Server kommt, ist JSON - ein "__proto__" darin ist dort eine
+       gewöhnliche Eigenschaft und darf beim Mitziehen des geöffneten
+       Aufmaßes nicht in den Bauplan des Objekts wandern. */
+    const ziel = { id: 'z', kunde: 'A', tueren: [{ id: 't1', bezeichnung: 'alt' }] };
+    const giftig = JSON.parse('{"id":"z","kunde":"B","__proto__":{"vergiftet":true},"constructor":{"x":1},"tueren":[{"id":"t1","bezeichnung":"neu","__proto__":{"vergiftet":true}}]}');
+    A.A._intern.inPlatzUebernehmen(ziel, giftig);
+    p(ziel.kunde === 'B' && ziel.tueren[0].bezeichnung === 'neu', 'das Mitziehen übernimmt die Angaben');
+    p(!('vergiftet' in ziel) && !('vergiftet' in ziel.tueren[0]), 'aber keinen __proto__-Schlüssel', Object.keys(ziel).join());
+    p(Object.getPrototypeOf(ziel) === Object.prototype && !({}).vergiftet, 'der Bauplan bleibt unberührt');
+
     console.log('\n== Nichts Fremdes im Gepäck ==');
     const satz = A.saetze['prj-gemeinsam'];
     p(satz.basis && !JSON.stringify(satz.basis).includes('data:image'),

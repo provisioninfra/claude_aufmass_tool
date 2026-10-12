@@ -63,9 +63,9 @@ const gespeichert = JSON.parse(fs.readFileSync(OPT, 'utf8'));
       'der Schlüssel steht verschlüsselt in den Einstellungen', String(gespeichert.aufmass_pipedrive_token).slice(0, 12));
     p(JSON.stringify(gespeichert).indexOf(TOKEN) === -1, 'nirgends im Klartext');
     const start = await (await fetch(BASIS + '/wp-json/aufmass/v1/start')).json();
-    p(start.pipedrive === true, 'der Server meldet: Pipedrive eingerichtet', JSON.stringify(start));
-    p(start.pipedriveHost === '127.0.0.1:' + HAFEN_PD, 'und nennt die Adresse ohne Schlüssel', start.pipedriveHost);
-    p(JSON.stringify(start).indexOf(TOKEN) === -1, 'der Start verrät den Schlüssel nicht');
+    p(start.pipedrive === undefined && start.pipedriveHost === undefined && start.version === undefined,
+      'ohne Anmeldung verrät der Start weder Anbindungen noch Fassung', JSON.stringify(start));
+    p(JSON.stringify(start).indexOf(TOKEN) === -1, 'und erst recht nicht den Schlüssel');
     const ohne = await fetch(BASIS + '/wp-json/aufmass/v1/pipedrive/v1/users/me');
     p(ohne.status === 401, 'ohne Anmeldung ist die Weiterleitung zu', String(ohne.status));
 
@@ -83,6 +83,11 @@ const gespeichert = JSON.parse(fs.readFileSync(OPT, 'utf8'));
     await seite.evaluate(() => window.App.zeichnen());
     await seite.waitForTimeout(300);
     p(await seite.evaluate(() => window.Abgleich.zustand().pipedrive === true), 'das Werkzeug weiß: Pipedrive läuft über den Server');
+    const startAngemeldet = await (await fetch(BASIS + '/wp-json/aufmass/v1/start', {
+      headers: { Cookie: (await ctx.cookies()).map(c => c.name + '=' + c.value).join('; ') } })).json();
+    p(startAngemeldet.pipedrive === true && startAngemeldet.pipedriveHost === '127.0.0.1:' + HAFEN_PD,
+      'angemeldet nennt der Start die Pipedrive-Adresse - ohne Schlüssel', JSON.stringify(startAngemeldet));
+    p(JSON.stringify(startAngemeldet).indexOf(TOKEN) === -1, 'der Schlüssel bleibt auch dann auf dem Server');
     p(await seite.evaluate(() => window.Pipedrive.quelle(window.AppKern.Zustand.einstellungen) === 'server'),
       'die Quelle ist der Server, obwohl auf dem Gerät kein Schlüssel liegt');
 
