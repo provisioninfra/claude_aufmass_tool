@@ -439,8 +439,10 @@ HSTS lässt sich dort im Dashboard einschalten.
 
 ## Bei jeder neuen Fassung
 
-Den Ordner `aufmasstool` einfach ersetzen und das Plugin-ZIP erneut
-hochladen. Das Werkzeug legt sich für den Offline-Betrieb im Gerät ab;
+Schritt für Schritt steht das in `server/AKTUALISIERUNG.md` (Plugin
+ersetzen, Ordner tauschen, Cache leeren, durchprobieren, Rückweg).
+Kurz: Den Ordner `aufmasstool` ersetzen und das Plugin-ZIP erneut
+hochladen („Aktuelle durch hochgeladene ersetzen“). Das Werkzeug legt sich für den Offline-Betrieb im Gerät ab;
 jede neue Fassung trägt deshalb eine neue Kennung (`CACHE` in `sw.js`),
 damit alle Geräte beim nächsten Start den neuen Stand holen. Wer selbst
 baut: `npm run build` erzeugt alle Fassungen auf einmal.
