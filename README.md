@@ -599,14 +599,3 @@ Die Plausibilitätsprüfung weist auf fehlende Angaben und auf Widersprüche hin
 Prüfung. Zylinderlängen, Beschläge sowie Brandschutz- und
 Fluchtweganforderungen sind vor Bestellung gegen die tatsächlichen Türmaße und
 die geltenden Vorgaben zu prüfen.
-
-## Website-Unterseiten
-
-Neben dem Werkzeug liegen unter `website/` fertige Unterseiten für
-provision-infra.de im Erscheinungsbild der Website:
-
-* **`website/einbruchschutz-privat/`** – „Einbruchschutz für Haus und
-  Wohnung" für Privatkunden. `index.html` ist die Vorschau,
-  `wordpress-inhalt.html` der Teil zum Einfügen in WordPress
-  (`node tools/website-wordpress.js` erzeugt ihn neu). Einfügen und Prüfen:
-  [website/einbruchschutz-privat/ANLEITUNG.md](website/einbruchschutz-privat/ANLEITUNG.md)
