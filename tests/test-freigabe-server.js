@@ -5,7 +5,7 @@
  * Verwerfen, Zurückziehen, unbekannter Code, Sichtbarkeit für Unzuständige. */
 const path = require('path'), fs = require('fs'), os = require('os'), crypto = require('crypto');
 const { spawn } = require('child_process');
-const { starte, ersteProjektOeffnen } = require('./browser.js');
+const { starte, ersteProjektOeffnen, istUmgebungsGeraeusch } = require('./browser.js');
 const { baueTestprojekt, einstellungen } = require('./fixture.js');
 
 const W = path.join(__dirname, '..');
@@ -57,13 +57,18 @@ function mails() {
   }
 
   const browser = await starte({ args: ARGS });
-  const umgebung = /gsi\/client|accounts\.google|ERR_CERT|ERR_INTERNET_DISCONNECTED|ERR_NAME_NOT_RESOLVED/;
   function ueberwachen(seite, sammler) {
-    seite.on('pageerror', e => sammler.push('PAGEERROR: ' + e.message));
+    seite.on('pageerror', e => {
+      /* Ohne Netz zu Googles CDN scheitert Googles Anmeldeskript in sich selbst ("gis is not defined"). */
+      if (istUmgebungsGeraeusch(e.message, e.stack)) return;
+      sammler.push('PAGEERROR: ' + e.message);
+    });
     seite.on('console', m => {
       if (m.type() !== 'error') return;
       const t = m.text();
-      if (umgebung.test(t)) return;
+      const wo = m.location() ? m.location().url : '';
+      /* Was Googles Anmeldeskript aus dem Netz nachlädt, liegt außerhalb des Werkzeugs. */
+      if (istUmgebungsGeraeusch(t, wo)) return;
       /* Die Kundenseite probiert bewusst Links aus, die 404/410 liefern. */
       if (/the server responded with a status of (404|410|400)/.test(t)) return;
       sammler.push(t + '  @ ' + (m.location() ? m.location().url : ''));

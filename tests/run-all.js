@@ -6,6 +6,7 @@ const reihen = [
   ['Zusammenführen',  'test-zusammenfuehren.js'],
   ['Entdoppelung',    'test-entdoppelung.js'],
   ['Exportlisten',    'test-exportlisten.js'],
+  ['Testfoto',        'make-jpeg.js'],
   ['Bedienung',       'test-bedienung.js'],
   ['Verlauf',         'test-verlauf.js'],
   ['Kundenfreigabe',  'test-freigabe.js'],

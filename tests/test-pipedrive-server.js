@@ -3,7 +3,7 @@
  * PHP-Code, mit einer Attrappe von Pipedrive als zweitem Prozess. */
 const path = require('path'), fs = require('fs'), os = require('os'), crypto = require('crypto');
 const { spawn, execFileSync } = require('child_process');
-const { starte } = require('./browser.js');
+const { starte, istUmgebungsGeraeusch } = require('./browser.js');
 
 const W = path.join(__dirname, '..');
 const HAFEN = 8700 + (process.pid % 250);
@@ -72,8 +72,12 @@ const gespeichert = JSON.parse(fs.readFileSync(OPT, 'utf8'));
     const ctx = await browser.newContext({ viewport: { width: 1180, height: 900 } });
     const seite = await ctx.newPage();
     const konsole = [], anfragen = [];
-    seite.on('pageerror', e => konsole.push('PAGEERROR: ' + e.message));
-    seite.on('console', m => { if (m.type() === 'error' && !/gsi\/client|accounts\.google|ERR_CERT|ERR_NAME_NOT_RESOLVED/.test(m.text())) konsole.push(m.text()); });
+    seite.on('pageerror', e => { if (!istUmgebungsGeraeusch(e.message, e.stack)) konsole.push('PAGEERROR: ' + e.message); });
+    seite.on('console', m => {
+      if (m.type() !== 'error') return;
+      const wo = m.location() ? m.location().url : '';
+      if (!istUmgebungsGeraeusch(m.text(), wo)) konsole.push(m.text());
+    });
     seite.on('request', r => anfragen.push({ url: r.url(), kopf: r.headers() }));
 
     await seite.goto(BASIS + '/index.html', { waitUntil: 'load' });
