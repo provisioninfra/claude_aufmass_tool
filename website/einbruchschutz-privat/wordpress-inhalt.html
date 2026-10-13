@@ -1,0 +1,465 @@
+<!-- Einbruchschutz für Haus und Wohnung | provision-infra.de
+
+     Zum Einfügen in WordPress: Block „Individuelles HTML" (oder Code-Editor,
+     bei Elementor das Widget „HTML"). Den gesamten Inhalt dieser Datei
+     einfügen. Kopf, Fuß, Menü und Schrift kommen vom Theme der Website.
+
+     Erzeugt aus index.html mit tools/website-wordpress.js; Änderungen dort
+     machen und neu erzeugen. -->
+<style>
+/* Seiteninhalt. Alles unter .pi-seite, damit es in WordPress neben dem
+   Theme bestehen kann; die Schrift wird vom Theme geerbt. */
+.pi-seite {
+  --grund: #02092b; --karte: #0a1637; --karte-2: #131f40; --leiste: #252c44;
+  --gold: #fcc91d; --gold-hell: #ffd84a; --auf-gold: #0a1637;
+  --gold-flaeche: rgba(252, 201, 29, .13);
+  --text: #f4f7fd; --text-schwach: #aab6ce; --text-zart: #7b88a4;
+  --rand: #2a3558; --rand-zart: #1b2748;
+  --radius: 16px; --radius-klein: 12px; --pille: 999px;
+  --schatten: 0 1px 3px rgba(0, 0, 0, .45), 0 10px 28px rgba(0, 0, 0, .40);
+  display: block; background: var(--grund); color: var(--text);
+  font-size: 17px; line-height: 1.6; -webkit-font-smoothing: antialiased;
+}
+.pi-seite *, .pi-seite *::before, .pi-seite *::after { box-sizing: border-box; }
+.pi-seite h1, .pi-seite h2, .pi-seite h3, .pi-seite p, .pi-seite ul, .pi-seite ol { margin: 0; padding: 0; }
+.pi-seite ul, .pi-seite ol { list-style: none; }
+.pi-seite h1, .pi-seite h2, .pi-seite h3 { font-family: inherit; font-weight: 700; color: var(--text); }
+.pi-seite h1 { font-size: clamp(34px, 5.4vw, 58px); line-height: 1.06; letter-spacing: -.025em; }
+.pi-seite h2 { font-size: clamp(27px, 3.4vw, 40px); line-height: 1.12; letter-spacing: -.02em; }
+.pi-seite h3 { font-size: 19px; line-height: 1.3; letter-spacing: -.01em; }
+.pi-seite p { color: var(--text-schwach); }
+.pi-seite a { color: inherit; text-decoration: none; }
+.pi-seite .pi-textlink { color: var(--gold); text-decoration: underline; text-underline-offset: 3px; }
+.pi-seite .pi-textlink:hover { color: var(--gold-hell); }
+
+.pi-seite .pi-rahmen { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
+@media (min-width: 640px) { .pi-seite .pi-rahmen { padding: 0 24px; } }
+@media (min-width: 1024px) { .pi-seite .pi-rahmen { padding: 0 32px; } }
+
+/* Knöpfe: Pillen, Gold trägt die Hauptaktion */
+.pi-seite .pi-knopf {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 50px; padding: 12px 24px; border-radius: var(--pille);
+  border: 1px solid var(--rand); background: transparent; color: var(--text);
+  font: inherit; font-size: 15.5px; font-weight: 600; line-height: 1.2;
+  text-decoration: none; white-space: nowrap; cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.pi-seite .pi-knopf:hover { border-color: var(--gold); color: var(--gold); }
+.pi-seite .pi-knopf:active { transform: translateY(1px); }
+.pi-seite .pi-knopf:focus-visible { outline: 3px solid var(--gold-hell); outline-offset: 3px; }
+.pi-seite .pi-knopf-haupt { background: var(--gold); border-color: var(--gold); color: var(--auf-gold); }
+.pi-seite .pi-knopf-haupt:hover { background: var(--gold-hell); border-color: var(--gold-hell); color: var(--auf-gold); }
+.pi-seite .pi-knopfleiste { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+@media (max-width: 480px) { .pi-seite .pi-knopfleiste .pi-knopf { flex: 1 1 100%; } }
+
+/* Abschnitte */
+.pi-seite .pi-abschnitt { padding-top: 64px; }
+@media (min-width: 900px) { .pi-seite .pi-abschnitt { padding-top: 96px; } }
+.pi-seite .pi-ueberzeile {
+  display: inline-block; margin-bottom: 14px; color: var(--gold);
+  font-size: 12.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+}
+.pi-seite .pi-einleitung { max-width: 720px; }
+.pi-seite .pi-einleitung h2 { margin-bottom: 14px; }
+.pi-seite .pi-einleitung p { font-size: 18px; }
+
+/* Karten */
+.pi-seite .pi-raster { display: grid; gap: 16px; margin-top: 32px; }
+@media (min-width: 640px) { .pi-seite .pi-raster { grid-template-columns: repeat(2, 1fr); gap: 20px; } }
+@media (min-width: 1024px) {
+  .pi-seite .pi-raster.pi-3 { grid-template-columns: repeat(3, 1fr); }
+  .pi-seite .pi-raster.pi-4 { grid-template-columns: repeat(4, 1fr); }
+}
+.pi-seite .pi-karte {
+  background: var(--karte); border: 1px solid var(--rand-zart);
+  border-radius: var(--radius); padding: 24px; box-shadow: var(--schatten);
+}
+.pi-seite .pi-karte h3 { margin: 16px 0 8px; }
+.pi-seite .pi-karte > h3:first-child { margin-top: 0; margin-bottom: 14px; }
+.pi-seite .pi-karte p { font-size: 15.5px; }
+.pi-seite .pi-symbol {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 48px; height: 48px; border-radius: var(--radius-klein);
+  background: var(--gold-flaeche); color: var(--gold);
+}
+.pi-seite .pi-symbol svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.pi-seite .pi-tag {
+  display: inline-block; margin-top: 14px; padding: 4px 10px; border-radius: var(--pille);
+  background: var(--karte-2); border: 1px solid var(--rand); color: var(--text-schwach);
+  font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+}
+
+/* Einstieg */
+.pi-seite .pi-held { position: relative; overflow: hidden; padding: 64px 0 56px; }
+@media (min-width: 900px) { .pi-seite .pi-held { padding: 104px 0 80px; } }
+.pi-seite .pi-held::before {
+  content: ""; position: absolute; left: -20%; right: -20%; top: -40%; height: 120%;
+  background: radial-gradient(60% 55% at 30% 20%, rgba(252, 201, 29, .12), transparent 70%);
+  pointer-events: none;
+}
+.pi-seite .pi-held .pi-rahmen { position: relative; }
+.pi-seite .pi-held h1 { max-width: 820px; }
+.pi-seite .pi-vorspann { max-width: 680px; margin-top: 22px; font-size: 19px; }
+.pi-seite .pi-fakten { display: grid; gap: 14px; margin-top: 48px; }
+@media (min-width: 800px) { .pi-seite .pi-fakten { grid-template-columns: repeat(3, 1fr); gap: 18px; } }
+.pi-seite .pi-fakt { background: var(--karte); border: 1px solid var(--rand-zart); border-radius: var(--radius); padding: 20px 22px; }
+.pi-seite .pi-fakt strong { display: block; margin-bottom: 6px; color: var(--text); font-size: 17px; letter-spacing: -.01em; }
+.pi-seite .pi-fakt span { color: var(--text-schwach); font-size: 15px; }
+
+/* Zwei Spalten mit Prüflisten */
+.pi-seite .pi-zwei { display: grid; gap: 20px; margin-top: 32px; }
+@media (min-width: 900px) { .pi-seite .pi-zwei { grid-template-columns: 1fr 1fr; gap: 24px; } }
+.pi-seite .pi-liste li { position: relative; padding-left: 34px; color: var(--text-schwach); font-size: 15.5px; }
+.pi-seite .pi-liste li + li { margin-top: 12px; }
+.pi-seite .pi-liste li::before {
+  content: ""; position: absolute; left: 0; top: 2px; width: 22px; height: 22px;
+  border-radius: 50%; background: var(--gold-flaeche);
+}
+.pi-seite .pi-liste li::after {
+  content: ""; position: absolute; left: 8px; top: 6px; width: 5px; height: 10px;
+  border: solid var(--gold); border-width: 0 2px 2px 0; transform: rotate(45deg);
+}
+.pi-seite .pi-hinweis {
+  margin-top: 20px; padding: 16px 18px; border-radius: var(--radius-klein);
+  background: var(--karte-2); border: 1px solid var(--rand);
+  color: var(--text-schwach); font-size: 14.5px;
+}
+.pi-seite .pi-hinweis strong { color: var(--text); }
+
+/* Ablauf */
+.pi-seite .pi-schritte { display: grid; gap: 16px; margin-top: 32px; counter-reset: schritt; }
+@media (min-width: 640px) { .pi-seite .pi-schritte { grid-template-columns: repeat(2, 1fr); gap: 20px; } }
+@media (min-width: 1024px) { .pi-seite .pi-schritte { grid-template-columns: repeat(4, 1fr); } }
+.pi-seite .pi-schritt {
+  counter-increment: schritt; background: var(--karte); border: 1px solid var(--rand-zart);
+  border-radius: var(--radius); padding: 24px; box-shadow: var(--schatten);
+}
+.pi-seite .pi-nummer {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: 50%;
+  background: var(--gold); color: var(--auf-gold); font-weight: 700; font-size: 16px;
+}
+.pi-seite .pi-nummer::before { content: counter(schritt); }
+.pi-seite .pi-schritt h3 { margin: 16px 0 8px; }
+.pi-seite .pi-schritt p { font-size: 15.5px; }
+
+/* Fragen und Antworten */
+.pi-seite .pi-fragen { display: grid; gap: 10px; margin-top: 32px; max-width: 860px; }
+.pi-seite .pi-frage { background: var(--karte); border: 1px solid var(--rand-zart); border-radius: var(--radius); }
+.pi-seite .pi-frage summary {
+  list-style: none; cursor: pointer; display: flex; align-items: center;
+  justify-content: space-between; gap: 16px; padding: 18px 22px;
+  color: var(--text); font-weight: 700; font-size: 17px; letter-spacing: -.01em;
+}
+.pi-seite .pi-frage summary::-webkit-details-marker { display: none; }
+.pi-seite .pi-frage summary::after {
+  content: ""; flex: none; width: 11px; height: 11px; margin-right: 6px;
+  border: solid var(--gold); border-width: 0 2px 2px 0;
+  transform: translateY(-3px) rotate(45deg); transition: transform .2s;
+}
+.pi-seite .pi-frage[open] summary::after { transform: translateY(3px) rotate(-135deg); }
+.pi-seite .pi-frage summary:hover { color: var(--gold); }
+.pi-seite .pi-frage p { padding: 0 22px 20px; font-size: 15.5px; max-width: 760px; }
+
+/* Abschluss */
+.pi-seite .pi-aufruf { padding: 72px 0 80px; }
+@media (min-width: 900px) { .pi-seite .pi-aufruf { padding: 104px 0 112px; } }
+.pi-seite .pi-aufruf-karte {
+  background: var(--karte); border: 1px solid rgba(252, 201, 29, .55);
+  border-radius: var(--radius); padding: 36px 24px; text-align: center; box-shadow: var(--schatten);
+}
+@media (min-width: 900px) { .pi-seite .pi-aufruf-karte { padding: 56px 48px; } }
+.pi-seite .pi-aufruf-karte h2 { max-width: 640px; margin: 0 auto 14px; }
+.pi-seite .pi-aufruf-karte p { max-width: 560px; margin: 0 auto; font-size: 18px; }
+.pi-seite .pi-aufruf-karte .pi-knopfleiste { justify-content: center; }
+.pi-seite .pi-aufruf-karte .pi-kontaktzeile { margin-top: 18px; font-size: 15px; color: var(--text-zart); }
+</style>
+<div class="pi-seite" id="einbruchschutz">
+
+  <section class="pi-held">
+    <div class="pi-rahmen">
+      <span class="pi-ueberzeile">Einbruchschutz für Privatkunden</span>
+      <h1>Einbruchschutz für Ihr Haus und Ihre Wohnung</h1>
+      <p class="pi-vorspann">Einbrecher nehmen den Weg des geringsten Widerstands: Fenster und Türen, die in Sekunden nachgeben. Wir sichern genau diese Stellen, mechanisch und elektronisch, abgestimmt auf Ihr Zuhause. Beratung vor Ort, Aufmaß, Montage und Service aus einer Hand.</p>
+      <div class="pi-knopfleiste">
+        <a class="pi-knopf pi-knopf-haupt" href="/kontakt/">Kostenlose Erstberatung anfragen</a>
+        <a class="pi-knopf" href="#ablauf">So gehen wir vor</a>
+      </div>
+      <ul class="pi-fakten">
+        <li class="pi-fakt">
+          <strong>Fast jeder zweite Versuch scheitert</strong>
+          <span>Einbrecher geben auf, wenn Türen und Fenster ihnen Zeit abverlangen. Geprüfte Technik verschafft genau diese Minuten.</span>
+        </li>
+        <li class="pi-fakt">
+          <strong>Geprüfte Technik</strong>
+          <span>Widerstandsklasse RC 2 und höher, Schutzbeschläge nach DIN 18257, Nachrüstsicherungen nach DIN 18104.</span>
+        </li>
+        <li class="pi-fakt">
+          <strong>Alles aus einer Hand</strong>
+          <span>Beratung, Aufmaß, Montage, Einweisung und Wartung, mit einem festen Ansprechpartner bei Provision Infra.</span>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="pi-abschnitt" id="schwachstellen">
+    <div class="pi-rahmen">
+      <div class="pi-einleitung">
+        <span class="pi-ueberzeile">Schwachstellen</span>
+        <h2>Wo Einbrecher ansetzen</h2>
+        <p>Einbrecher suchen den schnellsten Weg hinein. Wer beim ersten Versuch mehrere Minuten braucht, gibt in der Regel auf. Deshalb beginnt jeder Einbruchschutz mit den Stellen, die am wenigsten Widerstand leisten.</p>
+      </div>
+      <div class="pi-raster pi-4">
+        <article class="pi-karte">
+          <div class="pi-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="1.5"/><circle cx="15" cy="12" r="1"/><path d="M3 21h18"/></svg></div>
+          <h3>Haus- und Wohnungstür</h3>
+          <p>In Mehrfamilienhäusern ist die Wohnungstür der häufigste Angriffspunkt. Einfache Zylinder lassen sich ziehen oder aufbohren, dünne Beschläge brechen ab, ein einzelner Riegel hält dem Hebel nicht stand.</p>
+        </article>
+        <article class="pi-karte">
+          <div class="pi-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="1.5"/><path d="M12 4v16M4 12h16"/></svg></div>
+          <h3>Fenster und Terrassentüren</h3>
+          <p>Beim Einfamilienhaus das Hauptziel: Ein Standardfenster ist in wenigen Sekunden aufgehebelt. Entscheidend sind Pilzkopfverriegelungen, abschließbare Griffe und eine stabile Verbindung zum Mauerwerk.</p>
+        </article>
+        <article class="pi-karte">
+          <div class="pi-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v10H3z"/><path d="M8 21v-7h8v7"/><path d="M8 17h8"/></svg></div>
+          <h3>Keller, Garage und Nebeneingänge</h3>
+          <p>Kellertüren, Lichtschächte und Garagentore liegen außerhalb des Blicks. Hier wird ungestört gearbeitet. Gitterrostsicherungen und Zusatzschlösser schließen diese Lücke.</p>
+        </article>
+        <article class="pi-karte">
+          <div class="pi-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 20h4v-4h4v-4h4V8h4V4"/><path d="M15 4h4v4"/></svg></div>
+          <h3>Balkon und Obergeschoss</h3>
+          <p>Mülltonnen, Gartenmöbel und Carports sind Aufstiegshilfen. Fenster und Türen im ersten Stock gehören deshalb genauso ins Konzept wie das Erdgeschoss.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="pi-abschnitt" id="mechanik">
+    <div class="pi-rahmen">
+      <div class="pi-einleitung">
+        <span class="pi-ueberzeile">Mechanischer Einbruchschutz</span>
+        <h2>Die Grundlage: Technik, die hält</h2>
+        <p>Mechanische Sicherungen wirken immer, ohne Strom und ohne dass jemand reagieren muss. Sie sind die Basis jedes Konzepts. Für Privathaushalte empfehlen wir, wie die Polizei, mindestens die Widerstandsklasse RC 2 nach DIN EN 1627.</p>
+      </div>
+      <div class="pi-raster pi-3">
+        <article class="pi-karte">
+          <div class="pi-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="3.5"/><path d="M10.5 12.5L20 3"/><path d="M17 6l2 2M14 9l2 2"/></svg></div>
+          <h3>Schließzylinder mit Sicherungskarte</h3>
+          <p>Bohr- und Ziehschutz, Schutz gegen Nachschließen, Schlüssel nur gegen Vorlage der Sicherungskarte nachbestellbar. Auf Wunsch mit Not- und Gefahrenfunktion, damit die Tür von außen auch dann öffnet, wenn innen ein Schlüssel steckt.</p>
+          <span class="pi-tag">DIN 18252</span>
+        </article>
+        <article class="pi-karte">
+          <div class="pi-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.6-3 8.4-7 10-4-1.6-7-5.4-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg></div>
+          <h3>Schutzbeschläge</h3>
+          <p>Der Beschlag deckt den Zylinder ab und verhindert Abbrechen und Herausziehen. Klassen ES 1 bis ES 3, passend zur Widerstandsklasse der Tür und zum Zylinder, damit die Kette keine schwache Stelle hat.</p>
+          <span class="pi-tag">DIN 18257 · ES 1 bis ES 3</span>
+        </article>
+        <article class="pi-karte">
+          <div class="pi-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h9M4 12h13M4 17h9"/><path d="M13 5v4M17 10v4M13 15v4"/></svg></div>
+          <h3>Mehrfachverriegelung und Querriegel</h3>
+          <p>Mehrere Riegel verteilen die Kraft auf das gesamte Türblatt. Ein Querriegelschloss sichert Schloss- und Bandseite zugleich und ist für Bestandstüren oft die wirksamste Nachrüstung.</p>
+          <span class="pi-tag">Nachrüstung Bestandstür</span>
+        </article>
+        <article class="pi-karte">
+          <div class="pi-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="6" height="18" rx="1"/><rect x="14" y="3" width="6" height="18" rx="1"/><path d="M10 8h4M10 16h4"/></svg></div>
+          <h3>Bandseitensicherung</h3>
+          <p>Scharniere sind ein unterschätzter Angriffspunkt. Hintergreifhaken oder Bandseitensicherungen verhindern, dass die Tür auf der Bandseite ausgehebelt wird.</p>
+          <span class="pi-tag">Scharnierseite</span>
+        </article>
+        <article class="pi-karte">
+          <div class="pi-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/><circle cx="12" cy="16" r="1"/></svg></div>
+          <h3>Fenstersicherungen</h3>
+          <p>Abschließbare Griffe, Pilzkopfverriegelungen und aufgeschraubte Zusatzsicherungen, oder verdeckt im Rahmen eingebaute Sicherungen, wo nichts zu sehen sein soll. Terrassentüren erhalten zusätzlich Stangenschlösser.</p>
+          <span class="pi-tag">DIN 18104-1 und 18104-2</span>
+        </article>
+        <article class="pi-karte">
+          <div class="pi-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 4v16M9 4v16M15 4v16M20 4v16"/><path d="M4 9h16M4 15h16"/></svg></div>
+          <h3>Gitter, Rollläden und Glas</h3>
+          <p>Gitterrostsicherungen für Lichtschächte, Hochschiebesicherungen für Rollläden und durchwurfhemmende Verglasung, wo das Glas die schwächste Stelle ist.</p>
+          <span class="pi-tag">DIN EN 356</span>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="pi-abschnitt" id="elektronik">
+    <div class="pi-rahmen">
+      <div class="pi-einleitung">
+        <span class="pi-ueberzeile">Elektronischer Einbruchschutz</span>
+        <h2>Erkennen, melden, abschrecken</h2>
+        <p>Elektronik ersetzt keine Mechanik, sie ergänzt sie. Eine Alarmanlage erkennt den Versuch, meldet ihn und schreckt ab, bevor Schaden entsteht. Elektronische Schließtechnik macht den Schlüsselverlust zur Kleinigkeit.</p>
+      </div>
+      <div class="pi-raster">
+        <article class="pi-karte">
+          <div class="pi-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 17v-6a6 6 0 0 1 12 0v6l1.5 2h-15z"/><path d="M10 21a2 2 0 0 0 4 0"/></svg></div>
+          <h3>Alarmanlage</h3>
+          <p>Einbruchmeldeanlage nach DIN EN 50131, verdrahtet oder per Funk. Öffnungs- und Glasbruchmelder an Fenstern und Türen, Bewegungsmelder innen, Alarmierung auf Ihr Smartphone oder zu einer Notrufleitstelle.</p>
+          <span class="pi-tag">DIN EN 50131</span>
+        </article>
+        <article class="pi-karte">
+          <div class="pi-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="5"/><circle cx="8" cy="12" r="2.5"/><path d="M14 12h4"/></svg></div>
+          <h3>Elektronische Schließzylinder</h3>
+          <p>Zutritt per Transponder, Karte oder Smartphone. Verlorene Schlüssel werden gesperrt statt ausgetauscht. Für Wohnungstüren ohne Verkabelung nachrüstbar, auf Wunsch als Schließanlage für das ganze Haus mit Berechtigungen je Person.</p>
+          <span class="pi-tag">Mechanik oder Elektronik</span>
+        </article>
+        <article class="pi-karte">
+          <div class="pi-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 8h4l2-2h6l2 2h4v11H3z"/><circle cx="12" cy="13" r="3.5"/></svg></div>
+          <h3>Video und Türkommunikation</h3>
+          <p>Eine Türstation mit Kamera zeigt, wer vor der Tür steht, auch wenn Sie nicht zu Hause sind. Außenkameras dokumentieren und wirken abschreckend. Wir planen sie so, dass Nachbarn und öffentliche Wege nicht erfasst werden.</p>
+          <span class="pi-tag">Datenschutz beachtet</span>
+        </article>
+        <article class="pi-karte">
+          <div class="pi-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4"/><path d="M8.5 14.5a5.5 5.5 0 1 1 7 0c-.8.8-1.5 1.6-1.5 3.5h-4c0-1.9-.7-2.7-1.5-3.5z"/></svg></div>
+          <h3>Licht und Anwesenheit</h3>
+          <p>Bewegungsgesteuertes Außenlicht, Zeitschaltungen und Anwesenheitssimulation nehmen Einbrechern die Gewissheit, dass niemand zu Hause ist. Einfach nachzurüsten und mit der Alarmanlage kombinierbar.</p>
+          <span class="pi-tag">Abschreckung</span>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="pi-abschnitt" id="haus-wohnung">
+    <div class="pi-rahmen">
+      <div class="pi-einleitung">
+        <span class="pi-ueberzeile">Haus oder Wohnung</span>
+        <h2>Jedes Zuhause hat andere Schwachstellen</h2>
+        <p>Ein freistehendes Haus bietet viele Zugänge auf einer Ebene. Eine Wohnung hat meist nur eine Tür, die dafür umso wichtiger ist. Beides planen wir unterschiedlich.</p>
+      </div>
+      <div class="pi-zwei">
+        <article class="pi-karte">
+          <h3>Einfamilienhaus und Reihenhaus</h3>
+          <ul class="pi-liste">
+            <li>Alle Fenster und Fenstertüren im Erdgeschoss sowie die erreichbaren im Obergeschoss</li>
+            <li>Haustür mit Mehrfachverriegelung, Schutzbeschlag und gesichertem Zylinder</li>
+            <li>Kellerfenster, Lichtschächte, Kellertür, Garage und die Verbindungstür zum Haus</li>
+            <li>Außenbeleuchtung mit Bewegungsmeldern, auf Wunsch Alarmanlage und Kamera</li>
+            <li>Ein Schließsystem für alle Türen, damit ein Schlüssel oder ein Medium reicht</li>
+          </ul>
+        </article>
+        <article class="pi-karte">
+          <h3>Eigentums- und Mietwohnung</h3>
+          <ul class="pi-liste">
+            <li>Die Wohnungstür zuerst: Zylinder, Schutzbeschlag, Querriegel oder Mehrfachverriegelung, Bandseitensicherung, Weitwinkelspion</li>
+            <li>Fenster und Balkontüren im Erdgeschoss und ersten Stock, bei Dachwohnungen auch erreichbare Dachflächenfenster</li>
+            <li>Kellerabteil und Haustür des Gebäudes mitdenken</li>
+            <li>Elektronischer Zylinder für die Wohnungstür, wenn Schlüssel oft weitergegeben werden</li>
+          </ul>
+          <div class="pi-hinweis"><strong>Mieter und Eigentümergemeinschaften:</strong> Für Änderungen an der Wohnungstür brauchen Mieter die Zustimmung des Vermieters. In Eigentümergemeinschaften gilt die Wohnungstür in der Regel als Gemeinschaftseigentum. Wir stellen Ihnen eine kurze Beschreibung der geplanten Maßnahmen zusammen, die diese Abstimmung einfach macht.</div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="pi-abschnitt" id="ablauf">
+    <div class="pi-rahmen">
+      <div class="pi-einleitung">
+        <span class="pi-ueberzeile">Ablauf</span>
+        <h2>So gehen wir vor</h2>
+        <p>Vier Schritte, ein Ansprechpartner. Sie wissen zu jedem Zeitpunkt, was passiert und was es kostet.</p>
+      </div>
+      <ol class="pi-schritte">
+        <li class="pi-schritt">
+          <span class="pi-nummer" aria-hidden="true"></span>
+          <h3>Beratung bei Ihnen vor Ort</h3>
+          <p>Wir sehen uns jedes Fenster, jede Tür und jeden Zugang an und zeigen Ihnen, wo Ihr Zuhause angreifbar ist. Sie bekommen eine ehrliche Einschätzung, was nötig ist und was nicht.</p>
+        </li>
+        <li class="pi-schritt">
+          <span class="pi-nummer" aria-hidden="true"></span>
+          <h3>Aufmaß und Angebot</h3>
+          <p>Wir messen genau auf und erstellen ein Angebot mit klaren Positionen. Sie entscheiden, ob Sie alles auf einmal umsetzen oder in Schritten.</p>
+        </li>
+        <li class="pi-schritt">
+          <span class="pi-nummer" aria-hidden="true"></span>
+          <h3>Montage</h3>
+          <p>Fachgerechte Montage durch unsere Techniker, sauber und meist an einem Tag. Fenster und Türen bleiben in Funktion, nichts wird unnötig getauscht.</p>
+        </li>
+        <li class="pi-schritt">
+          <span class="pi-nummer" aria-hidden="true"></span>
+          <h3>Einweisung und Service</h3>
+          <p>Wir erklären Ihnen jedes Bauteil, übergeben Sicherungskarte und Dokumentation und bleiben Ihr Ansprechpartner für Wartung, Erweiterung und Ersatzschlüssel.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="pi-abschnitt" id="foerderung">
+    <div class="pi-rahmen">
+      <div class="pi-einleitung">
+        <span class="pi-ueberzeile">Förderung, Steuer und Versicherung</span>
+        <h2>Was Ihnen den Einbruchschutz erleichtert</h2>
+        <p>Guter Einbruchschutz ist eine Investition, die sich mehrfach bezahlt macht. An einigen Stellen hilft der Staat mit, und Ihre Versicherung sieht geprüfte Technik gern.</p>
+      </div>
+      <div class="pi-raster pi-3">
+        <article class="pi-karte">
+          <h3>Zuschüsse</h3>
+          <p>Für Einbruchschutz gibt es immer wieder Zuschussprogramme von Bund, Ländern und Kommunen, mit wechselnden Bedingungen. Was zum Zeitpunkt Ihres Vorhabens gilt, prüfen wir für Sie, bevor der Auftrag beginnt.</p>
+        </article>
+        <article class="pi-karte">
+          <h3>Steuer</h3>
+          <p>Die Arbeitskosten unserer Montage können Sie als Handwerkerleistung von der Steuer absetzen: 20 Prozent der Lohnkosten, bis zu 1.200 Euro im Jahr. Unsere Rechnung weist die Arbeitskosten dafür getrennt aus.</p>
+        </article>
+        <article class="pi-karte">
+          <h3>Versicherung</h3>
+          <p>Viele Hausratversicherer honorieren geprüfte Sicherheitstechnik oder setzen sie bei höheren Versicherungssummen voraus. Sie erhalten von uns die Nachweise zu den eingebauten Produkten.</p>
+        </article>
+      </div>
+      <div class="pi-hinweis" style="margin-top: 24px;"><strong>Unabhängige Beratung:</strong> Die polizeilichen Beratungsstellen beraten kostenlos und neutral zum Einbruchschutz. Unsere Empfehlungen orientieren sich an deren Vorgaben. Sie können die Polizei also gern vor oder nach unserem Termin hinzuziehen.</div>
+    </div>
+  </section>
+
+  <section class="pi-abschnitt" id="fragen">
+    <div class="pi-rahmen">
+      <div class="pi-einleitung">
+        <span class="pi-ueberzeile">Fragen und Antworten</span>
+        <h2>Was Kunden uns häufig fragen</h2>
+      </div>
+      <div class="pi-fragen">
+        <details class="pi-frage">
+          <summary>Was kostet Einbruchschutz für eine Wohnung?</summary>
+          <p>Das hängt von Tür, Fenstern und Ihrem Sicherheitsbedarf ab. Eine gut gesicherte Wohnungstür mit Zylinder, Schutzbeschlag und Zusatzsicherung kostet deutlich weniger als die Folgen eines Einbruchs. Nach der Besichtigung erhalten Sie ein Angebot mit festen Positionen, ohne Überraschungen.</p>
+        </details>
+        <details class="pi-frage">
+          <summary>Muss ich meine Fenster oder Türen austauschen?</summary>
+          <p>In den meisten Fällen nicht. Bestandsfenster und Bestandstüren lassen sich mit geprüften Produkten nachrüsten. Ein Austausch lohnt sich nur, wenn Rahmen oder Türblatt selbst zu schwach sind. Das sagen wir Ihnen bei der Besichtigung offen.</p>
+        </details>
+        <details class="pi-frage">
+          <summary>Was bedeutet RC 2?</summary>
+          <p>RC steht für Resistance Class, die Widerstandsklasse nach DIN EN 1627. Ein Bauteil der Klasse RC 2 hält einem Gelegenheitstäter mit einfachen Werkzeugen wie Schraubendreher, Zange oder Keil mindestens drei Minuten stand. Die Polizei empfiehlt RC 2 als Mindeststandard für Privathaushalte.</p>
+        </details>
+        <details class="pi-frage">
+          <summary>Reicht eine Alarmanlage allein?</summary>
+          <p>Nein. Eine Alarmanlage meldet den Einbruch, verhindert ihn aber nicht. Erst in Verbindung mit mechanischer Sicherung wird aus der Meldung ein gescheiterter Versuch. Deshalb planen wir beides zusammen.</p>
+        </details>
+        <details class="pi-frage">
+          <summary>Wie lange dauert die Montage?</summary>
+          <p>Eine Wohnungstür ist meist in wenigen Stunden gesichert, ein Einfamilienhaus mit allen Fenstern in der Regel an einem Tag. Den genauen Umfang nennen wir Ihnen im Angebot.</p>
+        </details>
+        <details class="pi-frage">
+          <summary>Was ist, wenn ich einen Schlüssel verliere?</summary>
+          <p>Bei Zylindern mit Sicherungskarte kann niemand ohne die Karte Schlüssel nachmachen lassen. Bei elektronischen Zylindern sperren wir das verlorene Medium, alle anderen bleiben gültig. Beides erspart den Austausch der gesamten Anlage.</p>
+        </details>
+        <details class="pi-frage">
+          <summary>Ich wohne zur Miete. Darf ich meine Tür nachrüsten?</summary>
+          <p>Für Änderungen an der Wohnungstür brauchen Sie die Zustimmung des Vermieters. Viele stimmen zu, weil eine gesicherte Tür auch ihr Eigentum schützt. Wir stellen Ihnen eine kurze Beschreibung der geplanten Maßnahmen für die Anfrage zusammen.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section class="pi-aufruf" id="kontakt-aufruf">
+    <div class="pi-rahmen">
+      <div class="pi-aufruf-karte">
+        <span class="pi-ueberzeile">Kostenlos und unverbindlich</span>
+        <h2>Lassen Sie uns über Ihr Zuhause sprechen</h2>
+        <p>Wir kommen zu Ihnen, sehen uns alles an und sagen Ihnen offen, was sinnvoll ist und was nicht. Ohne Verpflichtung.</p>
+        <div class="pi-knopfleiste">
+          <a class="pi-knopf pi-knopf-haupt" href="/kontakt/">Beratungstermin anfragen</a>
+          <a class="pi-knopf" href="mailto:info@provision-infra.de">E-Mail schreiben</a>
+        </div>
+        <p class="pi-kontaktzeile">Oder schreiben Sie direkt an <a class="pi-textlink" href="mailto:info@provision-infra.de">info@provision-infra.de</a></p>
+      </div>
+    </div>
+  </section>
+
+</div>
