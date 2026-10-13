@@ -9,6 +9,7 @@ const reihen = [
   ['Testfoto',        'make-jpeg.js'],
   ['Bedienung',       'test-bedienung.js'],
   ['Verlauf',         'test-verlauf.js'],
+  ['Speichern',       'test-speichern.js'],
   ['Kundenfreigabe',  'test-freigabe.js'],
   ['Freigabe: Inhaber', 'test-freigabe-personen.js'],
   ['Pipedrive',       'test-pipedrive.js'],

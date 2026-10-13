@@ -20,7 +20,17 @@ class Aufmass_Drossel {
         if ($ip === '') { return 'unbekannt'; }
         if (strpos($ip, ':') !== false) {
             $roh = @inet_pton($ip);
-            if ($roh !== false && strlen($roh) === 16) { return 'v6:' . bin2hex(substr($roh, 0, 8)); }
+            if ($roh !== false && strlen($roh) === 16) {
+                /* „::ffff:a.b.c.d“: ein IPv4-Besucher hinter einem
+                   Dual-Stack-Listener. Die ersten acht Byte sind dann für
+                   JEDE Adresse null - alle Besucher landeten in einem
+                   Zähler, und 30 Fehlversuche eines Einzelnen sperrten
+                   alle. Deshalb als die IPv4-Adresse zählen, die es ist. */
+                if (substr($roh, 0, 12) === "\0\0\0\0\0\0\0\0\0\0\xff\xff") {
+                    return 'v4:' . inet_ntop(substr($roh, 12));
+                }
+                return 'v6:' . bin2hex(substr($roh, 0, 8));
+            }
         }
         return 'v4:' . $ip;
     }

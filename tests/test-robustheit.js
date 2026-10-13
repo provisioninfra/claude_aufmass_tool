@@ -150,5 +150,27 @@ const VT = { naechste: (n) => {
     pruefe(VT.naechste(ein) === erwartet, `Fortzählung "${ein}" -> "${erwartet}"`, 'ergab: ' + VT.naechste(ein));
   });
 
+console.log('\n== Eine Sicherung aller Projekte lässt sich wieder einlesen ==');
+{
+  const a = M.neuesProjekt('Eins'), b = M.neuesProjekt('Zwei');
+  const sicherung = JSON.stringify({ typ: 'schliessanlagen-aufmass-sicherung', version: 1, projekte: [a, b, { kaputt: true }] });
+  let erg = null, f = null;
+  try { erg = Store.importParsen(sicherung); } catch (e) { f = e.message; }
+  pruefe(erg && erg.sicherung === true && erg.projekte.length === 2, 'die Sicherung wird als solche erkannt, Unbrauchbares übergangen', f || JSON.stringify(erg && erg.projekte.map(x => x.name)));
+  pruefe(erg && erg.projekt && erg.projekt.id === a.id, 'das erste Projekt steht wie bisher bereit');
+  let f2 = null;
+  try { Store.importParsen(JSON.stringify({ typ: 'schliessanlagen-aufmass-sicherung', projekte: [] })); } catch (e) { f2 = e.message; }
+  pruefe(/kein Aufmaß-Projekt/.test(f2 || ''), 'eine leere Sicherung wird verständlich abgewiesen', f2);
+  const einzel = Store.importParsen(JSON.stringify({ typ: 'schliessanlagen-aufmass', projekt: a }));
+  pruefe(einzel.sicherung === false && einzel.projekte.length === 1, 'eine Projektdatei bleibt eine Projektdatei');
+}
+
+console.log('\n== Die Vorlage der Einstellungen wird nie geteilt ==');
+{
+  const e1 = Store.einstellungenStandard(); e1.eigeneSysteme.push('Fremdsystem');
+  const e2 = Store.einstellungenStandard();
+  pruefe(e2.eigeneSysteme.length === 0, 'ein Eintrag in einer Kopie verändert die Vorlage nicht', JSON.stringify(e2.eigeneSysteme));
+}
+
 console.log(`\nErgebnis Robustheit: ${ok} ok, ${fehler} Fehler`);
 process.exit(fehler ? 1 : 0);

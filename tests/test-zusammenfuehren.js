@@ -278,5 +278,15 @@ const tuerBoese = JSON.parse('{"id":"x","tueren":[{"id":"t1","bezeichnung":"Tür
 e = Z.projekte({ id: 'x', tueren: [] }, { id: 'x', tueren: [] }, tuerBoese);
 p(e.ergebnis.tueren.length === 1 && !('vergiftet' in e.ergebnis.tueren[0]), 'auch in Untereinträgen (Türen) nicht');
 
+console.log('\n== Ohne Server erzeugte Freigaben werden je Eintrag zusammengeführt ==');
+{
+  const b2 = basisProjekt(); b2.freigabenLokal = [];
+  const m2 = k(b2); m2.freigabenLokal = [{ id: 'frg-a', erstellt: '2026-10-01T10:00:00Z', tIds: ['t1'], sIds: ['s1'], maske: '1', sFrei: [true] }];
+  const s2 = k(b2); s2.freigabenLokal = [{ id: 'frg-b', erstellt: '2026-10-02T10:00:00Z', tIds: ['t1'], sIds: ['s1'], maske: '0', sFrei: [false] }];
+  const e2 = Z.projekte(b2, m2, s2);
+  p(e2.konflikte.length === 0, 'zwei neue Freigaben auf beiden Seiten streiten nicht', JSON.stringify(e2.konflikte));
+  p(e2.ergebnis.freigabenLokal.length === 2, 'beide bleiben erhalten', JSON.stringify(e2.ergebnis.freigabenLokal));
+}
+
 console.log('\nErgebnis Zusammenführen: ' + ok + ' ok, ' + fehler + ' Fehler');
 process.exit(fehler ? 1 : 0);

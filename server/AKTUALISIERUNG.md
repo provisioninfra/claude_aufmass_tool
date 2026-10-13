@@ -2,9 +2,11 @@
 
 Diese Anleitung gilt, wenn das Werkzeug **schon läuft**: Plugin
 „Aufmaß-Abgleich“ 1.0 in WordPress, Ordner `aufmasstool` auf dem Webspace,
-Geräte angemeldet. Sie bringt beides auf den neuen Stand (Plugin 1.1.1,
-Werkzeug 1.1.1 mit Kurzlink-Freigabe, Sicherheitsrichtlinie und
-Aktualisierungshinweis).
+Geräte angemeldet. Sie bringt beides auf den neuen Stand (Plugin 1.1.2,
+Werkzeug 1.1.2 mit Kurzlink-Freigabe, Sicherheitsrichtlinie,
+Aktualisierungshinweis und den Korrekturen aus dem Prüfdurchgang vom
+Oktober 2026 - unter anderem lässt sich der Pipedrive-Schlüssel jetzt
+auch beim ersten Versuch hinterlegen).
 
 **Zeitbedarf:** etwa 15 Minuten. **Ausfall:** keiner, die Aufmaße bleiben
 unberührt, niemand muss sich neu anmelden.

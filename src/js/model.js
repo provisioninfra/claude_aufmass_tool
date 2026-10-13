@@ -60,6 +60,10 @@
       /* Verknüpfung zu Pipedrive, sofern das Projekt von dort stammt.
        * Enthält nur Kennungen und den Link - niemals Zugangsdaten. */
       pipedrive: null,
+      /* Ohne Server erzeugte Freigabe-Links: je Link, welche Felder und
+       * Schließungen freigegeben waren. Damit wird eine Rückmeldung beim
+       * Einlesen gegen die Freigabe geprüft - wie es der Server tut. */
+      freigabenLokal: [],
 
       erstellt: new Date().toISOString(),
       geaendert: new Date().toISOString(),
@@ -727,7 +731,8 @@
           var innen = String(t.masseInnen || '').trim();
           var gesamt = '';
           if (/^\d+([.,]\d+)?$/.test(aussen) && /^\d+([.,]\d+)?$/.test(innen)) {
-            gesamt = String(parseFloat(aussen.replace(',', '.')) + parseFloat(innen.replace(',', '.')));
+            /* Auf Zehntel gerundet wie im Formular - sonst stünde „75.30000000000001“ in der Liste */
+            gesamt = String(Math.round((parseFloat(aussen.replace(',', '.')) + parseFloat(innen.replace(',', '.'))) * 10) / 10);
           }
           addPos(b, {
             gruppe: 'Zylinder',
@@ -1535,6 +1540,7 @@
     out.standorte = Array.isArray(out.standorte) ? out.standorte : [];
     out.tueren = Array.isArray(out.tueren) ? out.tueren : [];
     out.schliessungen = Array.isArray(out.schliessungen) ? out.schliessungen : [];
+    out.freigabenLokal = Array.isArray(out.freigabenLokal) ? out.freigabenLokal : [];
     out.matrix = (out.matrix && typeof out.matrix === 'object') ? out.matrix : {};
 
     anlageAusTuerenErschliessen(out);   /* Anlage aus Alttüren erschließen */

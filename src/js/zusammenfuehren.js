@@ -31,7 +31,9 @@
     schliessungen: { name: 'Schließung', bezeichnung: function (s) { return s.kuerzel || s.bezeichnung || 'ohne Kürzel'; },
                      unterlisten: ['personen'] },
     standorte: { name: 'Gliederung', bezeichnung: function (k) { return k.name || 'ohne Namen'; },
-                 unterlisten: [] }
+                 unterlisten: [] },
+    freigabenLokal: { name: 'Freigabe', bezeichnung: function (f) { return f.erstellt || 'Freigabe'; },
+                      unterlisten: [] }
   };
 
   /* Verständliche Namen für die Angaben, über die gestritten werden kann. */

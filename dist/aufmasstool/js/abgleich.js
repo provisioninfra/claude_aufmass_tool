@@ -290,7 +290,14 @@
              zurückschreiben, und die fremde Änderung wäre ohne Rückfrage
              verloren. Der Prüflauf im Browser hat genau das gezeigt. */
           var ungesendet = (satz && satz.schmutzig) || offenUngesichert(eintrag.id);
-          if (!ungesendet) {
+          /* Ein geöffnetes Aufmaß nimmt immer den Zusammenführungsweg -
+             auch ohne eigene Änderungen. Der Direktweg schreibt erst die
+             Datenbank und zieht dann den Speicher nach; wird genau in
+             dieser Lücke getippt, bliebe der Speicher auf dem alten Stand
+             und der Autosave schriebe ihn über den Serverstand zurück.
+             Die Zusammenführung arbeitet dagegen mit dem Speicherstand und
+             bringt das Ergebnis in einem Zug hinein. */
+          if (!ungesendet && !offenesProjekt(eintrag.id)) {
             /* Hier liegt nichts Ungesendetes: Serverstand übernehmen */
             return Store.projektSpeichern(voll.daten, { vomAbgleich: true }).then(function () {
               return satzSchreiben(eintrag.id, voll.version, voll.daten, false);
@@ -320,13 +327,19 @@
      * eine Rückfrage zu etwas, das man nie angefasst hat. Der Prüflauf mit
      * zwei Geräten hat genau das gezeigt. */
     e.ergebnis.id = hier.id;
+    /* Gab es hier gar keine eigene Arbeit (nur ein geöffnetes Aufmaß), ist
+       das Ergebnis der Serverstand - dann gibt es nichts zu senden. */
+    var eigeneArbeit = JSON.stringify(hier) !== JSON.stringify(satz.basis || {});
     return Store.projektSpeichern(e.ergebnis, { vomAbgleich: true }).then(function () {
-      return satzSchreiben(hier.id, voll.version, voll.daten, true);
-    }).then(function () { return fotosHolen(hier.id, voll.daten); })
+      return satzSchreiben(hier.id, voll.version, voll.daten, eigeneArbeit);
+    })
       /* Das Ergebnis enthält die eigenen - auch die noch ungesicherten -
          Eingaben: Es darf und muss in den Speicher, selbst mitten in einer
-         Eingabe. */
-      .then(function () { return offenesMitziehen(hier.id, true, e.ergebnis); });
+         Eingabe. Und zwar jetzt, nicht erst nach dem Fotodownload: Der
+         dauert Sekunden, und was in der Zeit getippt wird, steckt nicht
+         mehr im Ergebnis. */
+      .then(function () { return offenesMitziehen(hier.id, eigeneArbeit, e.ergebnis); })
+      .then(function () { return fotosHolen(hier.id, voll.daten); });
   }
 
   function konfliktMerken(hier, e, voll) {
@@ -362,7 +375,10 @@
       .then(function () {
         zustand.konflikte = zustand.konflikte.filter(function (x) { return x.projektId !== projektId; });
         melden();
-        return offenesMitziehen(projektId);
+        /* Die Auflösung ist die eben getroffene Entscheidung - sie gehört
+           in den Speicher, auch wenn gerade eine Eingabe aussteht. Sonst
+           überschriebe der nächste Autosave sie mit dem alten Stand. */
+        return offenesMitziehen(projektId, true, fertig);
       })
       .then(function () { return jetzt(); })
       .then(function () { return true; });
@@ -504,16 +520,41 @@
       var fehlend = fotoListe(projekt).filter(function (x) { return !x.foto.dataUrl; });
       if (!fehlend.length) { return; }
 
+      var geholt = {};
       var reihe = Promise.resolve();
       fehlend.forEach(function (x) {
         reihe = reihe.then(function () {
           return anfrage('/fotos/' + encodeURIComponent(x.foto.id), { roh: true })
             .then(function (blob) { return blobAlsDataUrl(blob); })
-            .then(function (url) { x.foto.dataUrl = url; })
+            .then(function (url) { geholt[x.foto.id] = url; })
             .catch(function () { /* Foto fehlt serverseitig: Eintrag bleibt ohne Bild */ });
         });
       });
-      return reihe.then(function () { return Store.projektSpeichern(projekt, { vomAbgleich: true }); });
+      return reihe.then(function () {
+        if (!Object.keys(geholt).length) { return; }
+        /* Der Download dauert; in der Zeit kann ein Autosave gelaufen sein.
+           Deshalb erst jetzt den Stand aus der Datenbank nehmen und nur die
+           Bilddaten nachtragen - und dasselbe im Speicher, falls das Aufmaß
+           gerade offen ist. */
+        return Store.projektLaden(projektId).then(function (frisch) {
+          if (!frisch) { return; }
+          fotosEintragen(frisch, geholt);
+          var Kern = global.AppKern;
+          if (Kern && Kern.Zustand && Kern.Zustand.projekt && Kern.Zustand.projekt.id === projektId) {
+            fotosEintragen(Kern.Zustand.projekt, geholt);
+            if (!Kern.Zustand.ungesichert && global.App && global.App.zeichnen) {
+              try { global.App.zeichnen(); } catch (e) {}
+            }
+          }
+          return Store.projektSpeichern(frisch, { vomAbgleich: true });
+        });
+      });
+    });
+  }
+
+  function fotosEintragen(projekt, geholt) {
+    fotoListe(projekt).forEach(function (x) {
+      if (!x.foto.dataUrl && geholt[x.foto.id]) { x.foto.dataUrl = geholt[x.foto.id]; }
     });
   }
 
@@ -588,6 +629,12 @@
     return (daten ? Promise.resolve(daten) : Store.projektLaden(id)).then(function (frisch) {
       if (!frisch) { return; }
       inPlatzUebernehmen(Kern.Zustand.projekt, frisch);
+      /* Der Verlauf beginnt neu: Seine Stände stammen von vor der
+         Zusammenführung. Ein „Zurück“ dorthin nähme fremde Änderungen
+         zurück - und sendete das als eigene Arbeit an den Server. */
+      if (global.Verlauf && global.Verlauf.beginnen) {
+        try { global.Verlauf.beginnen(Kern.Zustand.projekt); } catch (e) {}
+      }
       /* Was jetzt im Speicher steht, muss auch in die Datenbank - der
          nächste Autosave erledigt das. */
       if (erzwingen && typeof Kern.alsGeaendertMarkieren === 'function') {
@@ -739,13 +786,19 @@
     return new Error('Das Aufmaß liegt auf diesem Gerät noch nicht vor. Bitte kurz warten, bis der Abgleich es geholt hat.');
   }
 
+  /* Rückmeldungen über den Server hat der Server bereits gegen die Freigabe
+     geprüft und bereinigt (nur freigegebene Felder, nur freigegebene
+     Inhaberlisten). Die Prüfung gegen eine lokal abgelegte Freigabe gilt
+     dem Weg ohne Server - hier gäbe es keine. */
+  var SERVER_GEPRUEFT = { ohneFreigabeZulassen: true };
+
   /** Was würde die Übernahme ändern? Ein Bericht, ohne etwas zu ändern. */
   function antwortVorschau(code) {
     var eintrag = antwortFinden(code);
     if (!eintrag) { return Promise.reject(new Error('Diese Rückmeldung liegt nicht mehr vor.')); }
     return projektKopie(eintrag.projektId).then(function (kopie) {
       if (!kopie) { throw nichtDa(); }
-      var bericht = global.Freigabe.antwortUebernehmen(kopie, eintrag.antwort || {});
+      var bericht = global.Freigabe.antwortUebernehmen(kopie, eintrag.antwort || {}, SERVER_GEPRUEFT);
       return { eintrag: eintrag, bericht: bericht, projekt: kopie };
     });
   }
@@ -764,7 +817,7 @@
     var Kern = global.AppKern;
     return projektKopie(eintrag.projektId).then(function (kopie) {
       if (!kopie) { throw nichtDa(); }
-      var bericht = global.Freigabe.antwortUebernehmen(kopie, eintrag.antwort || {});
+      var bericht = global.Freigabe.antwortUebernehmen(kopie, eintrag.antwort || {}, SERVER_GEPRUEFT);
       return anfrage('/freigaben/' + encodeURIComponent(code) + '/uebernommen',
           { methode: 'POST', json: { antwortNr: eintrag.antwortNr } })
         .catch(function (f) {

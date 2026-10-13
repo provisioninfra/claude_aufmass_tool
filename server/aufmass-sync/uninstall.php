@@ -22,6 +22,8 @@ delete_option('aufmass_freigabe_tage');
 delete_option('aufmass_freigabe_mail');
 delete_option('aufmass_freigabe_seite');
 delete_option('aufmass_rewrite_stand');
+delete_option('aufmass_pipedrive_token');
+delete_option('aufmass_pipedrive_host');
 delete_transient('aufmass_google_schluessel');
 
 if (defined('AUFMASS_DATEN_LOESCHEN') && AUFMASS_DATEN_LOESCHEN === true) {
@@ -34,6 +36,8 @@ if (defined('AUFMASS_DATEN_LOESCHEN') && AUFMASS_DATEN_LOESCHEN === true) {
     $ordner = trailingslashit($auf['basedir']) . 'aufmass-fotos';
     if (is_dir($ordner)) {
         foreach (glob($ordner . '/*') as $datei) { if (is_file($datei)) { @unlink($datei); } }
+        /* glob() übergeht Punktdateien - die Schutzdatei einzeln entfernen */
+        @unlink($ordner . '/.htaccess');
         @rmdir($ordner);
     }
 }

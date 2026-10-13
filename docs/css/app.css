@@ -431,7 +431,7 @@ button.nur-symbol { padding: 8px 10px; min-width: var(--tap); }
   margin-bottom: 14px; padding: 11px; background: var(--flaeche);
   border: 1px solid var(--rand); border-radius: var(--radius);
 }
-.werkzeuge .suche { flex: 1; min-width: 170px; }
+.werkzeuge .suche { flex: 2 1 220px; min-width: 170px; }
 .werkzeuge select { width: auto; min-width: 130px; }
 
 /* --- Tabellen ------------------------------------------------------------ */
@@ -560,7 +560,7 @@ table.matrix td.tuername {
   min-width: 240px; max-width: 240px; padding: 7px 10px;
   border-right: 2px solid var(--rand); font-size: 13px;
 }
-table.matrix td.tuername .nr { font-weight: 700; margin-right: 6px; }
+table.matrix td.tuername .nr { font-weight: 700; margin-right: 6px; white-space: nowrap; }
 table.matrix td.tuername .bez { color: var(--text-schwach); }
 table.matrix tr.gruppenzeile td {
   position: sticky; left: 0; z-index: 3;
@@ -830,6 +830,15 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
 .pflicht-leiste.offen { background: rgba(179,114,30,.12); border-color: rgba(179,114,30,.40); color: var(--gelb); }
 .pflicht-leiste.offen .zeichen { background: var(--gelb); color: var(--auf-farbe); }
 .pflicht-leiste .chips { flex-basis: 100%; }
+.pflicht-leiste .pflicht-umschalter {
+  display: flex; align-items: center; gap: 8px; text-align: left;
+  background: none; border: 0; padding: 0; color: inherit; font: inherit;
+  min-height: var(--tap); cursor: pointer;
+  /* Bleibt neben dem Ausrufezeichen, auch wenn der Text umbricht */
+  flex: 1 1 0; min-width: 0;
+}
+.pflicht-leiste .pflicht-umschalter > span:first-child { flex: 1 1 auto; white-space: normal; }
+.pflicht-leiste .pflicht-umschalter .pfeil { flex: none; font-size: 12px; opacity: .8; }
 .pflicht-leiste .chip {
   min-height: var(--tap); padding: 8px 12px; font-size: 14px;
   background: var(--flaeche); border-color: var(--gelb); color: var(--gelb);
@@ -875,9 +884,16 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
 .knoten .oeffnen-pfeil { color: var(--text-zart); font-size: 19px; line-height: 1; flex: none; }
 @media (max-width: 560px) {
   /* Auf dem Telefon rutschen die Aktionen in die zweite Zeile, damit der
-     Namensbereich über die ganze Breite treffbar bleibt. */
+     Namensbereich über die ganze Breite treffbar bleibt. Die vier
+     Symbolknöpfe stehen in einer Reihe, der „+ Gebäude“-Knopf darunter über
+     die ganze Breite - so bricht nichts ausgefranst um. */
   .knoten .knoten-haupt { flex: 1 1 100%; }
-  .knoten .aktionen { flex: 1 1 100%; justify-content: flex-end; }
+  .knoten .aktionen { flex: 1 1 100%; justify-content: flex-start; }
+  .knoten .aktionen > button:not(.nur-symbol) { flex: 1 1 100%; order: 2; }
+  /* Dialog-Fußzeile: Die Knöpfe füllen jede Zeile ganz aus, statt rechts
+     anzustehen und einzeln umzubrechen. */
+  .dialog > .fuss .fuellen { display: none; }
+  .dialog > .fuss button { flex: 1 1 auto; }
 }
 
 .bereich-kopf { margin-bottom: 10px; }

@@ -12,6 +12,8 @@ console.log('\n== Der Link bringt die Inhaber mit - aber nur für freigegebene S
 const q = baueTestprojekt();
 const frei = [q.schliessungen[0].id, q.schliessungen[4].id];
 const daten = F.erstellen(q, { freigegebeneSchliessungen: frei });
+/* Wie beim Erzeugen des Links im Werkzeug: Das Projekt merkt sich die Freigabe */
+F.freigabeMerken(q, daten);
 const mit = daten.s.filter(s => s[4]), ohne = daten.s.filter(s => !s[4]);
 p(mit.length === 2, 'genau die zwei freigegebenen tragen eine Inhaberliste', mit.length);
 p(ohne.length === daten.s.length - 2, 'alle anderen nicht');
@@ -123,7 +125,7 @@ p(b5.personenListen === 0 && b5.personenUebersprungen === 1, 'eine gelöschte Sc
   const z = JSON.parse(JSON.stringify(q));
   const vor = JSON.stringify(z.schliessungen);
   let f = null;
-  try { F.antwortUebernehmen(z, Object.assign({ pid: z.id, tIds: [], sIds: rund.sIds || rund.s.map(s => s[0]), a: '' }, k), {}); }
+  try { F.antwortUebernehmen(z, Object.assign({ pid: z.id, tIds: rund.t.map(t => t[0]), sIds: rund.s.map(s => s[0]), a: '' }, k), {}); }
   catch (e) { f = e.message; }
   p(f === null && JSON.stringify(z.schliessungen) === vor, 'Unsinn ' + JSON.stringify(k).slice(0, 24) + ' richtet nichts an', f);
 });
@@ -133,6 +135,41 @@ const ziel6 = JSON.parse(JSON.stringify(q));
 const alt6 = { f: 1, pid: ziel6.id, typ: 'antwort', tIds: rund.t.map(t => t[0]), sIds: rund.s.map(s => s[0]), a: '0:1' };
 const b6 = F.antwortUebernehmen(ziel6, alt6, {});
 p(b6.personenListen === 0 && typeof b6.uebernommen === 'number', 'eine Rückmeldung aus der alten Fassung läuft weiter');
+
+console.log('\n== Die Rückmeldung wird gegen die abgelegte Freigabe geprüft ==');
+{
+  const tIds = rund.t.map(t => t[0]), sIds = rund.s.map(s => s[0]);
+  const spalten = sIds.length;
+  const freiSpalte = sIds.indexOf(frei[0]);
+  const gesperrteSpalte = sIds.findIndex(id => frei.indexOf(id) === -1);
+  /* Eine „veränderte“ Antwort: ein freigegebenes und ein gesperrtes Feld, eine Inhaberliste für eine gesperrte Schließung */
+  const manipuliert = { f: 1, pid: q.id, typ: 'antwort', tIds, sIds,
+    a: (0 * spalten + freiSpalte).toString(36) + ':1,' + (1 * spalten + gesperrteSpalte).toString(36) + ':1',
+    p: { [gesperrteSpalte.toString(36)]: [['Eindringling', 'Fremd', 1]] } };
+  const z = JSON.parse(JSON.stringify(q));
+  const vorherGesperrt = M.getBerechtigung(z, tIds[1], sIds[gesperrteSpalte]);
+  const vorherPersonen = JSON.stringify(z.schliessungen.find(s => s.id === sIds[gesperrteSpalte]).personen || []);
+  const b = F.antwortUebernehmen(z, manipuliert, {});
+  p(b.uebersprungen === 1 && b.personenUebersprungen === 1, 'gesperrtes Feld und gesperrte Liste werden übersprungen', JSON.stringify(b));
+  p(M.getBerechtigung(z, tIds[1], sIds[gesperrteSpalte]) === vorherGesperrt, 'das gesperrte Feld bleibt, wie es war');
+  p(JSON.stringify(z.schliessungen.find(s => s.id === sIds[gesperrteSpalte]).personen || []) === vorherPersonen, 'die gesperrte Inhaberliste bleibt unberührt');
+  p(M.getBerechtigung(z, tIds[0], sIds[freiSpalte]) === 'ja' || b.uebernommen === 0, 'das freigegebene Feld wird übernommen');
+
+  /* Ohne abgelegte Freigabe: Rückfrage statt stiller Übernahme */
+  const ohne = JSON.parse(JSON.stringify(q)); ohne.freigabenLokal = [];
+  let code = null;
+  try { F.antwortUebernehmen(ohne, manipuliert, {}); } catch (e) { code = e.code; }
+  p(code === 'keine_freigabe', 'ohne bekannte Freigabe wird nicht still übernommen', code);
+  const b2 = F.antwortUebernehmen(ohne, manipuliert, { ohneFreigabeZulassen: true });
+  p(typeof b2.uebernommen === 'number' && b2.uebersprungen === 0, 'ausdrücklich ungeprüft geht es weiter (Links aus früheren Fassungen)', JSON.stringify(b2));
+
+  /* Zwei Links zum selben Plan: die Vereinigung gilt */
+  const zwei = JSON.parse(JSON.stringify(q));
+  F.freigabeMerken(zwei, F.erstellen(zwei, { freigegebeneSchliessungen: [sIds[gesperrteSpalte]] }));
+  const b3 = F.antwortUebernehmen(zwei, manipuliert, {});
+  p(b3.uebersprungen === 0 && b3.personenUebersprungen === 0, 'was in irgendeinem Link freigegeben war, darf der Kunde eintragen', JSON.stringify(b3));
+  p(zwei.freigabenLokal.length === 2 && zwei.freigabenLokal.every(f => f.id && f.maske && Array.isArray(f.sFrei)), 'jeder Link hinterlässt einen Eintrag mit Maske');
+}
 
 console.log('\nErgebnis Freigabe-Inhaber: ' + ok + ' ok, ' + fehler + ' Fehler');
 process.exit(fehler ? 1 : 0);

@@ -377,6 +377,10 @@
     function linkErzeugen() {
       var daten = freigabeDaten();
       if (abgleichBereit()) { kurzlinkErzeugen(daten); return; }
+      /* Ohne Server merkt sich das Projekt selbst, was freigegeben war -
+         damit beim Einlesen der Rückmeldung nur diese Felder gelten. */
+      global.Freigabe.freigabeMerken(p, daten);
+      A.alsGeaendertMarkieren();
       langenLinkZeigen(daten);
     }
 
@@ -623,7 +627,7 @@
     var bericht = el('div');
 
     var dateiEingabe = el('input', {
-      type: 'file', accept: '.txt,text/plain',
+      type: 'file', accept: '.txt,text/plain', class: 'versteckt',
       onchange: function (e) {
         var datei = e.target.files && e.target.files[0];
         if (!datei) return;
@@ -678,20 +682,40 @@
         { text: 'Abbrechen' },
         { text: 'Änderungen übernehmen', klasse: 'haupt', aktion: function (schliessen) {
           if (!gelesen) { A.toast('Bitte zuerst eine gültige Rückmeldung einfügen.', 'fehler'); return false; }
-          var ergebnis;
-          A.schrittMerken('Kundenrückmeldung übernommen');
-          try { ergebnis = global.Freigabe.antwortUebernehmen(p, gelesen); }
-          catch (fehler) { A.toast(fehler.message, 'fehler'); return false; }
-          A.alsGeaendertMarkieren(); A.speichern();
-          var text = ergebnis.uebernommen + ' Berechtigung(en) übernommen';
-          if (ergebnis.personenListen) {
-            text += ', ' + ergebnis.personenListen + ' Inhaberliste(n) aktualisiert';
+          function anwenden(optionen) {
+            var ergebnis;
+            A.schrittMerken('Kundenrückmeldung übernommen');
+            try { ergebnis = global.Freigabe.antwortUebernehmen(p, gelesen, optionen); }
+            catch (fehler) { A.toast(fehler.message, 'fehler'); return; }
+            A.alsGeaendertMarkieren(); A.speichern();
+            var text = ergebnis.uebernommen + ' Berechtigung(en) übernommen';
+            if (ergebnis.personenListen) {
+              text += ', ' + ergebnis.personenListen + ' Inhaberliste(n) aktualisiert';
+            }
+            if (ergebnis.uebersprungen || ergebnis.personenUebersprungen) {
+              text += ', ' + ((ergebnis.uebersprungen || 0) + (ergebnis.personenUebersprungen || 0)) + ' übersprungen (nicht freigegeben)';
+            }
+            A.toast(text + '.', 'ok');
+            schliessen(); neuZeichnen();
           }
-          if (ergebnis.uebersprungen || ergebnis.personenUebersprungen) {
-            text += ', ' + ((ergebnis.uebersprungen || 0) + (ergebnis.personenUebersprungen || 0)) + ' übersprungen';
+          /* Prüflauf ohne Änderung: Ist die Freigabe zu diesem Link nicht
+             bekannt (Link aus einer früheren Fassung), vor dem Übernehmen
+             nachfragen - sonst gilt die abgelegte Freigabe als Maßstab. */
+          var probe = null;
+          try { global.Freigabe.antwortUebernehmen(JSON.parse(JSON.stringify(p)), gelesen); }
+          catch (fehler) { probe = fehler; }
+          if (probe && probe.code === 'keine_freigabe') {
+            A.bestaetigen('Freigabe nicht bekannt',
+              'Zu dieser Rückmeldung ist auf diesem Gerät keine Freigabe abgelegt - der Link stammt aus ' +
+              'einer früheren Fassung oder von einem anderen Gerät. Ohne Freigabe lässt sich nicht prüfen, ' +
+              'welche Felder der Kunde ändern durfte. Trotzdem alle Eintragungen übernehmen?',
+              'Ungeprüft übernehmen').then(function (ja) {
+              if (ja) anwenden({ ohneFreigabeZulassen: true });
+            });
+            return false;
           }
-          A.toast(text + '.', 'ok');
-          schliessen(); neuZeichnen();
+          if (probe) { A.toast(probe.message, 'fehler'); return false; }
+          anwenden({});
           return false;
         } }
       ]
@@ -1639,7 +1663,7 @@
             'Firmenkopf, Logo und eigene Katalogeinträge werden entfernt. Projekte bleiben erhalten.',
             'Zurücksetzen').then(function (ja) {
             if (!ja) return;
-            Zustand.einstellungen = Object.assign({}, Store.EINSTELLUNGEN_STANDARD);
+            Zustand.einstellungen = Store.einstellungenStandard();
             Store.einstellungenSpeichern(Zustand.einstellungen).then(function () {
               A.toast('Einstellungen zurückgesetzt.'); neuZeichnen();
             });

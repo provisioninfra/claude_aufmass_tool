@@ -64,6 +64,13 @@ class Aufmass_Einstellungen {
         if (!empty($_POST['aufmass_pipedrive_entfernen'])) { return ''; }
         $wert = trim((string) $wert);
         if ($wert === '') { return (string) get_option('aufmass_pipedrive_token', ''); }   /* unverändert */
+        /* Beim ERSTEN Speichern ruft WordPress die Prüfung zweimal auf:
+           update_option() prüft, findet keine Option vor und reicht an
+           add_option() weiter - das prüft erneut, diesmal mit der bereits
+           verschlüsselten Fassung. Die darf nicht als „kein Token“
+           abgewiesen werden, sonst ließe sich der Schlüssel nie erstmals
+           hinterlegen. */
+        if (Aufmass_Verschluesselung::ist_chiffre($wert)) { return $wert; }
         if (!preg_match('/^[A-Za-z0-9]{20,128}$/', $wert)) {
             add_settings_error('aufmass_sync', 'pipedrive',
                 'Der Pipedrive-Schlüssel sieht nicht wie ein API-Token aus (nur Buchstaben und Ziffern, 20-128 Zeichen).');

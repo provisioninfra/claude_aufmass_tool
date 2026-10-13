@@ -217,7 +217,7 @@ class Aufmass_Rest {
     }
 
     public static function freigabe_oeffentlich($anfrage) {
-        $e = Aufmass_Freigaben::oeffentlich($anfrage['code']);
+        $e = Aufmass_Freigaben::oeffentlich(self::pfad($anfrage, 'code'));
         return is_wp_error($e) ? $e : self::antwort($e);
     }
 
@@ -228,7 +228,7 @@ class Aufmass_Rest {
             return new WP_Error('zu_gross', 'Die Rückmeldung ist zu umfangreich.', array('status' => 413));
         }
         $e = Aufmass_Freigaben::antwort_annehmen(
-            $anfrage['code'],
+            self::pfad($anfrage, 'code'),
             $anfrage->get_param('antwort'),
             (string) $anfrage->get_param('name'),
             (string) $anfrage->get_param('anmerkung'));
@@ -238,17 +238,30 @@ class Aufmass_Rest {
     public static function freigabe_aktion($anfrage) {
         $b = Aufmass_Anmeldung::aktueller_benutzer();
         $nr = (int) $anfrage->get_param('antwortNr');
-        switch ($anfrage['aktion']) {
-            case 'uebernommen':   $e = Aufmass_Freigaben::uebernommen_markieren($anfrage['code'], $nr, $b); break;
-            case 'verwerfen':     $e = Aufmass_Freigaben::verwerfen($anfrage['code'], $nr, $b); break;
-            case 'zurueckziehen': $e = Aufmass_Freigaben::zurueckziehen($anfrage['code'], $b); break;
+        switch (self::pfad($anfrage, 'aktion')) {
+            case 'uebernommen':   $e = Aufmass_Freigaben::uebernommen_markieren(self::pfad($anfrage, 'code'), $nr, $b); break;
+            case 'verwerfen':     $e = Aufmass_Freigaben::verwerfen(self::pfad($anfrage, 'code'), $nr, $b); break;
+            case 'zurueckziehen': $e = Aufmass_Freigaben::zurueckziehen(self::pfad($anfrage, 'code'), $b); break;
             default: $e = new WP_Error('unbekannt', 'Unbekannte Aktion.', array('status' => 404));
         }
         return is_wp_error($e) ? $e : self::antwort(array('freigabe' => $e));
     }
 
+    /* Kennungen aus der ADRESSE lesen, nicht aus dem Körper: WordPress lässt
+       einen JSON-Körper die Routenparameter überschreiben; so könnte eine
+       Kennung die Prüfung des Routenmusters umgehen. (Die Attrappe der
+       Prüfläufe kennt keine getrennten Adressparameter - dort gilt der
+       gemeinsame Wert.) */
+    private static function pfad($anfrage, $name) {
+        if (is_object($anfrage) && method_exists($anfrage, 'get_url_params')) {
+            $u = $anfrage->get_url_params();
+            if (is_array($u) && isset($u[$name])) { return (string) $u[$name]; }
+        }
+        return isset($anfrage[$name]) ? (string) $anfrage[$name] : '';
+    }
+
     public static function laden($anfrage) {
-        $p = Aufmass_Projekte::laden($anfrage['id']);
+        $p = Aufmass_Projekte::laden(self::pfad($anfrage, 'id'));
         if (!$p) {
             return new WP_Error('unbekannt', 'Dieses Aufmaß gibt es hier nicht.', array('status' => 404));
         }
@@ -260,32 +273,32 @@ class Aufmass_Rest {
         $daten = $anfrage->get_param('daten');
         $basis = $anfrage->get_param('basisVersion');
 
-        $e = Aufmass_Projekte::speichern($anfrage['id'], $daten, $basis, $benutzer);
+        $e = Aufmass_Projekte::speichern(self::pfad($anfrage, 'id'), $daten, $basis, $benutzer);
         if (is_wp_error($e)) { return $e; }
 
         /* Fotos, die nicht mehr vorkommen, mitnehmen. */
-        Aufmass_Fotos::verwaiste_aufraeumen($anfrage['id'], is_array($daten) ? $daten : array());
+        Aufmass_Fotos::verwaiste_aufraeumen(self::pfad($anfrage, 'id'), is_array($daten) ? $daten : array());
         return self::antwort($e);
     }
 
     public static function loeschen($anfrage) {
-        $e = Aufmass_Projekte::loeschen($anfrage['id'], Aufmass_Anmeldung::aktueller_benutzer());
+        $e = Aufmass_Projekte::loeschen(self::pfad($anfrage, 'id'), Aufmass_Anmeldung::aktueller_benutzer());
         return is_wp_error($e) ? $e : self::antwort($e);
     }
 
     public static function zustaendige($anfrage) {
         $ids = $anfrage->get_param('benutzer');
-        $e = Aufmass_Projekte::zustaendige_setzen($anfrage['id'], is_array($ids) ? $ids : array(),
+        $e = Aufmass_Projekte::zustaendige_setzen(self::pfad($anfrage, 'id'), is_array($ids) ? $ids : array(),
             Aufmass_Anmeldung::aktueller_benutzer());
         return is_wp_error($e) ? $e : self::antwort(array('zustaendige' => $e));
     }
 
     public static function fotoliste($anfrage) {
-        return self::antwort(array('fotos' => Aufmass_Fotos::vorhandene($anfrage['id'])));
+        return self::antwort(array('fotos' => Aufmass_Fotos::vorhandene(self::pfad($anfrage, 'id'))));
     }
 
     public static function foto_holen($anfrage) {
-        $f = Aufmass_Fotos::holen($anfrage['id']);
+        $f = Aufmass_Fotos::holen(self::pfad($anfrage, 'id'));
         if (!$f) {
             return new WP_Error('unbekannt', 'Dieses Foto gibt es hier nicht.', array('status' => 404));
         }
@@ -310,7 +323,7 @@ class Aufmass_Rest {
         if (is_wp_error($darf)) { return $darf; }
 
         $e = Aufmass_Fotos::speichern(
-            $anfrage['id'], $projekt_id, (string) $anfrage->get_param('tuer'),
+            self::pfad($anfrage, 'id'), $projekt_id, (string) $anfrage->get_param('tuer'),
             $anfrage->get_body(),
             (string) ($anfrage->get_header('content-type') ?: 'image/jpeg'),
             $benutzer);

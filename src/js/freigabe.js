@@ -259,6 +259,45 @@
   }
 
   /* Antwort in das Projekt übernehmen. Gibt einen Bericht zurück. */
+  /* Welche Felder und Schließungen waren für diese Antwort freigegeben?
+     Nachgeschlagen in den beim Erzeugen des Links abgelegten Freigaben
+     (gleiche Türen und Schließungen in gleicher Reihenfolge). Mehrere
+     passende Links ergeben die Vereinigung - was in irgendeinem Link
+     freigegeben war, darf der Kunde eintragen. null: keine bekannt. */
+  function freigabeFinden(projekt, antwort) {
+    var tKey = JSON.stringify(antwort.tIds || []), sKey = JSON.stringify(antwort.sIds || []);
+    var passende = (projekt.freigabenLokal || []).filter(function (f) {
+      return f && JSON.stringify(f.tIds || []) === tKey && JSON.stringify(f.sIds || []) === sKey;
+    });
+    if (!passende.length) return null;
+    var maske = '', sFrei = [];
+    passende.forEach(function (f) {
+      var m = String(f.maske || '');
+      for (var i = 0; i < m.length; i++) {
+        if (i >= maske.length) maske += m[i]; else if (m[i] === '1') maske = maske.slice(0, i) + '1' + maske.slice(i + 1);
+      }
+      (f.sFrei || []).forEach(function (x, i) { if (x) sFrei[i] = true; });
+    });
+    return { maske: maske, sFrei: sFrei };
+  }
+
+  function freigabeMerken(projekt, daten) {
+    if (!projekt || !daten) return null;
+    if (!Array.isArray(projekt.freigabenLokal)) projekt.freigabenLokal = [];
+    var eintrag = {
+      id: 'frg-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8),
+      erstellt: new Date().toISOString(),
+      tIds: daten.t.map(function (t) { return t[0]; }),
+      sIds: daten.s.map(function (s) { return s[0]; }),
+      maske: entpacken(daten.e),
+      sFrei: daten.s.map(function (s) { return !!s[4]; })
+    };
+    projekt.freigabenLokal.push(eintrag);
+    /* Es bleiben die letzten 50 - mehr Links hat kein Aufmaß in Umlauf */
+    if (projekt.freigabenLokal.length > 50) projekt.freigabenLokal.splice(0, projekt.freigabenLokal.length - 50);
+    return eintrag;
+  }
+
   function antwortUebernehmen(projekt, antwort, optionen) {
     optionen = optionen || {};
     var M = global.Model;
@@ -270,6 +309,17 @@
     var uebernommen = 0, uebersprungen = 0;
     var liste = [];
 
+    /* Nur, was freigegeben war: Die Maske steht nicht in der Antwort
+       (die könnte verändert sein), sondern in der beim Erzeugen des Links
+       abgelegten Freigabe. Ist keine bekannt - Links aus einer früheren
+       Fassung -, entscheidet der Aufrufer, ob er ungeprüft übernimmt. */
+    var freigabe = freigabeFinden(projekt, antwort);
+    if (!freigabe && !optionen.ohneFreigabeZulassen) {
+      var fehler = new Error('Zu dieser Rückmeldung ist keine Freigabe bekannt. Sie kann ungeprüft übernommen werden.');
+      fehler.code = 'keine_freigabe';
+      throw fehler;
+    }
+
     (antwort.a ? antwort.a.split(',') : []).forEach(function (eintrag) {
       if (!eintrag) return;
       var teile = eintrag.split(':');
@@ -278,6 +328,7 @@
       var zeile = Math.floor(index / spalten), spalte = index % spalten;
       var tuerId = tIds[zeile], schliessungId = sIds[spalte];
       if (!tuerId || !schliessungId) { uebersprungen++; return; }
+      if (freigabe && freigabe.maske[index] !== '1') { uebersprungen++; return; }
       /* Nur übernehmen, wenn Tür und Schließung noch vorhanden sind */
       var tuer = projekt.tueren.filter(function (t) { return t.id === tuerId; })[0];
       var sch = projekt.schliessungen.filter(function (s) { return s.id === schliessungId; })[0];
@@ -301,6 +352,7 @@
       var schliessungId = isFinite(index) ? sIds[index] : null;
       var sch = schliessungId ? projekt.schliessungen.filter(function (s) { return s.id === schliessungId; })[0] : null;
       if (!sch) { personenUebersprungen++; return; }
+      if (freigabe && !freigabe.sFrei[index]) { personenUebersprungen++; return; }
       /* Nur eine echte Liste zählt. Eine leere Liste ist eine Aussage
          ("alle entfernt"); etwas, das keine Liste ist oder nur Unbrauchbares
          enthält, ist keine - und darf die vorhandene Liste nicht löschen. */
@@ -354,6 +406,8 @@
     antwortAlsSchluessel: antwortAlsSchluessel,
     antwortAusSchluessel: antwortAusSchluessel,
     antwortUebernehmen: antwortUebernehmen,
+    freigabeMerken: freigabeMerken,
+    freigabeFinden: freigabeFinden,
     _intern: { packen: packen, entpacken: entpacken, textZuAnker: textZuAnker, ankerZuText: ankerZuText }
   };
   if (typeof module !== 'undefined' && module.exports) { module.exports = global.Freigabe; }

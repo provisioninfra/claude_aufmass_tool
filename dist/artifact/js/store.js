@@ -45,11 +45,22 @@
           d.createObjectStore(STORE_ABGLEICH, { keyPath: 'id' });
         }
       };
-      anfrage.onsuccess = function (e) { db = e.target.result; resolve(db); };
+      anfrage.onsuccess = function (e) {
+        /* Kam die Antwort erst nach dem Rückfall, bleibt es beim Rückfall:
+           Sonst lägen die inzwischen gespeicherten Projekte im einfachen
+           Speicher und verschwänden aus der Liste, sobald die Datenbank
+           doch noch antwortet. Die Entscheidung wird nie nachträglich
+           gekippt. */
+        if (nutztFallback) { try { e.target.result.close(); } catch (e2) {} return; }
+        db = e.target.result; resolve(db);
+      };
       anfrage.onerror = function () {
         /* Bei privatem Modus in Safari kann IndexedDB blockiert sein. */
         nutztFallback = true; resolve(null);
       };
+      /* Ein zweiter Tab mit alter Fassung hält die Datenbank fest: dann
+         ebenfalls der einfache Speicher, statt endlos zu warten. */
+      anfrage.onblocked = function () { if (!db) { nutztFallback = true; resolve(null); } };
       /* Safari im privaten Modus blockiert gelegentlich ohne Event */
       setTimeout(function () { if (!db && !nutztFallback) { nutztFallback = true; resolve(null); } }, 3000);
     });
@@ -236,13 +247,19 @@
         return e ? e.wert : {};
       });
     }).then(function (gespeichert) {
+      /* Die Listen der Vorlage werden kopiert, nie geteilt: Sonst schriebe
+         „Eintrag hinzufügen“ in die Vorlage selbst, und „Zurücksetzen“
+         brächte die Einträge nicht mehr weg. */
+      var vorlage = einstellungenStandard();
       var out = {};
-      Object.keys(EINSTELLUNGEN_STANDARD).forEach(function (k) {
-        out[k] = (gespeichert && gespeichert[k] !== undefined) ? gespeichert[k] : EINSTELLUNGEN_STANDARD[k];
+      Object.keys(vorlage).forEach(function (k) {
+        out[k] = (gespeichert && gespeichert[k] !== undefined) ? gespeichert[k] : vorlage[k];
       });
       return out;
-    }).catch(function () { return Object.assign({}, EINSTELLUNGEN_STANDARD); });
+    }).catch(function () { return einstellungenStandard(); });
   }
+
+  function einstellungenStandard() { return JSON.parse(JSON.stringify(EINSTELLUNGEN_STANDARD)); }
 
   function einstellungenSpeichern(werte) {
     return oeffnen().then(function (d) {
@@ -287,13 +304,22 @@
     try { daten = JSON.parse(text); }
     catch (e) { throw new Error('Die Datei ist keine gültige JSON-Datei.'); }
 
+    /* „Alle Projekte sichern“ schreibt mehrere Projekte in eine Datei -
+       die muss sich auch wieder einlesen lassen, gerade im Ernstfall. */
+    if (daten && daten.typ === 'schliessanlagen-aufmass-sicherung' && Array.isArray(daten.projekte)) {
+      var projekte = daten.projekte.filter(function (x) { return x && Array.isArray(x.tueren); })
+        .map(function (x) { return global.Model.migriere(x); });
+      if (!projekte.length) throw new Error('Die Sicherung enthält kein Aufmaß-Projekt.');
+      return { projekt: projekte[0], projekte: projekte, sicherung: true, einstellungen: null };
+    }
+
     var projekt = null;
     if (daten && daten.typ === 'schliessanlagen-aufmass' && daten.projekt) projekt = daten.projekt;
     else if (daten && Array.isArray(daten.tueren)) projekt = daten;          /* blankes Projekt */
     else throw new Error('Die Datei enthält kein Aufmaß-Projekt.');
 
     var migriert = global.Model.migriere(projekt);
-    return { projekt: migriert, einstellungen: daten.einstellungen || null };
+    return { projekt: migriert, projekte: [migriert], sicherung: false, einstellungen: daten.einstellungen || null };
   }
 
   /* Vergibt neue IDs, damit ein Import ein bestehendes Projekt nicht überschreibt. */
@@ -456,6 +482,7 @@
     einstellungenLaden: einstellungenLaden,
     einstellungenSpeichern: einstellungenSpeichern,
     EINSTELLUNGEN_STANDARD: EINSTELLUNGEN_STANDARD,
+    einstellungenStandard: einstellungenStandard,
     exportDaten: exportDaten,
     exportDateiname: exportDateiname,
     importParsen: importParsen,

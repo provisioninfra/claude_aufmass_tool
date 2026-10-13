@@ -147,7 +147,7 @@
     /* --- Filterleiste --- */
     var f = Zustand.tuerFilter;
     var suchfeld = el('input', {
-      type: 'search', placeholder: 'Suche: Nummer, Raum, System, Bemerkung …', value: f.suche,
+      type: 'search', placeholder: 'Suche: Nr., Raum, System …', title: 'Sucht in Nummer, Bezeichnung, System und Bemerkung', value: f.suche,
       oninput: function (e) { f.suche = e.target.value; listeZeichnen(); }
     });
     var strukturWahl = el('select', {
@@ -322,6 +322,11 @@
     /* Auf einer Kopie arbeiten, damit „Abbrechen“ wirklich verwirft */
     var t = istNeu ? M.neueTuer(vorlageFuerNeueTuer(vorgaben))
                    : JSON.parse(JSON.stringify(vorhandene));
+    /* Der Stand beim Öffnen: Damit lässt sich beim Speichern erkennen,
+     * was dieser Dialog geändert hat - und was in der Zwischenzeit von
+     * anderswo (Abgleich mit einem zweiten Gerät) an der Tür geändert
+     * wurde und erhalten bleiben muss. */
+    var beimOeffnen = istNeu ? null : JSON.stringify(t);
 
     /* Die gewählte Ansicht überlebt den Dialog - getrennt für neue und
      * vorhandene Türen, weil beide Fälle verschieden benutzt werden. */
@@ -331,6 +336,7 @@
     var inhalt = el('div', { class: 'tuer-formular' });
     var modusLeiste = el('div');
     var statusLeiste = el('div', { class: 'pflicht-leiste' });
+    var chipsOffen = null;   /* null = Vorgabe je Ansicht, sonst die Wahl im Dialog */
     var fortschritt = el('div', { class: 'schritt-fortschritt' });
     var koerper = el('div');
     inhalt.appendChild(modusLeiste);
@@ -807,18 +813,36 @@
       } else {
         statusLeiste.className = 'pflicht-leiste offen';
         statusLeiste.appendChild(el('span', { class: 'zeichen', text: '!' }));
-        statusLeiste.appendChild(el('span', { class: 'fuellen', text:
-          fehlende.length + (fehlende.length === 1 ? ' Pflichtangabe fehlt' : ' Pflichtangaben fehlen') +
-          '  ·  Speichern ist möglich' }));
-        var chips = el('span', { class: 'chips' });
-        fehlende.slice(0, 8).forEach(function (f) {
-          chips.appendChild(el('button', {
-            type: 'button', class: 'chip klein', text: f.label,
-            title: 'Zu dieser Angabe springen',
-            onclick: function () { zuAbschnitt(f.abschnitt, f.schluessel); }
-          }));
-        });
-        statusLeiste.appendChild(chips);
+        /* Im geführten Ablauf bleibt die Liste der fehlenden Angaben
+         * eingeklappt: Der Fortschrittsbalken zeigt ohnehin, in welchen
+         * Schritten etwas fehlt, und auf dem Telefon würde die Liste sonst
+         * die eigentliche Frage vom Bildschirm schieben. In der Vollansicht
+         * ist sie aufgeklappt - dort sind die Chips der schnellste Weg zum
+         * Feld. Ein Antippen der Zeile klappt um; die Wahl bleibt, solange
+         * der Dialog offen ist. */
+        var zeigen = chipsOffen === null ? Zustand[modusSchluessel] !== 'gefuehrt' : chipsOffen;
+        statusLeiste.appendChild(el('button', {
+          type: 'button', class: 'fuellen pflicht-umschalter',
+          'aria-expanded': zeigen ? 'true' : 'false',
+          title: zeigen ? 'Liste einklappen' : 'Zeigen, welche Angaben fehlen',
+          onclick: function () { chipsOffen = !zeigen; markieren(); }
+        }, [
+          el('span', { text: fehlende.length +
+            (fehlende.length === 1 ? ' Pflichtangabe fehlt' : ' Pflichtangaben fehlen') +
+            '  ·  Speichern ist möglich' }),
+          el('span', { class: 'pfeil', 'aria-hidden': 'true', text: zeigen ? '▴' : '▾' })
+        ]));
+        if (zeigen) {
+          var chips = el('span', { class: 'chips' });
+          fehlende.slice(0, 8).forEach(function (f) {
+            chips.appendChild(el('button', {
+              type: 'button', class: 'chip klein', text: f.label,
+              title: 'Zu dieser Angabe springen',
+              onclick: function () { zuAbschnitt(f.abschnitt, f.schluessel); }
+            }));
+          });
+          statusLeiste.appendChild(chips);
+        }
       }
       fortschrittZeichnen();
     }
@@ -953,6 +977,25 @@
     /* =======================================================================
      * Speichern
      * ==================================================================== */
+    /* Während der Dialog offen war, kann der Abgleich dieselbe Tür von
+     * einem anderen Gerät her verändert haben (eine Bemerkung, ein Foto).
+     * Felder, die hier NICHT angefasst wurden, dort aber schon, bleiben
+     * erhalten; was hier geändert wurde, gewinnt. */
+    function fremdeAenderungenBehalten(aktuell) {
+      if (!beimOeffnen || !aktuell) return;
+      var alt = JSON.parse(beimOeffnen);
+      var schluessel = {};
+      Object.keys(alt).concat(Object.keys(aktuell)).forEach(function (k) { schluessel[k] = true; });
+      Object.keys(schluessel).forEach(function (k) {
+        if (k === 'id' || k === 'geaendert') return;
+        var hierUnveraendert = JSON.stringify(t[k]) === JSON.stringify(alt[k]);
+        var dortGeaendert = JSON.stringify(aktuell[k]) !== JSON.stringify(alt[k]);
+        if (hierUnveraendert && dortGeaendert) {
+          if (aktuell[k] === undefined) delete t[k]; else t[k] = aktuell[k];
+        }
+      });
+    }
+
     function uebernehmen(undWeiter) {
       if (!t.nummer && !t.bezeichnung) {
         A.toast('Bitte mindestens Türnummer oder Bezeichnung angeben.', 'fehler');
@@ -968,11 +1011,16 @@
 
       A.schrittMerken(istNeu ? ('Tür ' + (t.nummer || t.bezeichnung) + ' angelegt')
                              : ('Tür ' + (t.nummer || t.bezeichnung) + ' geändert'));
+      /* Immer in das Projekt schreiben, das JETZT geöffnet ist - nicht in
+       * die beim Öffnen gefangene Fassung (die kann ein „Zurück“ oder der
+       * Abgleich inzwischen ersetzt haben). */
+      var ziel = Zustand.projekt && Zustand.projekt.id === p.id ? Zustand.projekt : p;
       if (istNeu) {
-        p.tueren.push(t);
+        ziel.tueren.push(t);
       } else {
-        var i = p.tueren.findIndex(function (x) { return x.id === t.id; });
-        if (i >= 0) p.tueren[i] = t; else p.tueren.push(t);
+        var i = ziel.tueren.findIndex(function (x) { return x.id === t.id; });
+        if (i >= 0) { fremdeAenderungenBehalten(ziel.tueren[i]); ziel.tueren[i] = t; }
+        else ziel.tueren.push(t);
       }
       A.alsGeaendertMarkieren();
       A.speichern();
@@ -982,9 +1030,21 @@
            (fehlende.length === 1 ? ' Pflichtangabe fehlt noch.' : ' Pflichtangaben fehlen noch.'))
         : 'Tür gespeichert.';
       if (undWeiter) {
-        A.toast(meldung + ' Nächste Tür …', fehlende.length ? 'warn' : 'ok');
+        /* Die nächste Tür steht meist im selben Bereich und ist gleich
+         * aufgebaut: Bereich, Ausführung (bei Hybrid) und Bauteilbedarf
+         * wandern mit, die Nummer zählt weiter (A-EG-01 → A-EG-02). Maße
+         * und Bauformen werden bewusst nicht übernommen - ein falscher
+         * vorbelegter Wert fiele weniger auf als ein leeres Pflichtfeld. */
+        var weiter = Object.assign({}, vorgaben || {}, {
+          strukturId: t.strukturId || (vorgaben && vorgaben.strukturId) || null,
+          nummer: naechsteNummer(t.nummer) || undefined,
+          tuerTechnologie: t.tuerTechnologie,
+          brauchtZylinder: t.brauchtZylinder, brauchtBeschlag: t.brauchtBeschlag,
+          brauchtSchloss: t.brauchtSchloss, brauchtWandleser: t.brauchtWandleser
+        });
+        A.toast(meldung + ' Nächste Tür – Bereich und Bauteile übernommen.', fehlende.length ? 'warn' : 'ok');
         neuZeichnen();
-        setTimeout(function () { tuerBearbeiten(null, neuZeichnen, vorgaben); }, 120);
+        setTimeout(function () { tuerBearbeiten(null, neuZeichnen, weiter); }, 120);
         return true;
       }
       A.toast(meldung, fehlende.length ? 'warn' : 'ok');
@@ -1089,8 +1149,13 @@
   function vorlageFuerNeueTuer(vorgaben) {
     var v = { nummer: M.naechsteLaufendeNummer(Zustand.projekt), status: 'aufgemessen' };
     /* Wird die Tür aus einem Bereich heraus angelegt, steht der Bereich
-     * schon fest und muss nicht erneut gewählt werden. */
-    if (vorgaben && vorgaben.strukturId) v.strukturId = vorgaben.strukturId;
+     * schon fest und muss nicht erneut gewählt werden. Nach „Speichern &
+     * nächste“ kommen außerdem Nummer, Ausführung und Bauteilbedarf der
+     * eben gesicherten Tür mit. */
+    ['strukturId', 'nummer', 'tuerTechnologie',
+     'brauchtZylinder', 'brauchtBeschlag', 'brauchtSchloss', 'brauchtWandleser'].forEach(function (k) {
+      if (vorgaben && vorgaben[k] !== undefined && vorgaben[k] !== null && vorgaben[k] !== '') v[k] = vorgaben[k];
+    });
     return v;
   }
 

@@ -10,7 +10,7 @@
      Anmeldeseite und in der Abgleich-Übersicht, damit man auf jedem Gerät
      in einer Sekunde sieht, welcher Stand dort läuft. Muss mit FASSUNG in
      sw.js übereinstimmen - der Prüflauf achtet darauf. */
-  var FASSUNG = '1.1.1';
+  var FASSUNG = '1.1.2';
 
   /* =========================================================================
    * DOM-Hilfsmittel
@@ -186,21 +186,35 @@
     speicherTimer = setTimeout(speichern, 700);
   }
 
+  /* Läuft gerade eine Speicherung (bei vielen Fotos dauert sie auch mal
+     eine Sekunde), wird eine Eingabe in dieser Zeit nicht verworfen,
+     sondern danach noch einmal gesichert. Wer auf das Ergebnis wartet
+     (Schließen, Seitenwechsel), bekommt erst die letzte Speicherung. */
+  var laufendeSpeicherung = null;
+  var nochmalSpeichern = false;
+
   function speichern() {
-    if (!Zustand.projekt || Zustand.speichertGerade) return Promise.resolve();
+    if (!Zustand.projekt) return Promise.resolve();
+    if (Zustand.speichertGerade) {
+      nochmalSpeichern = true;
+      return laufendeSpeicherung || Promise.resolve();
+    }
     Zustand.speichertGerade = true;
     statusAnzeigen('speichert');
-    return Store.projektSpeichern(Zustand.projekt).then(function () {
-      Zustand.ungesichert = false;
+    laufendeSpeicherung = Store.projektSpeichern(Zustand.projekt).then(function () {
       Zustand.speichertGerade = false;
+      if (nochmalSpeichern) { nochmalSpeichern = false; return speichern(); }
+      Zustand.ungesichert = false;
       statusAnzeigen('gesichert');
       /* Die Meldung an den Abgleich geschieht in Store.projektSpeichern -
          dort laufen alle Speicherwege zusammen. */
     }).catch(function (e) {
       Zustand.speichertGerade = false;
+      nochmalSpeichern = false;
       statusAnzeigen('fehler');
       toast(e.message || 'Speichern fehlgeschlagen.', 'fehler');
     });
+    return laufendeSpeicherung;
   }
 
   function statusAnzeigen(art) {

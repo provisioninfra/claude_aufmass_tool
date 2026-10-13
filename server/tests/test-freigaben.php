@@ -461,5 +461,19 @@ pruefe(count(Aufmass_Fotos::vorhandene('prj-jung')) === 1 && file_exists($pfade[
 pruefe(Aufmass_Projekte::papierkorb_leeren(0) >= 1 && Aufmass_Projekte::laden('prj-jung') === null && !file_exists($pfade['prj-jung']),
     'mit Frist 0 wird auch das junge samt Foto geleert');
 
+echo "\n== Herkunft für die Drosselung: IPv4 hinter einem Dual-Stack-Listener ==\n";
+$_SERVER['REMOTE_ADDR'] = '::ffff:10.0.0.9';
+$h1 = Aufmass_Drossel::herkunft();
+$_SERVER['REMOTE_ADDR'] = '::ffff:10.0.0.8';
+$h2 = Aufmass_Drossel::herkunft();
+$_SERVER['REMOTE_ADDR'] = '::1';
+$h3 = Aufmass_Drossel::herkunft();
+$_SERVER['REMOTE_ADDR'] = '2001:db8:1:2:3:4:5:6';
+$h4 = Aufmass_Drossel::herkunft();
+pruefe($h1 === 'v4:10.0.0.9', 'eine IPv4-mapped-Adresse zählt als ihre IPv4-Adresse', $h1);
+pruefe($h1 !== $h2 && $h1 !== $h3 && $h2 !== $h3, 'drei Besucher, drei Zähler - nicht einer für alle', "$h1 / $h2 / $h3");
+pruefe($h4 === 'v6:20010db800010002', 'echtes IPv6 zählt weiter als /64-Netz', $h4);
+$_SERVER['REMOTE_ADDR'] = '10.0.0.1';
+
 echo "\nErgebnis Freigaben: $ok ok, $fehler Fehler\n";
 exit($fehler ? 1 : 0);

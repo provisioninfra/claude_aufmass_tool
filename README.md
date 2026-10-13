@@ -24,7 +24,9 @@ Es gibt es in zwei Fassungen:
   zugeordnet
 * **Geführtes Türformular** – ein Schritt je Bildschirm für das Aufmaß vor
   Ort, umschaltbar auf alle Felder für das Büro; Pflichtangaben sind
-  gekennzeichnet, blockieren aber nichts
+  gekennzeichnet, blockieren aber nichts. *Speichern & nächste* nimmt
+  Bereich, Ausführung und Bauteilbedarf in die nächste Tür mit und zählt
+  die Nummer weiter – Maße und Bauformen beginnen bewusst leer
 * **Vollständig mit dem Apple Pencil bedienbar** – feste Maße als Auswahl,
   Stückzahlen über – und +, und jedes Schreibfeld nimmt Handschrift an
 * **Kreuzschließplan** – Zutrittsmatrix Türen × Schließungen, direkt auf dem
@@ -527,6 +529,11 @@ passenden Weg für PDF- und Projektdateien:
 Mail oder Cloud auf das andere Gerät bringen und dort über
 *Projekte → Projekt importieren* einlesen. Ohne Fotos wird die Datei
 deutlich kleiner.
+
+*Export → Alle Projekte sichern* schreibt sämtliche Aufmaße des Geräts in
+eine Datei. Dieselbe Stelle *Projekt importieren* liest sie wieder ein,
+etwa auf einem neuen iPad; bereits vorhandene Aufmaße werden nur auf
+Nachfrage überschrieben, sonst als Kopie daneben gelegt.
 
 ## Aufbau
 

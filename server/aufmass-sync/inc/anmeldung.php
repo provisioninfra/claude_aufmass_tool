@@ -76,16 +76,26 @@ class Aufmass_Anmeldung {
                niemand die weiteren Zugänge freischalten. */
             $erster = (int) $wpdb->get_var("SELECT COUNT(*) FROM $tab") === 0;
             $rolle = $erster ? 'verwaltung' : 'mitarbeit';
-            $wpdb->insert($tab, array(
+            $angelegt = $wpdb->insert($tab, array(
                 'id' => $a['sub'],
                 'email' => $a['email'],
-                'name' => isset($a['name']) ? $a['name'] : $a['email'],
+                'name' => isset($a['name']) ? mb_substr((string) $a['name'], 0, 190) : $a['email'],
                 'bild' => '',
                 'rolle' => $rolle,
                 'aktiv' => 1,
                 'erste_anmeldung' => $jetzt,
                 'letzte_anmeldung' => $jetzt
             ));
+            /* Scheitert das Anlegen (etwa: dieselbe Adresse hängt noch an
+               einem alten Google-Konto), darf keine Sitzung entstehen -
+               sie zeigte auf einen Benutzer, den es nicht gibt, und jede
+               Anfrage liefe in 401. */
+            if ($angelegt === false) {
+                return new WP_Error('datenbank',
+                    'Der Zugang ließ sich nicht anlegen. Ist die E-Mail-Adresse schon einem anderen Zugang zugeordnet? '
+                    . 'Dann den alten Zugang in der Verwaltung löschen.',
+                    array('status' => 500));
+            }
         }
 
         $sitzung = self::sitzung_anlegen($a['sub']);
@@ -188,7 +198,9 @@ class Aufmass_Anmeldung {
         /* Zeitunabhängiger Vergleich: Sonst ließe sich der Abdruck
            zeichenweise erraten. */
         if (!hash_equals((string) $sitzung['pruefwert'], hash('sha256', $teile[1]))) { return null; }
-        if (strtotime($sitzung['gueltig_bis']) < time()) { return null; }
+        /* Geschrieben wird in UTC (gmdate) - also auch so lesen, unabhängig
+           davon, welche Zeitzone ein Theme oder Plugin eingestellt hat. */
+        if (strtotime($sitzung['gueltig_bis'] . ' UTC') < time()) { return null; }
 
         $benutzer = $wpdb->get_row($wpdb->prepare("SELECT * FROM $bt WHERE id = %s",
             $sitzung['benutzer_id']), ARRAY_A);
@@ -196,7 +208,7 @@ class Aufmass_Anmeldung {
 
         /* Gültigkeit mitlaufen lassen, aber nicht bei jedem Aufruf
            schreiben - der Abgleich fragt im Minutentakt. */
-        if (strtotime($sitzung['gesehen_am']) < time() - 3600) {
+        if (strtotime($sitzung['gesehen_am'] . ' UTC') < time() - 3600) {
             $wpdb->update($st, array(
                 'gesehen_am' => Aufmass_Datenbank::jetzt(),
                 'gueltig_bis' => gmdate('Y-m-d H:i:s.000000', time() + self::DAUER_TAGE * 86400)

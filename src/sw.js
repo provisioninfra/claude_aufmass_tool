@@ -5,7 +5,7 @@
  * Die Fassung hier muss mit FASSUNG in js/app.js übereinstimmen (der
  * Prüflauf achtet darauf). Jede neue Fassung bekommt damit eine neue
  * Ablage, und alle Geräte holen beim nächsten Start den neuen Stand. */
-var FASSUNG = '1.1.1';
+var FASSUNG = '1.1.2';
 var CACHE = 'aufmass-tool-' + FASSUNG;
 var DATEIEN = [
   './', './index.html', './freigabe.html', './css/app.css', './manifest.webmanifest',
@@ -32,7 +32,12 @@ self.addEventListener('install', function (e) {
         return c.addAll(DATEIEN.map(function (d) { return new Request(d, { cache: 'reload' }); }));
       })
       .then(function () { return self.skipWaiting(); })
-      .catch(function () { /* einzelne Datei nicht erreichbar: Start trotzdem zulassen */ })
+      /* Kein catch: Schlägt die Installation fehl (eine Datei fehlt, das
+         Netz bricht ab), bleibt der alte Worker samt seiner Ablage in
+         Kraft und der Versuch wird beim nächsten Laden wiederholt. Würde
+         der Fehler verschluckt, gälte die Installation als gelungen, die
+         Aktivierung räumte die alte Ablage weg - und zurück bliebe eine
+         leere, mit der das Werkzeug ohne Netz nicht mehr startet. */
   );
 });
 
@@ -68,7 +73,8 @@ self.addEventListener('fetch', function (e) {
         }
         return antwort;
       }).catch(function () { return treffer; });
-      return treffer || netz;
+      /* Weder Ablage noch Netz: ein echter Netzfehler statt „undefined“ */
+      return treffer || netz.then(function (a) { return a || Response.error(); });
     })
   );
 });

@@ -184,5 +184,15 @@ pruefe(bestellteil.indexOf('Kommission') !== -1,
 pruefe(!/Ansprechpartner vor Ort/.test(bestellteil),
   'Angaben aus dem Dokumentenkopf werden unten nicht wiederholt');
 
+console.log('\n== Gesamtlänge ohne Gleitkomma-Rest ==');
+{
+  const p2 = JSON.parse(JSON.stringify(p));
+  const z = p2.tueren.find(t => t.brauchtZylinder) || p2.tueren[0];
+  z.brauchtZylinder = true; z.masseAussen = '35.1'; z.masseInnen = '40.2';
+  const text = JSON.stringify(M.materialliste(p2));
+  pruefe(!/\d\.\d{5,}/.test(text), 'eine Summe wie 35,1 + 40,2 erscheint gerundet (75.3)', (text.match(/\d+\.\d{5,}/) || [''])[0]);
+  pruefe(text.indexOf('75.3') !== -1, 'und steht als 75.3 in der Liste');
+}
+
 console.log(`\nErgebnis Exportlisten: ${ok} ok, ${fehler} Fehler`);
 process.exit(fehler ? 1 : 0);
