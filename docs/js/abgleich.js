@@ -790,7 +790,7 @@
      geprüft und bereinigt (nur freigegebene Felder, nur freigegebene
      Inhaberlisten). Die Prüfung gegen eine lokal abgelegte Freigabe gilt
      dem Weg ohne Server - hier gäbe es keine. */
-  var SERVER_GEPRUEFT = { ohneFreigabeZulassen: true };
+  var SERVER_GEPRUEFT = { serverGeprueft: true };
 
   /** Was würde die Übernahme ändern? Ein Bericht, ohne etwas zu ändern. */
   function antwortVorschau(code) {

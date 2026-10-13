@@ -311,11 +311,15 @@
 
     /* Nur, was freigegeben war: Die Maske steht nicht in der Antwort
        (die könnte verändert sein), sondern in der beim Erzeugen des Links
-       abgelegten Freigabe. Ist keine bekannt - Links aus einer früheren
-       Fassung -, entscheidet der Aufrufer, ob er ungeprüft übernimmt. */
+       abgelegten Freigabe. Ist keine bekannt - Link aus einer früheren
+       Fassung oder von einem anderen Gerät -, wird die Rückmeldung
+       abgelehnt. Einzige Ausnahme: Rückmeldungen über den Server, die der
+       Server bereits gegen seine Freigabe geprüft hat (serverGeprueft). */
     var freigabe = freigabeFinden(projekt, antwort);
-    if (!freigabe && !optionen.ohneFreigabeZulassen) {
-      var fehler = new Error('Zu dieser Rückmeldung ist keine Freigabe bekannt. Sie kann ungeprüft übernommen werden.');
+    if (!freigabe && !optionen.serverGeprueft) {
+      var fehler = new Error('Zu dieser Rückmeldung ist auf diesem Gerät keine Freigabe abgelegt. ' +
+        'Der Link stammt aus einer früheren Fassung oder von einem anderen Gerät. ' +
+        'Bitte einen neuen Freigabe-Link erzeugen und dem Kunden senden.');
       fehler.code = 'keine_freigabe';
       throw fehler;
     }

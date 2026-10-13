@@ -9,8 +9,7 @@ const AUS = path.join(__dirname, 'out');
 const SEITE = 'file://' + path.join(WURZEL, 'index.html');
 
 let ok = 0, fehler = 0;
-/* "001" -> "002", wie ViewsTueren.naechsteNummer */
-function ViewsTueren_naechste(n) { const m = /^(.*?)(\d+)(\D*)$/.exec(n); if (!m) return ''; let z = String(parseInt(m[2], 10) + 1); while (z.length < m[2].length) z = '0' + z; return m[1] + z + m[3]; }
+
 const konsolenFehler = [];
 function pruefe(bedingung, text, info) {
   if (bedingung) { ok++; console.log('  OK   ' + text); }
@@ -209,16 +208,17 @@ function pruefe(bedingung, text, info) {
   await page.fill('.dialog input[type=text] >> nth=1', 'Nebeneingang');
   await page.click('.dialog button:has-text("Speichern & nächste")');
   await page.waitForTimeout(500);
-  // Die nächste Tür zählt die Nummer weiter; Bereich und Bauteile kommen mit,
-  // Bezeichnung und Maße nicht.
+  // Auch die nächste Tür beginnt leer: laufende Nummer, nichts von der vorherigen
   const folge = await page.evaluate(() => {
     const d = document.querySelector('.dialog');
     const texte = d.querySelectorAll('input[type=text]');
-    return { nr: texte[0].value, bez: texte[1].value };
+    const auswahlen = [...d.querySelectorAll('select')].filter(e => e.offsetParent !== null);
+    return { nr: texte[0].value, bez: texte[1].value,
+             gesetzt: auswahlen.filter(e => e.value && !/aufgemessen/i.test(e.value)).length };
   });
-  pruefe(folge.nr === ViewsTueren_naechste(nrFeld), '„Speichern & nächste“ zählt die Nummer weiter',
+  pruefe(/^\d{3}$/.test(folge.nr) && folge.nr !== nrFeld, '„Speichern & nächste“ vergibt eine neue laufende Nummer',
     nrFeld + ' → ' + folge.nr);
-  pruefe(folge.bez === '', 'die Bezeichnung der nächsten Tür ist leer', JSON.stringify(folge.bez));
+  pruefe(folge.bez === '' && folge.gesetzt === 0, 'die nächste Tür beginnt leer', JSON.stringify(folge));
   await page.click('.dialog button:has-text("Abbrechen")');
   await page.waitForTimeout(300);
   pruefe(await page.$$eval('.tuer-zeile', n => n.length) === 2, '„Speichern & nächste“ funktioniert');

@@ -155,13 +155,16 @@ console.log('\n== Die Rückmeldung wird gegen die abgelegte Freigabe geprüft ==
   p(JSON.stringify(z.schliessungen.find(s => s.id === sIds[gesperrteSpalte]).personen || []) === vorherPersonen, 'die gesperrte Inhaberliste bleibt unberührt');
   p(M.getBerechtigung(z, tIds[0], sIds[freiSpalte]) === 'ja' || b.uebernommen === 0, 'das freigegebene Feld wird übernommen');
 
-  /* Ohne abgelegte Freigabe: Rückfrage statt stiller Übernahme */
+  /* Ohne abgelegte Freigabe: Ablehnung, nichts ändert sich */
   const ohne = JSON.parse(JSON.stringify(q)); ohne.freigabenLokal = [];
+  const vorOhne = JSON.stringify([ohne.matrix, ohne.schliessungen]);
   let code = null;
   try { F.antwortUebernehmen(ohne, manipuliert, {}); } catch (e) { code = e.code; }
-  p(code === 'keine_freigabe', 'ohne bekannte Freigabe wird nicht still übernommen', code);
-  const b2 = F.antwortUebernehmen(ohne, manipuliert, { ohneFreigabeZulassen: true });
-  p(typeof b2.uebernommen === 'number' && b2.uebersprungen === 0, 'ausdrücklich ungeprüft geht es weiter (Links aus früheren Fassungen)', JSON.stringify(b2));
+  p(code === 'keine_freigabe', 'ohne bekannte Freigabe wird die Rückmeldung abgelehnt', code);
+  p(JSON.stringify([ohne.matrix, ohne.schliessungen]) === vorOhne, 'und am Aufmaß ändert sich nichts');
+  /* Nur der Serverweg darf ohne lokale Freigabe - dort hat der Server geprüft */
+  const b2 = F.antwortUebernehmen(ohne, manipuliert, { serverGeprueft: true });
+  p(typeof b2.uebernommen === 'number', 'serverseitig geprüfte Rückmeldungen laufen ohne lokale Freigabe');
 
   /* Zwei Links zum selben Plan: die Vereinigung gilt */
   const zwei = JSON.parse(JSON.stringify(q));

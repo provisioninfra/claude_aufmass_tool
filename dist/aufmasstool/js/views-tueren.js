@@ -1030,21 +1030,13 @@
            (fehlende.length === 1 ? ' Pflichtangabe fehlt noch.' : ' Pflichtangaben fehlen noch.'))
         : 'Tür gespeichert.';
       if (undWeiter) {
-        /* Die nächste Tür steht meist im selben Bereich und ist gleich
-         * aufgebaut: Bereich, Ausführung (bei Hybrid) und Bauteilbedarf
-         * wandern mit, die Nummer zählt weiter (A-EG-01 → A-EG-02). Maße
-         * und Bauformen werden bewusst nicht übernommen - ein falscher
-         * vorbelegter Wert fiele weniger auf als ein leeres Pflichtfeld. */
-        var weiter = Object.assign({}, vorgaben || {}, {
-          strukturId: t.strukturId || (vorgaben && vorgaben.strukturId) || null,
-          nummer: naechsteNummer(t.nummer) || undefined,
-          tuerTechnologie: t.tuerTechnologie,
-          brauchtZylinder: t.brauchtZylinder, brauchtBeschlag: t.brauchtBeschlag,
-          brauchtSchloss: t.brauchtSchloss, brauchtWandleser: t.brauchtWandleser
-        });
-        A.toast(meldung + ' Nächste Tür – Bereich und Bauteile übernommen.', fehlende.length ? 'warn' : 'ok');
+        /* Die nächste Tür beginnt leer - nichts von der eben gesicherten
+         * wird übernommen. Ein vorbelegter, aber falscher Wert fiele vor
+         * Ort weniger auf als ein leeres Pflichtfeld. Nur der Bereich, aus
+         * dem heraus angelegt wird (vorgaben), bleibt gesetzt. */
+        A.toast(meldung + ' Nächste Tür …', fehlende.length ? 'warn' : 'ok');
         neuZeichnen();
-        setTimeout(function () { tuerBearbeiten(null, neuZeichnen, weiter); }, 120);
+        setTimeout(function () { tuerBearbeiten(null, neuZeichnen, vorgaben); }, 120);
         return true;
       }
       A.toast(meldung, fehlende.length ? 'warn' : 'ok');
@@ -1149,13 +1141,9 @@
   function vorlageFuerNeueTuer(vorgaben) {
     var v = { nummer: M.naechsteLaufendeNummer(Zustand.projekt), status: 'aufgemessen' };
     /* Wird die Tür aus einem Bereich heraus angelegt, steht der Bereich
-     * schon fest und muss nicht erneut gewählt werden. Nach „Speichern &
-     * nächste“ kommen außerdem Nummer, Ausführung und Bauteilbedarf der
-     * eben gesicherten Tür mit. */
-    ['strukturId', 'nummer', 'tuerTechnologie',
-     'brauchtZylinder', 'brauchtBeschlag', 'brauchtSchloss', 'brauchtWandleser'].forEach(function (k) {
-      if (vorgaben && vorgaben[k] !== undefined && vorgaben[k] !== null && vorgaben[k] !== '') v[k] = vorgaben[k];
-    });
+     * schon fest und muss nicht erneut gewählt werden. Alles andere beginnt
+     * leer - auch nach „Speichern & nächste“. */
+    if (vorgaben && vorgaben.strukturId) v.strukturId = vorgaben.strukturId;
     return v;
   }
 

@@ -698,23 +698,9 @@
             A.toast(text + '.', 'ok');
             schliessen(); neuZeichnen();
           }
-          /* Prüflauf ohne Änderung: Ist die Freigabe zu diesem Link nicht
-             bekannt (Link aus einer früheren Fassung), vor dem Übernehmen
-             nachfragen - sonst gilt die abgelegte Freigabe als Maßstab. */
-          var probe = null;
-          try { global.Freigabe.antwortUebernehmen(JSON.parse(JSON.stringify(p)), gelesen); }
-          catch (fehler) { probe = fehler; }
-          if (probe && probe.code === 'keine_freigabe') {
-            A.bestaetigen('Freigabe nicht bekannt',
-              'Zu dieser Rückmeldung ist auf diesem Gerät keine Freigabe abgelegt - der Link stammt aus ' +
-              'einer früheren Fassung oder von einem anderen Gerät. Ohne Freigabe lässt sich nicht prüfen, ' +
-              'welche Felder der Kunde ändern durfte. Trotzdem alle Eintragungen übernehmen?',
-              'Ungeprüft übernehmen').then(function (ja) {
-              if (ja) anwenden({ ohneFreigabeZulassen: true });
-            });
-            return false;
-          }
-          if (probe) { A.toast(probe.message, 'fehler'); return false; }
+          /* Maßstab ist die beim Erzeugen des Links abgelegte Freigabe. Ist
+             keine bekannt, wird die Rückmeldung abgelehnt - ungeprüft kommt
+             nichts ins Aufmaß. */
           anwenden({});
           return false;
         } }

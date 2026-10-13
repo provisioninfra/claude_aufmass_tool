@@ -170,10 +170,13 @@ Läuft alles bis hierher, ist die Aktualisierung fertig.
 
 - **Aufmaße, Fotos, Zuständigkeiten, Anmeldungen:** unverändert, nichts
   muss neu gemacht werden.
-- **Alte, lange Freigabe-Links**, die Kunden schon bekommen haben, gehen
-  weiter: Die Freigabeseite versteht beide Formen. Ihre Rückmeldung kommt
-  wie bisher als Rückschlüssel zurück und wird unter *Schließplan →
-  Rückmeldung* eingelesen.
+- **Alte, lange Freigabe-Links** (ohne Server erzeugt, vor 1.1.2): Die
+  Freigabeseite öffnet sie noch, aber ihre Rückmeldung lässt sich **nicht
+  mehr einlesen**. Seit 1.1.2 prüft das Werkzeug jede Rückmeldung gegen die
+  beim Erzeugen des Links abgelegte Freigabe; zu älteren Links gibt es
+  keine, und ungeprüft kommt nichts ins Aufmaß. Für laufende Freigaben
+  deshalb einen neuen Link erzeugen und dem Kunden senden. Kurzlinks über
+  den Server sind nicht betroffen.
 - **Pipedrive:** unverändert. Liegt der Schlüssel in WordPress, bleibt
   er dort. Liegt er noch auf einzelnen Geräten und zeigt die Adresse
   nicht auf `*.pipedrive.com`, dann den Schlüssel in WordPress eintragen

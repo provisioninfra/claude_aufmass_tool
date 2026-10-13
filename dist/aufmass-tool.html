@@ -6069,11 +6069,15 @@ body.stift .zahl-knopf { min-width: 56px; }
 
     /* Nur, was freigegeben war: Die Maske steht nicht in der Antwort
        (die könnte verändert sein), sondern in der beim Erzeugen des Links
-       abgelegten Freigabe. Ist keine bekannt - Links aus einer früheren
-       Fassung -, entscheidet der Aufrufer, ob er ungeprüft übernimmt. */
+       abgelegten Freigabe. Ist keine bekannt - Link aus einer früheren
+       Fassung oder von einem anderen Gerät -, wird die Rückmeldung
+       abgelehnt. Einzige Ausnahme: Rückmeldungen über den Server, die der
+       Server bereits gegen seine Freigabe geprüft hat (serverGeprueft). */
     var freigabe = freigabeFinden(projekt, antwort);
-    if (!freigabe && !optionen.ohneFreigabeZulassen) {
-      var fehler = new Error('Zu dieser Rückmeldung ist keine Freigabe bekannt. Sie kann ungeprüft übernommen werden.');
+    if (!freigabe && !optionen.serverGeprueft) {
+      var fehler = new Error('Zu dieser Rückmeldung ist auf diesem Gerät keine Freigabe abgelegt. ' +
+        'Der Link stammt aus einer früheren Fassung oder von einem anderen Gerät. ' +
+        'Bitte einen neuen Freigabe-Link erzeugen und dem Kunden senden.');
       fehler.code = 'keine_freigabe';
       throw fehler;
     }
@@ -9433,21 +9437,13 @@ body.stift .zahl-knopf { min-width: 56px; }
            (fehlende.length === 1 ? ' Pflichtangabe fehlt noch.' : ' Pflichtangaben fehlen noch.'))
         : 'Tür gespeichert.';
       if (undWeiter) {
-        /* Die nächste Tür steht meist im selben Bereich und ist gleich
-         * aufgebaut: Bereich, Ausführung (bei Hybrid) und Bauteilbedarf
-         * wandern mit, die Nummer zählt weiter (A-EG-01 → A-EG-02). Maße
-         * und Bauformen werden bewusst nicht übernommen - ein falscher
-         * vorbelegter Wert fiele weniger auf als ein leeres Pflichtfeld. */
-        var weiter = Object.assign({}, vorgaben || {}, {
-          strukturId: t.strukturId || (vorgaben && vorgaben.strukturId) || null,
-          nummer: naechsteNummer(t.nummer) || undefined,
-          tuerTechnologie: t.tuerTechnologie,
-          brauchtZylinder: t.brauchtZylinder, brauchtBeschlag: t.brauchtBeschlag,
-          brauchtSchloss: t.brauchtSchloss, brauchtWandleser: t.brauchtWandleser
-        });
-        A.toast(meldung + ' Nächste Tür – Bereich und Bauteile übernommen.', fehlende.length ? 'warn' : 'ok');
+        /* Die nächste Tür beginnt leer - nichts von der eben gesicherten
+         * wird übernommen. Ein vorbelegter, aber falscher Wert fiele vor
+         * Ort weniger auf als ein leeres Pflichtfeld. Nur der Bereich, aus
+         * dem heraus angelegt wird (vorgaben), bleibt gesetzt. */
+        A.toast(meldung + ' Nächste Tür …', fehlende.length ? 'warn' : 'ok');
         neuZeichnen();
-        setTimeout(function () { tuerBearbeiten(null, neuZeichnen, weiter); }, 120);
+        setTimeout(function () { tuerBearbeiten(null, neuZeichnen, vorgaben); }, 120);
         return true;
       }
       A.toast(meldung, fehlende.length ? 'warn' : 'ok');
@@ -9552,13 +9548,9 @@ body.stift .zahl-knopf { min-width: 56px; }
   function vorlageFuerNeueTuer(vorgaben) {
     var v = { nummer: M.naechsteLaufendeNummer(Zustand.projekt), status: 'aufgemessen' };
     /* Wird die Tür aus einem Bereich heraus angelegt, steht der Bereich
-     * schon fest und muss nicht erneut gewählt werden. Nach „Speichern &
-     * nächste“ kommen außerdem Nummer, Ausführung und Bauteilbedarf der
-     * eben gesicherten Tür mit. */
-    ['strukturId', 'nummer', 'tuerTechnologie',
-     'brauchtZylinder', 'brauchtBeschlag', 'brauchtSchloss', 'brauchtWandleser'].forEach(function (k) {
-      if (vorgaben && vorgaben[k] !== undefined && vorgaben[k] !== null && vorgaben[k] !== '') v[k] = vorgaben[k];
-    });
+     * schon fest und muss nicht erneut gewählt werden. Alles andere beginnt
+     * leer - auch nach „Speichern & nächste“. */
+    if (vorgaben && vorgaben.strukturId) v.strukturId = vorgaben.strukturId;
     return v;
   }
 
@@ -10286,23 +10278,9 @@ body.stift .zahl-knopf { min-width: 56px; }
             A.toast(text + '.', 'ok');
             schliessen(); neuZeichnen();
           }
-          /* Prüflauf ohne Änderung: Ist die Freigabe zu diesem Link nicht
-             bekannt (Link aus einer früheren Fassung), vor dem Übernehmen
-             nachfragen - sonst gilt die abgelegte Freigabe als Maßstab. */
-          var probe = null;
-          try { global.Freigabe.antwortUebernehmen(JSON.parse(JSON.stringify(p)), gelesen); }
-          catch (fehler) { probe = fehler; }
-          if (probe && probe.code === 'keine_freigabe') {
-            A.bestaetigen('Freigabe nicht bekannt',
-              'Zu dieser Rückmeldung ist auf diesem Gerät keine Freigabe abgelegt - der Link stammt aus ' +
-              'einer früheren Fassung oder von einem anderen Gerät. Ohne Freigabe lässt sich nicht prüfen, ' +
-              'welche Felder der Kunde ändern durfte. Trotzdem alle Eintragungen übernehmen?',
-              'Ungeprüft übernehmen').then(function (ja) {
-              if (ja) anwenden({ ohneFreigabeZulassen: true });
-            });
-            return false;
-          }
-          if (probe) { A.toast(probe.message, 'fehler'); return false; }
+          /* Maßstab ist die beim Erzeugen des Links abgelegte Freigabe. Ist
+             keine bekannt, wird die Rückmeldung abgelehnt - ungeprüft kommt
+             nichts ins Aufmaß. */
           anwenden({});
           return false;
         } }

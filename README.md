@@ -24,9 +24,8 @@ Es gibt es in zwei Fassungen:
   zugeordnet
 * **Geführtes Türformular** – ein Schritt je Bildschirm für das Aufmaß vor
   Ort, umschaltbar auf alle Felder für das Büro; Pflichtangaben sind
-  gekennzeichnet, blockieren aber nichts. *Speichern & nächste* nimmt
-  Bereich, Ausführung und Bauteilbedarf in die nächste Tür mit und zählt
-  die Nummer weiter – Maße und Bauformen beginnen bewusst leer
+  gekennzeichnet, blockieren aber nichts. Jede neue Tür beginnt leer, auch
+  nach *Speichern & nächste* – nichts wird von der vorherigen übernommen
 * **Vollständig mit dem Apple Pencil bedienbar** – feste Maße als Auswahl,
   Stückzahlen über – und +, und jedes Schreibfeld nimmt Handschrift an
 * **Kreuzschließplan** – Zutrittsmatrix Türen × Schließungen, direkt auf dem
