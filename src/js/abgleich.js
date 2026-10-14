@@ -73,7 +73,8 @@
       method: optionen.methode || 'GET',
       credentials: 'same-origin',
       headers: kopf,
-      body: optionen.json !== undefined ? JSON.stringify(optionen.json) : (optionen.koerper || undefined)
+      body: optionen.json !== undefined ? JSON.stringify(optionen.json) : (optionen.koerper || undefined),
+      signal: optionen.signal || undefined
     }).then(function (antwort) {
       if (optionen.roh) {
         if (!antwort.ok) { return fehlerAus(antwort); }
@@ -166,8 +167,8 @@
   }
 
   /** Tür einsprechen: Aufnahme oder Text samt Feldschema an den Server. */
-  function diktat(formular) {
-    return anfrage('/diktat', { methode: 'POST', koerper: formular });
+  function diktat(formular, signal) {
+    return anfrage('/diktat', { methode: 'POST', koerper: formular, signal: signal });
   }
 
   /* Wartende Kundenrückmeldungen kommen bei jedem Abgleich vollständig

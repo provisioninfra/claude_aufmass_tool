@@ -265,6 +265,118 @@ const gespeichert = JSON.parse(fs.readFileSync(OPT, 'utf8'));
     p(await seite2.$('.dialog .modus-leiste .diktat-start') === null, 'dann hat das Türformular den Knopf nicht - alles bleibt wie gewohnt');
     await ohneSchluessel.close();
 
+    console.log('\n== Fehlerpfade im Dialog ==');
+    const seite3 = await ctx.newPage();
+    seite3.on('pageerror', e => { if (!istUmgebungsGeraeusch(e.message, e.stack)) konsole.push('PAGEERROR3: ' + e.message); });
+    /* Die absichtlich abgewiesene Anfrage (503) meldet der Browser als Netzfehler - das ist kein Fehler der Seite. */
+    seite3.on('console', m => { if (m.type() !== 'error') return; const wo = m.location() ? m.location().url : ''; if (/Failed to load resource/.test(m.text())) return; if (!istUmgebungsGeraeusch(m.text(), wo)) konsole.push(m.text()); });
+    /* Mikrofon und Recorder lassen sich für die Probe umstellen; jedes Anhalten einer Tonspur wird gezählt. */
+    await seite3.addInitScript(() => {
+      window.__pruef = { stops: 0, micFehler: null, leer: false };
+      const echt = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+      navigator.mediaDevices.getUserMedia = function (c) {
+        if (window.__pruef.micFehler) { const e = new Error('verweigert'); e.name = window.__pruef.micFehler; return Promise.reject(e); }
+        return echt(c).then(s => { s.getTracks().forEach(t => { const st = t.stop.bind(t); t.stop = () => { window.__pruef.stops++; st(); }; }); return s; });
+      };
+      const MR = window.MediaRecorder;
+      window.MediaRecorder = function (strom, opt) {
+        const r = new MR(strom, opt);
+        if (window.__pruef.leer) {
+          const add = r.addEventListener.bind(r);
+          r.addEventListener = (n, f) => { if (n === 'dataavailable') return; add(n, f); };
+        }
+        return r;
+      };
+      window.MediaRecorder.isTypeSupported = MR.isTypeSupported.bind(MR);
+    });
+    await seite3.goto(BASIS + '/index.html', { waitUntil: 'load' });
+    await seite3.waitForSelector('header.kopf', { timeout: 10000 });
+    await ersteProjektOeffnen(seite3, 10000);
+    await seite3.evaluate(() => window.App.wechseln('tueren'));
+    await seite3.waitForSelector('button:has-text("+ Neue Tür")', { timeout: 10000 });
+    await seite3.click('button:has-text("+ Neue Tür")');
+    await seite3.waitForSelector('.dialog .modus-leiste .diktat-start', { timeout: 10000 });
+    const diktatOeffnen = async () => { await seite3.click('.dialog .modus-leiste .diktat-start'); await seite3.waitForSelector('.dialog .diktat .diktat-aufnahme', { timeout: 5000 }); };
+    const fussTexte = async () => seite3.$$eval('.dialog .diktat', d => [...d[0].closest('.dialog').querySelectorAll('.fuss button')].map(b => b.textContent.trim()));
+    const meldung = async () => (await seite3.textContent('.dialog .diktat .meldung')) || '';
+    const aufnehmen = async (ms) => {
+      await seite3.click('.dialog .diktat .diktat-aufnahme');
+      await seite3.waitForSelector('.dialog .diktat .diktat-laeuft', { timeout: 8000 });
+      await seite3.waitForTimeout(ms);
+      await seite3.click('.dialog .fuss button:has-text("Aufnahme beenden")');
+    };
+    /* 1. Mikrofon verweigert */
+    await diktatOeffnen();
+    await seite3.evaluate(() => { window.__pruef.micFehler = 'NotAllowedError'; });
+    await seite3.click('.dialog .diktat .diktat-aufnahme');
+    await seite3.waitForSelector('.dialog .diktat .meldung.fehler', { timeout: 5000 });
+    p(/nicht freigegeben/.test(await meldung()), 'ein verweigertes Mikrofon wird verständlich gemeldet', await meldung());
+    let knoepfe = await fussTexte();
+    p(knoepfe.some(t => /Neu aufnehmen/.test(t)) && !knoepfe.some(t => /erneut senden/.test(t)), 'dann gibt es „Neu aufnehmen“, aber kein „erneut senden“', knoepfe.join(' | '));
+    await seite3.click('.dialog .fuss button:has-text("Neu aufnehmen")');
+    await seite3.waitForSelector('.dialog .diktat .diktat-aufnahme', { timeout: 5000 });
+    p(true, '„Neu aufnehmen“ führt zurück zum Anfang');
+    /* 2. Leere Aufnahme */
+    await seite3.evaluate(() => { window.__pruef.micFehler = null; window.__pruef.leer = true; });
+    await aufnehmen(1500);
+    await seite3.waitForSelector('.dialog .diktat .meldung.fehler', { timeout: 8000 });
+    p(/leer geblieben/.test(await meldung()), 'eine leere Aufnahme wird nicht gesendet, sondern gemeldet', await meldung());
+    p(await seite3.evaluate(() => window.__pruef.stops) >= 1, 'das Mikrofon wurde danach freigegeben');
+    await seite3.evaluate(() => { window.__pruef.leer = false; });
+    /* 3. Der Server lehnt ab */
+    await seite3.route('**/wp-json/aufmass/v1/diktat', route => route.fulfill({ status: 503, contentType: 'application/json',
+      body: JSON.stringify({ code: 'nicht_eingerichtet', message: 'Das Einsprechen ist auf dem Server nicht eingerichtet.' }) }));
+    await seite3.click('.dialog .fuss button:has-text("Neu aufnehmen")');
+    await seite3.waitForSelector('.dialog .diktat .diktat-aufnahme', { timeout: 5000 });
+    await aufnehmen(1500);
+    await seite3.waitForSelector('.dialog .diktat .meldung.fehler', { timeout: 10000 });
+    p(/nicht eingerichtet/.test(await meldung()), 'die Meldung des Servers kommt wörtlich an', await meldung());
+    knoepfe = await fussTexte();
+    p(knoepfe.some(t => /erneut senden/.test(t)), 'die Aufnahme bleibt erhalten und lässt sich erneut senden', knoepfe.join(' | '));
+    await seite3.unroute('**/wp-json/aufmass/v1/diktat');
+    await seite3.click('.dialog .fuss button:has-text("Aufnahme erneut senden")');
+    await seite3.waitForSelector('.dialog .diktat table.diktat-tabelle', { timeout: 20000 });
+    p(true, '„erneut senden“ schickt dieselbe Aufnahme - diesmal mit Erfolg');
+    /* 4. Escape schließt nur den Diktat-Dialog */
+    await seite3.keyboard.press('Escape');
+    await seite3.waitForSelector('.dialog .diktat', { state: 'detached', timeout: 5000 });
+    p(await seite3.$('.dialog .modus-leiste') !== null, 'Escape schließt den Diktat-Dialog, das Türformular bleibt offen');
+    /* 5. Abbrechen beim Warten */
+    await seite3.route('**/wp-json/aufmass/v1/diktat', async route => { await new Promise(r => setTimeout(r, 4000)); await route.continue(); });
+    await diktatOeffnen();
+    await aufnehmen(1500);
+    await seite3.waitForSelector('.dialog .diktat .diktat-wartet', { timeout: 5000 });
+    knoepfe = await fussTexte();
+    p(knoepfe.length === 1 && /Abbrechen/.test(knoepfe[0]), 'beim Warten gibt es genau einen Knopf: Abbrechen', knoepfe.join(' | '));
+    await seite3.click('.dialog .fuss button:has-text("Abbrechen")');
+    await seite3.waitForSelector('.dialog .diktat .meldung.fehler', { timeout: 5000 });
+    p(/Abgebrochen/.test(await meldung()) && (await fussTexte()).some(t => /erneut senden/.test(t)), 'Abbrechen beendet das Warten und behält die Aufnahme', await meldung());
+    await seite3.unroute('**/wp-json/aufmass/v1/diktat');
+    /* 6. Verwerfen und Schließen während der Aufnahme geben das Mikrofon frei */
+    await seite3.click('.dialog .fuss button:has-text("Neu aufnehmen")');
+    await seite3.waitForSelector('.dialog .diktat .diktat-aufnahme', { timeout: 5000 });
+    const stopsVorher = await seite3.evaluate(() => window.__pruef.stops);
+    await seite3.click('.dialog .diktat .diktat-aufnahme');
+    await seite3.waitForSelector('.dialog .diktat .diktat-laeuft', { timeout: 8000 });
+    await seite3.click('.dialog .fuss button:has-text("Verwerfen")');
+    await seite3.waitForSelector('.dialog .diktat .diktat-aufnahme', { timeout: 5000 });
+    p(await seite3.evaluate(() => window.__pruef.stops) > stopsVorher, '„Verwerfen“ während der Aufnahme hält das Mikrofon an');
+    const stopsVorher2 = await seite3.evaluate(() => window.__pruef.stops);
+    await seite3.click('.dialog .diktat .diktat-aufnahme');
+    await seite3.waitForSelector('.dialog .diktat .diktat-laeuft', { timeout: 8000 });
+    await seite3.keyboard.press('Escape');
+    await seite3.waitForSelector('.dialog .diktat', { state: 'detached', timeout: 5000 });
+    p(await seite3.evaluate(() => window.__pruef.stops) > stopsVorher2, 'Schließen während der Aufnahme hält das Mikrofon an');
+    /* 7. Ohne Netz */
+    await ctx.setOffline(true);
+    await diktatOeffnen();
+    p(await seite3.$eval('.dialog .diktat .diktat-aufnahme', b => b.disabled) === true && /braucht das Gerät Netz/.test(await seite3.textContent('.dialog .diktat')),
+      'ohne Netz ist der Aufnahmeknopf aus und der Grund steht dabei');
+    await ctx.setOffline(false);
+    await seite3.keyboard.press('Escape');
+    await seite3.waitForTimeout(300);
+    await seite3.close();
+
     p(konsole.length === 0, 'keine JavaScript-Fehler', konsole.join(' | '));
     p(serverFehler === '', 'keine Fehler auf den Servern', serverFehler.slice(0, 300));
   } catch (e) {

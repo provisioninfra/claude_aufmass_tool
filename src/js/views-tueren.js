@@ -886,7 +886,12 @@
               beiUebernahme: function (namen) {
                 A.schrittMerken('Diktat übernommen');
                 A.alsGeaendertMarkieren();
+                /* Das Diktat füllt Felder in allen Schritten - danach alle
+                 * Felder zeigen, damit sich der Vorschlag prüfen lässt. */
+                if (namen.length) Zustand[modusSchluessel] = 'alle';
                 ansichtNeu();
+                var rollen = inhalt.closest ? inhalt.closest('.koerper') : null;
+                if (rollen) rollen.scrollTop = 0;
                 A.toast(namen.length
                   ? (namen.length + (namen.length === 1 ? ' Angabe' : ' Angaben') + ' aus dem Diktat übernommen - bitte prüfen.')
                   : 'Nichts übernommen - die Angaben standen schon so in der Tür.', namen.length ? 'ok' : 'warn');

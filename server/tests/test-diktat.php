@@ -189,8 +189,11 @@ pruefe(is_wp_error($e) && status_von($e) === 415, 'ein fremdes Format: 415', feh
 $e = Aufmass_Diktat::verarbeiten(array('tonBytes' => '', 'tonMime' => 'audio/webm', 'felder' => $FELDER), $BENUTZER);
 pruefe(is_wp_error($e) && status_von($e) === 400, 'eine leere Aufnahme: 400', fehlertext($e));
 pruefe(count($rufe) === 0, 'OpenAI wurde dafür nie bemüht');
+$e = Aufmass_Diktat::verarbeiten(array('ton' => array('error' => 3, 'size' => 10, 'tmp_name' => '', 'type' => 'audio/mp4'), 'felder' => $FELDER), $BENUTZER);
+pruefe(is_wp_error($e) && status_von($e) === 400 && $e->get_error_code() === 'keine_aufnahme', 'ein abgebrochener Upload: 400', fehlertext($e));
 $e = Aufmass_Diktat::verarbeiten(array('ton' => array('error' => 1, 'size' => 10, 'tmp_name' => '', 'type' => 'audio/mp4'), 'felder' => $FELDER), $BENUTZER);
-pruefe(is_wp_error($e) && status_von($e) === 400, 'ein abgebrochener Upload: 400');
+pruefe(is_wp_error($e) && status_von($e) === 413 && $e->get_error_code() === 'zu_gross', 'ein vom Server abgewiesener Upload (zu groß für PHP): 413 mit Hinweis', fehlertext($e));
+pruefe(count($rufe) === 0, 'auch dafür wurde OpenAI nicht bemüht');
 $tmp = tempnam(sys_get_temp_dir(), 'ton'); file_put_contents($tmp, $TON);
 $antworten[] = antwort_text('Keller');
 $antworten[] = antwort_chat(array('bezeichnung' => 'Keller', 'offen' => array()));
@@ -234,7 +237,19 @@ $j = json_decode($rufe[0]['args']['body'], true);
 pruefe($j['model'] === 'gpt-5-mini' && !array_key_exists('temperature', $j), 'eine neuere Modellreihe bekommt keine Temperatur mitgeschickt', json_encode(array_keys($j)));
 update_option('aufmass_diktat_modell_zuordnung', '');
 
+echo "\n== Das Schema trotz magic quotes ==\n";
+zuruecksetzen();
+$antworten[] = antwort_chat(array('bezeichnung' => 'Keller', 'offen' => array()));
+$e = Aufmass_Diktat::verarbeiten(array('text' => 'Keller', 'felder' => addslashes(json_encode($FELDER))), $BENUTZER);
+pruefe(!is_wp_error($e) && $e['felder'] === array('bezeichnung' => 'Keller'), 'ein mit Schrägstrichen entstelltes Schema wird trotzdem gelesen', fehlertext($e));
+
 echo "\n== Drossel je Person ==\n";
+zuruecksetzen();
+for ($i = 0; $i < 20; $i++) { Aufmass_Diktat::verarbeiten(array('tonBytes' => $TON, 'tonMime' => 'video/mp4', 'felder' => $FELDER), $BENUTZER); }
+for ($i = 0; $i < 20; $i++) { Aufmass_Diktat::verarbeiten(array('text' => '', 'felder' => $FELDER), $BENUTZER); }
+$antworten[] = antwort_chat(array('offen' => array()));
+$e = Aufmass_Diktat::verarbeiten(array('text' => 'x', 'felder' => $FELDER), $BENUTZER);
+pruefe(!is_wp_error($e), 'unbrauchbare Anfragen zählen nicht gegen das Kontingent', fehlertext($e));
 zuruecksetzen();
 $letzter = null;
 for ($i = 0; $i < 12; $i++) { $antworten[] = antwort_chat(array('offen' => array())); $letzter = Aufmass_Diktat::verarbeiten(array('text' => 'x', 'felder' => $FELDER), $BENUTZER); }
@@ -298,6 +313,44 @@ $_POST = array();
 pruefe(Aufmass_Einstellungen::openai_host_pruefen('https://eu.api.openai.com/v1/') === 'eu.api.openai.com', 'die Adresse wird auf den Host gekürzt');
 pruefe(Aufmass_Einstellungen::openai_host_pruefen('nicht gültig') === '', 'eine unbrauchbare Adresse wird nicht übernommen');
 pruefe(Aufmass_Einstellungen::modell_zuordnung_pruefen('gpt-4.1') === 'gpt-4.1' && Aufmass_Einstellungen::modell_zuordnung_pruefen('x y') === '', 'Modellnamen werden geprüft');
+
+echo "\n== Zufällige Eingaben erzeugen keine PHP-Meldungen ==\n";
+$meldungen = array();
+set_error_handler(function ($nr, $text, $datei, $zeile) use (&$meldungen) { $meldungen[] = $text . ' (' . basename($datei) . ':' . $zeile . ')'; return true; });
+mt_srand(7);
+function zufall($tiefe = 0) {
+    $arten = array('null', 'bool', 'int', 'float', 'str', 'arr', 'obj');
+    $a = $arten[mt_rand(0, $tiefe > 2 ? 4 : 6)];
+    switch ($a) {
+        case 'null': return null;
+        case 'bool': return (bool) mt_rand(0, 1);
+        case 'int': return mt_rand(-1000000, 1000000);
+        case 'float': return mt_rand(-10000, 10000) / 7;
+        case 'str':
+            $t = array('', ' ', 'DIN links', 'din links ', "x\x00y", str_repeat('ä', 300), '27,5', '35', 'VdS', 'Unsinn', '<script>', "\xff\xfe", 'wahl', 'text', 'zahl');
+            return $t[mt_rand(0, count($t) - 1)];
+        case 'arr': $n = mt_rand(0, 4); $r = array(); for ($i = 0; $i < $n; $i++) { $r[] = zufall($tiefe + 1); } return $r;
+        default:
+            $r = array();
+            foreach (array('name', 'typ', 'werte', 'frage', 'hinweis', 'offen', 'bezeichnung', 'masseAussen', 'dinRichtung', 'zylinderAusfuehrung', 'brauchtWandleser') as $k) {
+                if (mt_rand(0, 1)) { $r[$k] = zufall($tiefe + 1); }
+            }
+            return $r;
+    }
+}
+$felderOk = Aufmass_Diktat::schema_pruefen($FELDER);
+$ergebnisse = 0;
+for ($i = 0; $i < 400; $i++) {
+    $s = Aufmass_Diktat::schema_pruefen(zufall());
+    if (!is_wp_error($s)) { Aufmass_Diktat::schema_bauen($s); }
+    Aufmass_Diktat::woerter_pruefen(zufall());
+    $z = zufall();
+    $r = Aufmass_Diktat::ergebnis_bereinigen(is_array($z) ? $z : array('offen' => $z, 'masseAussen' => $z, 'dinRichtung' => $z, 'zylinderAusfuehrung' => $z, 'bezeichnung' => $z, 'brauchtWandleser' => $z), $felderOk);
+    if (is_array($r) && isset($r['felder'], $r['offen'])) { $ergebnisse++; }
+}
+restore_error_handler();
+pruefe(count($meldungen) === 0, '400 zufällige Schemata, Wörterlisten und Modellantworten ohne Warnung oder Notice', implode(' | ', array_slice($meldungen, 0, 3)));
+pruefe($ergebnisse === 400, 'und jede Bereinigung liefert die erwartete Form');
 
 echo "\nErgebnis Diktat: $ok ok, $fehler Fehler\n";
 exit($fehler ? 1 : 0);

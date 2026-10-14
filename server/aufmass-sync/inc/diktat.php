@@ -38,8 +38,9 @@ class Aufmass_Diktat {
     const WOERTER_MAX = 40;
     const JE_MINUTE = 12;
     const JE_TAG = 400;
-    const ZEIT_ERKENNUNG = 90;
-    const ZEIT_ZUORDNUNG = 60;
+    /* Innerhalb üblicher Laufzeitgrenzen eines Hosters (60-120 s je Anfrage) */
+    const ZEIT_ERKENNUNG = 60;
+    const ZEIT_ZUORDNUNG = 45;
 
     /** Tonformate des Werkzeugs und die Dateiendung, an der OpenAI das Format erkennt. */
     const FORMATE = array(
@@ -56,10 +57,11 @@ class Aufmass_Diktat {
     /** Die Anweisung an das Modell für die Zuordnung. */
     const ANWEISUNG = "Du bist Teil eines Aufmaß-Werkzeugs für Schließanlagen. Ein Monteur hat beim Aufmaß einer Tür Angaben eingesprochen; der Text wurde automatisch erkannt und kann Hörfehler enthalten. Ordne die Angaben den Feldern des Formulars zu und antworte ausschließlich mit dem JSON nach dem vorgegebenen Schema.\n"
         . "Regeln:\n"
+        . "Der Text ist frei gesprochen - ganze Sätze, Stichworte oder beides, meist ohne Feldnamen („das ist die Tür zum Lager, da kommt ein Halbzylinder rein, außen fünfunddreißig, innen zehn, Beschlag mit Drücker innen und außen, der Wandleser sitzt rechts außen“). Erkenne die Angaben aus dem Zusammenhang.\n"
         . "1. Trage nur ein, was gesagt wurde. Nichts erfinden, nichts aus anderen Angaben ableiten, keine Vorgaben annehmen.\n"
         . "2. Auswahlfelder: genau einer der erlaubten Werte, wörtlich wie in der Liste. Passt keiner eindeutig, bleibt das Feld null und die Angabe steht in „offen“. Bei Mehrfachfeldern alle zutreffenden Werte, sonst eine leere Liste.\n"
-        . "3. Zahlen so, wie sie gesagt wurden; Maße in Millimetern ohne Einheit. Zwei Längen beim Zylinder („fünfunddreißig vierzig“) bedeuten außen 35 und innen 40, sofern nichts anderes gesagt wurde. Ein Halbzylinder hat innen 10.\n"
-        . "4. „DIN links“ und „DIN rechts“ sind die DIN-Richtung.\n"
+        . "3. Zahlen als Ziffern, auch wenn sie als Wörter gesprochen wurden („fünfunddreißig“ = 35, „siebenundzwanzig Komma fünf“ = 27.5). Maße in Millimetern ohne Einheit; Zentimeter umrechnen (9 cm = 90), Meter ebenso (2,10 m = 2100). Zwei Längen beim Zylinder („fünfunddreißig vierzig“, „35 auf 40“, „35/40“) bedeuten außen 35 und innen 40, sofern nichts anderes gesagt wurde. Ein Halbzylinder hat innen 10.\n"
+        . "4. „DIN links“ und „DIN rechts“ sind die DIN-Richtung - ebenso „Anschlag links/rechts“ oder „links/rechts angeschlagen“.\n"
         . "5. Wird ein Bauteil genannt (Zylinder, Beschlag, Schloss, Wandleser), gilt es als vorhanden: das zugehörige Ja/Nein-Feld wird true. Was ausdrücklich verneint wird („kein Beschlag“), wird false.\n"
         . "6. Die Beschreibungen der Felder nennen Synonyme - nutze sie.\n"
         . "7. Alles, was zu keinem Feld passt oder zweifelhaft ist, kommt kurz und wörtlich in die Liste „offen“. Nichts geht verloren.\n"
@@ -138,13 +140,19 @@ class Aufmass_Diktat {
     public static function schema_pruefen($roh) {
         if (is_string($roh)) {
             if (strlen($roh) > 65536) { return self::fehler('schema', 'Das Feldschema ist zu umfangreich.', 400); }
-            $roh = json_decode($roh, true, 6);
+            $decodiert = json_decode($roh, true, 6);
+            /* Kommt das Schema mit Schrägstrichen vor den Anführungszeichen
+               an (magic quotes eines Hosters), ein zweiter Versuch. */
+            if (!is_array($decodiert) && strpos($roh, '\\"') !== false) { $decodiert = json_decode(stripslashes($roh), true, 6); }
+            $roh = $decodiert;
         }
         if (!is_array($roh) || !count($roh)) { return self::fehler('schema', 'Es fehlt das Feldschema des Werkzeugs.', 400); }
         if (count($roh) > self::FELDER_MAX) { return self::fehler('schema', 'Das Feldschema hat zu viele Felder.', 400); }
         $aus = array(); $namen = array();
         foreach ($roh as $f) {
-            if (!is_array($f) || !isset($f['name'], $f['typ'])) { return self::fehler('schema', 'Ein Feld im Schema ist unvollständig.', 400); }
+            if (!is_array($f) || !isset($f['name'], $f['typ']) || !is_scalar($f['name']) || !is_scalar($f['typ'])) {
+                return self::fehler('schema', 'Ein Feld im Schema ist unvollständig.', 400);
+            }
             $name = (string) $f['name'];
             if (!preg_match('/^[a-zA-Z][a-zA-Z0-9_]{0,40}$/', $name) || isset($namen[$name]) || $name === 'offen') {
                 return self::fehler('schema', 'Der Feldname „' . self::text_bereinigen($name, 40) . '“ ist nicht zulässig.', 400);
@@ -162,11 +170,11 @@ class Aufmass_Diktat {
                 if (!count($werte)) { return self::fehler('schema', 'Dem Auswahlfeld „' . $name . '“ fehlen die Werte.', 400); }
                 if (count($werte) > self::WERTE_MAX) { return self::fehler('schema', 'Das Auswahlfeld „' . $name . '“ hat zu viele Werte.', 400); }
             }
-            $frage = isset($f['frage']) ? self::text_bereinigen((string) $f['frage'], 120) : '';
+            $frage = (isset($f['frage']) && is_scalar($f['frage'])) ? self::text_bereinigen((string) $f['frage'], 120) : '';
             $aus[] = array(
                 'name' => $name, 'typ' => $typ,
                 'frage' => $frage !== '' ? $frage : $name,
-                'hinweis' => isset($f['hinweis']) ? self::text_bereinigen((string) $f['hinweis'], 240) : '',
+                'hinweis' => (isset($f['hinweis']) && is_scalar($f['hinweis'])) ? self::text_bereinigen((string) $f['hinweis'], 240) : '',
                 'werte' => $werte
             );
             $namen[$name] = true;
@@ -212,20 +220,17 @@ class Aufmass_Diktat {
         if (is_wp_error($felder)) { return $felder; }
         $woerter = self::woerter_pruefen(isset($eingabe['woerter']) ? $eingabe['woerter'] : null);
 
-        /* Drossel je Person: schützt das Guthaben, nicht nur den Server. */
-        $wer = is_array($benutzer) && !empty($benutzer['id']) ? (string) $benutzer['id'] : 'unbekannt';
-        if (!Aufmass_Drossel::zaehlen_fuer('diktat-tag-' . $wer, self::JE_TAG, 86400)) {
-            return self::fehler('kontingent', 'Das Tageskontingent für Diktate ist erreicht. Morgen geht es weiter.', 429);
-        }
-        if (!Aufmass_Drossel::zaehlen_fuer('diktat-minute-' . $wer, self::JE_MINUTE, 60)) {
-            return self::fehler('zu_viele', 'Zu viele Diktate in kurzer Zeit. Bitte eine Minute warten.', 429);
-        }
-
+        /* Erst die Eingabe prüfen - eine unbrauchbare Anfrage soll kein
+           Diktat vom Kontingent abziehen. */
         $text = '';
         $bytes = null; $mime = '';
         if (isset($eingabe['ton']) && is_array($eingabe['ton'])) {
             $t = $eingabe['ton'];
-            if (!empty($t['error'])) { return self::fehler('keine_aufnahme', 'Die Aufnahme kam nicht vollständig an.', 400); }
+            $hochladefehler = isset($t['error']) ? (int) $t['error'] : 0;
+            if ($hochladefehler === 1 || $hochladefehler === 2) {
+                return self::fehler('zu_gross', 'Die Aufnahme ist für diesen Server zu groß (höchstens 10 MB). Bitte kürzer sprechen.', 413);
+            }
+            if ($hochladefehler !== 0) { return self::fehler('keine_aufnahme', 'Die Aufnahme kam nicht vollständig an. Bitte erneut senden.', 400); }
             if (isset($t['size']) && (int) $t['size'] > self::TON_MAX) { return self::fehler('zu_gross', 'Die Aufnahme ist zu groß (höchstens 10 MB).', 413); }
             $bytes = (isset($t['tmp_name']) && is_string($t['tmp_name']) && $t['tmp_name'] !== '' && is_file($t['tmp_name']))
                 ? (string) file_get_contents($t['tmp_name']) : '';
@@ -235,12 +240,28 @@ class Aufmass_Diktat {
             $mime = isset($eingabe['tonMime']) ? (string) $eingabe['tonMime'] : '';
         }
         if ($bytes !== null) {
-            $erkannt = self::erkennen($bytes, $mime, $woerter);
-            if (is_wp_error($erkannt)) { return $erkannt; }
-            $text = $erkannt;
+            $form = self::ton_pruefen($bytes, $mime);
+            if (is_wp_error($form)) { return $form; }
         } else {
             $text = isset($eingabe['text']) ? self::text_bereinigen((string) $eingabe['text'], self::TEXT_MAX) : '';
             if ($text === '') { return self::fehler('keine_aufnahme', 'Es kam weder eine Aufnahme noch ein Text an.', 400); }
+        }
+
+        /* Drossel je Person: schützt das Guthaben, nicht nur den Server.
+           Die Minute zuerst - sonst zählte ein gedrosselter Versuch
+           trotzdem für den Tag. */
+        $wer = is_array($benutzer) && !empty($benutzer['id']) ? (string) $benutzer['id'] : 'unbekannt';
+        if (!Aufmass_Drossel::zaehlen_fuer('diktat-minute-' . $wer, self::JE_MINUTE, 60)) {
+            return self::fehler('zu_viele', 'Zu viele Diktate in kurzer Zeit. Bitte eine Minute warten.', 429);
+        }
+        if (!Aufmass_Drossel::zaehlen_fuer('diktat-tag-' . $wer, self::JE_TAG, 86400)) {
+            return self::fehler('kontingent', 'Das Tageskontingent für Diktate ist erreicht. Morgen geht es weiter.', 429);
+        }
+
+        if ($bytes !== null) {
+            $erkannt = self::erkennen($bytes, $mime, $woerter);
+            if (is_wp_error($erkannt)) { return $erkannt; }
+            $text = $erkannt;
         }
         if ($text === '') {
             return self::fehler('nichts_verstanden', 'In der Aufnahme war nichts zu verstehen. Bitte näher am Gerät und deutlich sprechen.', 422);
@@ -250,23 +271,32 @@ class Aufmass_Diktat {
         return array('text' => $text, 'felder' => $zu['felder'], 'offen' => $zu['offen']);
     }
 
-    /** Ton -> Text. @return string|WP_Error */
-    public static function erkennen($bytes, $mime, $woerter) {
+    /** Länge und Format einer Aufnahme prüfen. @return string|WP_Error die Dateiendung */
+    public static function ton_pruefen($bytes, $mime) {
         $laenge = strlen((string) $bytes);
-        if ($laenge === 0) { return self::fehler('keine_aufnahme', 'Die Aufnahme ist leer.', 400); }
+        if ($laenge === 0) { return self::fehler('keine_aufnahme', 'Die Aufnahme ist leer. Bitte prüfen, ob das Mikrofon funktioniert.', 400); }
         if ($laenge > self::TON_MAX) { return self::fehler('zu_gross', 'Die Aufnahme ist zu groß (höchstens 10 MB).', 413); }
         $rein = self::mime_rein($mime);
         if (!isset(self::FORMATE[$rein])) {
             return self::fehler('format', 'Dieses Tonformat wird nicht unterstützt: ' . self::text_bereinigen($mime === '' ? 'unbekannt' : $mime, 40), 415);
         }
+        return self::FORMATE[$rein];
+    }
+
+    /** Ton -> Text. @return string|WP_Error */
+    public static function erkennen($bytes, $mime, $woerter) {
+        $endung = self::ton_pruefen($bytes, $mime);
+        if (is_wp_error($endung)) { return $endung; }
+        $rein = self::mime_rein($mime);
         $vorgabe = self::VOKABULAR . (count($woerter) ? ' Außerdem: ' . implode(', ', $woerter) . '.' : '');
+        $vorgabe = function_exists('mb_substr') ? mb_substr($vorgabe, 0, 1200, 'UTF-8') : substr($vorgabe, 0, 1200);
         $grenze = '----AufmassDiktat' . bin2hex(random_bytes(12));
         $koerper = self::multipart(array(
             'model' => self::modell('erkennung'),
             'language' => 'de',
             'response_format' => 'json',
-            'prompt' => substr($vorgabe, 0, 1200)
-        ), array('name' => 'aufnahme.' . self::FORMATE[$rein], 'mime' => $rein, 'bytes' => $bytes), $grenze);
+            'prompt' => $vorgabe
+        ), array('name' => 'aufnahme.' . $endung, 'mime' => $rein, 'bytes' => $bytes), $grenze);
         $daten = self::senden('/v1/audio/transcriptions', array('Content-Type' => 'multipart/form-data; boundary=' . $grenze),
             $koerper, self::ZEIT_ERKENNUNG, 'erkennung');
         if (is_wp_error($daten)) { return $daten; }

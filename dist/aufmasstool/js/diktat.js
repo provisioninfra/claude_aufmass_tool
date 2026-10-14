@@ -23,6 +23,7 @@
   'use strict';
 
   var HOECHSTDAUER = 180;      /* Sekunden je Aufnahme */
+  var WARTEZEIT = 120000;      /* ms, bis eine Antwort des Servers als ausgeblieben gilt */
   var MIME_KANDIDATEN = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mpeg'];
   /* Textfelder, bei denen ein Diktat ergänzt statt ersetzt */
   var ANHAENGEN = { notiz: true, nacharbeitText: true, systemNotiz: true };
@@ -273,22 +274,36 @@
         for (var i = 0; i < MIME_KANDIDATEN.length; i++) {
           try { if (global.MediaRecorder.isTypeSupported(MIME_KANDIDATEN[i])) { typ = MIME_KANDIDATEN[i]; break; } } catch (e) {}
         }
-        var rec;
-        try { rec = typ ? new global.MediaRecorder(strom, { mimeType: typ, audioBitsPerSecond: 48000 }) : new global.MediaRecorder(strom); }
-        catch (e) { rec = new global.MediaRecorder(strom); }
-        var stuecke = [];
-        rec.addEventListener('dataavailable', function (e) { if (e.data && e.data.size) stuecke.push(e.data); });
-        rec.start(1000);
         function spurenAus() { strom.getTracks().forEach(function (s) { try { s.stop(); } catch (e) {} }); }
+        var rec;
+        try {
+          try { rec = typ ? new global.MediaRecorder(strom, { mimeType: typ, audioBitsPerSecond: 48000 }) : new global.MediaRecorder(strom); }
+          catch (e) { rec = new global.MediaRecorder(strom); }
+          var stuecke = [];
+          rec.addEventListener('dataavailable', function (e) { if (e.data && e.data.size) stuecke.push(e.data); });
+          rec.start(1000);
+        } catch (f) {
+          /* Kein Recorder: Das Mikrofon darf nicht offen bleiben. */
+          spurenAus();
+          throw f;
+        }
+        var typFertig = function () { return rec.mimeType || typ || 'audio/webm'; };
         return {
-          mime: rec.mimeType || typ || 'audio/webm',
+          mime: typFertig(),
           stopp: function () {
             return new Promise(function (loesen) {
-              rec.addEventListener('stop', function () {
+              var erledigt = false;
+              function fertig() {
+                if (erledigt) return;
+                erledigt = true;
                 spurenAus();
-                loesen(new Blob(stuecke, { type: rec.mimeType || typ || 'audio/webm' }));
-              });
-              try { rec.stop(); } catch (e) { spurenAus(); loesen(new Blob(stuecke, { type: typ || 'audio/webm' })); }
+                loesen(new Blob(stuecke, { type: typFertig() }));
+              }
+              rec.addEventListener('stop', fertig);
+              /* Bleibt das Stopp-Ereignis aus, nach kurzer Zeit mit dem
+                 nehmen, was da ist. */
+              setTimeout(fertig, 3000);
+              try { rec.stop(); } catch (e) { fertig(); }
             });
           },
           abbrechen: function () { try { rec.stop(); } catch (e) {} spurenAus(); }
@@ -297,21 +312,22 @@
   }
 
   /** Aufnahme oder Text an den Server geben. */
-  function senden(aufnahme, text, projekt, einstellungen) {
+  function senden(aufnahme, text, projekt, einstellungen, signal) {
     var Ab = global.Abgleich;
     if (!Ab || typeof Ab.diktat !== 'function') return Promise.reject(new Error('Der Abgleich ist nicht eingerichtet.'));
     var schema = felder(projekt, einstellungen);
     var formular = new FormData();
     if (aufnahme) {
-      var typ = (aufnahme.type || 'audio/webm').split(';')[0];
-      var endung = { 'audio/webm': 'webm', 'audio/mp4': 'mp4', 'audio/ogg': 'ogg', 'audio/mpeg': 'mp3', 'audio/wav': 'wav' }[typ] || 'webm';
+      var typ = (aufnahme.type || 'audio/webm').split(';')[0].trim().toLowerCase();
+      var endung = { 'audio/webm': 'webm', 'audio/mp4': 'mp4', 'audio/x-m4a': 'm4a', 'audio/m4a': 'm4a',
+                     'audio/ogg': 'ogg', 'audio/mpeg': 'mp3', 'audio/wav': 'wav', 'audio/x-wav': 'wav' }[typ] || 'webm';
       formular.append('ton', aufnahme, 'aufnahme.' + endung);
     } else {
       formular.append('text', text || '');
     }
     formular.append('felder', JSON.stringify(schema));
     formular.append('woerter', JSON.stringify(woerter(einstellungen)));
-    return Ab.diktat(formular).then(function (d) {
+    return Ab.diktat(formular, signal).then(function (d) {
       return { text: (d && d.text) || '', felder: (d && d.felder) || {}, offen: (d && d.offen) || [], schema: schema };
     });
   }
@@ -333,10 +349,16 @@
       beimSchliessen: function () { aufraeumen(); } });
     var fuss = dlg.kasten.querySelector('.fuss');
     var laufend = null, uhr = null, sekunden = 0, letzteAufnahme = null, ergebnis = null;
+    var abbruch = null, warteUhr = null;   /* laufende Anfrage an den Server */
 
+    function anfrageBeenden() {
+      if (warteUhr) { clearTimeout(warteUhr); warteUhr = null; }
+      if (abbruch) { try { abbruch.abort(); } catch (e) {} abbruch = null; }
+    }
     function aufraeumen() {
       if (uhr) { clearInterval(uhr); uhr = null; }
       if (laufend) { try { laufend.abbrechen(); } catch (e) {} laufend = null; }
+      anfrageBeenden();
     }
     function fussSetzen(knoepfe) {
       if (!fuss) return;
@@ -350,9 +372,9 @@
       aufraeumen();
       A.leeren(inhalt);
       inhalt.appendChild(el('p', { class: 'hinweis', style: { marginTop: '0' },
-        text: 'Alle Angaben zur Tür in einem Stück sprechen - Bezeichnung, Bauteile, Maße, Besonderheiten. Das Werkzeug zeigt danach einen Vorschlag; erst mit „Übernehmen“ landet etwas in der Tür.' }));
+        text: 'Einfach in ganzen Sätzen oder Stichworten alles zur Tür sagen - Bezeichnung, Bauteile, Maße, Besonderheiten. Das Werkzeug holt die Angaben heraus und zeigt einen Vorschlag; erst mit „Übernehmen“ landet etwas in der Tür.' }));
       inhalt.appendChild(el('p', { class: 'diktat-beispiel',
-        text: '„Büro Empfang, Halbzylinder 35 10, DIN links, Rosettengarnitur Drücker Drücker, Dornmaß 55, Wandleser außen, Kabel liegt schon.“' }));
+        text: '„Das ist die Tür zum Büro Empfang, DIN links. Da kommt ein Halbzylinder rein, außen fünfunddreißig. Beschlag Rosettengarnitur mit Drücker innen und außen, Dornmaß 55. Der Wandleser sitzt rechts außen, Kabel liegt schon.“' }));
       if (!online()) {
         inhalt.appendChild(el('div', { class: 'meldung warn' }, el('div', { text: 'Zum Einsprechen braucht das Gerät Netz - die Erkennung läuft über den Server.' })));
       }
@@ -401,6 +423,11 @@
       if (uhr) { clearInterval(uhr); uhr = null; }
       if (sekunden < 1) { bereit(); A.toast('Die Aufnahme war zu kurz.', 'warn'); return; }
       rec.stopp().then(function (blob) {
+        if (!blob || !blob.size) {
+          letzteAufnahme = null;
+          fehler('Die Aufnahme ist leer geblieben. Bitte prüfen, ob das Mikrofon funktioniert und für diese Seite erlaubt ist.', false);
+          return;
+        }
         letzteAufnahme = blob;
         verarbeiten(blob, null);
       });
@@ -408,17 +435,30 @@
 
     /* --- sendet --- */
     function verarbeiten(blob, text) {
+      anfrageBeenden();
       A.leeren(inhalt);
       inhalt.appendChild(el('div', { class: 'diktat-wartet' }, [
         el('span', { class: 'punkt wartet', 'aria-hidden': 'true' }),
         el('span', { text: blob ? 'Aufnahme wird erkannt und zugeordnet … das dauert einige Sekunden.' : 'Text wird zugeordnet …' })
       ]));
-      fussSetzen([]);
-      senden(blob, text, projekt, einstellungen).then(function (e) {
+      /* Abbrechen bleibt möglich - und nach zwei Minuten gilt die Antwort
+         als ausgeblieben, statt ewig zu warten. */
+      var meine = (typeof AbortController === 'function') ? new AbortController() : null;
+      abbruch = meine;
+      var zuSpaet = false;
+      warteUhr = setTimeout(function () { zuSpaet = true; if (meine) meine.abort(); }, WARTEZEIT);
+      fussSetzen([{ text: 'Abbrechen', onclick: function () { anfrageBeenden(); if (blob) { letzteAufnahme = blob; } fehler('Abgebrochen.', !!blob); } }]);
+      senden(blob, text, projekt, einstellungen, meine ? meine.signal : undefined).then(function (e) {
+        if (abbruch !== meine) return;   /* inzwischen abgebrochen oder ersetzt */
+        anfrageBeenden();
         ergebnis = e;
         vorschlag();
       }).catch(function (f) {
-        fehler((f && f.message) || 'Der Server hat nicht geantwortet.', !!blob);
+        if (abbruch !== meine && !zuSpaet) return;   /* bewusst abgebrochen - die Meldung steht schon */
+        anfrageBeenden();
+        var abgebrochen = f && (f.name === 'AbortError' || /abort/i.test(String(f.message || '')));
+        fehler(zuSpaet ? 'Der Server hat nicht rechtzeitig geantwortet. Bitte erneut versuchen - die Aufnahme ist noch da.'
+          : abgebrochen ? 'Abgebrochen.' : ((f && f.message) || 'Der Server hat nicht geantwortet.'), !!blob);
       });
     }
 
