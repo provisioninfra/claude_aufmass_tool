@@ -988,14 +988,32 @@ table.matrix th.spaltenkopf .art {
   text-align: center; padding-bottom: 3px; letter-spacing: .02em;
 }
 table.matrix th.spaltenkopf.art-mitarbeiter .art { color: var(--text-schwach); }
+/* Halten: der Kopf füllt sich in zwei Sekunden von unten mit der Hausfarbe -
+   wer loslässt oder sich bewegt, bricht ab, und die Füllung verschwindet. */
+table.matrix th.spaltenkopf.drueckt {
+  background-image: linear-gradient(var(--hausfarbe), var(--hausfarbe));
+  background-repeat: no-repeat; background-position: bottom;
+  animation: spalte-halten 2s linear forwards;
+}
+@keyframes spalte-halten { from { background-size: 100% 0%; } to { background-size: 100% 100%; } }
+/* Gegriffen: die ganze Spalte hebt sich ab und folgt dem Finger */
 table.matrix th.spaltenkopf.greifen {
-  background: var(--hausfarbe); z-index: 7; box-shadow: 0 0 0 2px var(--hausfarbe);
+  background: var(--hausfarbe); z-index: 8;
+  box-shadow: 0 8px 22px rgba(10, 22, 55, .28), 0 0 0 2px var(--hausfarbe);
 }
 table.matrix th.spaltenkopf.greifen .dreh,
 table.matrix th.spaltenkopf.greifen .medien,
 table.matrix th.spaltenkopf.greifen .art { color: var(--auf-hausfarbe); }
+table.matrix td.greifen {
+  position: relative; z-index: 2; background: var(--hausfarbe-flaeche);
+  box-shadow: 0 8px 22px rgba(10, 22, 55, .22);
+}
+table.matrix tfoot td.greifen { background: var(--hausfarbe); color: var(--auf-hausfarbe); z-index: 4; }
 table.matrix.verschieben, table.matrix.verschieben td.zelle,
 table.matrix.verschieben th.spaltenkopf { cursor: grabbing; }
+@media (prefers-reduced-motion: reduce) {
+  table.matrix th.spaltenkopf.drueckt { animation-duration: .01s; background-size: 100% 100%; }
+}
 
 @media (max-width: 560px) {
   .medien-zeile { grid-template-columns: 1fr 1fr; }
@@ -11483,12 +11501,20 @@ body.stift .zahl-knopf { min-width: 56px; }
       Math.min(220, Math.max(84, laengsterTitel * 7.6 + 44)) + 'px');
 
     /* --- Spalten verschieben: Kopf zwei Sekunden halten, dann ziehen -----
-     * Die Reihenfolge wird während des Ziehens direkt in der Tabelle
-     * umgebaut - Kopf, jede Türzeile und die Summenzeile rücken mit. Beim
-     * Loslassen wird sie in den Sortierwerten festgeschrieben. */
+     * Während des Haltens füllt sich der Kopf von unten - man sieht, dass
+     * er gleich gegriffen wird. Beim Greifen hebt sich die ganze Spalte ab
+     * und folgt dem Finger; die Nachbarn rücken weich zur Seite. Die
+     * Tabelle selbst bleibt dabei unverändert: Erst beim Loslassen wird sie
+     * umgebaut und die Reihenfolge festgeschrieben.
+     *
+     * Warum nicht schon beim Ziehen umbauen: Wird der gegriffene Kopf im
+     * Dokument versetzt, verliert er die Zeigererfassung des Browsers. Das
+     * Loslassen käme dann nie an - die Spalte bliebe „gegriffen“, und die
+     * Matrix ließe sich nicht mehr bedienen. */
     var reihenfolge = schliessungen.slice();
     var ziehen = null;
     var HALTEN_MS = 2000;
+    var LANDEN_MS = 190;
 
     function spalteVerschieben(von, nach) {
       if (von === nach || nach < 0 || nach >= reihenfolge.length) return;
@@ -11503,59 +11529,122 @@ body.stift .zahl-knopf { min-width: 56px; }
       });
     }
 
+    /* Alle Zellen einer Spalte: Kopf, Türzeilen und Summenzeile */
+    function spaltenZellen(i) {
+      var aus = [];
+      Array.prototype.forEach.call(tabelle.querySelectorAll('tr'), function (tr) {
+        if (tr.classList.contains('gruppenzeile')) return;
+        var z = tr.children[i + 1];
+        if (z) aus.push(z);
+      });
+      return aus;
+    }
+    function bewegen(zellen, wert, weich) {
+      zellen.forEach(function (z) {
+        z.style.transition = weich ? 'transform .18s ease' : 'none';
+        z.style.transform = wert;
+      });
+    }
+    function zuruecksetzen(zellen) {
+      zellen.forEach(function (z) { z.classList.remove('greifen'); z.style.transition = ''; z.style.transform = ''; });
+    }
+
     function langDruckVerschieben(th, s) {
-      var zeitgeber = null, startX = 0, startY = 0, aktiv = false, zeigerId = null;
-      function abbrechen() { if (zeitgeber) { clearTimeout(zeitgeber); zeitgeber = null; } }
-      th.addEventListener('contextmenu', function (e) { e.preventDefault(); });
-      th.addEventListener('pointerdown', function (e) {
-        if (entfernenAn.wert || e.button > 0) return;
-        startX = e.clientX; startY = e.clientY; aktiv = false; zeigerId = e.pointerId;
-        abbrechen();
-        zeitgeber = setTimeout(function () {
-          zeitgeber = null;
-          aktiv = true;
-          ziehen = { s: s, th: th };
-          try { th.setPointerCapture(zeigerId); } catch (f) {}
-          th.classList.add('greifen');
-          tabelle.classList.add('verschieben');
-          if (navigator.vibrate) { try { navigator.vibrate(30); } catch (f2) {} }
-          A.toast('Spalte „' + (s.kuerzel || s.bezeichnung) + '“ nach links oder rechts ziehen.', 'info');
-        }, HALTEN_MS);
-      });
-      th.addEventListener('pointermove', function (e) {
-        if (!aktiv) {
-          if (zeitgeber && (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10)) abbrechen();
-          return;
-        }
-        var koepfe = kopfZeile.querySelectorAll('th.spaltenkopf');
-        var von = reihenfolge.indexOf(s), nach = von;
-        for (var i = 0; i < koepfe.length; i++) {
-          var r = koepfe[i].getBoundingClientRect();
-          if (i < von && e.clientX < r.left + r.width / 2) { nach = i; break; }
-          if (i > von && e.clientX > r.left + r.width / 2) { nach = i; }
-        }
-        if (nach !== von) spalteVerschieben(von, nach);
-      });
-      function beenden(e) {
-        abbrechen();
-        if (!aktiv) return;
-        aktiv = false;
+      var zeitgeber = null, startX = 0, startY = 0, zeigerId = null, lauf = null, bewegt = false;
+      function haltenAbbrechen() {
+        if (zeitgeber) { clearTimeout(zeitgeber); zeitgeber = null; }
+        th.classList.remove('drueckt');
+      }
+      function klickUnterdruecken() {
         th.klickUnterdruecken = true;
         setTimeout(function () { th.klickUnterdruecken = false; }, 400);
-        th.classList.remove('greifen');
-        tabelle.classList.remove('verschieben');
-        try { th.releasePointerCapture(e.pointerId); } catch (f) {}
-        ziehen = null;
-        var geaendert = reihenfolge.some(function (x, i) { return x.sort !== i; });
-        if (geaendert) {
-          A.schrittMerken('Spalte ' + (s.kuerzel || s.bezeichnung) + ' verschoben');
-          reihenfolge.forEach(function (x, i) { x.sort = i; });
-          A.alsGeaendertMarkieren(); A.speichern();
-          A.toast('Spalte verschoben.', 'ok');
-        }
       }
-      th.addEventListener('pointerup', beenden);
-      th.addEventListener('pointercancel', beenden);
+      th.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+      th.addEventListener('pointerdown', function (e) {
+        if (entfernenAn.wert || e.button > 0 || ziehen) return;
+        startX = e.clientX; startY = e.clientY; zeigerId = e.pointerId; bewegt = false;
+        haltenAbbrechen();
+        /* Die Erfassung schon jetzt: So kommt das Loslassen auch dann an,
+           wenn der Finger den Kopf verlässt - vor wie nach dem Greifen. */
+        try { th.setPointerCapture(zeigerId); } catch (f) {}
+        th.classList.add('drueckt');
+        zeitgeber = setTimeout(function () {
+          zeitgeber = null;
+          th.classList.remove('drueckt');
+          greifen();
+        }, HALTEN_MS);
+      });
+      function greifen() {
+        var von = reihenfolge.indexOf(s);
+        var koepfe = kopfZeile.querySelectorAll('th.spaltenkopf');
+        var mitten = [], andere = [];
+        for (var i = 0; i < koepfe.length; i++) {
+          var r = koepfe[i].getBoundingClientRect();
+          mitten.push(r.left + r.width / 2);
+          andere.push(i === von ? null : spaltenZellen(i));
+        }
+        var breite = koepfe[von] ? koepfe[von].getBoundingClientRect().width : 48;
+        lauf = { von: von, nach: von, mitten: mitten, breite: breite, zellen: spaltenZellen(von), andere: andere };
+        ziehen = { s: s, th: th };
+        tabelle.classList.add('verschieben');
+        lauf.zellen.forEach(function (z) { z.classList.add('greifen'); });
+        bewegen(lauf.zellen, 'translateX(0) scale(1.06)', true);
+        if (navigator.vibrate) { try { navigator.vibrate(30); } catch (f2) {} }
+      }
+      th.addEventListener('pointermove', function (e) {
+        if (zeigerId === null || e.pointerId !== zeigerId) return;
+        if (!lauf) {
+          /* Noch beim Halten: Wer sich bewegt, will rollen - kein Griff, und
+             beim Loslassen auch kein Antippen (sonst ginge der Dialog auf). */
+          if (zeitgeber && (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10)) { haltenAbbrechen(); bewegt = true; }
+          return;
+        }
+        var dx = e.clientX - startX;
+        bewegen(lauf.zellen, 'translateX(' + dx + 'px) scale(1.06)', false);
+        /* Wessen Mitte die gegriffene Spalte überquert hat, weicht aus */
+        var mitte = lauf.mitten[lauf.von] + dx, nach = lauf.von;
+        for (var j = 0; j < lauf.mitten.length; j++) {
+          if (j === lauf.von) continue;
+          var ausweichen = '';
+          if (j < lauf.von && mitte < lauf.mitten[j]) { ausweichen = 'translateX(' + lauf.breite + 'px)'; nach--; }
+          else if (j > lauf.von && mitte > lauf.mitten[j]) { ausweichen = 'translateX(-' + lauf.breite + 'px)'; nach++; }
+          bewegen(lauf.andere[j], ausweichen, true);
+        }
+        lauf.nach = nach;
+      });
+      function loslassen(e) {
+        if (zeigerId === null) return;
+        if (e && e.pointerId !== undefined && e.pointerId !== zeigerId) return;
+        haltenAbbrechen();
+        var id = zeigerId; zeigerId = null;
+        try { th.releasePointerCapture(id); } catch (f) {}
+        if (bewegt) { klickUnterdruecken(); bewegt = false; }
+        if (!lauf) return;   /* nur gehalten oder getippt, nicht gegriffen */
+        var l = lauf; lauf = null;
+        /* Ein Griff ist kein Antippen: der Dialog soll nicht aufgehen */
+        klickUnterdruecken();
+        /* Weich in die Ziellücke gleiten, dann die Tabelle wirklich umbauen */
+        bewegen(l.zellen, 'translateX(' + (l.mitten[l.nach] - l.mitten[l.von]) + 'px) scale(1)', true);
+        setTimeout(function () {
+          zuruecksetzen(l.zellen);
+          l.andere.forEach(function (zs) { if (zs) zuruecksetzen(zs); });
+          tabelle.classList.remove('verschieben');
+          if (l.nach !== l.von) spalteVerschieben(l.von, l.nach);
+          ziehen = null;
+          var geaendert = reihenfolge.some(function (x, i) { return x.sort !== i; });
+          if (geaendert) {
+            A.schrittMerken('Spalte ' + (s.kuerzel || s.bezeichnung) + ' verschoben');
+            reihenfolge.forEach(function (x, i) { x.sort = i; });
+            A.alsGeaendertMarkieren(); A.speichern();
+            A.toast('Spalte verschoben.', 'ok');
+          }
+        }, LANDEN_MS);
+      }
+      th.addEventListener('pointerup', loslassen);
+      th.addEventListener('pointercancel', loslassen);
+      /* Geht die Erfassung aus anderem Grund verloren (Neuaufbau der
+         Tabelle, Fensterwechsel), wird ebenfalls sauber beendet. */
+      th.addEventListener('lostpointercapture', loslassen);
     }
     /* Während des Ziehens darf der Finger die Matrix nicht rollen */
     tabelle.addEventListener('touchmove', function (e) { if (ziehen) e.preventDefault(); }, { passive: false });

@@ -960,14 +960,32 @@ table.matrix th.spaltenkopf .art {
   text-align: center; padding-bottom: 3px; letter-spacing: .02em;
 }
 table.matrix th.spaltenkopf.art-mitarbeiter .art { color: var(--text-schwach); }
+/* Halten: der Kopf füllt sich in zwei Sekunden von unten mit der Hausfarbe -
+   wer loslässt oder sich bewegt, bricht ab, und die Füllung verschwindet. */
+table.matrix th.spaltenkopf.drueckt {
+  background-image: linear-gradient(var(--hausfarbe), var(--hausfarbe));
+  background-repeat: no-repeat; background-position: bottom;
+  animation: spalte-halten 2s linear forwards;
+}
+@keyframes spalte-halten { from { background-size: 100% 0%; } to { background-size: 100% 100%; } }
+/* Gegriffen: die ganze Spalte hebt sich ab und folgt dem Finger */
 table.matrix th.spaltenkopf.greifen {
-  background: var(--hausfarbe); z-index: 7; box-shadow: 0 0 0 2px var(--hausfarbe);
+  background: var(--hausfarbe); z-index: 8;
+  box-shadow: 0 8px 22px rgba(10, 22, 55, .28), 0 0 0 2px var(--hausfarbe);
 }
 table.matrix th.spaltenkopf.greifen .dreh,
 table.matrix th.spaltenkopf.greifen .medien,
 table.matrix th.spaltenkopf.greifen .art { color: var(--auf-hausfarbe); }
+table.matrix td.greifen {
+  position: relative; z-index: 2; background: var(--hausfarbe-flaeche);
+  box-shadow: 0 8px 22px rgba(10, 22, 55, .22);
+}
+table.matrix tfoot td.greifen { background: var(--hausfarbe); color: var(--auf-hausfarbe); z-index: 4; }
 table.matrix.verschieben, table.matrix.verschieben td.zelle,
 table.matrix.verschieben th.spaltenkopf { cursor: grabbing; }
+@media (prefers-reduced-motion: reduce) {
+  table.matrix th.spaltenkopf.drueckt { animation-duration: .01s; background-size: 100% 100%; }
+}
 
 @media (max-width: 560px) {
   .medien-zeile { grid-template-columns: 1fr 1fr; }
