@@ -16,6 +16,8 @@ global $wpdb;
 
 delete_option('aufmass_client_id');
 delete_option('aufmass_domaene');
+delete_option('aufmass_neue_freigeben');
+delete_option('aufmass_hinter_proxy');
 delete_option('aufmass_schema');
 delete_option('aufmass_google_schluessel_sicherung');
 delete_option('aufmass_freigabe_tage');

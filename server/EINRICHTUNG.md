@@ -233,6 +233,15 @@ kommt.
   aber gesperrt, bis es unter „Zugänge“ freigegeben wird. Ohne Haken ist
   jedes Konto der Organisation sofort dabei. Die erste Anmeldung erhält
   in jedem Fall die Verwaltung.
+* Die Zeile **„Herkunft der Aufrufe“** zeigt, von welcher Adresse der
+  Aufruf für den Server kommt. Die Drosseln zählen je Besucheradresse;
+  sieht PHP nur eine interne Adresse des Hosters, liest das Plugin die
+  Besucheradresse von selbst aus dem Kopffeld des Proxys. Steht der
+  Proxy auf einer öffentlichen Adresse (CDN) – erkennbar daran, dass von
+  jedem Gerät und Netz aus dieselbe Adresse angezeigt wird –, den Haken
+  **„hinter einem Proxy oder CDN“** setzen. Bei direkter Verbindung
+  bleibt der Haken aus: Ein Kopffeld, das ein Besucher selbst mitschickt,
+  zählt dann nicht.
 
 ---
 
@@ -519,7 +528,9 @@ hinterlegen (Schritt 6), der Server übernimmt die Abfrage.
   Domäne ist die Anmeldung gesperrt. Fehlgeschlagene Anmeldungen werden
   je Herkunft gedrosselt (30 in zehn Minuten), Googles Schlüssel werden
   höchstens einmal je Minute neu geholt, damit niemand den Server mit
-  erfundenen Ausweisen beschäftigt.
+  erfundenen Ausweisen beschäftigt. Die Herkunft ist die Besucheradresse –
+  hinter einem Proxy des Hosters die weitergereichte, nie ein Kopffeld,
+  das ein Besucher bei direkter Verbindung selbst mitschickt.
 - **Kundenfreigabe:** Code mit rund 50 Bit Zufall; je Herkunft werden
   unbekannte Codes (30), Aufrufe (120) und Übertragungen (12) in zehn
   Minuten gedrosselt, je Link höchstens 40 Übertragungen am Tag;

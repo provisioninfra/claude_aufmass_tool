@@ -417,6 +417,25 @@ $html = seite_rendern();
 pruefe(strpos($html, 'Nur ein gesperrter Zugang') !== false, 'eine erfundene Kennung wird abgewiesen');
 $_POST = array();
 
+echo "\n== Einstellungsseite: Herkunft der Aufrufe ==\n";
+$_SERVER['REMOTE_ADDR'] = '203.0.113.44';
+unset($_SERVER['HTTP_X_FORWARDED_FOR']);
+$html = seite_rendern();
+pruefe(strpos($html, 'Herkunft der Aufrufe') !== false && strpos($html, '<code>203.0.113.44</code>') !== false, 'die Seite zeigt, von welcher Adresse der Aufruf kommt');
+pruefe(preg_match('/name="aufmass_hinter_proxy" value="1"(?![^>]*checked)/', $html) === 1, 'der Haken „hinter Proxy“ ist aus');
+$_SERVER['REMOTE_ADDR'] = '10.0.0.1';
+$_SERVER['HTTP_X_FORWARDED_FOR'] = '203.0.113.45';
+$html = seite_rendern();
+pruefe(strpos($html, '<code>203.0.113.45</code>') !== false && strpos($html, 'weitergereicht') !== false && strpos($html, 'X-Forwarded-For: 203.0.113.45') !== false,
+    'hinter einem internen Proxy nennt sie die weitergereichte Adresse und das Kopffeld');
+$_SERVER['HTTP_X_FORWARDED_FOR'] = "203.0.113.46\r\n<script>alert(1)</script>";
+$html = seite_rendern();
+pruefe(strpos($html, '<script>alert(1)</script>') === false && strpos($html, '&lt;script&gt;') !== false, 'ein bösartiges Kopffeld landet nicht als HTML auf der Seite');
+unset($_SERVER['HTTP_X_FORWARDED_FOR']);
+$html = seite_rendern();
+pruefe(strpos($html, 'interne Adresse ohne Kopffeld') !== false, 'eine interne Adresse ohne Kopffeld wird als Problem benannt');
+pruefe(preg_match('/Warning|Notice|Deprecated|Fatal/', $html) === 0, 'auch diese Zeile entsteht ohne PHP-Meldungen');
+
 echo "\n== Erfundene Kennungen ==\n";
 /* Ohne Existenzprüfung griffe die Regel "herrenlos darf jeder übernehmen"
    auch für eine frei erfundene Kennung. */

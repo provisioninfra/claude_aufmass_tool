@@ -32,7 +32,8 @@ und Werkzeug tragen dieselbe Fassungsnummer.
 - **Anmeldung gehärtet:** ohne eingetragene Organisationsdomäne ist die
   Anmeldung gesperrt; der Google-Ausweis gilt genau einmal und höchstens
   zehn Minuten; neue Konten der Organisation können auf Wunsch erst nach
-  Freigabe durch die Verwaltung zugelassen werden.
+  Freigabe durch die Verwaltung zugelassen werden; die Drosseln zählen
+  auch hinter einem Proxy des Hosters je Besucher.
 
 **Zeitbedarf:** etwa 15 Minuten. **Ausfall:** keiner, die Aufmaße bleiben
 unberührt, niemand muss sich neu anmelden.
@@ -73,9 +74,8 @@ Vorlage, Freigabe) – das erledigt WordPress beim ersten Aufruf von selbst
 
 **Prüfen:** *Plugins* öffnen – bei „Aufmaß-Abgleich“ muss **1.2.0**
 stehen. Unter *Einstellungen → Aufmaß-Abgleich* muss neben der
-Organisationsdomäne die neue Zeile **„Neue Zugänge“** mit dem Haken
-„erst nach Freigabe durch die Verwaltung“ erscheinen. Fehlt sie, läuft
-noch die alte Fassung.
+Organisationsdomäne die neuen Zeilen **„Neue Zugänge“** und **„Herkunft
+der Aufrufe“** erscheinen. Fehlen sie, läuft noch die alte Fassung.
 
 > **Nicht** das Plugin „Löschen“ und neu installieren: Löschen räumt die
 > Einstellungen weg (Google-Client-ID, Domäne), die müssten danach neu
@@ -166,6 +166,16 @@ auch das ist in Ordnung, die Aufmaße gleichen sich wie gewohnt ab.
   den Haken; der Zugang wird dann angelegt, bleibt aber gesperrt, bis er
   unter „Zugänge“ freigegeben wird. Die Betroffenen sehen beim Anmelden
   einen klaren Hinweis.
+- *Herkunft der Aufrufe:* neue Zeile mit der Adresse, von der dieser
+  Aufruf für den Server kommt. Fehlversuche bei der Anmeldung und Aufrufe
+  der Kundenseite werden je Besucheradresse gedrosselt; sähe der Server
+  statt der Besucher nur den Proxy des Hosters, teilten sich alle einen
+  Zähler. **Probe:** die Einstellungsseite einmal vom Telefon über
+  Mobilfunk öffnen. Steht dort eine andere Adresse als am Bürorechner,
+  ist alles richtig, und der Haken **„hinter einem Proxy oder CDN“**
+  bleibt aus. Steht von überall dieselbe Adresse, den Haken setzen.
+  Kommt der Aufruf aus einem internen Netz des Hosters, liest das Plugin
+  das Kopffeld des Proxys ohnehin von selbst.
 - *Kundenfreigabe:* Gültigkeit der Links (Vorgabe 30 Tage, 0 =
   unbegrenzt) und Benachrichtigung – unverändert. Die E-Mail heißt bei
   einer verbindlichen Freigabe jetzt „Verbindliche Freigabe des

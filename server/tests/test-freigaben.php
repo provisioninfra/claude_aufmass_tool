@@ -574,5 +574,50 @@ pruefe($h1 !== $h2 && $h1 !== $h3 && $h2 !== $h3, 'drei Besucher, drei Zähler -
 pruefe($h4 === 'v6:20010db800010002', 'echtes IPv6 zählt weiter als /64-Netz', $h4);
 $_SERVER['REMOTE_ADDR'] = '10.0.0.1';
 
+echo "\n== Herkunft hinter einem Proxy des Hosters ==\n";
+function herkunft_mit($direkt, $xff = null, $real = null) {
+    if ($direkt === null) { unset($_SERVER['REMOTE_ADDR']); } else { $_SERVER['REMOTE_ADDR'] = $direkt; }
+    if ($xff === null) { unset($_SERVER['HTTP_X_FORWARDED_FOR']); } else { $_SERVER['HTTP_X_FORWARDED_FOR'] = $xff; }
+    if ($real === null) { unset($_SERVER['HTTP_X_REAL_IP']); } else { $_SERVER['HTTP_X_REAL_IP'] = $real; }
+    return Aufmass_Drossel::herkunft();
+}
+update_option('aufmass_hinter_proxy', '0');
+pruefe(herkunft_mit('203.0.113.7', '198.51.100.1') === 'v4:203.0.113.7', 'bei direkter Verbindung zählt ein mitgeschicktes X-Forwarded-For nicht', herkunft_mit('203.0.113.7', '198.51.100.1'));
+pruefe(herkunft_mit('203.0.113.7', null, '198.51.100.1') === 'v4:203.0.113.7', 'ebenso wenig ein X-Real-IP', herkunft_mit('203.0.113.7', null, '198.51.100.1'));
+pruefe(herkunft_mit('10.0.0.1', '198.51.100.1') === 'v4:198.51.100.1', 'hinter einem internen Proxy zählt die weitergereichte Adresse', herkunft_mit('10.0.0.1', '198.51.100.1'));
+pruefe(herkunft_mit('10.0.0.1', '1.2.3.4, 198.51.100.2') === 'v4:198.51.100.2', 'ein vorn erfundener Eintrag zählt nicht - der Proxy hängt die echte Adresse hinten an', herkunft_mit('10.0.0.1', '1.2.3.4, 198.51.100.2'));
+pruefe(herkunft_mit('10.0.0.1', '198.51.100.3, 10.0.0.7') === 'v4:198.51.100.3', 'interne Zwischenstationen am Ende werden übersprungen', herkunft_mit('10.0.0.1', '198.51.100.3, 10.0.0.7'));
+pruefe(herkunft_mit('10.0.0.1', 'nix, <script>') === 'v4:10.0.0.1', 'Unbrauchbares im Kopffeld: es bleibt bei der direkten Adresse', herkunft_mit('10.0.0.1', 'nix, <script>'));
+pruefe(herkunft_mit('10.0.0.1', '  198.51.100.4:51234 ') === 'v4:198.51.100.4', 'Leerraum und Port werden abgestreift', herkunft_mit('10.0.0.1', '  198.51.100.4:51234 '));
+$h1 = herkunft_mit('10.0.0.1', null, '2001:db8:9:9::1');
+$h2 = herkunft_mit('10.0.0.1', '[2001:db8:9:9:aaaa::1]:443');
+pruefe($h1 === 'v6:20010db800090009' && $h2 === $h1, 'X-Real-IP ohne X-Forwarded-For; IPv6 als /64-Netz, Klammern abgestreift', "$h1 / $h2");
+pruefe(herkunft_mit('127.0.0.1', '198.51.100.5') === 'v4:198.51.100.5', 'Loopback gilt als Proxy auf derselben Maschine', herkunft_mit('127.0.0.1', '198.51.100.5'));
+pruefe(herkunft_mit('::ffff:10.0.0.9', '198.51.100.6') === 'v4:198.51.100.6', 'auch eine IPv4-mapped interne Adresse', herkunft_mit('::ffff:10.0.0.9', '198.51.100.6'));
+pruefe(herkunft_mit('100.64.0.1', '198.51.100.7') === 'v4:198.51.100.7', 'Shared Address Space (100.64/10) ist intern', herkunft_mit('100.64.0.1', '198.51.100.7'));
+pruefe(herkunft_mit('fd00::1', '198.51.100.8') === 'v4:198.51.100.8', 'ein Unique-Local-IPv6 ist intern', herkunft_mit('fd00::1', '198.51.100.8'));
+pruefe(herkunft_mit('10.0.0.1') === 'v4:10.0.0.1', 'ohne Kopffeld bleibt die interne Adresse', herkunft_mit('10.0.0.1'));
+pruefe(herkunft_mit('10.0.0.1', '10.0.0.5') === 'v4:10.0.0.5', 'nur interne Einträge: der vorderste zählt (Besucher im eigenen Netz)', herkunft_mit('10.0.0.1', '10.0.0.5'));
+pruefe(herkunft_mit(null, '198.51.100.9') === 'unbekannt', 'ohne REMOTE_ADDR zählt auch kein Kopffeld', herkunft_mit(null, '198.51.100.9'));
+pruefe(herkunft_mit('kein-wert', '198.51.100.9') === 'unbekannt', 'eine unbrauchbare REMOTE_ADDR ist unbekannt, nicht ein Zähler für alle', herkunft_mit('kein-wert', '198.51.100.9'));
+update_option('aufmass_hinter_proxy', '1');
+pruefe(herkunft_mit('203.0.113.7', '198.51.100.1') === 'v4:198.51.100.1', 'mit Haken „hinter Proxy“ zählt das Kopffeld auch bei öffentlicher Adresse', herkunft_mit('203.0.113.7', '198.51.100.1'));
+pruefe(herkunft_mit('203.0.113.7') === 'v4:203.0.113.7', 'fehlt es, zählt die direkte Adresse', herkunft_mit('203.0.113.7'));
+herkunft_mit('203.0.113.7', '198.51.100.1');
+$erk = Aufmass_Drossel::herkunft_erklaert();
+pruefe($erk['adresse'] === '198.51.100.1' && $erk['direkt'] === '203.0.113.7' && $erk['quelle'] === 'kopffeld' && $erk['schalter'] === true
+    && isset($erk['kopffelder']['X-Forwarded-For']) && $erk['kopffelder']['X-Forwarded-For'] === '198.51.100.1',
+    'die Erklärung für die Einstellungsseite nennt Adresse, Proxy, Quelle und Kopffeld', json_encode($erk));
+update_option('aufmass_hinter_proxy', '0');
+herkunft_mit('203.0.113.7', '198.51.100.1');
+$erk = Aufmass_Drossel::herkunft_erklaert();
+pruefe($erk['adresse'] === '203.0.113.7' && $erk['quelle'] === 'direkt' && $erk['intern'] === false && $erk['schalter'] === false,
+    'ohne Haken: direkt und nicht intern', json_encode($erk));
+herkunft_mit('10.0.0.1', "203.0.113.8\r\n<script>", null);
+$erk = Aufmass_Drossel::herkunft_erklaert();
+pruefe($erk['kopffelder']['X-Forwarded-For'] === '203.0.113.8<script>' && strlen($erk['kopffelder']['X-Forwarded-For']) < 200,
+    'Steuerzeichen fliegen aus der Anzeige des Kopffelds, der Rest wird nur angezeigt - nicht ausgeführt', json_encode($erk['kopffelder']));
+herkunft_mit('10.0.0.1');
+
 echo "\nErgebnis Freigaben: $ok ok, $fehler Fehler\n";
 exit($fehler ? 1 : 0);

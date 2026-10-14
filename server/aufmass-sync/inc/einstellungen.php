@@ -29,6 +29,11 @@ class Aufmass_Einstellungen {
         register_setting('aufmass_sync', 'aufmass_neue_freigeben', array(
             'type' => 'string', 'sanitize_callback' => array(__CLASS__, 'schalter_pruefen'), 'default' => '0'
         ));
+        /* Hinter einem Proxy mit öffentlicher Adresse (CDN): Besucheradresse
+           aus dessen Kopffeld lesen - siehe Aufmass_Drossel::herkunft(). */
+        register_setting('aufmass_sync', Aufmass_Drossel::OPTION_PROXY, array(
+            'type' => 'string', 'sanitize_callback' => array(__CLASS__, 'schalter_pruefen'), 'default' => '0'
+        ));
         /* Der Pipedrive-Schlüssel wird verschlüsselt abgelegt. Das Formular
            zeigt ihn nie an; ein leeres Feld heißt "unverändert lassen". */
         register_setting('aufmass_sync', 'aufmass_pipedrive_token', array(
@@ -200,6 +205,33 @@ class Aufmass_Einstellungen {
                   <p class="description">Ohne Haken ist jedes Konto der Organisation sofort dabei. Mit Haken wird
                      der Zugang angelegt, bleibt aber gesperrt, bis er unten unter „Zugänge“ freigegeben wird.
                      Die erste Anmeldung erhält in jedem Fall die Verwaltung.</p>
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Herkunft der Aufrufe</th>
+                <td>
+                  <?php $hk = Aufmass_Drossel::herkunft_erklaert(); ?>
+                  <p>Dieser Aufruf kommt für den Server von
+                     <code><?php echo esc_html($hk['adresse'] !== '' ? $hk['adresse'] : 'unbekannt'); ?></code><?php
+                     if ($hk['quelle'] === 'kopffeld') : ?> - weitergereicht vom Proxy
+                       <code><?php echo esc_html($hk['direkt']); ?></code> über dessen Kopffeld.<?php
+                     elseif ($hk['intern']) : ?> - eine interne Adresse ohne Kopffeld: Der Server sieht alle Besucher
+                       gleich. Bitte beim Hoster nachfragen, wie er die Besucheradresse weiterreicht.<?php
+                     elseif ($hk['schalter']) : ?> - der Haken unten ist gesetzt, aber dieser Aufruf trägt kein Kopffeld;
+                       gezählt wird die direkte Adresse.<?php
+                     else : ?>.<?php endif; ?></p>
+                  <?php if ($hk['kopffelder']) : ?>
+                    <p class="description">Gesehene Kopffelder:
+                      <?php foreach ($hk['kopffelder'] as $n => $w) : ?><code><?php echo esc_html($n . ': ' . $w); ?></code> <?php endforeach; ?></p>
+                  <?php endif; ?>
+                  <input type="hidden" name="aufmass_hinter_proxy" value="0">
+                  <label><input type="checkbox" name="aufmass_hinter_proxy" value="1" <?php checked($hk['schalter']); ?>>
+                    Die Website läuft hinter einem Proxy oder CDN: Besucheradresse aus dessen Kopffeld lesen</label>
+                  <p class="description">Fehlversuche bei der Anmeldung und Aufrufe der Kundenseite werden je Besucheradresse
+                     gedrosselt. <strong>Probe:</strong> diese Seite einmal vom Telefon über Mobilfunk öffnen. Steht oben dann eine
+                     andere Adresse als am Bürorechner, ist alles richtig - Haken aus lassen, sonst könnten Besucher ihre
+                     Adresse frei vorgeben. Steht von überall dieselbe Adresse, sieht der Server nur den Proxy des Hosters -
+                     dann den Haken setzen. Aus einem internen Netz des Hosters wird das Kopffeld ohnehin von selbst gelesen.</p>
                 </td>
               </tr>
             </table>
