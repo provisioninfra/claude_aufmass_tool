@@ -46,7 +46,7 @@
 
   /* Eine Pipedrive-Adresse in Reinform - oder '' wenn das keine ist.
    * Angenommen wird nur ein Rechnername unter pipedrive.com; alles andere
-   * könnte die Seite ohnehin nicht ansprechen (Content-Security-Policy),
+   * könnte die Seite ohnehin nicht ansprechen (die Seite erlaubt nur pipedrive.com),
    * und ein Tippfehler soll nicht in rätselhaften Fehlern enden. */
   function hostRein(text) {
     var roh = String(text || '').trim().toLowerCase();
