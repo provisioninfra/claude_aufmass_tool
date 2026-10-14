@@ -95,7 +95,7 @@ const gespeichert = JSON.parse(fs.readFileSync(OPT, 'utf8'));
 (async () => {
   const umgebung = Object.assign({}, process.env, {
     AUFMASS_TEST_DB: path.join(ARBEIT, 'd.sqlite'), AUFMASS_TEST_OPT: OPT, AUFMASS_TEST_UPLOADS: path.join(ARBEIT, 'up'),
-    AUFMASS_TEST_OAI_KEY: SCHLUESSEL, AUFMASS_TEST_OAI_LOG: LOG
+    AUFMASS_TEST_OAI_KEY: SCHLUESSEL, AUFMASS_TEST_OAI_LOG: LOG, AUFMASS_TEST_OAI_MODUS: path.join(ARBEIT, 'modus.txt')
   });
   const server = spawn('php', ['-S', '127.0.0.1:' + HAFEN, path.join(W, 'server/tests/mini-server.php')], { env: umgebung, stdio: ['ignore', 'ignore', 'pipe'] });
   const attrappe = spawn('php', ['-S', '127.0.0.1:' + HAFEN_OAI, path.join(W, 'server/tests/fake-openai.php')], { env: umgebung, stdio: ['ignore', 'ignore', 'pipe'] });
@@ -186,7 +186,7 @@ const gespeichert = JSON.parse(fs.readFileSync(OPT, 'utf8'));
 
     /* Text berichtigen und neu zuordnen */
     await seite.click('.dialog .diktat-text button:has-text("Text ändern")');
-    await seite.fill('.dialog .diktat-text textarea', 'Büro Empfang, Doppelzylinder 40 45, DIN rechts.');
+    await seite.fill('.dialog .diktat-text textarea', 'Tür Nummer 9, Büro Empfang, Doppelzylinder 40 45, DIN rechts, Kabel liegt schon.');
     await seite.click('.dialog .diktat-text button:has-text("Neu zuordnen")');
     await seite.waitForSelector('.dialog .diktat table.diktat-tabelle', { timeout: 20000 });
     p(/Doppelzylinder 40 45/.test(await seite.textContent('.dialog .diktat blockquote')), 'ein berichtigter Text wird neu zugeordnet');
@@ -203,16 +203,17 @@ const gespeichert = JSON.parse(fs.readFileSync(OPT, 'utf8'));
         dinRichtung: w('dinRichtung'), beschlagBestueckung: w('beschlagBestueckung'), dornmass: w('dornmass'), wandleser: w('brauchtWandleser'),
         beschlag: w('brauchtBeschlag'), notiz: w('notiz') };
     });
-    p(formular.bezeichnung === 'Büro Empfang' && formular.zylinderBauform === 'Halbzylinder' && formular.masseAussen === '35', 'die Felder im Formular sind gefüllt', JSON.stringify(formular));
-    p(formular.dinRichtung === 'DIN links' && formular.beschlagBestueckung === 'Drücker / Drücker' && formular.dornmass === '55', 'auch Beschlag und Maße');
-    p(formular.wandleser === true && formular.beschlag === true, 'Wandleser und Beschlag sind eingeschaltet');
+    p(formular.bezeichnung === 'Büro Empfang' && formular.zylinderBauform === 'Doppelzylinder' && formular.masseAussen === '40', 'die Felder im Formular sind aus dem berichtigten Text gefüllt', JSON.stringify(formular));
+    p(!formular.beschlagBestueckung && !formular.dornmass, 'nur was im berichtigten Text stand - kein Beschlag, kein Dornmaß', JSON.stringify(formular));
+    p(await seite.evaluate(() => { const d = document.querySelector('.dialog'); return !!d; }) && formular.dinRichtung === null, 'die DIN-Richtung ist gespeichert, aber ohne Beschlag oder Schloss nicht im Formular zu sehen - so ist das Formular gebaut');
+    p(formular.wandleser === false && formular.beschlag === false, 'Wandleser und Beschlag bleiben aus');
     p(/Kabel liegt schon/.test(formular.notiz || ''), 'das nicht Zugeordnete steht in der Bemerkung', formular.notiz);
-    p(formular.nummer !== '7', 'die abgewählte Nummer wurde nicht übernommen', formular.nummer);
+    p(formular.nummer !== '9', 'die abgewählte Nummer wurde nicht übernommen', formular.nummer);
     await seite.click('.dialog .fuss button:has-text("Tür speichern")');
     await seite.waitForTimeout(500);
     const gespeicherteTuer = await seite.evaluate(() => { const ts = window.AppKern.Zustand.projekt.tueren; return ts[ts.length - 1]; });
     p(await seite.evaluate(() => window.AppKern.Zustand.projekt.tueren.length) === tuerenVorher + 1 && gespeicherteTuer.bezeichnung === 'Büro Empfang'
-      && gespeicherteTuer.zylinderBauform === 'Halbzylinder' && gespeicherteTuer.brauchtWandleser === true, 'die Tür ist mit den Angaben gespeichert');
+      && gespeicherteTuer.zylinderBauform === 'Doppelzylinder' && gespeicherteTuer.brauchtWandleser === false && gespeicherteTuer.dinRichtung === 'DIN rechts', 'die Tür ist mit den Angaben gespeichert - samt DIN-Richtung');
 
     console.log('\n== Was bei OpenAI ankam - und was nicht ==');
     const protokoll = (fs.existsSync(LOG) ? fs.readFileSync(LOG, 'utf8').trim().split('\n').map(z => JSON.parse(z)) : []).filter(z => z.ua !== 'node' && !z.fehler);
@@ -264,6 +265,70 @@ const gespeichert = JSON.parse(fs.readFileSync(OPT, 'utf8'));
     await seite2.waitForSelector('.dialog .modus-leiste', { timeout: 10000 });
     p(await seite2.$('.dialog .modus-leiste .diktat-start') === null, 'dann hat das Türformular den Knopf nicht - alles bleibt wie gewohnt');
     await ohneSchluessel.close();
+
+    console.log('\n== Serie: „neue Tür“ legt mehrere Türen im Bereich an ==');
+    const MODUS = path.join(ARBEIT, 'modus.txt');
+    fs.writeFileSync(MODUS, 'serie');
+    const seite4 = await ctx.newPage();
+    seite4.on('pageerror', e => { if (!istUmgebungsGeraeusch(e.message, e.stack)) konsole.push('PAGEERROR4: ' + e.message); });
+    seite4.on('console', m => { if (m.type() !== 'error') return; const wo = m.location() ? m.location().url : ''; if (/Failed to load resource/.test(m.text())) return; if (!istUmgebungsGeraeusch(m.text(), wo)) konsole.push(m.text()); });
+    await seite4.goto(BASIS + '/index.html', { waitUntil: 'load' });
+    await seite4.waitForSelector('header.kopf', { timeout: 10000 });
+    await ersteProjektOeffnen(seite4, 10000);
+    const bereich = await seite4.evaluate(() => {
+      const pr = window.AppKern.Zustand.projekt;
+      const blatt = pr.standorte.find(k => !pr.standorte.some(x => x.parentId === k.id));
+      window.AppKern.Zustand.tuerFilter = { suche: '', struktur: blatt.id, status: '', system: '', unvollstaendig: false };
+      window.App.wechseln('tueren');
+      return { id: blatt.id, name: blatt.name, vorher: pr.tueren.length };
+    });
+    await seite4.waitForSelector('button:has-text("+ Neue Tür")', { timeout: 10000 });
+    await seite4.click('button:has-text("+ Neue Tür")');
+    await seite4.waitForSelector('.dialog .modus-leiste .diktat-start', { timeout: 10000 });
+    await seite4.click('.dialog .modus-leiste .diktat-start');
+    await seite4.waitForSelector('.dialog .diktat .diktat-aufnahme', { timeout: 5000 });
+    p(/neue Tür/.test(await seite4.textContent('.dialog .diktat')), 'der Dialog erklärt den Befehl „neue Tür“');
+    await seite4.click('.dialog .diktat .diktat-aufnahme');
+    await seite4.waitForSelector('.dialog .diktat .diktat-laeuft', { timeout: 8000 });
+    await seite4.waitForTimeout(1500);
+    await seite4.click('.dialog .fuss button:has-text("Aufnahme beenden")');
+    await seite4.waitForSelector('.dialog:has-text("Türen eingesprochen")', { timeout: 25000 });
+    p(true, 'nach der Aufnahme erscheint die Zusammenfassung - kein Vorschlag, keine Rückfrage');
+    const zusammen = await seite4.textContent('.dialog:has-text("Türen eingesprochen")');
+    p(/3 Türen wurden/.test(zusammen) && zusammen.indexOf(bereich.name) !== -1, 'drei Türen im Bereich, in dem ich war', zusammen.slice(0, 160));
+    const tueren = await seite4.evaluate(() => window.AppKern.Zustand.projekt.tueren.slice(-3).map(x => ({ bez: x.bezeichnung, nr: x.nummer, struktur: x.strukturId,
+      zyl: x.zylinderBauform, aussen: x.masseAussen, din: x.dinRichtung, wl: x.brauchtWandleser, notiz: x.notiz, beschlag: x.brauchtBeschlag })));
+    p(tueren.map(x => x.bez).join('|') === 'Büro Empfang|Lager hinten|Technikraum', 'die drei Türen tragen ihre Bezeichnungen in der gesprochenen Reihenfolge', JSON.stringify(tueren));
+    p(tueren.every(x => x.struktur === bereich.id), 'alle drei liegen in diesem Bereich');
+    p(tueren[0].zyl === 'Halbzylinder' && tueren[0].aussen === '35' && tueren[0].din === 'DIN links', 'die erste Tür hat ihre Angaben');
+    p(tueren[1].zyl === 'Doppelzylinder' && tueren[1].aussen === '40' && tueren[1].din === 'DIN rechts' && tueren[1].beschlag === true, 'die zweite ihre');
+    p(tueren[2].zyl === 'Halbzylinder' && tueren[2].wl === true && /Kabel liegt schon/.test(tueren[2].notiz || ''), 'die dritte ihre - Offenes steht in der Bemerkung');
+    const nummern = tueren.map(x => x.nr);
+    p(new Set(nummern).size === 3 && nummern.every(n => n), 'jede Tür hat eine eigene laufende Nummer', nummern.join(','));
+    p(await seite4.evaluate(() => window.AppKern.Zustand.projekt.tueren.length) === bereich.vorher + 3, 'genau drei Türen sind dazugekommen');
+    p((await seite4.$$('.dialog .diktat')).length === 0 && (await seite4.$$('.dialog .modus-leiste')).length === 0, 'Türformular und Diktat sind geschlossen');
+    p((await seite4.$$('.dialog:has-text("Türen eingesprochen") .tuer-zeile')).length === 3, 'die Zusammenfassung listet die drei Türen');
+    await seite4.click('.dialog .fuss button:has-text("Weiter einsprechen")');
+    await seite4.waitForSelector('.dialog .diktat .diktat-aufnahme', { timeout: 8000 });
+    p(await seite4.evaluate(() => document.querySelectorAll('.dialog').length === 2), '„Weiter einsprechen“ öffnet eine neue Tür samt Diktat');
+    await seite4.keyboard.press('Escape'); await seite4.waitForTimeout(250);
+    p(/Neue Tür aufnehmen/.test(await seite4.textContent('.dialog > .kopf h2')), 'es ist eine neue Tür');
+    const strukturNeu = await seite4.evaluate(() => { const s = document.querySelector('.dialog [data-feld="strukturId"] select'); return s ? s.value : null; });
+    p(strukturNeu === bereich.id, 'im selben Bereich', String(strukturNeu));
+    await seite4.keyboard.press('Escape'); await seite4.waitForTimeout(250);
+    fs.writeFileSync(MODUS, 'nur-befehl');
+    await seite4.click('button:has-text("+ Neue Tür")');
+    await seite4.waitForSelector('.dialog .modus-leiste .diktat-start', { timeout: 10000 });
+    await seite4.click('.dialog .modus-leiste .diktat-start');
+    await seite4.waitForSelector('.dialog .diktat .diktat-aufnahme', { timeout: 5000 });
+    await seite4.click('.dialog .diktat .diktat-aufnahme');
+    await seite4.waitForSelector('.dialog .diktat .diktat-laeuft', { timeout: 8000 });
+    await seite4.waitForTimeout(1200);
+    await seite4.click('.dialog .fuss button:has-text("Aufnahme beenden")');
+    await seite4.waitForSelector('.dialog .diktat .meldung.fehler', { timeout: 15000 });
+    p(/Befehl/.test(await seite4.textContent('.dialog .diktat .meldung')), 'nur „neue Tür“ ohne Angaben wird als Fehler gemeldet', await seite4.textContent('.dialog .diktat .meldung'));
+    fs.writeFileSync(MODUS, '');
+    await seite4.close();
 
     console.log('\n== Fehlerpfade im Dialog ==');
     const seite3 = await ctx.newPage();

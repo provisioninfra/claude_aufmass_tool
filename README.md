@@ -154,6 +154,17 @@ passte, steht gesondert und wandert auf Wunsch in die Bemerkung. Erst
 zum Prüfen. Ein verhörter Text lässt sich im Dialog berichtigen und neu
 zuordnen, ohne noch einmal zu sprechen.
 
+**Mehrere Türen am Stück.** Wer in der Aufnahme **„neue Tür“** sagt (auch
+„nächste Tür“), beginnt die nächste Tür. Das Werkzeug zerlegt den Text am
+Befehl und ordnet jeden Teil für sich zu. Dann wird ohne Rückfrage
+eingetragen: der erste Teil in die geöffnete Tür, jeder weitere als neue
+Tür im selben Bereich, Gebäude oder Standort, mit eigener laufender Nummer.
+Danach zeigt eine Zusammenfassung die angelegten Türen zum Prüfen, und
+**„Weiter einsprechen“** öffnet sofort die nächste Tür in diesem Bereich
+mit laufendem Diktat – so lassen sich ganze Etagen in einem Zug aufnehmen.
+Eine Aufnahme darf fünf Minuten lang sein und höchstens dreißig Türen
+enthalten. Was zu keinem Feld passte, steht je Tür in der Bemerkung.
+
 **Was das Modell weiß.** Das Feldschema entsteht aus dem Katalog
 (`Diktat.felder`): Name, Art, Frage, erlaubte Werte und Synonyme („Rosette
 = Rosettengarnitur“, „Not- und Gefahrenfunktion = BSZ“). Eigene

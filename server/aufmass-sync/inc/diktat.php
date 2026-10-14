@@ -31,15 +31,19 @@ class Aufmass_Diktat {
     const STANDARD_HOST = 'api.openai.com';
     const MODELL_ERKENNUNG = 'gpt-4o-transcribe';
     const MODELL_ZUORDNUNG = 'gpt-4.1-mini';
-    const TON_MAX = 10485760;      /* 10 MiB - drei Minuten Aufnahme sind rund 1 bis 3 MiB */
+    const TON_MAX = 26214400;      /* 25 MiB wie bei OpenAI - fünf Minuten Aufnahme sind rund 2 bis 5 MiB */
+    const SEGMENTE_MAX = 30;       /* Türen je Aufnahme */
+    /** Der gesprochene Befehl, der die nächste Tür einleitet. */
+    const BEFEHL_NEUE_TUER = '/(?<![\p{L}\p{N}])(?:neue|nächste|naechste|noch\s+eine)\s+t(?:ü|ue)r(?:e)?(?![\p{L}\p{N}])[\s.,;:!?\-–]*/iu';
     const TEXT_MAX = 20000;
     const FELDER_MAX = 80;
     const WERTE_MAX = 80;
     const WOERTER_MAX = 40;
     const JE_MINUTE = 12;
     const JE_TAG = 400;
-    /* Innerhalb üblicher Laufzeitgrenzen eines Hosters (60-120 s je Anfrage) */
-    const ZEIT_ERKENNUNG = 60;
+    /* Die Erkennung einer längeren Aufnahme braucht Geduld; die Laufzeit-
+       grenze von PHP wird dafür angehoben, soweit der Hoster es zulässt. */
+    const ZEIT_ERKENNUNG = 90;
     const ZEIT_ZUORDNUNG = 45;
 
     /** Tonformate des Werkzeugs und die Dateiendung, an der OpenAI das Format erkennt. */
@@ -52,7 +56,7 @@ class Aufmass_Diktat {
 
     /** Fachwörter als Vorgabe für die Erkennung - so wird aus „Dornmaß“
      *  kein „Dornmast“. Eigene Begriffe des Werkzeugs kommen dazu. */
-    const VOKABULAR = 'Aufmaß einer Tür für eine Schließanlage. Fachwörter: Profilzylinder, Doppelzylinder, Halbzylinder, Knaufzylinder, Länge außen, Länge innen, BSZ, beidseitig schließbar, Not- und Gefahrenfunktion, Freidreh, VdS, SKG, Dornmaß, Entfernung, Vierkant, Türblattstärke, DIN links, DIN rechts, Rosettengarnitur, Langschildgarnitur, Schutzbeschlag, Wechselgarnitur, Panikbeschlag, Drücker, Knauf, Stoßgriff, Einsteckschloss, Rohrrahmenschloss, Mehrfachverriegelung, Motorschloss, Panikfunktion, Stulp, Fallenart, Riegelausschluss, Wandleser, Kabelübergang, Leerrohr, Türöffner, Nacharbeit, Haupteingang, Technikraum.';
+    const VOKABULAR = 'Aufmaß einer Tür für eine Schließanlage. Befehle: neue Tür, nächste Tür. Fachwörter: Profilzylinder, Doppelzylinder, Halbzylinder, Knaufzylinder, Länge außen, Länge innen, BSZ, beidseitig schließbar, Not- und Gefahrenfunktion, Freidreh, VdS, SKG, Dornmaß, Entfernung, Vierkant, Türblattstärke, DIN links, DIN rechts, Rosettengarnitur, Langschildgarnitur, Schutzbeschlag, Wechselgarnitur, Panikbeschlag, Drücker, Knauf, Stoßgriff, Einsteckschloss, Rohrrahmenschloss, Mehrfachverriegelung, Motorschloss, Panikfunktion, Stulp, Fallenart, Riegelausschluss, Wandleser, Kabelübergang, Leerrohr, Türöffner, Nacharbeit, Haupteingang, Technikraum.';
 
     /** Die Anweisung an das Modell für die Zuordnung. */
     const ANWEISUNG = "Du bist Teil eines Aufmaß-Werkzeugs für Schließanlagen. Ein Monteur hat beim Aufmaß einer Tür Angaben eingesprochen; der Text wurde automatisch erkannt und kann Hörfehler enthalten. Ordne die Angaben den Feldern des Formulars zu und antworte ausschließlich mit dem JSON nach dem vorgegebenen Schema.\n"
@@ -258,6 +262,9 @@ class Aufmass_Diktat {
             return self::fehler('kontingent', 'Das Tageskontingent für Diktate ist erreicht. Morgen geht es weiter.', 429);
         }
 
+        /* Erkennung und mehrere Zuordnungen dauern; die Laufzeitgrenze von
+           PHP anheben, soweit der Hoster das zulässt. */
+        if (function_exists('set_time_limit')) { @set_time_limit(300); }
         if ($bytes !== null) {
             $erkannt = self::erkennen($bytes, $mime, $woerter);
             if (is_wp_error($erkannt)) { return $erkannt; }
@@ -266,9 +273,35 @@ class Aufmass_Diktat {
         if ($text === '') {
             return self::fehler('nichts_verstanden', 'In der Aufnahme war nichts zu verstehen. Bitte näher am Gerät und deutlich sprechen.', 422);
         }
-        $zu = self::zuordnen($text, $felder);
-        if (is_wp_error($zu)) { return $zu; }
-        return array('text' => $text, 'felder' => $zu['felder'], 'offen' => $zu['offen']);
+        /* „Neue Tür“ trennt die Türen einer Aufnahme: jede wird für sich
+           zugeordnet. Ohne den Befehl ist es eine Tür wie bisher. */
+        $segmente = self::segmente($text);
+        if (!count($segmente)) {
+            return self::fehler('nichts_verstanden', 'Außer dem Befehl „neue Tür“ war nichts zu verstehen.', 422);
+        }
+        if (count($segmente) > self::SEGMENTE_MAX) { $segmente = array_slice($segmente, 0, self::SEGMENTE_MAX); }
+        $tueren = array();
+        foreach ($segmente as $teil) {
+            $zu = self::zuordnen($teil, $felder);
+            if (is_wp_error($zu)) { return $zu; }
+            $tueren[] = array('text' => $teil, 'felder' => $zu['felder'], 'offen' => $zu['offen']);
+        }
+        return array('text' => $text, 'felder' => $tueren[0]['felder'], 'offen' => $tueren[0]['offen'],
+            'serie' => count($tueren) > 1, 'tueren' => $tueren);
+    }
+
+    /** Den erkannten Text am Befehl „neue Tür“ zerlegen - leere Teile
+     *  fallen weg (etwa wenn die Aufnahme mit dem Befehl beginnt). Ohne
+     *  Befehl kommt der ganze Text als ein Teil zurück. */
+    public static function segmente($text) {
+        $teile = preg_split(self::BEFEHL_NEUE_TUER, (string) $text);
+        if (!is_array($teile)) { $teile = array((string) $text); }
+        $aus = array();
+        foreach ($teile as $t) {
+            $t = trim(preg_replace('/^[\s.,;:!?\-–]+|[\s.,;:!?\-–]+$/u', '', (string) $t));
+            if ($t !== '') { $aus[] = $t; }
+        }
+        return $aus;
     }
 
     /** Länge und Format einer Aufnahme prüfen. @return string|WP_Error die Dateiendung */

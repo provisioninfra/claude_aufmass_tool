@@ -365,6 +365,23 @@ const ANTWORTEN = {
     'eine Phase, die nicht zur Pipeline gehört, wird als Ursache benannt',
     veraltet.hinweise.join(' | ').slice(0, 100));
 
+  /* --- Die Pipedrive-Adresse auf dem Gerät: nur Rechner unter pipedrive.com --- */
+  const adressen = await page.evaluate(() => {
+    const P = window.Pipedrive;
+    return {
+      leer: P.hostAus({ pipedriveHost: '' }), firma: P.hostAus({ pipedriveHost: 'https://meinefirma.pipedrive.com/deals' }),
+      gross: P.hostRein('MeineFirma.Pipedrive.com:443'), zahl: P.hostAus({ pipedriveHost: '12' }), fremd: P.hostAus({ pipedriveHost: 'boese.example' }),
+      leerzeichen: P.hostAus({ pipedriveHost: '   ' }), umlaut: P.hostAus({ pipedriveHost: 'Ä ö ü' }), nackt: P.hostAus({ pipedriveHost: 'pipedrive.com' }),
+      gueltigLeer: P.hostGueltig(''), gueltigFirma: P.hostGueltig('meinefirma.pipedrive.com'), gueltigZahl: P.hostGueltig('12')
+    };
+  });
+  pruefe(adressen.leer === 'api.pipedrive.com' && adressen.firma === 'meinefirma.pipedrive.com' && adressen.gross === 'meinefirma.pipedrive.com',
+    'eine Firmenadresse wird angenommen, auch als vollständige Adresse oder mit Großschreibung', JSON.stringify(adressen));
+  pruefe(adressen.zahl === 'api.pipedrive.com' && adressen.fremd === 'api.pipedrive.com' && adressen.leerzeichen === 'api.pipedrive.com'
+    && adressen.umlaut === 'api.pipedrive.com' && adressen.nackt === 'api.pipedrive.com',
+    'alles, was kein Rechner unter pipedrive.com ist, fällt auf die Standardadresse zurück - die Seite dürfte es ohnehin nicht ansprechen');
+  pruefe(adressen.gueltigLeer === true && adressen.gueltigFirma === true && adressen.gueltigZahl === false, 'die Einstellungen können eine unbrauchbare Adresse benennen');
+
   pruefe(konsolenFehler.length === 0, 'keine JavaScript-Fehler', konsolenFehler.slice(0, 3).join(' | '));
   await browser.close();
   console.log(`\nErgebnis Pipedrive: ${ok} ok, ${fehler} Fehler`);

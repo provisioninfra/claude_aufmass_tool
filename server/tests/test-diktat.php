@@ -314,6 +314,42 @@ pruefe(Aufmass_Einstellungen::openai_host_pruefen('https://eu.api.openai.com/v1/
 pruefe(Aufmass_Einstellungen::openai_host_pruefen('nicht gültig') === '', 'eine unbrauchbare Adresse wird nicht übernommen');
 pruefe(Aufmass_Einstellungen::modell_zuordnung_pruefen('gpt-4.1') === 'gpt-4.1' && Aufmass_Einstellungen::modell_zuordnung_pruefen('x y') === '', 'Modellnamen werden geprüft');
 
+echo "\n== Der Befehl „neue Tür“ zerlegt die Aufnahme ==\n";
+$seg = Aufmass_Diktat::segmente('Büro Empfang, Halbzylinder 35 10. Neue Tür. Lager hinten, DIN rechts. Nächste Tür: Technikraum.');
+pruefe($seg === array('Büro Empfang, Halbzylinder 35 10', 'Lager hinten, DIN rechts', 'Technikraum'), 'drei Türen, Satzzeichen um den Befehl fallen weg', json_encode($seg, JSON_UNESCAPED_UNICODE));
+pruefe(Aufmass_Diktat::segmente('Neue Tür: Lager') === array('Lager'), 'ein Befehl am Anfang ergibt keinen leeren Teil');
+pruefe(Aufmass_Diktat::segmente('Lager, neue Türe Keller, noch eine Tür Flur') === array('Lager', 'Keller', 'Flur'), 'auch „Türe“ und „noch eine Tür“ zählen', json_encode(Aufmass_Diktat::segmente('Lager, neue Türe Keller, noch eine Tür Flur'), JSON_UNESCAPED_UNICODE));
+pruefe(Aufmass_Diktat::segmente('Haustür neu, zwei neue Türen, Türen neu') === array('Haustür neu, zwei neue Türen, Türen neu'), '„Haustür“, „neue Türen“ oder „Türen neu“ sind kein Befehl');
+pruefe(Aufmass_Diktat::segmente('neue tür') === array(), 'nur der Befehl: nichts übrig');
+pruefe(Aufmass_Diktat::segmente('Lager') === array('Lager'), 'ohne Befehl bleibt der Text ein Teil');
+zuruecksetzen();
+$antworten[] = antwort_text('Büro Empfang. Neue Tür. Lager hinten, DIN rechts. Nächste Tür: Technikraum');
+$antworten[] = antwort_chat(array('bezeichnung' => 'Büro Empfang', 'offen' => array()));
+$antworten[] = antwort_chat(array('bezeichnung' => 'Lager hinten', 'dinRichtung' => 'DIN rechts', 'offen' => array('Regal im Weg')));
+$antworten[] = antwort_chat(array('bezeichnung' => 'Technikraum', 'offen' => array()));
+$e = Aufmass_Diktat::verarbeiten(array('tonBytes' => $TON, 'tonMime' => 'audio/webm', 'felder' => $FELDER), $BENUTZER);
+pruefe(!is_wp_error($e) && $e['serie'] === true && count($e['tueren']) === 3, 'eine Aufnahme mit zwei Befehlen ergibt drei Türen', fehlertext($e));
+pruefe(count($rufe) === 4, 'eine Erkennung, drei Zuordnungen', (string) count($rufe));
+pruefe($e['tueren'][1]['text'] === 'Lager hinten, DIN rechts' && $e['tueren'][1]['felder']['dinRichtung'] === 'DIN rechts' && $e['tueren'][1]['offen'] === array('Regal im Weg'),
+    'jede Tür hat ihren Text, ihre Felder und ihr Offenes', json_encode($e['tueren'][1], JSON_UNESCAPED_UNICODE));
+pruefe($e['felder'] === array('bezeichnung' => 'Büro Empfang') && strpos($e['text'], 'Neue Tür') !== false, 'der erste Teil steht wie bisher oben, der ganze Text bleibt');
+$j = json_decode($rufe[2]['args']['body'], true);
+pruefe(strpos($j['messages'][1]['content'], 'Lager hinten, DIN rechts') !== false && strpos($j['messages'][1]['content'], 'Technikraum') === false, 'jede Zuordnung sieht nur ihren Teil');
+zuruecksetzen();
+$antworten[] = antwort_chat(array('bezeichnung' => 'Lager', 'offen' => array()));
+$e = Aufmass_Diktat::verarbeiten(array('text' => 'Lager', 'felder' => $FELDER), $BENUTZER);
+pruefe(!is_wp_error($e) && $e['serie'] === false && count($e['tueren']) === 1, 'ohne Befehl: keine Serie, eine Tür', fehlertext($e));
+zuruecksetzen();
+$antworten[] = antwort_text('Neue Tür. Neue Tür.');
+$e = Aufmass_Diktat::verarbeiten(array('tonBytes' => $TON, 'tonMime' => 'audio/webm', 'felder' => $FELDER), $BENUTZER);
+pruefe(is_wp_error($e) && $e->get_error_code() === 'nichts_verstanden' && count($rufe) === 1, 'nur Befehle: nichts verstanden, keine Zuordnung', fehlertext($e));
+zuruecksetzen();
+$antworten[] = antwort_text(implode(' neue Tür ', array_fill(0, 35, 'Tür')));
+for ($i = 0; $i < 30; $i++) { $antworten[] = antwort_chat(array('offen' => array())); }
+$e = Aufmass_Diktat::verarbeiten(array('tonBytes' => $TON, 'tonMime' => 'audio/webm', 'felder' => $FELDER), $BENUTZER);
+pruefe(!is_wp_error($e) && count($e['tueren']) === 30 && count($rufe) === 31, 'höchstens 30 Türen je Aufnahme', fehlertext($e));
+zuruecksetzen();
+
 echo "\n== Zufällige Eingaben erzeugen keine PHP-Meldungen ==\n";
 $meldungen = array();
 set_error_handler(function ($nr, $text, $datei, $zeile) use (&$meldungen) { $meldungen[] = $text . ' (' . basename($datei) . ':' . $zeile . ')'; return true; });

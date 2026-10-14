@@ -6899,14 +6899,24 @@ body.stift .zahl-knopf { min-width: 56px; }
     return e;
   }
 
+  /* Eine Pipedrive-Adresse in Reinform - oder '' wenn das keine ist.
+   * Angenommen wird nur ein Rechnername unter pipedrive.com; alles andere
+   * könnte die Seite ohnehin nicht ansprechen (Content-Security-Policy),
+   * und ein Tippfehler soll nicht in rätselhaften Fehlern enden. */
+  function hostRein(text) {
+    var roh = String(text || '').trim().toLowerCase();
+    if (!roh) return '';
+    /* Auch eine vollständige Adresse aus dem Browser wird angenommen */
+    roh = roh.replace(/^https?:\/\//, '').replace(/[\/?#].*$/, '').replace(/:\d+$/, '').trim();
+    return /^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+pipedrive\.com$/.test(roh) ? roh : '';
+  }
+  function hostGueltig(text) {
+    return !String(text || '').trim() || hostRein(text) !== '';
+  }
   function hostAus(einstellungen) {
     var server = serverWeg();
     if (server) return server.host;
-    var roh = String((einstellungen && einstellungen.pipedriveHost) || '').trim();
-    if (!roh) return STANDARD_HOST;
-    /* Auch eine vollständige Adresse aus dem Browser wird angenommen */
-    roh = roh.replace(/^https?:\/\//, '').replace(/\/.*$/, '').trim();
-    return roh || STANDARD_HOST;
+    return hostRein(einstellungen && einstellungen.pipedriveHost) || STANDARD_HOST;
   }
 
   /* =========================================================================
@@ -7489,6 +7499,8 @@ body.stift .zahl-knopf { min-width: 56px; }
 
   global.Pipedrive = {
     STANDARD_HOST: STANDARD_HOST,
+    hostRein: hostRein,
+    hostGueltig: hostGueltig,
     hostAus: hostAus,
     quelle: quelle,
     verbindungPruefen: verbindungPruefen,
@@ -7534,8 +7546,8 @@ body.stift .zahl-knopf { min-width: 56px; }
 (function (global) {
   'use strict';
 
-  var HOECHSTDAUER = 180;      /* Sekunden je Aufnahme */
-  var WARTEZEIT = 120000;      /* ms, bis eine Antwort des Servers als ausgeblieben gilt */
+  var HOECHSTDAUER = 300;      /* Sekunden je Aufnahme - mit „neue Tür“ auch mehrere Türen */
+  var WARTEZEIT = 240000;      /* ms, bis eine Antwort des Servers als ausgeblieben gilt - eine Serie mit vielen Türen braucht Zeit */
   var MIME_KANDIDATEN = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mpeg'];
   /* Textfelder, bei denen ein Diktat ergänzt statt ersetzt */
   var ANHAENGEN = { notiz: true, nacharbeitText: true, systemNotiz: true };
@@ -7840,7 +7852,11 @@ body.stift .zahl-knopf { min-width: 56px; }
     formular.append('felder', JSON.stringify(schema));
     formular.append('woerter', JSON.stringify(woerter(einstellungen)));
     return Ab.diktat(formular, signal).then(function (d) {
-      return { text: (d && d.text) || '', felder: (d && d.felder) || {}, offen: (d && d.offen) || [], schema: schema };
+      var tueren = (d && Array.isArray(d.tueren)) ? d.tueren.filter(function (x) { return x && typeof x === 'object'; }).map(function (x) {
+        return { text: x.text || '', felder: x.felder || {}, offen: Array.isArray(x.offen) ? x.offen : [] };
+      }) : [];
+      return { text: (d && d.text) || '', felder: (d && d.felder) || {}, offen: (d && d.offen) || [], schema: schema,
+        serie: !!(d && d.serie) && tueren.length > 1, tueren: tueren };
     });
   }
 
@@ -7885,8 +7901,10 @@ body.stift .zahl-knopf { min-width: 56px; }
       A.leeren(inhalt);
       inhalt.appendChild(el('p', { class: 'hinweis', style: { marginTop: '0' },
         text: 'Einfach in ganzen Sätzen oder Stichworten alles zur Tür sagen - Bezeichnung, Bauteile, Maße, Besonderheiten. Das Werkzeug holt die Angaben heraus und zeigt einen Vorschlag; erst mit „Übernehmen“ landet etwas in der Tür.' }));
+      inhalt.appendChild(el('p', { class: 'hinweis',
+        text: 'Mehrere Türen am Stück: „neue Tür“ sagen und weitersprechen. Dann wird jede Tür ohne Rückfrage eingetragen - diese hier und jede weitere als neue Tür im selben Bereich.' }));
       inhalt.appendChild(el('p', { class: 'diktat-beispiel',
-        text: '„Das ist die Tür zum Büro Empfang, DIN links. Da kommt ein Halbzylinder rein, außen fünfunddreißig. Beschlag Rosettengarnitur mit Drücker innen und außen, Dornmaß 55. Der Wandleser sitzt rechts außen, Kabel liegt schon.“' }));
+        text: '„Das ist die Tür zum Büro Empfang, DIN links. Da kommt ein Halbzylinder rein, außen fünfunddreißig. Beschlag Rosettengarnitur mit Drücker innen und außen, Dornmaß 55. Der Wandleser sitzt rechts außen, Kabel liegt schon. Neue Tür. Lager hinten, Doppelzylinder 40 45, DIN rechts …“' }));
       if (!online()) {
         inhalt.appendChild(el('div', { class: 'meldung warn' }, el('div', { text: 'Zum Einsprechen braucht das Gerät Netz - die Erkennung läuft über den Server.' })));
       }
@@ -7951,7 +7969,7 @@ body.stift .zahl-knopf { min-width: 56px; }
       A.leeren(inhalt);
       inhalt.appendChild(el('div', { class: 'diktat-wartet' }, [
         el('span', { class: 'punkt wartet', 'aria-hidden': 'true' }),
-        el('span', { text: blob ? 'Aufnahme wird erkannt und zugeordnet … das dauert einige Sekunden.' : 'Text wird zugeordnet …' })
+        el('span', { text: blob ? 'Aufnahme wird erkannt und zugeordnet … das dauert einige Sekunden, bei mehreren Türen etwas länger.' : 'Text wird zugeordnet …' })
       ]));
       /* Abbrechen bleibt möglich - und nach zwei Minuten gilt die Antwort
          als ausgeblieben, statt ewig zu warten. */
@@ -7964,12 +7982,19 @@ body.stift .zahl-knopf { min-width: 56px; }
         if (abbruch !== meine) return;   /* inzwischen abgebrochen oder ersetzt */
         anfrageBeenden();
         ergebnis = e;
+        /* Mehrere Türen („neue Tür“): ohne Rückfrage eintragen - das
+           Türformular legt sie an und zeigt danach die Zusammenfassung. */
+        if (e.serie && optionen.beiSerie) {
+          dlg.schliessen();
+          optionen.beiSerie({ tueren: e.tueren, schema: e.schema, text: e.text });
+          return;
+        }
         vorschlag();
       }).catch(function (f) {
         if (abbruch !== meine && !zuSpaet) return;   /* bewusst abgebrochen - die Meldung steht schon */
         anfrageBeenden();
         var abgebrochen = f && (f.name === 'AbortError' || /abort/i.test(String(f.message || '')));
-        fehler(zuSpaet ? 'Der Server hat nicht rechtzeitig geantwortet. Bitte erneut versuchen - die Aufnahme ist noch da.'
+        fehler(zuSpaet ? 'Der Server hat nicht innerhalb von vier Minuten geantwortet. Bitte erneut versuchen - die Aufnahme ist noch da.'
           : abgebrochen ? 'Abgebrochen.' : ((f && f.message) || 'Der Server hat nicht geantwortet.'), !!blob);
       });
     }
@@ -10542,6 +10567,106 @@ body.stift .zahl-knopf { min-width: 56px; }
     }
 
     /* =======================================================================
+     * Einsprechen
+     * =====================================================================
+     * Eine Tür: Vorschlag, dann Übernahme nach Bestätigung. Mehrere Türen
+     * (Befehl „neue Tür“ in der Aufnahme): jede wird ohne Rückfrage
+     * eingetragen - die erste in diese Tür, jede weitere als neue Tür im
+     * selben Bereich. Danach die Zusammenfassung mit „Weiter einsprechen“.
+     */
+    function diktatOeffnen() {
+      if (!global.Diktat || !global.Diktat.verfuegbar()) return;
+      global.Diktat.dialog({ tuer: t, projekt: p, einstellungen: Zustand.einstellungen,
+        beiUebernahme: function (namen) {
+          A.schrittMerken('Diktat übernommen');
+          A.alsGeaendertMarkieren();
+          /* Das Diktat füllt Felder in allen Schritten - danach alle
+           * Felder zeigen, damit sich der Vorschlag prüfen lässt. */
+          if (namen.length) Zustand[modusSchluessel] = 'alle';
+          ansichtNeu();
+          var rollen = inhalt.closest ? inhalt.closest('.koerper') : null;
+          if (rollen) rollen.scrollTop = 0;
+          A.toast(namen.length
+            ? (namen.length + (namen.length === 1 ? ' Angabe' : ' Angaben') + ' aus dem Diktat übernommen - bitte prüfen.')
+            : 'Nichts übernommen - die Angaben standen schon so in der Tür.', namen.length ? 'ok' : 'warn');
+        },
+        beiSerie: serieUebernehmen });
+    }
+
+    /* Der Bereich, in dem die Serie entsteht: der dieser Tür, sonst der,
+     * aus dem heraus sie angelegt wurde, sonst der gerade gefilterte. */
+    function bereichDerTuer() {
+      if (t.strukturId) return t.strukturId;
+      if (vorgaben && vorgaben.strukturId) return vorgaben.strukturId;
+      var f2 = Zustand.tuerFilter;
+      return (f2 && f2.struktur && f2.struktur !== '__ohne__') ? f2.struktur : null;
+    }
+
+    function serieUebernehmen(serie) {
+      var struktur = bereichDerTuer();
+      var angelegt = [];
+      var liste = serie.tueren || [];
+      for (var i = 0; i < liste.length; i++) {
+        var d = liste[i];
+        var werte = {};
+        Object.keys(d.felder || {}).forEach(function (k) { werte[k] = d.felder[k]; });
+        if (d.offen && d.offen.length) werte.notiz = (werte.notiz ? werte.notiz + '\n' : '') + d.offen.join('; ');
+        /* Wurde in einem Teil gar nichts erkannt, bleibt wenigstens der
+           gesprochene Text in der Bemerkung - nichts geht verloren. */
+        if (!Object.keys(werte).length && d.text) werte.notiz = String(d.text);
+        if (i === 0) {
+          global.Diktat.anwenden(t, werte, serie.schema);
+          if (struktur && !t.strukturId) t.strukturId = struktur;
+          if (!t.nummer && !t.bezeichnung) t.nummer = M.naechsteLaufendeNummer(p);
+          if (!uebernehmen(false)) return;
+          angelegt.push(t);
+        } else {
+          var ziel = Zustand.projekt && Zustand.projekt.id === p.id ? Zustand.projekt : p;
+          var neu = M.neueTuer(vorlageFuerNeueTuer(struktur ? { strukturId: struktur } : null));
+          global.Diktat.anwenden(neu, werte, serie.schema);
+          if (!neu.nummer && !neu.bezeichnung) neu.nummer = M.naechsteLaufendeNummer(ziel);
+          neu.anzahl = Math.max(1, parseInt(neu.anzahl, 10) || 1);
+          neu.geaendert = new Date().toISOString();
+          M.statusAusPruefung(ziel, neu);
+          ziel.tueren.push(neu);
+          angelegt.push(neu);
+        }
+      }
+      if (!angelegt.length) return;
+      A.schrittMerken(angelegt.length + ' Türen eingesprochen');
+      A.alsGeaendertMarkieren(); A.speichern();
+      dlg.schliessen();
+      neuZeichnen();
+      serieZusammenfassung(angelegt, struktur);
+    }
+
+    function serieZusammenfassung(angelegt, struktur) {
+      var pr = Zustand.projekt && Zustand.projekt.id === p.id ? Zustand.projekt : p;
+      var bereich = struktur ? M.strukturPfadText(pr, struktur) : '';
+      var offen = angelegt.filter(function (x) { return M.pflichtfelder(pr, x).length; }).length;
+      var kasten = el('div', { class: 'serie' });
+      kasten.appendChild(el('p', { class: 'hinweis', style: { marginTop: '0' },
+        text: angelegt.length + (angelegt.length === 1 ? ' Tür wurde' : ' Türen wurden') + ' aus dem Diktat eingetragen' +
+          (bereich ? ' - Bereich „' + bereich + '“' : '') + '.' +
+          (offen ? (' Bei ' + offen + (offen === 1 ? ' Tür fehlen' : ' Türen fehlen') + ' noch Pflichtangaben.') : '') +
+          ' Antippen öffnet eine Tür zum Prüfen.' }));
+      var zeilen = el('div', { class: 'tuer-liste' });
+      var dlg2 = A.dialogOeffnen({ titel: 'Türen eingesprochen', inhalt: kasten, knoepfe: [
+        { text: 'Fertig' },
+        { text: '🎤 Weiter einsprechen', klasse: 'haupt', aktion: function () {
+          setTimeout(function () { tuerBearbeiten(null, neuZeichnen, { strukturId: struktur, sofortEinsprechen: true }); }, 120);
+        } }
+      ] });
+      angelegt.forEach(function (tuer) {
+        var zeile = tuerZeile(tuer, neuZeichnen);
+        /* erst die Zusammenfassung schließen, dann öffnet die Zeile die Tür */
+        zeile.addEventListener('click', function () { dlg2.schliessen(); }, true);
+        zeilen.appendChild(zeile);
+      });
+      kasten.appendChild(zeilen);
+    }
+
+    /* =======================================================================
      * Aufbau der Ansicht
      * ==================================================================== */
     function modusLeisteZeichnen() {
@@ -10560,23 +10685,8 @@ body.stift .zahl-knopf { min-width: 56px; }
          * Gerät aufnehmen kann - sonst bleibt die Leiste wie gewohnt. */
         (global.Diktat && global.Diktat.verfuegbar()) ? el('button', {
           type: 'button', class: 'diktat-start', 'aria-label': 'Einsprechen',
-          title: 'Angaben zur Tür einsprechen - das Werkzeug macht daraus einen Vorschlag',
-          onclick: function () {
-            global.Diktat.dialog({ tuer: t, projekt: p, einstellungen: Zustand.einstellungen,
-              beiUebernahme: function (namen) {
-                A.schrittMerken('Diktat übernommen');
-                A.alsGeaendertMarkieren();
-                /* Das Diktat füllt Felder in allen Schritten - danach alle
-                 * Felder zeigen, damit sich der Vorschlag prüfen lässt. */
-                if (namen.length) Zustand[modusSchluessel] = 'alle';
-                ansichtNeu();
-                var rollen = inhalt.closest ? inhalt.closest('.koerper') : null;
-                if (rollen) rollen.scrollTop = 0;
-                A.toast(namen.length
-                  ? (namen.length + (namen.length === 1 ? ' Angabe' : ' Angaben') + ' aus dem Diktat übernommen - bitte prüfen.')
-                  : 'Nichts übernommen - die Angaben standen schon so in der Tür.', namen.length ? 'ok' : 'warn');
-              } });
-          } }, [el('span', { class: 'symbol', 'aria-hidden': 'true', text: '🎤' }), el('span', { class: 'wort', text: ' Einsprechen' })]) : null
+          title: 'Angaben zur Tür einsprechen - das Werkzeug macht daraus einen Vorschlag; „neue Tür“ trennt mehrere Türen',
+          onclick: diktatOeffnen }, [el('span', { class: 'symbol', 'aria-hidden': 'true', text: '🎤' }), el('span', { class: 'wort', text: ' Einsprechen' })]) : null
       ]));
     }
 
@@ -10729,7 +10839,9 @@ body.stift .zahl-knopf { min-width: 56px; }
          * dem heraus angelegt wird (vorgaben), bleibt gesetzt. */
         A.toast(meldung + ' Nächste Tür …', fehlende.length ? 'warn' : 'ok');
         neuZeichnen();
-        setTimeout(function () { tuerBearbeiten(null, neuZeichnen, vorgaben); }, 120);
+        /* Nur der Bereich geht mit - nicht etwa ein „sofort einsprechen“ */
+        var folge = (vorgaben && vorgaben.strukturId) ? { strukturId: vorgaben.strukturId } : null;
+        setTimeout(function () { tuerBearbeiten(null, neuZeichnen, folge); }, 120);
         return true;
       }
       A.toast(meldung, fehlende.length ? 'warn' : 'ok');
@@ -10818,6 +10930,8 @@ body.stift .zahl-knopf { min-width: 56px; }
     }
 
     ansichtNeu();
+    /* Nach einer Serie geht es mit „Weiter einsprechen“ direkt weiter */
+    if (vorgaben && vorgaben.sofortEinsprechen) setTimeout(diktatOeffnen, 150);
   }
 
   /* Gesamtlänge eines Zylinders, sofern beide Maße vorliegen. */
@@ -13012,6 +13126,13 @@ body.stift .zahl-knopf { min-width: 56px; }
           textE('pipedriveHost', 'Pipedrive-Adresse',
                 'z. B. meinefirma.pipedrive.com – leer lassen für die Standardadresse')
         ]));
+        /* Eine Adresse, die nicht zu Pipedrive gehört, würde die Seite gar
+           nicht ansprechen dürfen - das steht hier, statt später rätselhaft
+           zu scheitern. */
+        if (!global.Pipedrive.hostGueltig(e.pipedriveHost)) {
+          pdBereich.appendChild(el('div', { class: 'meldung warn', style: { marginTop: '4px' } },
+            el('div', { text: 'Die Pipedrive-Adresse „' + String(e.pipedriveHost).trim() + '“ ist keine Adresse unter pipedrive.com und wird nicht verwendet; es gilt die Standardadresse ' + global.Pipedrive.STANDARD_HOST + '.' })));
+        }
 
         pdBereich.appendChild(el('div', { class: 'meldung warn', style: { marginTop: '4px' } },
           el('div', {}, [

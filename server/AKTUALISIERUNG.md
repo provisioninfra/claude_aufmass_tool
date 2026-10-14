@@ -10,7 +10,11 @@ und Werkzeug tragen dieselbe Fassungsnummer.
 - **Tür einsprechen:** im Türformular der Knopf „Einsprechen“. Alle
   Angaben zur Tür werden in einem Stück gesprochen, der Server lässt sie
   bei OpenAI erkennen und den Feldern zuordnen, das Werkzeug zeigt je Feld
-  einen Vorschlag; übernommen wird nur, was bestätigt ist. Braucht einen
+  einen Vorschlag; übernommen wird nur, was bestätigt ist. Mit dem Befehl
+  **„neue Tür“** in der Aufnahme werden mehrere Türen am Stück erfasst:
+  jede wird dann ohne Rückfrage eingetragen, die erste in die geöffnete
+  Tür, jede weitere als neue Tür im selben Bereich, und „Weiter
+  einsprechen“ macht mit der nächsten weiter. Braucht einen
   OpenAI-Schlüssel in WordPress (Schritt 4) – ohne ihn bleibt der Knopf
   weg, sonst ändert sich nichts.
 - **Mitarbeiter und Gruppen** als eigene Listen unter dem Schließplan.
@@ -252,7 +256,10 @@ zu ändern: Das übernimmt die Umschreibregel des Plugins auf jeden Fall.
    („Büro Empfang, Halbzylinder 35 10, DIN links“), Aufnahme beenden.
    Nach einigen Sekunden erscheint der Vorschlag mit dem verstandenen
    Text und den Feldern; **Übernehmen** schreibt sie in die Tür. Die Tür
-   danach nicht speichern, wenn es nur eine Probe war.
+   danach nicht speichern, wenn es nur eine Probe war. Für die Serie
+   einmal „Büro Empfang, Halbzylinder 35 10. Neue Tür. Lager, DIN rechts“
+   sprechen: Beide Türen entstehen im Bereich der geöffneten Tür; die
+   Probetüren danach löschen.
 
 Läuft alles bis hierher, ist die Aktualisierung fertig.
 

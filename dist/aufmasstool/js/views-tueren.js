@@ -862,6 +862,106 @@
     }
 
     /* =======================================================================
+     * Einsprechen
+     * =====================================================================
+     * Eine Tür: Vorschlag, dann Übernahme nach Bestätigung. Mehrere Türen
+     * (Befehl „neue Tür“ in der Aufnahme): jede wird ohne Rückfrage
+     * eingetragen - die erste in diese Tür, jede weitere als neue Tür im
+     * selben Bereich. Danach die Zusammenfassung mit „Weiter einsprechen“.
+     */
+    function diktatOeffnen() {
+      if (!global.Diktat || !global.Diktat.verfuegbar()) return;
+      global.Diktat.dialog({ tuer: t, projekt: p, einstellungen: Zustand.einstellungen,
+        beiUebernahme: function (namen) {
+          A.schrittMerken('Diktat übernommen');
+          A.alsGeaendertMarkieren();
+          /* Das Diktat füllt Felder in allen Schritten - danach alle
+           * Felder zeigen, damit sich der Vorschlag prüfen lässt. */
+          if (namen.length) Zustand[modusSchluessel] = 'alle';
+          ansichtNeu();
+          var rollen = inhalt.closest ? inhalt.closest('.koerper') : null;
+          if (rollen) rollen.scrollTop = 0;
+          A.toast(namen.length
+            ? (namen.length + (namen.length === 1 ? ' Angabe' : ' Angaben') + ' aus dem Diktat übernommen - bitte prüfen.')
+            : 'Nichts übernommen - die Angaben standen schon so in der Tür.', namen.length ? 'ok' : 'warn');
+        },
+        beiSerie: serieUebernehmen });
+    }
+
+    /* Der Bereich, in dem die Serie entsteht: der dieser Tür, sonst der,
+     * aus dem heraus sie angelegt wurde, sonst der gerade gefilterte. */
+    function bereichDerTuer() {
+      if (t.strukturId) return t.strukturId;
+      if (vorgaben && vorgaben.strukturId) return vorgaben.strukturId;
+      var f2 = Zustand.tuerFilter;
+      return (f2 && f2.struktur && f2.struktur !== '__ohne__') ? f2.struktur : null;
+    }
+
+    function serieUebernehmen(serie) {
+      var struktur = bereichDerTuer();
+      var angelegt = [];
+      var liste = serie.tueren || [];
+      for (var i = 0; i < liste.length; i++) {
+        var d = liste[i];
+        var werte = {};
+        Object.keys(d.felder || {}).forEach(function (k) { werte[k] = d.felder[k]; });
+        if (d.offen && d.offen.length) werte.notiz = (werte.notiz ? werte.notiz + '\n' : '') + d.offen.join('; ');
+        /* Wurde in einem Teil gar nichts erkannt, bleibt wenigstens der
+           gesprochene Text in der Bemerkung - nichts geht verloren. */
+        if (!Object.keys(werte).length && d.text) werte.notiz = String(d.text);
+        if (i === 0) {
+          global.Diktat.anwenden(t, werte, serie.schema);
+          if (struktur && !t.strukturId) t.strukturId = struktur;
+          if (!t.nummer && !t.bezeichnung) t.nummer = M.naechsteLaufendeNummer(p);
+          if (!uebernehmen(false)) return;
+          angelegt.push(t);
+        } else {
+          var ziel = Zustand.projekt && Zustand.projekt.id === p.id ? Zustand.projekt : p;
+          var neu = M.neueTuer(vorlageFuerNeueTuer(struktur ? { strukturId: struktur } : null));
+          global.Diktat.anwenden(neu, werte, serie.schema);
+          if (!neu.nummer && !neu.bezeichnung) neu.nummer = M.naechsteLaufendeNummer(ziel);
+          neu.anzahl = Math.max(1, parseInt(neu.anzahl, 10) || 1);
+          neu.geaendert = new Date().toISOString();
+          M.statusAusPruefung(ziel, neu);
+          ziel.tueren.push(neu);
+          angelegt.push(neu);
+        }
+      }
+      if (!angelegt.length) return;
+      A.schrittMerken(angelegt.length + ' Türen eingesprochen');
+      A.alsGeaendertMarkieren(); A.speichern();
+      dlg.schliessen();
+      neuZeichnen();
+      serieZusammenfassung(angelegt, struktur);
+    }
+
+    function serieZusammenfassung(angelegt, struktur) {
+      var pr = Zustand.projekt && Zustand.projekt.id === p.id ? Zustand.projekt : p;
+      var bereich = struktur ? M.strukturPfadText(pr, struktur) : '';
+      var offen = angelegt.filter(function (x) { return M.pflichtfelder(pr, x).length; }).length;
+      var kasten = el('div', { class: 'serie' });
+      kasten.appendChild(el('p', { class: 'hinweis', style: { marginTop: '0' },
+        text: angelegt.length + (angelegt.length === 1 ? ' Tür wurde' : ' Türen wurden') + ' aus dem Diktat eingetragen' +
+          (bereich ? ' - Bereich „' + bereich + '“' : '') + '.' +
+          (offen ? (' Bei ' + offen + (offen === 1 ? ' Tür fehlen' : ' Türen fehlen') + ' noch Pflichtangaben.') : '') +
+          ' Antippen öffnet eine Tür zum Prüfen.' }));
+      var zeilen = el('div', { class: 'tuer-liste' });
+      var dlg2 = A.dialogOeffnen({ titel: 'Türen eingesprochen', inhalt: kasten, knoepfe: [
+        { text: 'Fertig' },
+        { text: '🎤 Weiter einsprechen', klasse: 'haupt', aktion: function () {
+          setTimeout(function () { tuerBearbeiten(null, neuZeichnen, { strukturId: struktur, sofortEinsprechen: true }); }, 120);
+        } }
+      ] });
+      angelegt.forEach(function (tuer) {
+        var zeile = tuerZeile(tuer, neuZeichnen);
+        /* erst die Zusammenfassung schließen, dann öffnet die Zeile die Tür */
+        zeile.addEventListener('click', function () { dlg2.schliessen(); }, true);
+        zeilen.appendChild(zeile);
+      });
+      kasten.appendChild(zeilen);
+    }
+
+    /* =======================================================================
      * Aufbau der Ansicht
      * ==================================================================== */
     function modusLeisteZeichnen() {
@@ -880,23 +980,8 @@
          * Gerät aufnehmen kann - sonst bleibt die Leiste wie gewohnt. */
         (global.Diktat && global.Diktat.verfuegbar()) ? el('button', {
           type: 'button', class: 'diktat-start', 'aria-label': 'Einsprechen',
-          title: 'Angaben zur Tür einsprechen - das Werkzeug macht daraus einen Vorschlag',
-          onclick: function () {
-            global.Diktat.dialog({ tuer: t, projekt: p, einstellungen: Zustand.einstellungen,
-              beiUebernahme: function (namen) {
-                A.schrittMerken('Diktat übernommen');
-                A.alsGeaendertMarkieren();
-                /* Das Diktat füllt Felder in allen Schritten - danach alle
-                 * Felder zeigen, damit sich der Vorschlag prüfen lässt. */
-                if (namen.length) Zustand[modusSchluessel] = 'alle';
-                ansichtNeu();
-                var rollen = inhalt.closest ? inhalt.closest('.koerper') : null;
-                if (rollen) rollen.scrollTop = 0;
-                A.toast(namen.length
-                  ? (namen.length + (namen.length === 1 ? ' Angabe' : ' Angaben') + ' aus dem Diktat übernommen - bitte prüfen.')
-                  : 'Nichts übernommen - die Angaben standen schon so in der Tür.', namen.length ? 'ok' : 'warn');
-              } });
-          } }, [el('span', { class: 'symbol', 'aria-hidden': 'true', text: '🎤' }), el('span', { class: 'wort', text: ' Einsprechen' })]) : null
+          title: 'Angaben zur Tür einsprechen - das Werkzeug macht daraus einen Vorschlag; „neue Tür“ trennt mehrere Türen',
+          onclick: diktatOeffnen }, [el('span', { class: 'symbol', 'aria-hidden': 'true', text: '🎤' }), el('span', { class: 'wort', text: ' Einsprechen' })]) : null
       ]));
     }
 
@@ -1049,7 +1134,9 @@
          * dem heraus angelegt wird (vorgaben), bleibt gesetzt. */
         A.toast(meldung + ' Nächste Tür …', fehlende.length ? 'warn' : 'ok');
         neuZeichnen();
-        setTimeout(function () { tuerBearbeiten(null, neuZeichnen, vorgaben); }, 120);
+        /* Nur der Bereich geht mit - nicht etwa ein „sofort einsprechen“ */
+        var folge = (vorgaben && vorgaben.strukturId) ? { strukturId: vorgaben.strukturId } : null;
+        setTimeout(function () { tuerBearbeiten(null, neuZeichnen, folge); }, 120);
         return true;
       }
       A.toast(meldung, fehlende.length ? 'warn' : 'ok');
@@ -1138,6 +1225,8 @@
     }
 
     ansichtNeu();
+    /* Nach einer Serie geht es mit „Weiter einsprechen“ direkt weiter */
+    if (vorgaben && vorgaben.sofortEinsprechen) setTimeout(diktatOeffnen, 150);
   }
 
   /* Gesamtlänge eines Zylinders, sofern beide Maße vorliegen. */

@@ -1660,6 +1660,13 @@
           textE('pipedriveHost', 'Pipedrive-Adresse',
                 'z. B. meinefirma.pipedrive.com – leer lassen für die Standardadresse')
         ]));
+        /* Eine Adresse, die nicht zu Pipedrive gehört, würde die Seite gar
+           nicht ansprechen dürfen - das steht hier, statt später rätselhaft
+           zu scheitern. */
+        if (!global.Pipedrive.hostGueltig(e.pipedriveHost)) {
+          pdBereich.appendChild(el('div', { class: 'meldung warn', style: { marginTop: '4px' } },
+            el('div', { text: 'Die Pipedrive-Adresse „' + String(e.pipedriveHost).trim() + '“ ist keine Adresse unter pipedrive.com und wird nicht verwendet; es gilt die Standardadresse ' + global.Pipedrive.STANDARD_HOST + '.' })));
+        }
 
         pdBereich.appendChild(el('div', { class: 'meldung warn', style: { marginTop: '4px' } },
           el('div', {}, [

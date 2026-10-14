@@ -362,6 +362,10 @@ schreibt in die Tür. Ohne Schlüssel fehlt der Knopf einfach.
 4. Auf einem Gerät eine Tür öffnen: Der Knopf **Einsprechen** ist da
    (nach spätestens einem Abgleich, also 15 Sekunden). Beim ersten Mal
    fragt der Browser nach dem Mikrofon – erlauben.
+5. Mehrere Türen in einem Zug: in der Aufnahme **„neue Tür“** sagen und
+   weitersprechen. Jede Tür wird dann ohne Rückfrage eingetragen – die
+   erste in die geöffnete Tür, jede weitere als neue Tür im selben
+   Bereich. Die Zusammenfassung danach bietet **„Weiter einsprechen“**.
 
 **Verarbeitung in der EU.** Wer das möchte, legt bei OpenAI ein Projekt
 mit EU-Datenresidenz an und trägt als Adresse `eu.api.openai.com` ein.

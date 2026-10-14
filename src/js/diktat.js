@@ -22,8 +22,8 @@
 (function (global) {
   'use strict';
 
-  var HOECHSTDAUER = 180;      /* Sekunden je Aufnahme */
-  var WARTEZEIT = 120000;      /* ms, bis eine Antwort des Servers als ausgeblieben gilt */
+  var HOECHSTDAUER = 300;      /* Sekunden je Aufnahme - mit „neue Tür“ auch mehrere Türen */
+  var WARTEZEIT = 240000;      /* ms, bis eine Antwort des Servers als ausgeblieben gilt - eine Serie mit vielen Türen braucht Zeit */
   var MIME_KANDIDATEN = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mpeg'];
   /* Textfelder, bei denen ein Diktat ergänzt statt ersetzt */
   var ANHAENGEN = { notiz: true, nacharbeitText: true, systemNotiz: true };
@@ -328,7 +328,11 @@
     formular.append('felder', JSON.stringify(schema));
     formular.append('woerter', JSON.stringify(woerter(einstellungen)));
     return Ab.diktat(formular, signal).then(function (d) {
-      return { text: (d && d.text) || '', felder: (d && d.felder) || {}, offen: (d && d.offen) || [], schema: schema };
+      var tueren = (d && Array.isArray(d.tueren)) ? d.tueren.filter(function (x) { return x && typeof x === 'object'; }).map(function (x) {
+        return { text: x.text || '', felder: x.felder || {}, offen: Array.isArray(x.offen) ? x.offen : [] };
+      }) : [];
+      return { text: (d && d.text) || '', felder: (d && d.felder) || {}, offen: (d && d.offen) || [], schema: schema,
+        serie: !!(d && d.serie) && tueren.length > 1, tueren: tueren };
     });
   }
 
@@ -373,8 +377,10 @@
       A.leeren(inhalt);
       inhalt.appendChild(el('p', { class: 'hinweis', style: { marginTop: '0' },
         text: 'Einfach in ganzen Sätzen oder Stichworten alles zur Tür sagen - Bezeichnung, Bauteile, Maße, Besonderheiten. Das Werkzeug holt die Angaben heraus und zeigt einen Vorschlag; erst mit „Übernehmen“ landet etwas in der Tür.' }));
+      inhalt.appendChild(el('p', { class: 'hinweis',
+        text: 'Mehrere Türen am Stück: „neue Tür“ sagen und weitersprechen. Dann wird jede Tür ohne Rückfrage eingetragen - diese hier und jede weitere als neue Tür im selben Bereich.' }));
       inhalt.appendChild(el('p', { class: 'diktat-beispiel',
-        text: '„Das ist die Tür zum Büro Empfang, DIN links. Da kommt ein Halbzylinder rein, außen fünfunddreißig. Beschlag Rosettengarnitur mit Drücker innen und außen, Dornmaß 55. Der Wandleser sitzt rechts außen, Kabel liegt schon.“' }));
+        text: '„Das ist die Tür zum Büro Empfang, DIN links. Da kommt ein Halbzylinder rein, außen fünfunddreißig. Beschlag Rosettengarnitur mit Drücker innen und außen, Dornmaß 55. Der Wandleser sitzt rechts außen, Kabel liegt schon. Neue Tür. Lager hinten, Doppelzylinder 40 45, DIN rechts …“' }));
       if (!online()) {
         inhalt.appendChild(el('div', { class: 'meldung warn' }, el('div', { text: 'Zum Einsprechen braucht das Gerät Netz - die Erkennung läuft über den Server.' })));
       }
@@ -439,7 +445,7 @@
       A.leeren(inhalt);
       inhalt.appendChild(el('div', { class: 'diktat-wartet' }, [
         el('span', { class: 'punkt wartet', 'aria-hidden': 'true' }),
-        el('span', { text: blob ? 'Aufnahme wird erkannt und zugeordnet … das dauert einige Sekunden.' : 'Text wird zugeordnet …' })
+        el('span', { text: blob ? 'Aufnahme wird erkannt und zugeordnet … das dauert einige Sekunden, bei mehreren Türen etwas länger.' : 'Text wird zugeordnet …' })
       ]));
       /* Abbrechen bleibt möglich - und nach zwei Minuten gilt die Antwort
          als ausgeblieben, statt ewig zu warten. */
@@ -452,12 +458,19 @@
         if (abbruch !== meine) return;   /* inzwischen abgebrochen oder ersetzt */
         anfrageBeenden();
         ergebnis = e;
+        /* Mehrere Türen („neue Tür“): ohne Rückfrage eintragen - das
+           Türformular legt sie an und zeigt danach die Zusammenfassung. */
+        if (e.serie && optionen.beiSerie) {
+          dlg.schliessen();
+          optionen.beiSerie({ tueren: e.tueren, schema: e.schema, text: e.text });
+          return;
+        }
         vorschlag();
       }).catch(function (f) {
         if (abbruch !== meine && !zuSpaet) return;   /* bewusst abgebrochen - die Meldung steht schon */
         anfrageBeenden();
         var abgebrochen = f && (f.name === 'AbortError' || /abort/i.test(String(f.message || '')));
-        fehler(zuSpaet ? 'Der Server hat nicht rechtzeitig geantwortet. Bitte erneut versuchen - die Aufnahme ist noch da.'
+        fehler(zuSpaet ? 'Der Server hat nicht innerhalb von vier Minuten geantwortet. Bitte erneut versuchen - die Aufnahme ist noch da.'
           : abgebrochen ? 'Abgebrochen.' : ((f && f.message) || 'Der Server hat nicht geantwortet.'), !!blob);
       });
     }

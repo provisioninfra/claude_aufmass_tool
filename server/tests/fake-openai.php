@@ -43,7 +43,16 @@ if ($weg === '/v1/audio/transcriptions' && $_SERVER['REQUEST_METHOD'] === 'POST'
     if (!$datei || (int) $datei['size'] < 1) {
         raus(array('error' => array('message' => 'Audio file might be corrupted or unsupported', 'type' => 'invalid_request_error')), 400);
     }
-    raus(array('text' => getenv('AUFMASS_TEST_OAI_TEXT') ?: 'Tür Nummer 7, Büro Empfang, Halbzylinder 35 10, DIN links, Beschlag Rosettengarnitur Drücker Drücker, Dornmaß 55, Wandleser außen vorhanden, Kabel liegt schon.'));
+    /* Eine Modusdatei (Prüfläufe schreiben sie) wählt den erkannten Text */
+    $modusDatei = getenv('AUFMASS_TEST_OAI_MODUS');
+    $modus = ($modusDatei && is_file($modusDatei)) ? trim((string) file_get_contents($modusDatei)) : '';
+    $text = getenv('AUFMASS_TEST_OAI_TEXT') ?: 'Tür Nummer 7, Büro Empfang, Halbzylinder 35 10, DIN links, Beschlag Rosettengarnitur Drücker Drücker, Dornmaß 55, Wandleser außen vorhanden, Kabel liegt schon.';
+    if ($modus === 'serie') {
+        $text = 'Das ist die Tür zum Büro Empfang, Halbzylinder 35 10, DIN links. Neue Tür. Lager hinten, Doppelzylinder 40 45, DIN rechts, Beschlag Rosettengarnitur. Nächste Tür: Technikraum, Halbzylinder 30 10, Wandleser außen, Kabel liegt schon.';
+    } elseif ($modus === 'nur-befehl') {
+        $text = 'Neue Tür. Neue Tür.';
+    }
+    raus(array('text' => $text));
 }
 if ($weg === '/v1/chat/completions' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $json = json_decode($roh, true);
@@ -55,13 +64,27 @@ if ($weg === '/v1/chat/completions' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         'strict' => !empty($json['response_format']['json_schema']['strict']),
         'felder' => count($eig), 'pflicht' => isset($schema['required']) ? count($schema['required']) : 0,
         'text' => isset($letzte['content']) ? substr($letzte['content'], 0, 160) : ''));
-    /* Wie ein striktes Modell: jedes Feld kommt vor, meist leer. */
+    /* Wie ein striktes Modell: jedes Feld kommt vor, meist leer. Die Werte
+       werden aus dem Text abgeleitet - einfache Regeln statt Sprachmodell,
+       damit ein Prüflauf weiß, was zu erwarten ist. */
     $aus = array();
     foreach ($eig as $name => $def) { $aus[$name] = (isset($def['type']) && $def['type'] === 'array') ? array() : null; }
-    $vorgabe = array('nummer' => '7', 'bezeichnung' => 'Büro Empfang', 'zylinderBauform' => 'Halbzylinder',
-        'masseAussen' => 35, 'masseInnen' => 10, 'dinRichtung' => 'DIN links', 'beschlagBauform' => 'Rosettengarnitur',
-        'beschlagBestueckung' => 'Drücker / Drücker', 'dornmass' => 55, 'brauchtWandleser' => true,
-        'brauchtBeschlag' => true, 'offen' => array('Kabel liegt schon'));
+    $txt = isset($letzte['content']) ? (string) $letzte['content'] : '';
+    $vorgabe = array();
+    if (preg_match('/Nummer\s*(\d+)/u', $txt, $m)) { $vorgabe['nummer'] = $m[1]; }
+    foreach (array('Büro Empfang', 'Lager hinten', 'Technikraum', 'Keller', 'Flur', 'Lager') as $ort) {
+        if (mb_stripos($txt, $ort) !== false) { $vorgabe['bezeichnung'] = $ort; break; }
+    }
+    foreach (array('Halbzylinder', 'Doppelzylinder', 'Knaufzylinder') as $bf) {
+        if (mb_stripos($txt, $bf) !== false) { $vorgabe['zylinderBauform'] = $bf; break; }
+    }
+    if (preg_match('/zylinder\s+(\d{2,3})\s+(\d{2,3})/iu', $txt, $m)) { $vorgabe['masseAussen'] = (int) $m[1]; $vorgabe['masseInnen'] = (int) $m[2]; }
+    if (preg_match('/DIN\s+(links|rechts)/iu', $txt, $m)) { $vorgabe['dinRichtung'] = 'DIN ' . strtolower($m[1]); }
+    if (mb_stripos($txt, 'Rosettengarnitur') !== false) { $vorgabe['beschlagBauform'] = 'Rosettengarnitur'; $vorgabe['brauchtBeschlag'] = true; }
+    if (preg_match('/Drücker\s+Drücker/u', $txt)) { $vorgabe['beschlagBestueckung'] = 'Drücker / Drücker'; }
+    if (preg_match('/Dornmaß\s*(\d+)/u', $txt, $m)) { $vorgabe['dornmass'] = (int) $m[1]; }
+    if (mb_stripos($txt, 'Wandleser') !== false) { $vorgabe['brauchtWandleser'] = true; }
+    if (mb_stripos($txt, 'Kabel liegt schon') !== false) { $vorgabe['offen'] = array('Kabel liegt schon'); }
     foreach ($vorgabe as $k => $w) { if (array_key_exists($k, $aus)) { $aus[$k] = $w; } }
     raus(array('id' => 'chatcmpl-pruef', 'object' => 'chat.completion', 'model' => isset($json['model']) ? $json['model'] : '',
         'choices' => array(array('index' => 0, 'finish_reason' => 'stop',
