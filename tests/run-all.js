@@ -17,6 +17,7 @@ const reihen = [
   ['Report-Erzeugung','test-reports.js'],
   ['Browser (E2E)',   'test-e2e.js'],
   ['Bereich & Gruppen','test-bereich-gruppen.js'],
+  ['Mitarbeiter & Gruppen', 'test-personen.js'],
   ['Stiftbedienung',  'test-stift.js'],
   ['Spalten verschieben', 'test-verschieben.js'],
   ['Erscheinungsbild','test-erscheinungsbild.js'],

@@ -394,7 +394,9 @@ const MIT_ZAEHLER = ['anzahl', 'bestandAnzahlSchluessel'];
   pruefe(grpProbe.kaputt.length === 0,
     'auch die Gruppe übersteht die Eingabe (' + grpProbe.geprueft + ')',
     grpProbe.kaputt.join(', '));
-  await page.click('.dialog .chip:has-text("+ Mitarbeiter anlegen")');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+  await page.click('.personen-karte button:has-text("+ Mitarbeiter")');
   await page.waitForTimeout(400);
   const maProbe = await schreibprobe('.dialog-hinter:last-of-type .dialog');
   pruefe(maProbe.kaputt.length === 0,

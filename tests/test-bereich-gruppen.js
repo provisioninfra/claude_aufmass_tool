@@ -229,28 +229,44 @@ function pruefe(b, t, i) { if (b) { ok++; console.log('  OK   ' + t); } else { f
   pruefe(spalte.kuerzel === 'RGG' && spalte.bezeichnung === 'Reinigung Glanz GmbH',
     'die Spalte heißt wie die Gruppe und bekommt ein Kürzel aus dem Namen', JSON.stringify(spalte));
 
-  /* Mitglieder über die Gruppe anlegen - Medien je Mitarbeiter */
-  await page.click('.gruppen-liste .chip.gruppe:has-text("Reinigung Glanz GmbH")');
+  /* Mitarbeiter entstehen nacheinander über „+ Mitarbeiter“ - ohne
+   * Gruppenauswahl; zugeordnet wird danach in der Gruppe. */
+  await page.click('.personen-karte button:has-text("+ Mitarbeiter")');
   await page.waitForSelector('.dialog');
-  pruefe(/Gruppe bearbeiten/.test(await page.textContent('.dialog .kopf')), 'ein Tippen auf die Gruppe öffnet sie');
-  await page.click('.dialog .chip:has-text("+ Mitarbeiter anlegen")');
-  await page.waitForTimeout(300);
+  pruefe(/Neuer Mitarbeiter/.test(await page.textContent('.dialog .kopf')), '„+ Mitarbeiter“ öffnet den Dialog für einen neuen Mitarbeiter');
+  pruefe(await page.$('.dialog [data-feld="gruppen"]') === null, 'beim Anlegen gibt es keine Gruppenauswahl');
   const mitarbeiterDlg = '.dialog-hinter:last-of-type .dialog';
-  pruefe((await page.$$eval('.dialog', n => n.length)) === 2, 'der neue Mitarbeiter entsteht in einem eigenen Dialog');
   await page.fill(mitarbeiterDlg + ' input[placeholder="z. B. Max Mustermann"]', 'Frau Yilmaz');
   await page.click(mitarbeiterDlg + ' button:has-text("+ Medium eintragen")');
   await page.waitForTimeout(250);
   await page.fill(mitarbeiterDlg + ' .medien-zeile .zahl-anzeige', '2');
-  await page.click(mitarbeiterDlg + ' .fuss button:has-text("Anlegen")');
-  await page.waitForTimeout(400);
-  await page.click('.dialog .chip:has-text("+ Mitarbeiter anlegen")');
-  await page.waitForTimeout(300);
+  await page.click(mitarbeiterDlg + ' .fuss button:has-text("Anlegen & neuer Mitarbeiter")');
+  await page.waitForTimeout(500);
+  pruefe((await page.$$eval('.dialog', n => n.length)) === 1 && /Neuer Mitarbeiter/.test(await page.textContent('.dialog .kopf')),
+    '„Anlegen & neuer Mitarbeiter“ öffnet gleich den nächsten Dialog');
+  pruefe((await page.inputValue(mitarbeiterDlg + ' input[placeholder="z. B. Max Mustermann"]')) === '',
+    'der nächste Dialog ist leer');
   await page.fill(mitarbeiterDlg + ' input[placeholder="z. B. Max Mustermann"]', 'Herr Novak');
-  await page.click(mitarbeiterDlg + ' .fuss button:has-text("Anlegen")');
-  await page.waitForTimeout(400);
-  const gedrueckt = await page.$$eval('.dialog .chip[aria-pressed="true"]', n => n.map(x => x.textContent.trim()));
+  await page.click(mitarbeiterDlg + ' .fuss button:text-is("Anlegen")');
+  await page.waitForTimeout(500);
+  pruefe((await page.$$eval('.dialog', n => n.length)) === 0, '„Anlegen“ schließt den Dialog');
+  const angelegt = await page.evaluate(() => {
+    const p = window.AppKern.Zustand.projekt;
+    return ['Frau Yilmaz', 'Herr Novak'].map(n => { const m = p.mitarbeiter.find(x => x.name === n); return m ? n + '/' + window.Model.mitarbeiterMedienAnzahl(m) + '/' + (m.gruppen || []).length : 'fehlt'; });
+  });
+  pruefe(angelegt.join('|') === 'Frau Yilmaz/2/0|Herr Novak/1/0',
+    'beide Mitarbeiter sind angelegt - mit Medien, noch ohne Gruppe', angelegt.join(' | '));
+
+  /* Zuordnen in der Gruppe: Mitglieder antippen */
+  await page.click('.gruppen-liste .chip.gruppe:has-text("Reinigung Glanz GmbH")');
+  await page.waitForSelector('.dialog');
+  pruefe(/Gruppe bearbeiten/.test(await page.textContent('.dialog .kopf')), 'ein Tippen auf die Gruppe öffnet sie');
+  pruefe(await page.$('.dialog .chip:has-text("+ Mitarbeiter anlegen")') === null, 'in der Gruppe werden keine Mitarbeiter angelegt - nur zugeordnet');
+  await page.click('.dialog [data-feld="mitglieder"] .chip:has-text("Frau Yilmaz")');
+  await page.click('.dialog [data-feld="mitglieder"] .chip:has-text("Herr Novak")');
+  const gedrueckt = await page.$$eval('.dialog [data-feld="mitglieder"] .chip[aria-pressed="true"]', n => n.map(x => x.textContent.trim()));
   pruefe(gedrueckt.indexOf('Frau Yilmaz') !== -1 && gedrueckt.indexOf('Herr Novak') !== -1,
-    'neu angelegte Mitarbeiter sind gleich als Mitglieder gewählt', gedrueckt.join(' | '));
+    'angetippte Mitarbeiter sind als Mitglieder gewählt', gedrueckt.join(' | '));
   await page.click('.dialog .fuss button:has-text("Übernehmen")');
   await page.waitForTimeout(600);
 
@@ -272,10 +288,16 @@ function pruefe(b, t, i) { if (b) { ok++; console.log('  OK   ' + t); } else { f
   /* Eine Gruppe ohne Namen wird nicht angelegt */
   await page.click('.personen-karte button:has-text("+ Gruppe")');
   await page.waitForSelector('.dialog');
-  await page.click('.dialog .fuss button:has-text("Anlegen")');
+  pruefe(await page.$('.dialog [data-feld="mitglieder"]') === null, 'beim Anlegen einer Gruppe gibt es keine Mitgliederauswahl');
+  await page.click('.dialog .fuss button:text-is("Anlegen")');
   await page.waitForTimeout(400);
   const nochOffen = await page.$$eval('.dialog', n => n.length);
-  pruefe(nochOffen === 1, 'eine Gruppe ohne Namen wird nicht angelegt');
+  const dialogTitel = () => page.$$eval('.dialog .kopf h2', n => n.map(x => x.textContent.trim()).join(' | '));
+  pruefe(nochOffen === 1, 'eine Gruppe ohne Namen wird nicht angelegt', 'offene Dialoge: ' + nochOffen + ' (' + (await dialogTitel()) + ')');
+  await page.click('.dialog .fuss button:has-text("Anlegen & neue Gruppe")');
+  await page.waitForTimeout(400);
+  const nochOffen2 = await page.$$eval('.dialog', n => n.length);
+  pruefe(nochOffen2 === 1, 'auch „Anlegen & neue Gruppe“ braucht einen Namen', 'offene Dialoge: ' + nochOffen2 + ' (' + (await dialogTitel()) + ')');
   await page.keyboard.press('Escape');
   await page.waitForTimeout(300);
 

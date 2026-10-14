@@ -18,6 +18,9 @@ und Werkzeug tragen dieselbe Fassungsnummer.
   OpenAI-Schlüssel in WordPress (Schritt 4) – ohne ihn bleibt der Knopf
   weg, sonst ändert sich nichts.
 - **Mitarbeiter und Gruppen** als eigene Listen unter dem Schließplan.
+  Beide werden nacheinander angelegt („Anlegen“ oder „Anlegen & neuer
+  Mitarbeiter“ bzw. „Anlegen & neue Gruppe“), zugeordnet wird danach in
+  der Gruppe oder beim angelegten Mitarbeiter.
   Eine Spalte im Plan ist eine Gruppe (alle Mitglieder berechtigt), ein
   einzelner Mitarbeiter oder eine Schließung mit Rang; Medien werden je
   Mitarbeiter geführt (mehrere Arten gleichzeitig). Bestehende Aufmaße

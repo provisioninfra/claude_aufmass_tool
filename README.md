@@ -496,9 +496,24 @@ freiwillig und nie Pflicht.
 
 ## Mitarbeiter und Gruppen im Schließplan
 
-Unter der Matrix stehen die beiden Listen des Projekts: **Mitarbeiter**
-(Vorname Nachname in einem Feld, Abteilung/Gruppe – mehrere Gruppen möglich –
-und Medien) und **Gruppen** (frei benannt, etwa Verwaltung, Reinigung, EDV).
+Unter der Matrix steht die Karte **Mitarbeiter und Gruppen** – die eine
+Stelle, an der Namen gepflegt werden. Der Ablauf ist bewusst in drei
+Schritten gehalten:
+
+1. **Mitarbeiter nacheinander anlegen.** „+ Mitarbeiter“ öffnet den Dialog
+   mit Name, Funktion und Medien. „Anlegen“ schließt ihn; „Anlegen & neuer
+   Mitarbeiter“ (auch Enter im Namensfeld) legt an und öffnet gleich den
+   nächsten, leeren Dialog. Beim Anlegen gibt es keine Gruppenauswahl.
+2. **Gruppen nacheinander anlegen.** „+ Gruppe“ fragt nur den Namen (frei,
+   etwa Verwaltung, Reinigung, EDV) und ob die Gruppe eine Spalte im Plan
+   bekommt. „Anlegen“ oder „Anlegen & neue Gruppe“ – wie bei den
+   Mitarbeitern. Beim Anlegen gibt es keine Mitgliederauswahl.
+3. **Zuordnen, sobald beides da ist.** In der Gruppe (Chip antippen) werden
+   die Mitglieder angetippt, beim angelegten Mitarbeiter („Bearbeiten“) seine
+   Gruppen – mehrere Gruppen sind möglich, und beides wirkt in beide
+   Richtungen. Solange es noch keine Gruppen beziehungsweise Mitarbeiter
+   gibt, steht an der Stelle ein Hinweis statt der Auswahl.
+
 Eine Spalte im Plan ist entweder
 
 * eine **Gruppe** – alle Mitglieder sind über diese Spalte berechtigt,

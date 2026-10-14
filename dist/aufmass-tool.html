@@ -963,7 +963,15 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
 .gruppen-liste .chip.gruppe .zahl { font-size: 11.5px; font-weight: 400; color: var(--text-schwach); }
 .gruppen-liste .chip.gruppe.im-plan { border-color: var(--akzent); }
 .chip.neu { border-style: dashed; color: var(--akzent); }
-.schnell-eingabe input { min-width: 250px; }
+/* „Anlegen & neuer Mitarbeiter“ / „Anlegen & neue Gruppe“: die zweite
+   Hauptaktion in der Fußzeile - in der Hausfarbe umrandet, damit sie neben
+   „Anlegen“ als gleichwertiger Weg erkennbar ist. */
+.dialog > .fuss button.weiter { border-color: var(--hausfarbe); color: var(--hausfarbe); font-weight: 600; }
+.dialog > .fuss button.weiter:hover { background: var(--hausfarbe-flaeche); border-color: var(--hausfarbe); color: var(--hausfarbe); }
+/* Die Blöcke unter den Namensfeldern (Gruppen, Mitglieder, Träger, Medien)
+   bekommen Luft nach oben, sonst klebt ihre Beschriftung am Eingabefeld. */
+.dialog [data-feld="gruppen"], .dialog [data-feld="mitglieder"],
+.dialog [data-feld="traeger"], .dialog .medien-feld { margin-top: 10px; }
 .personen-tabelle td.mehrfach { color: var(--gelb); font-weight: 600; }
 .personen-tabelle tr.ohne-spalte td { color: var(--text-schwach); }
 .doppelt-hinweis { margin-bottom: 10px; }
@@ -1018,7 +1026,6 @@ table.matrix.verschieben th.spaltenkopf { cursor: grabbing; }
 @media (max-width: 560px) {
   .medien-zeile { grid-template-columns: 1fr 1fr; }
   .medien-zeile .entfernen { grid-column: 2; justify-self: end; }
-  .schnell-eingabe input { min-width: 0; }
 }
 
 /* Seltene Aktionen am Fuß des Türformulars - bewusst nicht in der
@@ -11053,45 +11060,34 @@ body.stift .zahl-knopf { min-width: 56px; }
     return behaelter;
   }
 
-  /* --- Gruppenzugehörigkeit als Chips ------------------------------------ */
+  /* --- Gruppenzugehörigkeit als Chips ------------------------------------
+   * Nur beim angelegten Mitarbeiter: alle vorhandenen Gruppen, die
+   * zugeordneten gedrückt. Gruppen entstehen über „+ Gruppe“ in der Karte,
+   * nicht hier - erst wenn es Gruppen gibt, lässt sich zuordnen. */
+  function nachName(a, b) { return String(a.name || '').localeCompare(String(b.name || ''), 'de'); }
+
   function gruppenChips(m, beiAenderung) {
     var p = projekt();
     var behaelter = el('div', { class: 'feld voll', 'data-feld': 'gruppen' });
-    behaelter.appendChild(el('label', { text: 'Abteilung / Gruppe' }));
+    behaelter.appendChild(el('label', { html: 'Zugeordnete Gruppen <span class="einheit">(antippen zum Zuordnen oder Entfernen)</span>' }));
     var chips = el('div', { class: 'chips' });
-    function zeichnen() {
-      A.leeren(chips);
-      if (!Array.isArray(m.gruppen)) m.gruppen = [];
-      (p.gruppen || []).forEach(function (g) {
-        var aktiv = m.gruppen.indexOf(g.id) !== -1;
-        var chip = el('button', { type: 'button', class: 'chip', 'aria-pressed': aktiv ? 'true' : 'false', text: g.name || '(ohne Namen)',
-          onclick: function () {
-            var i = m.gruppen.indexOf(g.id);
-            A.schrittMerken((i === -1 ? 'Gruppe zugeordnet: ' : 'Gruppe entfernt: ') + g.name);
-            if (i === -1) m.gruppen.push(g.id); else m.gruppen.splice(i, 1);
-            chip.setAttribute('aria-pressed', i === -1 ? 'true' : 'false');
-            A.alsGeaendertMarkieren();
-            if (beiAenderung) beiAenderung();
-          } });
-        chips.appendChild(chip);
-      });
-      chips.appendChild(el('button', { type: 'button', class: 'chip neu', text: '+ neue Gruppe',
+    if (!Array.isArray(m.gruppen)) m.gruppen = [];
+    (p.gruppen || []).slice().sort(nachName).forEach(function (g) {
+      var aktiv = m.gruppen.indexOf(g.id) !== -1;
+      var chip = el('button', { type: 'button', class: 'chip', 'aria-pressed': aktiv ? 'true' : 'false', text: g.name || '(ohne Namen)',
         onclick: function () {
-          A.textAbfragen('Neue Gruppe', 'Name der Gruppe', '', 'z. B. Verwaltung, Reinigung, EDV').then(function (name) {
-            name = String(name || '').trim();
-            if (!name) return;
-            var g = gruppeAnlegen(name);
-            if (m.gruppen.indexOf(g.id) === -1) m.gruppen.push(g.id);
-            A.alsGeaendertMarkieren();
-            zeichnen();
-            if (beiAenderung) beiAenderung();
-          });
-        } }));
-      if (!(p.gruppen || []).length) {
-        chips.appendChild(el('span', { class: 'zart', text: 'Noch keine Gruppen - mit „+ neue Gruppe“ anlegen.' }));
-      }
+          var i = m.gruppen.indexOf(g.id);
+          A.schrittMerken((i === -1 ? 'Gruppe zugeordnet: ' : 'Gruppe entfernt: ') + g.name);
+          if (i === -1) m.gruppen.push(g.id); else m.gruppen.splice(i, 1);
+          chip.setAttribute('aria-pressed', i === -1 ? 'true' : 'false');
+          A.alsGeaendertMarkieren();
+          if (beiAenderung) beiAenderung();
+        } });
+      chips.appendChild(chip);
+    });
+    if (!(p.gruppen || []).length) {
+      chips.appendChild(el('span', { class: 'zart', text: 'Noch keine Gruppen angelegt. Gruppen über „+ Gruppe“ unter dem Plan anlegen, danach hier zuordnen.' }));
     }
-    zeichnen();
     behaelter.appendChild(chips);
     return behaelter;
   }
@@ -11160,11 +11156,14 @@ body.stift .zahl-knopf { min-width: 56px; }
     var spalteWunsch = { wert: hatSpalte };
 
     var inhalt = el('div');
+    var nameFeld = A.textFeld(m, 'name', 'Vorname Nachname', { platzhalter: 'z. B. Max Mustermann', autocapitalize: 'words' });
     inhalt.appendChild(el('div', { class: 'raster' }, [
-      A.textFeld(m, 'name', 'Vorname Nachname', { platzhalter: 'z. B. Max Mustermann', autocapitalize: 'words' }),
-      m.funktion ? A.textFeld(m, 'funktion', 'Funktion', { platzhalter: '' }) : null
+      nameFeld,
+      A.textFeld(m, 'funktion', 'Funktion <span class="einheit">(freiwillig)</span>', { platzhalter: 'z. B. Hausmeister' })
     ]));
-    inhalt.appendChild(gruppenChips(m));
+    /* Beim Anlegen geht es nur um die Person; Gruppen werden danach
+     * zugeordnet - hier beim angelegten Mitarbeiter oder in der Gruppe. */
+    if (!istNeu) inhalt.appendChild(gruppenChips(m));
     inhalt.appendChild(medienFeld(m, 'Medien <span class="einheit">(Art und Anzahl - mehrere Arten möglich)</span>'));
     inhalt.appendChild(el('hr', { class: 'trenner' }));
     inhalt.appendChild(A.schalterFeld(spalteWunsch, 'wert', 'Eigene Spalte im Schließplan'));
@@ -11175,6 +11174,33 @@ body.stift .zahl-knopf { min-width: 56px; }
     if (spalten.length) {
       inhalt.appendChild(el('p', { class: 'hinweis', text: 'Berechtigt über: ' +
         spalten.map(function (s) { return s.kuerzel || s.bezeichnung; }).join(', ') }));
+    }
+    if (istNeu) {
+      inhalt.appendChild(el('p', { class: 'zart gruppen-hinweis',
+        text: 'Gruppen werden nach dem Anlegen zugeordnet - beim Bearbeiten des Mitarbeiters oder in der Gruppe.' }));
+    }
+
+    function speichern() {
+      m.name = String(m.name || '').trim();
+      if (!m.name) { A.toast('Bitte einen Namen eintragen.', 'fehler'); return false; }
+      A.schrittMerken(istNeu ? ('Mitarbeiter ' + m.name + ' angelegt') : ('Mitarbeiter ' + m.name + ' geändert'));
+      m.medien = M.medienBereinigen(m.medien);
+      if (istNeu) p.mitarbeiter.push(m);
+      else {
+        var i = p.mitarbeiter.findIndex(function (x) { return x.id === m.id; });
+        if (i >= 0) p.mitarbeiter[i] = m; else p.mitarbeiter.push(m);
+      }
+      if (spalteWunsch.wert && !hatSpalte) {
+        var s = M.spalteFuer(p, 'mitarbeiter', m.id);
+        if (!s.kuerzel) s.kuerzel = M.kuerzelAus(m.name);
+      } else if (!spalteWunsch.wert && hatSpalte) {
+        p.schliessungen = p.schliessungen.filter(function (s2) { return !(s2.art === 'mitarbeiter' && s2.mitarbeiterId === m.id); });
+        M.matrixAufraeumen(p);
+      }
+      M.spaltenAngleichen(p);
+      if (optionen.beiAnlegen && istNeu) optionen.beiAnlegen(m);
+      A.alsGeaendertMarkieren(); A.speichern(); neuZeichnen();
+      return true;
     }
 
     var knoepfe = [];
@@ -11195,35 +11221,37 @@ body.stift .zahl-knopf { min-width: 56px; }
     }
     knoepfe.push({ fuellen: true });
     knoepfe.push({ text: 'Abbrechen' });
+    if (istNeu) {
+      /* Einen nach dem anderen: anlegen und gleich den nächsten öffnen */
+      knoepfe.push({ text: 'Anlegen & neuer Mitarbeiter', klasse: 'weiter', aktion: function (schliessen) {
+        if (!speichern()) return false;
+        A.toast('„' + m.name + '“ angelegt - nächster Mitarbeiter.', 'ok');
+        schliessen();
+        setTimeout(function () { mitarbeiterBearbeiten(null, neuZeichnen, optionen); }, 60);
+        return false;
+      } });
+    }
     knoepfe.push({ text: istNeu ? 'Anlegen' : 'Übernehmen', klasse: 'haupt', aktion: function (schliessen) {
-      m.name = String(m.name || '').trim();
-      if (!m.name) { A.toast('Bitte einen Namen eintragen.', 'fehler'); return false; }
-      A.schrittMerken(istNeu ? ('Mitarbeiter ' + m.name + ' angelegt') : ('Mitarbeiter ' + m.name + ' geändert'));
-      m.medien = M.medienBereinigen(m.medien);
-      if (istNeu) p.mitarbeiter.push(m);
-      else {
-        var i = p.mitarbeiter.findIndex(function (x) { return x.id === m.id; });
-        if (i >= 0) p.mitarbeiter[i] = m; else p.mitarbeiter.push(m);
-      }
-      if (spalteWunsch.wert && !hatSpalte) {
-        var s = M.spalteFuer(p, 'mitarbeiter', m.id);
-        if (!s.kuerzel) s.kuerzel = M.kuerzelAus(m.name);
-      } else if (!spalteWunsch.wert && hatSpalte) {
-        p.schliessungen = p.schliessungen.filter(function (s2) { return !(s2.art === 'mitarbeiter' && s2.mitarbeiterId === m.id); });
-        M.matrixAufraeumen(p);
-      }
-      M.spaltenAngleichen(p);
-      if (optionen.beiAnlegen && istNeu) optionen.beiAnlegen(m);
-      A.alsGeaendertMarkieren(); A.speichern(); neuZeichnen();
-      A.toast('Mitarbeiter gespeichert.', 'ok');
+      if (!speichern()) return false;
+      A.toast(istNeu ? 'Mitarbeiter angelegt.' : 'Mitarbeiter gespeichert.', 'ok');
       schliessen();
       return false;
     } });
 
-    A.dialogOeffnen({
+    var dlg = A.dialogOeffnen({
       titel: istNeu ? 'Neuer Mitarbeiter' : 'Mitarbeiter bearbeiten',
       inhalt: inhalt, knoepfe: knoepfe
     });
+    /* Enter im Namensfeld: beim Anlegen gleich der nächste, sonst übernehmen */
+    var eingabe = nameFeld.querySelector('input');
+    if (eingabe) {
+      eingabe.addEventListener('keydown', function (ev) {
+        if (ev.key !== 'Enter') return;
+        ev.preventDefault();
+        var ziel = dlg.kasten.querySelector(istNeu ? '.fuss button.weiter' : '.fuss button.haupt');
+        if (ziel) ziel.click();
+      });
+    }
   }
 
   /* =========================================================================
@@ -11240,18 +11268,17 @@ body.stift .zahl-knopf { min-width: 56px; }
     (p.mitarbeiter || []).forEach(function (m) { zugehoerig[m.id] = (m.gruppen || []).indexOf(g.id) !== -1; });
 
     var inhalt = el('div');
-    inhalt.appendChild(el('div', { class: 'raster' }, [
-      A.textFeld(g, 'name', 'Name der Gruppe', { platzhalter: 'z. B. Verwaltung, Reinigung, EDV', autocapitalize: 'words' })
-    ]));
+    var nameFeld = A.textFeld(g, 'name', 'Name der Gruppe', { platzhalter: 'z. B. Verwaltung, Reinigung, EDV', autocapitalize: 'words' });
+    inhalt.appendChild(el('div', { class: 'raster' }, [nameFeld]));
 
-    /* Mitglieder direkt hier zuordnen - vor Ort ist das der schnellere Weg
-       als jeden Mitarbeiter einzeln zu öffnen. */
-    var mitgliederFeld = el('div', { class: 'feld voll', 'data-feld': 'mitglieder' });
-    mitgliederFeld.appendChild(el('label', { html: 'Mitglieder <span class="einheit">(Mitarbeiter antippen)</span>' }));
-    var chips = el('div', { class: 'chips' });
-    function chipsZeichnen() {
-      A.leeren(chips);
-      (p.mitarbeiter || []).forEach(function (m) {
+    /* Mitglieder erst bei der angelegten Gruppe - beim Anlegen geht es nur
+     * um den Namen. Mitarbeiter entstehen über „+ Mitarbeiter“ in der
+     * Karte; gibt es noch keine, steht das hier. */
+    if (!istNeu) {
+      var mitgliederFeld = el('div', { class: 'feld voll', 'data-feld': 'mitglieder' });
+      mitgliederFeld.appendChild(el('label', { html: 'Mitglieder <span class="einheit">(Mitarbeiter antippen zum Zuordnen oder Entfernen)</span>' }));
+      var chips = el('div', { class: 'chips' });
+      (p.mitarbeiter || []).slice().sort(nachName).forEach(function (m) {
         var chip = el('button', { type: 'button', class: 'chip', 'aria-pressed': zugehoerig[m.id] ? 'true' : 'false',
           text: m.name || '(ohne Namen)',
           onclick: function () {
@@ -11260,23 +11287,49 @@ body.stift .zahl-knopf { min-width: 56px; }
           } });
         chips.appendChild(chip);
       });
-      chips.appendChild(el('button', { type: 'button', class: 'chip neu', text: '+ Mitarbeiter anlegen',
-        onclick: function () {
-          mitarbeiterBearbeiten(null, function () { chipsZeichnen(); if (neuZeichnen) neuZeichnen(); },
-            { beiAnlegen: function (m) { zugehoerig[m.id] = true; } });
-        } }));
       if (!(p.mitarbeiter || []).length) {
-        chips.appendChild(el('span', { class: 'zart', text: 'Noch keine Mitarbeiter erfasst.' }));
+        chips.appendChild(el('span', { class: 'zart', text: 'Noch keine Mitarbeiter angelegt. Mitarbeiter über „+ Mitarbeiter“ unter dem Plan anlegen, danach hier zuordnen.' }));
       }
+      mitgliederFeld.appendChild(chips);
+      inhalt.appendChild(mitgliederFeld);
+    } else {
+      inhalt.appendChild(el('p', { class: 'zart mitglieder-hinweis',
+        text: 'Mitglieder werden nach dem Anlegen zugeordnet - beim Bearbeiten der Gruppe oder des Mitarbeiters.' }));
     }
-    chipsZeichnen();
-    mitgliederFeld.appendChild(chips);
-    inhalt.appendChild(mitgliederFeld);
 
     inhalt.appendChild(el('hr', { class: 'trenner' }));
     inhalt.appendChild(A.schalterFeld(spalteWunsch, 'wert', 'Spalte im Schließplan'));
     inhalt.appendChild(el('p', { class: 'zart', style: { marginLeft: '64px', marginTop: '-6px' },
       text: 'Alle Mitglieder sind über diese Spalte berechtigt. Die Spalte heißt wie die Gruppe.' }));
+
+    function speichern() {
+      g.name = String(g.name || '').trim();
+      if (!g.name) { A.toast('Bitte einen Namen eintragen.', 'fehler'); return false; }
+      var doppelt = (p.gruppen || []).some(function (x) { return x.id !== g.id && String(x.name).trim().toLowerCase() === g.name.toLowerCase(); });
+      if (doppelt) { A.toast('Eine Gruppe mit diesem Namen gibt es schon.', 'fehler'); return false; }
+      A.schrittMerken(istNeu ? ('Gruppe ' + g.name + ' angelegt') : ('Gruppe ' + g.name + ' geändert'));
+      if (istNeu) p.gruppen.push(g);
+      else {
+        var i = p.gruppen.findIndex(function (x) { return x.id === g.id; });
+        if (i >= 0) p.gruppen[i] = g; else p.gruppen.push(g);
+        (p.mitarbeiter || []).forEach(function (m) {
+          if (!Array.isArray(m.gruppen)) m.gruppen = [];
+          var drin = m.gruppen.indexOf(g.id) !== -1;
+          if (zugehoerig[m.id] && !drin) m.gruppen.push(g.id);
+          if (!zugehoerig[m.id] && drin) m.gruppen = m.gruppen.filter(function (x) { return x !== g.id; });
+        });
+      }
+      if (spalteWunsch.wert && !hatSpalte) {
+        var s = M.spalteFuer(p, 'gruppe', g.id);
+        if (!s.kuerzel) s.kuerzel = M.kuerzelAus(g.name);
+      } else if (!spalteWunsch.wert && hatSpalte) {
+        p.schliessungen = p.schliessungen.filter(function (s2) { return !(s2.art === 'gruppe' && s2.gruppeId === g.id); });
+        M.matrixAufraeumen(p);
+      }
+      M.spaltenAngleichen(p);
+      A.alsGeaendertMarkieren(); A.speichern(); neuZeichnen();
+      return true;
+    }
 
     var knoepfe = [];
     if (!istNeu) {
@@ -11296,41 +11349,35 @@ body.stift .zahl-knopf { min-width: 56px; }
     }
     knoepfe.push({ fuellen: true });
     knoepfe.push({ text: 'Abbrechen' });
+    if (istNeu) {
+      knoepfe.push({ text: 'Anlegen & neue Gruppe', klasse: 'weiter', aktion: function (schliessen) {
+        if (!speichern()) return false;
+        A.toast('„' + g.name + '“ angelegt - nächste Gruppe.', 'ok');
+        schliessen();
+        setTimeout(function () { gruppeBearbeiten(null, neuZeichnen); }, 60);
+        return false;
+      } });
+    }
     knoepfe.push({ text: istNeu ? 'Anlegen' : 'Übernehmen', klasse: 'haupt', aktion: function (schliessen) {
-      g.name = String(g.name || '').trim();
-      if (!g.name) { A.toast('Bitte einen Namen eintragen.', 'fehler'); return false; }
-      var doppelt = (p.gruppen || []).some(function (x) { return x.id !== g.id && String(x.name).trim().toLowerCase() === g.name.toLowerCase(); });
-      if (doppelt) { A.toast('Eine Gruppe mit diesem Namen gibt es schon.', 'fehler'); return false; }
-      A.schrittMerken(istNeu ? ('Gruppe ' + g.name + ' angelegt') : ('Gruppe ' + g.name + ' geändert'));
-      if (istNeu) p.gruppen.push(g);
-      else {
-        var i = p.gruppen.findIndex(function (x) { return x.id === g.id; });
-        if (i >= 0) p.gruppen[i] = g; else p.gruppen.push(g);
-      }
-      (p.mitarbeiter || []).forEach(function (m) {
-        if (!Array.isArray(m.gruppen)) m.gruppen = [];
-        var drin = m.gruppen.indexOf(g.id) !== -1;
-        if (zugehoerig[m.id] && !drin) m.gruppen.push(g.id);
-        if (!zugehoerig[m.id] && drin) m.gruppen = m.gruppen.filter(function (x) { return x !== g.id; });
-      });
-      if (spalteWunsch.wert && !hatSpalte) {
-        var s = M.spalteFuer(p, 'gruppe', g.id);
-        if (!s.kuerzel) s.kuerzel = M.kuerzelAus(g.name);
-      } else if (!spalteWunsch.wert && hatSpalte) {
-        p.schliessungen = p.schliessungen.filter(function (s2) { return !(s2.art === 'gruppe' && s2.gruppeId === g.id); });
-        M.matrixAufraeumen(p);
-      }
-      M.spaltenAngleichen(p);
-      A.alsGeaendertMarkieren(); A.speichern(); neuZeichnen();
-      A.toast('Gruppe gespeichert.', 'ok');
+      if (!speichern()) return false;
+      A.toast(istNeu ? 'Gruppe angelegt.' : 'Gruppe gespeichert.', 'ok');
       schliessen();
       return false;
     } });
 
-    A.dialogOeffnen({
+    var dlg = A.dialogOeffnen({
       titel: istNeu ? 'Neue Gruppe' : 'Gruppe bearbeiten',
       inhalt: inhalt, knoepfe: knoepfe
     });
+    var eingabe = nameFeld.querySelector('input');
+    if (eingabe) {
+      eingabe.addEventListener('keydown', function (ev) {
+        if (ev.key !== 'Enter') return;
+        ev.preventDefault();
+        var ziel = dlg.kasten.querySelector(istNeu ? '.fuss button.weiter' : '.fuss button.haupt');
+        if (ziel) ziel.click();
+      });
+    }
   }
 
   /* =========================================================================
@@ -11349,8 +11396,9 @@ body.stift .zahl-knopf { min-width: 56px; }
     karte.appendChild(el('div', { class: 'zeile-verteilt' }, [
       el('div', { class: 'fuellen' }, [
         el('h2', { text: 'Mitarbeiter und Gruppen', style: { marginTop: '0' } }),
-        el('p', { class: 'hinweis', text: 'Spalten im Plan sind Gruppen (alle Mitglieder berechtigt) oder einzelne Mitarbeiter. ' +
-          'Die Medien je Mitarbeiter ergeben die Stückzahlen - auch wenn jemand einzeln und in einer Gruppe steht, zählt er nur einmal.' })
+        el('p', { class: 'hinweis', text: 'Erst die Mitarbeiter anlegen, dann die Gruppen; zugeordnet wird danach - beim Mitarbeiter oder in der Gruppe. ' +
+          'Spalten im Plan sind Gruppen (alle Mitglieder berechtigt) oder einzelne Mitarbeiter; die Medien je Mitarbeiter ergeben die Stückzahlen, ' +
+          'auch wer einzeln und in einer Gruppe steht, zählt nur einmal.' })
       ])
     ]));
 
@@ -11367,58 +11415,20 @@ body.stift .zahl-knopf { min-width: 56px; }
     }
     var ohneSpalte = M.mitarbeiterOhneSpalte(p);
 
-    /* --- Gruppen --- */
-    var gruppenBereich = el('div', { class: 'personen-abschnitt' });
-    gruppenBereich.appendChild(el('div', { class: 'zeile-verteilt' }, [
-      el('h3', { class: 'fuellen', text: 'Gruppen (' + (p.gruppen || []).length + ')' }),
-      el('button', { class: 'klein', text: '+ Gruppe', onclick: function () { gruppeBearbeiten(null, neuZeichnen); } })
-    ]));
-    var gruppenListe = el('div', { class: 'chips gruppen-liste' });
-    (p.gruppen || []).slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name), 'de'); }).forEach(function (g) {
-      var leute = M.gruppenMitglieder(p, g.id);
-      var spalte = p.schliessungen.filter(function (s) { return s.art === 'gruppe' && s.gruppeId === g.id; })[0];
-      gruppenListe.appendChild(el('button', { type: 'button', class: 'chip gruppe' + (spalte ? ' im-plan' : ''),
-        title: (spalte ? 'Spalte im Plan · ' : 'ohne Spalte im Plan · ') + leute.length + ' Mitglieder',
-        onclick: function () { gruppeBearbeiten(g, neuZeichnen); } }, [
-        el('span', { class: 'name', text: g.name || '(ohne Namen)' }),
-        el('span', { class: 'zahl', text: leute.length + (leute.length === 1 ? ' Mitglied' : ' Mitglieder') + (spalte ? '' : ' · ohne Spalte') })
-      ]));
-    });
-    if (!(p.gruppen || []).length) {
-      gruppenListe.appendChild(el('span', { class: 'zart', text: 'Noch keine Gruppen. Gruppen benennen Sie selbst - zum Beispiel Verwaltung, Reinigung, EDV.' }));
-    }
-    gruppenBereich.appendChild(gruppenListe);
-    karte.appendChild(gruppenBereich);
-
     /* --- Mitarbeiter --- */
-    var maBereich = el('div', { class: 'personen-abschnitt' });
-    var schnell = el('input', { type: 'text', placeholder: 'Neuer Mitarbeiter: Vorname Nachname …', autocomplete: 'off', autocapitalize: 'words',
-      'aria-label': 'Neuer Mitarbeiter' });
-    function schnellAnlegen() {
-      var name = schnell.value.trim();
-      if (!name) { mitarbeiterBearbeiten(null, neuZeichnen); return; }
-      A.schrittMerken('Mitarbeiter ' + name + ' angelegt');
-      p.mitarbeiter.push(M.neuerMitarbeiter({ name: name }));
-      schnell.value = '';
-      A.alsGeaendertMarkieren(); A.speichern(); neuZeichnen();
-      A.toast('Mitarbeiter angelegt - Gruppe und Medien über die Zeile zuordnen.', 'ok');
-    }
-    schnell.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); schnellAnlegen(); } });
+    var maBereich = el('div', { class: 'personen-abschnitt mitarbeiter-abschnitt' });
     maBereich.appendChild(el('div', { class: 'zeile-verteilt' }, [
       el('h3', { class: 'fuellen', text: 'Mitarbeiter (' + (p.mitarbeiter || []).length + ')' }),
-      el('div', { class: 'knopfleiste' }, [
-        el('div', { class: 'schnell-eingabe' }, schnell),
-        el('button', { class: 'klein', text: '+ Mitarbeiter', onclick: schnellAnlegen })
-      ])
+      el('button', { class: 'klein', text: '+ Mitarbeiter', onclick: function () { mitarbeiterBearbeiten(null, neuZeichnen); } })
     ]));
 
-    var sortiert = (p.mitarbeiter || []).slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name), 'de'); });
+    var sortiert = (p.mitarbeiter || []).slice().sort(nachName);
     if (!sortiert.length) {
-      maBereich.appendChild(el('p', { class: 'zart', text: 'Noch keine Mitarbeiter erfasst. Namen oben eintippen und mit Enter anlegen.' }));
+      maBereich.appendChild(el('p', { class: 'zart', text: 'Noch keine Mitarbeiter angelegt. Mit „+ Mitarbeiter“ einen nach dem anderen anlegen - „Anlegen & neuer Mitarbeiter“ öffnet gleich den nächsten.' }));
     } else {
       var tab = el('table', { class: 'personen-tabelle' });
       tab.appendChild(el('thead', {}, el('tr', {}, [
-        el('th', { text: 'Name' }), el('th', { text: 'Abteilung / Gruppe' }),
+        el('th', { text: 'Name' }), el('th', { text: 'Gruppen' }),
         el('th', { text: 'Medien' }), el('th', { text: 'Berechtigt über' }), el('th', { class: 'zahl', text: '' })
       ])));
       var tb = el('tbody');
@@ -11448,6 +11458,29 @@ body.stift .zahl-knopf { min-width: 56px; }
       }
     }
     karte.appendChild(maBereich);
+
+    /* --- Gruppen --- */
+    var gruppenBereich = el('div', { class: 'personen-abschnitt gruppen-abschnitt' });
+    gruppenBereich.appendChild(el('div', { class: 'zeile-verteilt' }, [
+      el('h3', { class: 'fuellen', text: 'Gruppen (' + (p.gruppen || []).length + ')' }),
+      el('button', { class: 'klein', text: '+ Gruppe', onclick: function () { gruppeBearbeiten(null, neuZeichnen); } })
+    ]));
+    var gruppenListe = el('div', { class: 'chips gruppen-liste' });
+    (p.gruppen || []).slice().sort(nachName).forEach(function (g) {
+      var leute = M.gruppenMitglieder(p, g.id);
+      var spalte = p.schliessungen.filter(function (s) { return s.art === 'gruppe' && s.gruppeId === g.id; })[0];
+      gruppenListe.appendChild(el('button', { type: 'button', class: 'chip gruppe' + (spalte ? ' im-plan' : ''),
+        title: (spalte ? 'Spalte im Plan · ' : 'ohne Spalte im Plan · ') + leute.length + ' Mitglieder - antippen zum Bearbeiten und Zuordnen',
+        onclick: function () { gruppeBearbeiten(g, neuZeichnen); } }, [
+        el('span', { class: 'name', text: g.name || '(ohne Namen)' }),
+        el('span', { class: 'zahl', text: leute.length + (leute.length === 1 ? ' Mitglied' : ' Mitglieder') + (spalte ? '' : ' · ohne Spalte') })
+      ]));
+    });
+    if (!(p.gruppen || []).length) {
+      gruppenListe.appendChild(el('span', { class: 'zart', text: 'Noch keine Gruppen. Mit „+ Gruppe“ anlegen - benannt wie bei Ihnen üblich, etwa Verwaltung, Reinigung, EDV. Mitglieder werden danach zugeordnet.' }));
+    }
+    gruppenBereich.appendChild(gruppenListe);
+    karte.appendChild(gruppenBereich);
     return karte;
   }
 

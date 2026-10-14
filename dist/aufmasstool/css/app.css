@@ -935,7 +935,15 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
 .gruppen-liste .chip.gruppe .zahl { font-size: 11.5px; font-weight: 400; color: var(--text-schwach); }
 .gruppen-liste .chip.gruppe.im-plan { border-color: var(--akzent); }
 .chip.neu { border-style: dashed; color: var(--akzent); }
-.schnell-eingabe input { min-width: 250px; }
+/* „Anlegen & neuer Mitarbeiter“ / „Anlegen & neue Gruppe“: die zweite
+   Hauptaktion in der Fußzeile - in der Hausfarbe umrandet, damit sie neben
+   „Anlegen“ als gleichwertiger Weg erkennbar ist. */
+.dialog > .fuss button.weiter { border-color: var(--hausfarbe); color: var(--hausfarbe); font-weight: 600; }
+.dialog > .fuss button.weiter:hover { background: var(--hausfarbe-flaeche); border-color: var(--hausfarbe); color: var(--hausfarbe); }
+/* Die Blöcke unter den Namensfeldern (Gruppen, Mitglieder, Träger, Medien)
+   bekommen Luft nach oben, sonst klebt ihre Beschriftung am Eingabefeld. */
+.dialog [data-feld="gruppen"], .dialog [data-feld="mitglieder"],
+.dialog [data-feld="traeger"], .dialog .medien-feld { margin-top: 10px; }
 .personen-tabelle td.mehrfach { color: var(--gelb); font-weight: 600; }
 .personen-tabelle tr.ohne-spalte td { color: var(--text-schwach); }
 .doppelt-hinweis { margin-bottom: 10px; }
@@ -990,7 +998,6 @@ table.matrix.verschieben th.spaltenkopf { cursor: grabbing; }
 @media (max-width: 560px) {
   .medien-zeile { grid-template-columns: 1fr 1fr; }
   .medien-zeile .entfernen { grid-column: 2; justify-self: end; }
-  .schnell-eingabe input { min-width: 0; }
 }
 
 /* Seltene Aktionen am Fuß des Türformulars - bewusst nicht in der
