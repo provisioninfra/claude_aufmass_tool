@@ -39,6 +39,8 @@
        Pipedrive-Anbindung dort, und dieses Gerät braucht keinen. */
     pipedrive: false,
     pipedriveHost: '',
+    /* Bietet der Server das Einsprechen an (OpenAI-Schlüssel hinterlegt)? */
+    diktat: false,
     serverVersion: '',       /* Fassung des Plugins - nennt der Server nur Angemeldeten */
     laeuft: false,
     offen: 0,                /* noch nicht gesendete Projekte */
@@ -130,6 +132,7 @@
       zustand.benutzer = (d && d.benutzer) || null;
       zustand.serverVersion = (d && d.version) || '';
       pipedriveMerken(d);
+      diktatMerken(d);
       melden();
       return zustand;
     }).catch(function (f) {
@@ -152,6 +155,19 @@
       zustand.pipedriveHost = host;
       melden();
     }
+  }
+
+  /* Ebenso das Einsprechen: Ein in WordPress hinterlegter OpenAI-Schlüssel
+     schaltet den Knopf im Türformular auf allen Geräten frei. */
+  function diktatMerken(d) {
+    if (!d || d.diktat === undefined) { return; }
+    var neu = !!d.diktat;
+    if (neu !== zustand.diktat) { zustand.diktat = neu; melden(); }
+  }
+
+  /** Tür einsprechen: Aufnahme oder Text samt Feldschema an den Server. */
+  function diktat(formular) {
+    return anfrage('/diktat', { methode: 'POST', koerper: formular });
   }
 
   /* Wartende Kundenrückmeldungen kommen bei jedem Abgleich vollständig
@@ -232,6 +248,7 @@
   function holen() {
     return anfrage('/projekte?seit=' + encodeURIComponent(marke)).then(function (d) {
       pipedriveMerken(d);
+      diktatMerken(d);
       antwortenMerken(d);
       var reihe = Promise.resolve();
       (d.projekte || []).forEach(function (eintrag) {
@@ -914,6 +931,7 @@
     antwortVorschau: antwortVorschau,
     antwortUebernehmen: antwortUebernehmen,
     antwortVerwerfen: antwortVerwerfen,
+    diktat: diktat,
     zustand: function () { return zustand; },
     /* für Tests */
     _intern: { ohneBilddaten: ohneBilddaten, fotoListe: fotoListe,

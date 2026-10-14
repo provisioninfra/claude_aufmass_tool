@@ -83,7 +83,8 @@ if ($rest === '/start' && $art === 'GET') {
     if ($b) {
         $aus['pipedrive'] = Aufmass_Pipedrive::eingerichtet();
         $aus['pipedriveHost'] = $aus['pipedrive'] ? Aufmass_Pipedrive::host_anzeige() : '';
-        $aus['version'] = '1.2.0-test';
+        $aus['diktat'] = Aufmass_Diktat::eingerichtet();
+        $aus['version'] = '1.3.0-test';
     }
     raus($aus);
 }
@@ -116,8 +117,21 @@ if ($rest === '/projekte' && $art === 'GET') {
     $d = Aufmass_Projekte::liste(isset($_GET['seit']) ? $_GET['seit'] : '');
     $d['pipedrive'] = Aufmass_Pipedrive::eingerichtet();
     $d['pipedriveHost'] = $d['pipedrive'] ? Aufmass_Pipedrive::host_anzeige() : '';
+    $d['diktat'] = Aufmass_Diktat::eingerichtet();
     $d['antworten'] = Aufmass_Freigaben::offene_fuer($b);
     raus($d);
+}
+/* --- Tür einsprechen --- */
+if ($rest === '/diktat' && $art === 'POST') {
+    kopffeldPruefen();
+    $b = benutzerOderRaus();
+    $e = Aufmass_Diktat::verarbeiten(array(
+        'ton' => isset($_FILES['ton']) ? $_FILES['ton'] : null,
+        'text' => isset($_POST['text']) ? $_POST['text'] : '',
+        'felder' => isset($_POST['felder']) ? $_POST['felder'] : null,
+        'woerter' => isset($_POST['woerter']) ? $_POST['woerter'] : null), $b);
+    if (is_wp_error($e)) { fehler($e); }
+    raus($e);
 }
 /* --- Kundenfreigabe --- */
 if ($rest === '/freigaben' && $art === 'GET') {

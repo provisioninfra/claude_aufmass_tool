@@ -1516,6 +1516,23 @@
     function pdZeichnen(pruefErgebnis) {
       A.leeren(pdBereich);
       A.leeren(pdDiagnose);
+      /* Tür einsprechen: läuft über den Server, hier nur der Stand */
+      var Ab2 = global.Abgleich && global.Abgleich.zustand ? global.Abgleich.zustand() : null;
+      if (Ab2 && Ab2.eingerichtet) {
+        pdBereich.appendChild(el('h2', { text: 'Tür einsprechen' }));
+        if (Ab2.diktat) {
+          pdBereich.appendChild(el('div', { class: 'meldung ok', style: { marginTop: '4px' } }, el('div', {}, [
+            el('b', { text: 'Über den Server eingerichtet. ' }),
+            'Im Türformular gibt es den Knopf „Einsprechen“: Aufnahme, Erkennung bei OpenAI, Vorschlag, Übernahme nach Bestätigung. ' +
+            'Der OpenAI-Schlüssel liegt in WordPress und verlässt den Server nicht; die Aufnahme wird nicht gespeichert.' +
+            (global.Diktat && !global.Diktat.kannAufnehmen() ? ' Dieser Browser kann allerdings nicht aufnehmen.' : '')
+          ])));
+        } else {
+          pdBereich.appendChild(el('p', { class: 'hinweis',
+            text: 'Nicht eingerichtet. Mit einem OpenAI-Schlüssel in WordPress (Einstellungen → Aufmaß-Abgleich → Tür einsprechen) ' +
+                  'lassen sich die Angaben zu einer Tür einsprechen; der Knopf erscheint dann im Türformular.' }));
+        }
+      }
       pdBereich.appendChild(el('h2', { text: 'Pipedrive' }));
       pdBereich.appendChild(el('p', { class: 'hinweis',
         text: 'Mit einer Verbindung zu Pipedrive lässt sich ein Aufmaß direkt aus einem Deal anlegen. ' +

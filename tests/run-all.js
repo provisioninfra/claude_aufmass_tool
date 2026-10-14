@@ -26,6 +26,7 @@ const reihen = [
   ['Abgleich-Oberfläche', 'test-abgleich-oberflaeche.js'],
   ['Pipedrive über Server', 'test-pipedrive-server.js'],
   ['Freigabe über Server', 'test-freigabe-server.js'],
+  ['Tür einsprechen',  'test-diktat.js'],
   ['Angriffsproben',   'test-angriffe.js'],
   ['Gleichlauf PHP↔JS','test-gleichlauf.js'],
   ['Offline-Betrieb', 'test-offline-pwa.js'],
@@ -39,7 +40,8 @@ const phpReihen = [
   ['Google-Ausweis (PHP)', '../server/tests/test-jwt.php'],
   ['Server-Logik (PHP)',   '../server/tests/test-server.php'],
   ['Pipedrive-Server (PHP)', '../server/tests/test-pipedrive.php'],
-  ['Freigaben-Server (PHP)', '../server/tests/test-freigaben.php']
+  ['Freigaben-Server (PHP)', '../server/tests/test-freigaben.php'],
+  ['Diktat-Server (PHP)', '../server/tests/test-diktat.php']
 ];
 let phpDa = true;
 try { execFileSync('php', ['--version'], { stdio: 'ignore' }); } catch (e) { phpDa = false; }

@@ -34,6 +34,19 @@ class Aufmass_Einstellungen {
         register_setting('aufmass_sync', Aufmass_Drossel::OPTION_PROXY, array(
             'type' => 'string', 'sanitize_callback' => array(__CLASS__, 'schalter_pruefen'), 'default' => '0'
         ));
+        /* Tür einsprechen: OpenAI-Schlüssel (verschlüsselt), Adresse, Modelle */
+        register_setting('aufmass_sync', 'aufmass_openai_schluessel', array(
+            'type' => 'string', 'sanitize_callback' => array(__CLASS__, 'openai_schluessel_pruefen'), 'default' => ''
+        ));
+        register_setting('aufmass_sync', 'aufmass_openai_host', array(
+            'type' => 'string', 'sanitize_callback' => array(__CLASS__, 'openai_host_pruefen'), 'default' => ''
+        ));
+        register_setting('aufmass_sync', 'aufmass_diktat_modell_erkennung', array(
+            'type' => 'string', 'sanitize_callback' => array(__CLASS__, 'modell_erkennung_pruefen'), 'default' => ''
+        ));
+        register_setting('aufmass_sync', 'aufmass_diktat_modell_zuordnung', array(
+            'type' => 'string', 'sanitize_callback' => array(__CLASS__, 'modell_zuordnung_pruefen'), 'default' => ''
+        ));
         /* Der Pipedrive-Schlüssel wird verschlüsselt abgelegt. Das Formular
            zeigt ihn nie an; ein leeres Feld heißt "unverändert lassen". */
         register_setting('aufmass_sync', 'aufmass_pipedrive_token', array(
@@ -106,6 +119,50 @@ class Aufmass_Einstellungen {
         return strtolower($wert);
     }
 
+    public static function openai_schluessel_pruefen($wert) {
+        if (!empty($_POST['aufmass_openai_entfernen'])) { return ''; }
+        $wert = trim((string) $wert);
+        if ($wert === '') { return (string) get_option('aufmass_openai_schluessel', ''); }   /* unverändert */
+        if (Aufmass_Verschluesselung::ist_chiffre($wert)) { return $wert; }   /* zweiter Durchlauf beim ersten Speichern */
+        if (!preg_match('/^sk-[A-Za-z0-9_\-]{16,256}$/', $wert)) {
+            add_settings_error('aufmass_sync', 'openai',
+                'Der OpenAI-Schlüssel sieht nicht wie ein API-Schlüssel aus - er beginnt mit „sk-“.');
+            return (string) get_option('aufmass_openai_schluessel', '');
+        }
+        $chiffre = Aufmass_Verschluesselung::verschluesseln($wert);
+        if ($chiffre === null) {
+            add_settings_error('aufmass_sync', 'openai',
+                'Der Schlüssel konnte nicht verschlüsselt abgelegt werden (weder sodium noch openssl verfügbar).');
+            return (string) get_option('aufmass_openai_schluessel', '');
+        }
+        return $chiffre;
+    }
+
+    public static function openai_host_pruefen($wert) {
+        $wert = trim((string) $wert);
+        if ($wert === '') { return ''; }
+        $wert = preg_replace('#^https?://#i', '', $wert);
+        $wert = preg_replace('#/.*$#', '', $wert);
+        if (!preg_match('/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i', $wert)) {
+            add_settings_error('aufmass_sync', 'openai_host', 'Das ist keine gültige OpenAI-Adresse.');
+            return (string) get_option('aufmass_openai_host', '');
+        }
+        return strtolower($wert);
+    }
+
+    public static function modell_erkennung_pruefen($wert) { return self::modell_pruefen($wert, 'aufmass_diktat_modell_erkennung'); }
+    public static function modell_zuordnung_pruefen($wert) { return self::modell_pruefen($wert, 'aufmass_diktat_modell_zuordnung'); }
+    private static function modell_pruefen($wert, $option) {
+        $wert = trim((string) $wert);
+        if ($wert === '') { return ''; }
+        if (!preg_match('/^[a-z0-9][a-z0-9.:_\-]{1,60}$/i', $wert)) {
+            add_settings_error('aufmass_sync', 'modell',
+                'Ein Modellname besteht aus Buchstaben, Ziffern, Punkt, Doppelpunkt, Unter- und Bindestrich.');
+            return (string) get_option($option, '');
+        }
+        return $wert;
+    }
+
     public static function client_pruefen($wert) {
         $wert = trim((string) $wert);
         if ($wert === '') { return ''; }
@@ -165,6 +222,21 @@ class Aufmass_Einstellungen {
                 echo '<div class="notice notice-error"><p>Nur ein gesperrter Zugang lässt sich löschen.</p></div>';
             }
             $benutzer = $wpdb->get_results("SELECT * FROM $bt ORDER BY name", ARRAY_A) ?: array();
+        }
+        /* Verbindung zu OpenAI prüfen: holt nur die Modellliste - kostenlos. */
+        if (isset($_GET['aufmass_diktat_pruefen']) && check_admin_referer('aufmass_diktat_pruefen')) {
+            $e = Aufmass_Diktat::verbindung_pruefen();
+            if (is_wp_error($e)) {
+                echo '<div class="notice notice-error"><p>OpenAI: ' . esc_html($e->get_error_message()) . '</p></div>';
+            } else {
+                $fehlt = array();
+                if (!$e['erkennung']) { $fehlt[] = Aufmass_Diktat::modell('erkennung'); }
+                if (!$e['zuordnung']) { $fehlt[] = Aufmass_Diktat::modell('zuordnung'); }
+                echo '<div class="notice ' . ($fehlt ? 'notice-warning' : 'notice-success') . '"><p>OpenAI antwortet, der Schlüssel gilt ('
+                    . (int) $e['modelle'] . ' Modelle verfügbar).'
+                    . ($fehlt ? ' Nicht darunter: ' . esc_html(implode(', ', $fehlt)) . ' - bitte die Modellnamen prüfen.' : ' Beide Modelle sind verfügbar.')
+                    . '</p></div>';
+            }
         }
         ?>
         <div class="wrap">
@@ -272,6 +344,64 @@ class Aufmass_Einstellungen {
                          value="<?php echo esc_attr(get_option('aufmass_pipedrive_host', '')); ?>"
                          placeholder="api.pipedrive.com">
                   <p class="description">Leer lassen für die Standardadresse. Nur ändern, wenn Pipedrive eine eigene Firmenadresse vorgibt.</p>
+                </td>
+              </tr>
+            </table>
+
+            <h2>Tür einsprechen (OpenAI)</h2>
+            <p>Mit einem OpenAI-Schlüssel können die Angaben zu einer Tür im Werkzeug eingesprochen werden:
+               Die Aufnahme wird von OpenAI in Text verwandelt und den Feldern des Türformulars zugeordnet. Das
+               Werkzeug zeigt das Ergebnis als Vorschlag; übernommen wird erst nach Bestätigung. Der Schlüssel wird
+               wie der Pipedrive-Schlüssel verschlüsselt abgelegt und verlässt den Server nie. Gespeichert wird
+               nichts - weder Aufnahme noch Text. Kosten: unter einem Cent je Tür, abgerechnet über das OpenAI-Konto.
+               Je Person sind <?php echo (int) Aufmass_Diktat::JE_MINUTE; ?> Diktate je Minute und
+               <?php echo (int) Aufmass_Diktat::JE_TAG; ?> je Tag möglich.</p>
+            <?php $oa_da = Aufmass_Diktat::eingerichtet(); $oa_kaputt = Aufmass_Diktat::schluessel_unlesbar(); ?>
+            <table class="form-table" role="presentation">
+              <tr>
+                <th scope="row"><label for="aufmass_openai_schluessel">OpenAI-Schlüssel</label></th>
+                <td>
+                  <?php if ($oa_da) : ?>
+                    <p><strong style="color:#1b7a44">✓ Hinterlegt.</strong> Zum Ändern neuen Schlüssel eintragen, sonst leer lassen.
+                       <a class="button" href="<?php echo esc_url(wp_nonce_url(admin_url('options-general.php?page=aufmass-sync&aufmass_diktat_pruefen=1'), 'aufmass_diktat_pruefen')); ?>">Verbindung prüfen</a>
+                       <span class="description">kostenlos - holt nur die Modellliste</span></p>
+                  <?php elseif ($oa_kaputt) : ?>
+                    <p><strong style="color:#a32020">Der hinterlegte Schlüssel ist nicht mehr lesbar.</strong>
+                       Das passiert, wenn die Salts in der wp-config.php geändert wurden. Bitte neu eintragen.</p>
+                  <?php else : ?>
+                    <p>Noch nicht hinterlegt - das Einsprechen ist im Werkzeug ausgeblendet.</p>
+                  <?php endif; ?>
+                  <input name="aufmass_openai_schluessel" id="aufmass_openai_schluessel" type="password" class="regular-text code"
+                         value="" autocomplete="new-password" placeholder="sk-…">
+                  <p class="description">Aus dem OpenAI-Konto unter platform.openai.com → API keys. Ein Projektschlüssel genügt.
+                     Das ChatGPT-Abo deckt die Schnittstelle nicht ab; sie wird nach Nutzung abgerechnet.</p>
+                  <?php if ($oa_da || $oa_kaputt) : ?>
+                    <label><input type="checkbox" name="aufmass_openai_entfernen" value="1"> Schlüssel entfernen</label>
+                  <?php endif; ?>
+                </td>
+              </tr>
+              <tr>
+                <th scope="row"><label for="aufmass_openai_host">OpenAI-Adresse</label></th>
+                <td>
+                  <input name="aufmass_openai_host" id="aufmass_openai_host" type="text" class="regular-text code"
+                         value="<?php echo esc_attr(get_option('aufmass_openai_host', '')); ?>" placeholder="api.openai.com">
+                  <p class="description">Leer lassen für api.openai.com. Für die Verarbeitung in der EU <code>eu.api.openai.com</code>
+                     eintragen - das setzt ein OpenAI-Projekt mit EU-Datenresidenz voraus.</p>
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Modelle</th>
+                <td>
+                  <label for="aufmass_diktat_modell_erkennung">Erkennung (Ton → Text)</label><br>
+                  <input name="aufmass_diktat_modell_erkennung" id="aufmass_diktat_modell_erkennung" type="text" class="regular-text code"
+                         value="<?php echo esc_attr(get_option('aufmass_diktat_modell_erkennung', '')); ?>"
+                         placeholder="<?php echo esc_attr(Aufmass_Diktat::MODELL_ERKENNUNG); ?>"><br>
+                  <label for="aufmass_diktat_modell_zuordnung">Zuordnung (Text → Felder)</label><br>
+                  <input name="aufmass_diktat_modell_zuordnung" id="aufmass_diktat_modell_zuordnung" type="text" class="regular-text code"
+                         value="<?php echo esc_attr(get_option('aufmass_diktat_modell_zuordnung', '')); ?>"
+                         placeholder="<?php echo esc_attr(Aufmass_Diktat::MODELL_ZUORDNUNG); ?>">
+                  <p class="description">Leer lassen für die Vorgaben. Nur ändern, wenn OpenAI ein Modell abkündigt oder ein besseres
+                     anbietet. „Verbindung prüfen“ sagt, ob die Modelle für den Schlüssel verfügbar sind.</p>
                 </td>
               </tr>
             </table>

@@ -102,7 +102,7 @@ Speichern.
 
 ## Schritt 4 — Das Werkzeug ablegen
 
-Das Werkzeug besteht aus 26 normalen Dateien. Sie werden **nicht in
+Das Werkzeug besteht aus 27 normalen Dateien. Sie werden **nicht in
 WordPress installiert**, sondern *neben* WordPress auf denselben Webspace
 gelegt. Der Webserver liefert einen echten Ordner direkt aus und reicht
 nur Anfragen an WordPress weiter, zu denen es keine Datei gibt – deshalb
@@ -137,7 +137,7 @@ Protokoll SFTP, Port 22.
 2. Im FTP-Programm rechts ins Wurzelverzeichnis gehen.
 3. Den **ganzen Ordner `aufmasstool`** hinüberziehen – den Ordner, nicht
    nur seinen Inhalt. Die Unterordner `js/` und `css/` kommen so mit.
-4. Warten, bis die Warteschlange leer ist: 27 Dateien (26 plus
+4. Warten, bis die Warteschlange leer ist: 28 Dateien (27 plus
    `LIESMICH.txt`, die darf mit).
 
 **Weg 2 – ZIP per SSH** (wer SSH ohnehin nutzt):
@@ -163,7 +163,7 @@ unzip ~/aufmasstool.zip       # legt den Ordner aufmasstool an
     ├── manifest.webmanifest
     ├── icon.svg, icon-180.png, icon-192.png, icon-512.png
     ├── css/app.css
-    └── js/…                          (17 Dateien)
+    └── js/…                          (18 Dateien)
 ```
 
 Typische Fehler: Der Ordner heißt anders (`aufmasstool (1)`,
@@ -341,6 +341,53 @@ Daten im Anker; die Rückmeldung kommt dort wie bisher als Rückschlüssel.
 
 ---
 
+## Schritt 8 — Tür einsprechen (OpenAI, optional)
+
+Mit einem OpenAI-Schlüssel auf dem Server bekommt das Türformular den
+Knopf **Einsprechen**: Die Angaben zu einer Tür werden in einem Stück
+gesprochen, OpenAI verwandelt die Aufnahme in Text und ordnet ihn den
+Feldern zu, das Werkzeug zeigt einen Vorschlag, und erst die Bestätigung
+schreibt in die Tür. Ohne Schlüssel fehlt der Knopf einfach.
+
+1. Bei OpenAI ein Konto für die Schnittstelle anlegen:
+   **platform.openai.com** (das ChatGPT-Abo deckt die Schnittstelle nicht
+   ab; sie wird nach Nutzung abgerechnet, eine Tür kostet unter einem
+   Cent). Unter *Billing* ein kleines Guthaben hinterlegen.
+2. Unter *API keys* einen Schlüssel erzeugen (ein Projektschlüssel genügt)
+   und kopieren – er wird nur einmal angezeigt.
+3. In WordPress: **Einstellungen → Aufmaß-Abgleich → Tür einsprechen
+   (OpenAI)** – den Schlüssel eintragen, speichern. Danach **„Verbindung
+   prüfen“** anklicken: Das holt nur die Modellliste (kostenlos) und
+   sagt, ob der Schlüssel gilt und ob die beiden Modelle verfügbar sind.
+4. Auf einem Gerät eine Tür öffnen: Der Knopf **Einsprechen** ist da
+   (nach spätestens einem Abgleich, also 15 Sekunden). Beim ersten Mal
+   fragt der Browser nach dem Mikrofon – erlauben.
+
+**Verarbeitung in der EU.** Wer das möchte, legt bei OpenAI ein Projekt
+mit EU-Datenresidenz an und trägt als Adresse `eu.api.openai.com` ein.
+Mit einem gewöhnlichen Projekt funktioniert diese Adresse nicht.
+
+**Modelle.** Vorgegeben sind `gpt-4o-transcribe` (Erkennung) und
+`gpt-4.1-mini` (Zuordnung). Die Felder bleiben leer, solange nichts
+anderes gewünscht ist; kündigt OpenAI ein Modell ab, wird hier der
+Nachfolger eingetragen – „Verbindung prüfen“ zeigt, ob er verfügbar ist.
+
+**Was übertragen wird – und was nicht.** An OpenAI gehen die Aufnahme,
+die Fachwörter und das Feldschema (Feldnamen und erlaubte Werte) sowie
+beim Berichtigen der Text. Nicht übertragen werden Kundenname, Adresse,
+Objekt oder der Schließplan. Der Server legt weder Aufnahme noch Text noch
+Ergebnis ab. Laut OpenAI werden Daten der Schnittstelle nicht zum
+Trainieren verwendet; ein Auftragsverarbeitungsvertrag (Data Processing
+Addendum) lässt sich im OpenAI-Konto abschließen – das sollte vor dem
+Einsatz geschehen.
+
+> **Wie der Schlüssel abgelegt ist:** wie der Pipedrive-Schlüssel
+> verschlüsselt mit einem Schlüssel aus der `wp-config.php`. Er verlässt
+> den Server nie; die Geräte sprechen nur mit dem eigenen Server. Werden
+> die Salts erneuert, ist er nicht mehr lesbar und wird neu eingetragen.
+
+---
+
 ## Was danach gilt
 
 **Alle sehen alles, ändern darf nur, wer zuständig ist.**
@@ -400,6 +447,7 @@ nichts länger als nötig behalten, nichts an Dritte geben.
 | Rückmeldungen | Name und Anmerkung des Kunden, seine Eintragungen; bei einer Freigabe Name, Funktion und Zeitpunkt | bis eine zuständige Person sie übernommen oder verworfen hat, danach noch 180 Tage |
 | Anmeldung | ein Abdruck jedes verwendeten Google-Ausweises (gegen Wiederverwendung) | bis der Ausweis bei Google abgelaufen wäre, höchstens rund eine Stunde |
 | Drosselung | ein Zähler je Herkunft (gekürzter, gehashter Adressbereich – keine IP-Adresse) | 10 Minuten |
+| Tür einsprechen | nichts – Aufnahme, Text und Vorschlag werden nur durchgereicht und nicht abgelegt; je Person ein Zähler der Diktate | Zähler: eine Minute bzw. ein Tag |
 
 Die Fristen räumt ein täglicher WordPress-Zeitplan ab; er läuft, sobald
 die Website besucht wird. Die Gültigkeit der Links lässt sich unter
@@ -554,6 +602,12 @@ hinterlegen (Schritt 6), der Server übernimmt die Abfrage.
   Angemeldete ausgeliefert, mit Prüfung der Bildart am Inhalt.
 - **Pipedrive-Schlüssel** verschlüsselt mit einem Schlüssel aus der
   `wp-config.php`; die Weiterleitung kennt nur lesende Wege.
+- **OpenAI-Schlüssel** ebenso verschlüsselt; nur der Server spricht mit
+  OpenAI. Je Person zwölf Diktate je Minute und 400 je Tag, Aufnahmen
+  höchstens 10 MB in bekannten Tonformaten. Das Feldschema aus dem
+  Werkzeug wird in Form und Umfang geprüft, die Antwort des Modells gegen
+  das Schema bereinigt (nur bekannte Felder, nur erlaubte Werte), und
+  OpenAIs Fehlermeldungen werden ohne den Schlüssel weitergegeben.
 
 Was das Plugin nicht leisten kann: Kopfzeilen des Webservers (HSTS,
 `X-Frame-Options`) setzt der Hoster. Bei Raidboxes ist HTTPS erzwungen;

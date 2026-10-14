@@ -3,7 +3,7 @@
  * Plugin Name:       Aufmaß-Abgleich
  * Plugin URI:        https://www.provision-infra.de/
  * Description:       Gemeinsame Ablage für das Aufmaß-Werkzeug: Projekte, Fotos und Zuständigkeiten werden zwischen allen Geräten abgeglichen. Anmeldung über das Google-Konto der Organisation.
- * Version:           1.2.0
+ * Version:           1.3.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Provision Infra GmbH
@@ -17,7 +17,7 @@
 
 if (!defined('ABSPATH')) { exit; }
 
-define('AUFMASS_VERSION', '1.2.0');
+define('AUFMASS_VERSION', '1.3.0');
 define('AUFMASS_SCHEMA', 3);
 define('AUFMASS_PFAD', plugin_dir_path(__FILE__));
 define('AUFMASS_URL', plugin_dir_url(__FILE__));
@@ -31,6 +31,7 @@ require_once AUFMASS_PFAD . 'inc/fotos.php';
 require_once AUFMASS_PFAD . 'inc/freigaben.php';
 require_once AUFMASS_PFAD . 'inc/verschluesselung.php';
 require_once AUFMASS_PFAD . 'inc/pipedrive.php';
+require_once AUFMASS_PFAD . 'inc/diktat.php';
 require_once AUFMASS_PFAD . 'inc/rest.php';
 require_once AUFMASS_PFAD . 'inc/einstellungen.php';
 

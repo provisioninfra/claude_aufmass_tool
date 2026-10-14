@@ -10,7 +10,7 @@
      Anmeldeseite und in der Abgleich-Übersicht, damit man auf jedem Gerät
      in einer Sekunde sieht, welcher Stand dort läuft. Muss mit FASSUNG in
      sw.js übereinstimmen - der Prüflauf achtet darauf. */
-  var FASSUNG = '1.2.0';
+  var FASSUNG = '1.3.0';
 
   /* =========================================================================
    * DOM-Hilfsmittel

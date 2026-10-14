@@ -48,11 +48,17 @@ Es gibt es in zwei Fassungen:
   bleibt änderbar und zeigt den Vermerk. Mit gemeinsamer Ablage ist das ein
   kurzer Link; die Rückmeldung wartet im Werkzeug und wird erst nach Prüfung
   übernommen. Ohne Server kommt sie als Rückschlüssel zurück
+* **Tür einsprechen** (mit gemeinsamer Ablage und OpenAI-Schlüssel auf dem
+  Server) – alle Angaben zu einer Tür in einem Stück sprechen. Das Werkzeug
+  nimmt auf, der Server lässt bei OpenAI erkennen und den Feldern zuordnen,
+  das Formular zeigt je Feld einen Vorschlag. Übernommen wird nur, was
+  bestätigt ist
 
 In der Einzeldatei verbleiben alle Daten auf dem jeweiligen Gerät; es findet
 keinerlei Datenübertragung statt. In der gemeinsamen Fassung werden die
 Aufmaße mit dem **eigenen** Server abgeglichen – an Dritte geht nichts außer
-der Anmeldung bei Google.
+der Anmeldung bei Google – und, wenn eingerichtet, die Tonaufnahme eines
+Diktats an OpenAI (siehe „Tür einsprechen“).
 
 ## Aufbau der Türangaben
 
@@ -126,6 +132,48 @@ Fotos würden einen solchen Verlauf sprengen. Sie werden deshalb ausgelagert
 und je Bild nur einmal gehalten (`src/js/verlauf.js`): 20 Schritte mit einem
 200-KB-Foto belegen rund 227 KB statt 4 MB. Beim Schließen des Projekts wird
 der Verlauf verworfen.
+
+## Tür einsprechen
+
+Im Türformular steht rechts neben „Schritt für Schritt / Alle Felder“ der
+Knopf **Einsprechen** (auf dem Telefon nur das Mikrofon). Er erscheint,
+sobald der Server einen OpenAI-Schlüssel hat, das Gerät angemeldet ist und
+der Browser aufnehmen kann – sonst fehlt er, und das Formular bleibt, wie
+es ist.
+
+**Ablauf.** Aufnahme starten, alle Angaben zur Tür in einem Stück
+sprechen („Büro Empfang, Halbzylinder 35 10, DIN links, Rosettengarnitur
+Drücker Drücker, Dornmaß 55, Wandleser außen, Kabel liegt schon“),
+Aufnahme beenden. Das Werkzeug schickt die Aufnahme samt dem Feldschema an
+den eigenen Server; der lässt sie bei OpenAI in Text verwandeln und den
+Feldern zuordnen (festes JSON-Schema, nur erlaubte Werte, nichts
+Erfundenes). Zurück kommt der verstandene Text und je Feld ein Vorschlag:
+Angabe, bisheriger Wert, neuer Wert, jeweils mit Haken. Was zu keinem Feld
+passte, steht gesondert und wandert auf Wunsch in die Bemerkung. Erst
+**Übernehmen** schreibt in die Tür; das Formular zeigt die Felder danach
+zum Prüfen. Ein verhörter Text lässt sich im Dialog berichtigen und neu
+zuordnen, ohne noch einmal zu sprechen.
+
+**Was das Modell weiß.** Das Feldschema entsteht aus dem Katalog
+(`Diktat.felder`): Name, Art, Frage, erlaubte Werte und Synonyme („Rosette
+= Rosettengarnitur“, „Not- und Gefahrenfunktion = BSZ“). Eigene
+Listeneinträge und Systeme aus den Einstellungen gehören dazu und werden
+der Erkennung als Fachwörter mitgegeben. Zwei Längen beim Zylinder gelten
+als außen und innen; ein genanntes Bauteil gilt als gebraucht; eine
+SKG-Stufe setzt den SKG-Chip; ein Nacharbeitstext schaltet die Nacharbeit
+ein. Bemerkungen werden ergänzt, nie überschrieben.
+
+**Grenzen und Kosten.** Höchstens drei Minuten je Aufnahme und 10 MB; je
+Person zwölf Diktate je Minute und 400 je Tag. Eine Tür kostet bei OpenAI
+unter einem Cent. Zahlen wie 30/35 sollten im Vorschlag kurz geprüft
+werden – genau dafür ist er da. Ohne Netz gibt es keinen Knopf; die
+Einzeldatei ohne Server kennt das Einsprechen nicht.
+
+**Datenschutz.** Nur die Aufnahme und das Feldschema verlassen den
+eigenen Server, nie Kundenname, Adresse oder Schließplan. Der Server legt
+weder Aufnahme noch Text noch Ergebnis ab. Der OpenAI-Schlüssel liegt
+verschlüsselt in WordPress und erreicht kein Gerät. Die Einrichtung steht
+in `server/EINRICHTUNG.md`, Schritt 8.
 
 ## Pipedrive-Anbindung
 

@@ -875,7 +875,23 @@
           el('button', { type: 'button', class: gefuehrt ? '' : 'aktiv', text: 'Alle Felder',
             'aria-pressed': gefuehrt ? 'false' : 'true',
             onclick: function () { Zustand[modusSchluessel] = 'alle'; ansichtNeu(); } })
-        ])
+        ]),
+        /* Einsprechen gibt es nur, wenn der Server es anbietet und das
+         * Gerät aufnehmen kann - sonst bleibt die Leiste wie gewohnt. */
+        (global.Diktat && global.Diktat.verfuegbar()) ? el('button', {
+          type: 'button', class: 'diktat-start', 'aria-label': 'Einsprechen',
+          title: 'Angaben zur Tür einsprechen - das Werkzeug macht daraus einen Vorschlag',
+          onclick: function () {
+            global.Diktat.dialog({ tuer: t, projekt: p, einstellungen: Zustand.einstellungen,
+              beiUebernahme: function (namen) {
+                A.schrittMerken('Diktat übernommen');
+                A.alsGeaendertMarkieren();
+                ansichtNeu();
+                A.toast(namen.length
+                  ? (namen.length + (namen.length === 1 ? ' Angabe' : ' Angaben') + ' aus dem Diktat übernommen - bitte prüfen.')
+                  : 'Nichts übernommen - die Angaben standen schon so in der Tür.', namen.length ? 'ok' : 'warn');
+              } });
+          } }, [el('span', { class: 'symbol', 'aria-hidden': 'true', text: '🎤' }), el('span', { class: 'wort', text: ' Einsprechen' })]) : null
       ]));
     }
 

@@ -1049,6 +1049,70 @@ body.stift .zahl-knopf { min-width: 56px; }
   display: flex; align-items: center; color: var(--text-zart); font-size: 13px;
 }
 
+/* =========================================================================
+ * Tür einsprechen (Diktat)
+ * ====================================================================== */
+.modus-leiste { gap: 8px; }
+.modus-leiste .diktat-start {
+  flex: 0 0 auto; min-height: var(--tap); padding: 0 14px; font-weight: 600;
+  border: 1px solid var(--rand); border-radius: var(--radius-klein);
+  background: var(--hausfarbe-flaeche); color: var(--text); white-space: nowrap;
+}
+.modus-leiste .diktat-start:hover { border-color: var(--akzent); }
+.diktat .diktat-beispiel {
+  margin: 8px 0 14px; padding: 10px 14px; border-left: 3px solid var(--hausfarbe);
+  background: var(--flaeche-2); border-radius: 0 var(--radius-klein) var(--radius-klein) 0;
+  color: var(--text-schwach); font-size: 14px;
+}
+.diktat .diktat-mitte { display: flex; justify-content: center; padding: 10px 0 4px; }
+.diktat .diktat-aufnahme { min-height: var(--tap-gross); min-width: 60%; font-size: 17px; }
+.diktat .diktat-laeuft, .diktat .diktat-wartet {
+  display: flex; align-items: center; gap: 10px; padding: 14px 16px; margin-top: 2px;
+  border: 1px solid var(--rand); border-radius: var(--radius-klein); background: var(--flaeche-2);
+  font-weight: 600;
+}
+.diktat .punkt {
+  width: 14px; height: 14px; border-radius: 50%; background: var(--rot); flex: 0 0 auto;
+  animation: pulsieren 1.2s ease-in-out infinite;
+}
+.diktat .punkt.wartet { background: var(--akzent); }
+.diktat .dauer { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--text-schwach); }
+.diktat .diktat-text { margin-bottom: 14px; }
+.diktat .diktat-text blockquote {
+  margin: 4px 0 8px; padding: 10px 14px; border-left: 3px solid var(--akzent);
+  background: var(--flaeche-2); border-radius: 0 var(--radius-klein) var(--radius-klein) 0;
+  white-space: pre-wrap; font-size: 15px;
+}
+.diktat .diktat-text textarea { width: 100%; min-height: 96px; margin-top: 4px; }
+.diktat table.diktat-tabelle { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+.diktat table.diktat-tabelle th {
+  text-align: left; font-size: 12.5px; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--text-zart); padding: 6px 8px; border-bottom: 1px solid var(--rand);
+}
+.diktat table.diktat-tabelle td { padding: 9px 8px; border-bottom: 1px solid var(--rand-zart); vertical-align: top; }
+.diktat table.diktat-tabelle tr { cursor: pointer; }
+.diktat table.diktat-tabelle td:first-child { width: 36px; }
+.diktat table.diktat-tabelle input[type=checkbox] { width: 22px; height: 22px; }
+.diktat table.diktat-tabelle td.frage { font-weight: 600; }
+.diktat table.diktat-tabelle td.alt { color: var(--text-zart); }
+.diktat table.diktat-tabelle td.neu { color: var(--gruen); font-weight: 600; }
+.diktat table.diktat-tabelle tr.gleich td.neu { color: var(--text-zart); font-weight: 400; }
+.diktat .diktat-offen {
+  margin-top: 14px; padding: 10px 14px; border: 1px dashed var(--rand); border-radius: var(--radius-klein);
+}
+.diktat .diktat-offen label { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.diktat .diktat-offen input[type=checkbox] { width: 22px; height: 22px; }
+.diktat .diktat-offen ul { margin: 6px 0 0 30px; padding: 0; }
+.diktat .diktat-offen li { margin: 2px 0; }
+@media (max-width: 600px) {
+  .diktat table.diktat-tabelle td.alt { display: none; }
+  .diktat table.diktat-tabelle th:nth-child(3) { display: none; }
+  /* Auf dem Telefon nur das Mikrofon - sonst drängt der Knopf die
+     Umschalter „Schritt für Schritt / Alle Felder“ zusammen. */
+  .modus-leiste .diktat-start { padding: 0 12px; font-size: 20px; }
+  .modus-leiste .diktat-start .wort { display: none; }
+}
+
 </style>
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiByb2xlPSJpbWciIGFyaWEtbGFiZWw9IkF1Zm1hw58tVG9vbCI+CiAgPHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSIxMDQiIGZpbGw9IiMwMjA5MmIiLz4KICA8IS0tIFTDvHJibGF0dCAtLT4KICA8cmVjdCB4PSIxMTIiIHk9Ijk2IiB3aWR0aD0iMTk2IiBoZWlnaHQ9IjMyMCIgcng9IjEwIiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMjIiLz4KICA8IS0tIFp5bGluZGVyIC8gU2NobMO8c3NlbGxvY2ggaW4gZGVyIEhhdXNmYXJiZSAtLT4KICA8Y2lyY2xlIGN4PSIyNjIiIGN5PSIyNTIiIHI9IjIwIiBmaWxsPSIjZmNjOTFkIi8+CiAgPHJlY3QgeD0iMjUzIiB5PSIyNjIiIHdpZHRoPSIxOCIgaGVpZ2h0PSI0MiIgcng9IjYiIGZpbGw9IiNmY2M5MWQiLz4KICA8IS0tIE1hw59wZmVpbCByZWNodHMgLS0+CiAgPHBhdGggZD0iTTM2OCAxMjAgdjI3MiIgc3Ryb2tlPSIjZmNjOTFkIiBzdHJva2Utd2lkdGg9IjE2IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KICA8cGF0aCBkPSJNMzQ4IDE0NiBsMjAgLTI2IGwyMCAyNiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmNjOTFkIiBzdHJva2Utd2lkdGg9IjE2IgogICAgICAgIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgogIDxwYXRoIGQ9Ik0zNDggMzY2IGwyMCAyNiBsMjAgLTI2IiBmaWxsPSJub25lIiBzdHJva2U9IiNmY2M5MWQiIHN0cm9rZS13aWR0aD0iMTYiCiAgICAgICAgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPgo=" type="image/svg+xml">
 <link rel="apple-touch-icon" sizes="180x180" href="data:image/png;base64,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">
@@ -7427,6 +7491,561 @@ body.stift .zahl-knopf { min-width: 56px; }
 })(typeof window !== 'undefined' ? window : globalThis);
 
 
+/* ==== js/diktat.js ==== */
+/* =============================================================================
+ * diktat.js — Tür einsprechen
+ * =============================================================================
+ * Der Monteur spricht die Angaben zu einer Tür in einem Stück ein. Das
+ * Werkzeug nimmt den Ton auf, der Server lässt ihn bei OpenAI erkennen und
+ * den Feldern des Türformulars zuordnen (siehe server/…/inc/diktat.php).
+ * Zurück kommt der erkannte Text und je Feld ein Vorschlag. Übernommen wird
+ * erst, was der Mensch im Vorschlag bestätigt - das Diktat schreibt nie von
+ * allein in die Tür.
+ *
+ * Das Feldschema entsteht hier aus dem Katalog: Name, Art, Frage, erlaubte
+ * Werte und ein Hinweis mit Synonymen („Rosette = Rosettengarnitur“). Der
+ * Server reicht es als JSON-Schema an das Modell weiter und prüft dessen
+ * Antwort dagegen; hier wird sie noch einmal geprüft, bevor sie in die Tür
+ * geschrieben wird. Der OpenAI-Schlüssel liegt nur auf dem Server; dieses
+ * Gerät spricht ausschließlich mit dem eigenen Server.
+ *
+ * Verfügbar ist das Einsprechen nur, wenn der Server es anbietet (Schlüssel
+ * hinterlegt), das Gerät angemeldet und online ist und der Browser aufnehmen
+ * kann. Sonst gibt es den Knopf nicht - das Formular bleibt wie gewohnt.
+ * ========================================================================== */
+(function (global) {
+  'use strict';
+
+  var HOECHSTDAUER = 180;      /* Sekunden je Aufnahme */
+  var MIME_KANDIDATEN = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mpeg'];
+  /* Textfelder, bei denen ein Diktat ergänzt statt ersetzt */
+  var ANHAENGEN = { notiz: true, nacharbeitText: true, systemNotiz: true };
+  var GANZZAHL = { anzahl: { min: 1 }, bestandAnzahlSchluessel: { min: 0 } };
+
+  function katalog() { return global.Katalog; }
+
+  /* ---------------------------------------------------------------------
+   * Das Feldschema aus dem Katalog
+   * ------------------------------------------------------------------- */
+  function eigene(einstellungen, schluessel) {
+    var w = einstellungen && einstellungen[schluessel];
+    return Array.isArray(w) ? w : [];
+  }
+  function liste(name, einstellungen, eigeneSchluessel) {
+    var K = katalog();
+    return (K[name] || []).concat(eigeneSchluessel ? eigene(einstellungen, eigeneSchluessel) : []);
+  }
+
+  function felder(projekt, einstellungen) {
+    var K = katalog();
+    var f = [];
+    function text(name, frage, hinweis) { f.push({ name: name, typ: 'text', frage: frage, hinweis: hinweis || '' }); }
+    function zahl(name, frage, hinweis) { f.push({ name: name, typ: 'zahl', frage: frage, hinweis: hinweis || '' }); }
+    function wahl(name, frage, werte, hinweis) {
+      f.push({ name: name, typ: 'wahl', frage: frage, werte: werte.map(String), hinweis: hinweis || '' });
+    }
+    function mehrfach(name, frage, werte, hinweis) {
+      f.push({ name: name, typ: 'mehrfach', frage: frage, werte: werte.map(String), hinweis: hinweis || '' });
+    }
+    function jaNein(name, frage, hinweis) { f.push({ name: name, typ: 'ja_nein', frage: frage, hinweis: hinweis || '' }); }
+
+    /* Lage */
+    text('nummer', 'Türnummer', 'nur wenn eine Nummer der Tür genannt wird');
+    text('bezeichnung', 'Bezeichnung oder Raum der Tür', 'z. B. Büro Empfang, Haupteingang, Lager hinten');
+    wahl('kategorie', 'Türkategorie', K.TUERKATEGORIEN, 'nur wenn die Art der Tür erkennbar genannt wird');
+    zahl('anzahl', 'Anzahl baugleicher Türen', 'nur wenn ausdrücklich genannt („drei gleiche Türen“)');
+    if (projekt && projekt.anlagenart === 'hybrid') {
+      wahl('tuerTechnologie', 'Diese Tür wird ausgeführt als', ['mechanik', 'elektronik'],
+        'mechanisch = mechanik, elektronisch = elektronik');
+    }
+    text('systemNotiz', 'Besonderheit zu dieser Tür', 'nur bei einer Abweichung vom System, etwa Fremdfabrikat');
+    /* Bauteile */
+    jaNein('brauchtZylinder', 'Zylinder wird gebraucht', 'true, sobald ein Zylinder genannt wird');
+    jaNein('brauchtBeschlag', 'Beschlag oder Drücker wird gebraucht', 'true, sobald Beschlag, Garnitur oder Drücker genannt wird');
+    jaNein('brauchtSchloss', 'Schloss wird gebraucht', 'true, sobald ein Schloss genannt wird');
+    jaNein('brauchtWandleser', 'Wandleser wird gebraucht', 'true, sobald ein Wandleser oder Leser genannt wird');
+    /* Zylinder */
+    wahl('zylinderBauform', 'Bauform des Zylinders', liste('ZYLINDER_BAUFORM', einstellungen, 'eigeneZylinderarten'),
+      'Profilzylinder ohne weitere Angabe = Doppelzylinder');
+    zahl('masseAussen', 'Zylinderlänge außen in mm', 'von zwei genannten Längen die erste');
+    zahl('masseInnen', 'Zylinderlänge innen in mm', 'von zwei genannten Längen die zweite; Halbzylinder = 10');
+    wahl('zylinderKnaufseite', 'Knaufseite beim Knaufzylinder', K.KNAUFSEITE);
+    mehrfach('zylinderAusfuehrung', 'Ausführung des Zylinders', K.ZYLINDER_AUSFUEHRUNG,
+      'beidseitig schließbar, Not- und Gefahrenfunktion oder Gefahrenfunktion = BSZ (beidseitig schließbar); bei SKG zusätzlich die Stufe');
+    wahl('zylinderSkgStufe', 'SKG-Stufe des Zylinders', K.SKG_STUFE, 'ein Stern = SKG *, zwei Sterne = SKG **, drei Sterne = SKG ***');
+    /* Beschlag */
+    wahl('beschlagBauform', 'Bauform des Beschlags', liste('BESCHLAG_BAUFORM', einstellungen, 'eigeneBeschlagarten'),
+      'Rosette = Rosettengarnitur, Langschild = Langschildgarnitur, Panikstange = Panikbeschlag / Fluchttürbeschlag');
+    wahl('beschlagAusfuehrung', 'Ausführung des Beschlags', K.BESCHLAG_AUSFUEHRUNG, 'nur wenn mechanisch oder elektronisch genannt wird');
+    wahl('beschlagBestueckung', 'Bestückung des Beschlags außen / innen', K.BESCHLAG_BESTUECKUNG, 'Drücker Drücker = Drücker / Drücker, Knauf Drücker = Knauf / Drücker');
+    wahl('beschlagSicherheit', 'Sicherheitsklasse des Schutzbeschlags', K.BESCHLAG_SICHERHEIT, 'nur beim Schutzbeschlag, ES null bis ES drei');
+    mehrfach('beschlagOptionen', 'Optionen des Beschlags', K.BESCHLAG_OPTIONEN, 'nur wenn ausdrücklich für den Beschlag genannt');
+    wahl('beschlagSkgStufe', 'SKG-Stufe des Beschlags', K.SKG_STUFE);
+    /* Maße für Beschlag und Schloss */
+    zahl('dornmass', 'Dornmaß in mm');
+    zahl('entfernung', 'Entfernung in mm', 'Abstand Drücker zu Zylinder, meist 72 oder 92');
+    zahl('vierkant', 'Vierkant oder Nuss in mm', 'meist 8 oder 9');
+    zahl('tuerblattstaerke', 'Türblattstärke in mm');
+    wahl('dinRichtung', 'DIN-Richtung', K.DIN_RICHTUNG, '„DIN links“ oder „DIN rechts“');
+    /* Schloss */
+    wahl('schlossBauform', 'Bauform des Schlosses', liste('SCHLOSS_BAUFORM', einstellungen, 'eigeneSchlossarten'));
+    wahl('schlossFunktion', 'Funktion des Schlosses', K.SCHLOSS_FUNKTION,
+      'Panik B = Panik Funktion B (Umschaltfunktion), Panik E = Panik Funktion E (Wechselfunktion), Panik D = Panik Funktion D (Durchgangsfunktion), PZ = Profilzylinder (PZ)');
+    wahl('schlossStulpform', 'Stulpform', K.STULPFORM);
+    zahl('schlossStulpbreite', 'Stulpbreite in mm');
+    zahl('schlossStulplaenge', 'Stulplänge in mm');
+    wahl('schlossFallenart', 'Fallenart', K.FALLENART);
+    zahl('schlossRiegelausschluss', 'Riegelausschluss in mm');
+    wahl('schlossVerriegelungspunkte', 'Anzahl der Verriegelungspunkte', K.VERRIEGELUNGSPUNKTE);
+    wahl('schlossNorm', 'Norm oder Zulassung des Schlosses', K.SCHLOSS_NORM);
+    /* Elektronik */
+    wahl('elStromversorgung', 'Stromversorgung', ['Batterie', '12V vorhanden', '24V vorhanden', '230V vorhanden', 'PoE', 'muss verlegt werden']);
+    wahl('elVernetzung', 'Vernetzung', ['offline (Stand-alone)', 'virtuelles Netzwerk', 'online / verkabelt', 'funkvernetzt', 'noch offen']);
+    wahl('elFunkabdeckung', 'Funkabdeckung vor Ort', ['gut', 'mittel', 'schlecht', 'nicht geprüft']);
+    wahl('elKabeluebergang', 'Kabel oder Leerrohr an der Tür', K.KABELUEBERGANG,
+      'Kabel liegt = Kabelübergang vorhanden, Leerrohr liegt = Leerrohr vorhanden');
+    jaNein('elTuerueberwachung', 'Türüberwachung oder Türzustandsmeldung gewünscht');
+    jaNein('elTueroeffnerBestand', 'Elektrischer Türöffner ist schon vorhanden');
+    text('elLeitungsweg', 'Leitungsweg - woher kommt das Kabel');
+    /* Türdaten */
+    zahl('tuerbreite', 'Türbreite in mm');
+    zahl('tuerhoehe', 'Türhöhe in mm');
+    wahl('tuerAnschlag', 'Türanschlag', K.TUER_ANSCHLAG);
+    wahl('tuermaterial', 'Türblattmaterial', K.TUERMATERIAL,
+      'Holztür = Holz, Stahltür = Stahl / Metall, Alutür = Alu (Rohrrahmen), Glastür = Glas / Ganzglastür');
+    zahl('profilbreite', 'Profilbreite in mm');
+    wahl('oeffnungsrichtung', 'Öffnungsrichtung', K.TUER_OEFFNUNG);
+    text('bohrbild', 'Bohrbild oder Lochung');
+    /* Bestand */
+    text('bestandFabrikat', 'Vorhandenes Fabrikat im Bestand', 'z. B. EVVA, Kaba, ABUS');
+    wahl('bestandZylinderart', 'Vorhandene Zylinderart im Bestand', liste('ZYLINDER_BAUFORM', einstellungen, 'eigeneZylinderarten'));
+    zahl('bestandLaengeAussen', 'Vorhandene Zylinderlänge außen in mm');
+    zahl('bestandLaengeInnen', 'Vorhandene Zylinderlänge innen in mm');
+    zahl('bestandAnzahlSchluessel', 'Anzahl vorhandener Schlüssel');
+    /* Abschluss */
+    jaNein('nacharbeit', 'Nacharbeit erforderlich', 'true, wenn etwas nachzuarbeiten, zu klären oder nicht möglich war');
+    text('nacharbeitText', 'Was ist nachzuarbeiten');
+    text('notiz', 'Bemerkung zur Tür', 'alles Sonstige, was zur Tür gesagt wird');
+    return f;
+  }
+
+  /** Eigene Begriffe, die die Erkennung kennen soll: eigene Systeme und
+   *  eigene Listeneinträge aus den Einstellungen. */
+  function woerter(einstellungen) {
+    var aus = [];
+    eigene(einstellungen, 'eigeneSysteme').forEach(function (s) {
+      if (s && s.name) aus.push(String(s.name));
+    });
+    ['eigeneZylinderarten', 'eigeneBeschlagarten', 'eigeneSchlossarten'].forEach(function (k) {
+      eigene(einstellungen, k).forEach(function (w) { aus.push(String(w)); });
+    });
+    return aus.filter(function (w, i) { return w.trim() && aus.indexOf(w) === i; }).slice(0, 40);
+  }
+
+  /* ---------------------------------------------------------------------
+   * Vorschlag anwenden
+   * ------------------------------------------------------------------- */
+  function zahlText(n) {
+    if (typeof n !== 'number' || !isFinite(n)) return '';
+    var r = Math.round(n * 10) / 10;
+    return String(r).replace('.', ',');
+  }
+  function textVon(wert) {
+    if (wert === null || wert === undefined || wert === '') return '';
+    if (Array.isArray(wert)) return wert.join(', ');
+    if (typeof wert === 'boolean') return wert ? 'ja' : 'nein';
+    if (typeof wert === 'number') return zahlText(wert);
+    return String(wert);
+  }
+  function schemaNach(schema) {
+    var m = {};
+    (schema || []).forEach(function (f) { m[f.name] = f; });
+    return m;
+  }
+
+  /** Den neuen Wert für die Tür berechnen - ohne zu schreiben. Gibt
+   *  undefined zurück, wenn der Wert nicht passt. */
+  function neuerWert(tuer, feld, wert) {
+    if (!feld || wert === null || wert === undefined) return undefined;
+    switch (feld.typ) {
+      case 'text':
+        var t = String(wert).trim();
+        if (!t) return undefined;
+        if (ANHAENGEN[feld.name] && String(tuer[feld.name] || '').trim()) {
+          var alt = String(tuer[feld.name]).trim();
+          return alt.indexOf(t) !== -1 ? alt : (alt + '\n' + t);
+        }
+        return t;
+      case 'zahl':
+        var n = typeof wert === 'number' ? wert : parseFloat(String(wert).replace(',', '.'));
+        if (!isFinite(n)) return undefined;
+        if (GANZZAHL[feld.name]) return Math.max(GANZZAHL[feld.name].min, Math.round(n));
+        return zahlText(n);
+      case 'ja_nein':
+        return typeof wert === 'boolean' ? wert : undefined;
+      case 'wahl':
+        return feld.werte.indexOf(String(wert)) !== -1 ? String(wert) : undefined;
+      case 'mehrfach':
+        if (!Array.isArray(wert)) return undefined;
+        var vorhanden = Array.isArray(tuer[feld.name]) ? tuer[feld.name].slice() : [];
+        wert.forEach(function (w) {
+          if (feld.werte.indexOf(String(w)) !== -1 && vorhanden.indexOf(String(w)) === -1) vorhanden.push(String(w));
+        });
+        return vorhanden;
+    }
+    return undefined;
+  }
+
+  /** Die Zeilen für den Vorschlag: was erkannt wurde, was bisher steht,
+   *  was daraus würde. */
+  function zeilen(tuer, werte, schema) {
+    var nach = schemaNach(schema), aus = [];
+    (schema || []).forEach(function (f) {
+      if (!werte || !Object.prototype.hasOwnProperty.call(werte, f.name)) return;
+      var neu = neuerWert(tuer, nach[f.name], werte[f.name]);
+      if (neu === undefined) return;
+      var alt = tuer[f.name];
+      var altText = textVon(alt), neuText = textVon(neu);
+      aus.push({ name: f.name, frage: f.frage, alt: altText, neu: neuText,
+        gleich: altText === neuText, wert: neu });
+    });
+    return aus;
+  }
+
+  /** Schreibt die gewählten Felder in die Tür (eine Kopie wird nicht
+   *  gemacht - das Türformular arbeitet ohnehin auf seiner Kopie). Gibt
+   *  die Namen der geänderten Felder zurück. */
+  function anwenden(tuer, werte, schema, nurDiese) {
+    var nach = schemaNach(schema), geaendert = [];
+    Object.keys(werte || {}).forEach(function (name) {
+      if (nurDiese && nurDiese.indexOf(name) === -1) return;
+      var neu = neuerWert(tuer, nach[name], werte[name]);
+      if (neu === undefined) return;
+      if (textVon(tuer[name]) === textVon(neu)) return;
+      tuer[name] = neu;
+      geaendert.push(name);
+    });
+    /* Folgen: Wer einen Zylinder beschreibt, braucht einen. Eine
+       SKG-Stufe setzt den Chip voraus; eine Nacharbeit den Schalter. */
+    var hat = function (praefix) {
+      return geaendert.some(function (n) { return n.indexOf(praefix) === 0; });
+    };
+    if (hat('zylinder') || hat('masse')) tuer.brauchtZylinder = true;
+    if (hat('beschlag')) tuer.brauchtBeschlag = true;
+    if (hat('schloss')) tuer.brauchtSchloss = true;
+    if (tuer.zylinderSkgStufe && (geaendert.indexOf('zylinderSkgStufe') !== -1)) {
+      if (!Array.isArray(tuer.zylinderAusfuehrung)) tuer.zylinderAusfuehrung = [];
+      if (tuer.zylinderAusfuehrung.indexOf('SKG') === -1) tuer.zylinderAusfuehrung.push('SKG');
+    }
+    if (tuer.beschlagSkgStufe && (geaendert.indexOf('beschlagSkgStufe') !== -1)) {
+      if (!Array.isArray(tuer.beschlagOptionen)) tuer.beschlagOptionen = [];
+      if (tuer.beschlagOptionen.indexOf('SKG') === -1) tuer.beschlagOptionen.push('SKG');
+    }
+    if (geaendert.indexOf('nacharbeitText') !== -1 && tuer.nacharbeitText) tuer.nacharbeit = true;
+    return geaendert;
+  }
+
+  /* ---------------------------------------------------------------------
+   * Verfügbarkeit und Server
+   * ------------------------------------------------------------------- */
+  function kannAufnehmen() {
+    var n = global.navigator;
+    return !!(global.MediaRecorder && n && n.mediaDevices && typeof n.mediaDevices.getUserMedia === 'function');
+  }
+  function online() { return !(global.navigator && global.navigator.onLine === false); }
+  function verfuegbar() {
+    var Ab = global.Abgleich;
+    var z = Ab && typeof Ab.zustand === 'function' ? Ab.zustand() : null;
+    return !!(z && z.diktat && z.angemeldet && kannAufnehmen());
+  }
+
+  /** Aufnahme starten. Liefert ein Objekt mit stopp() -> Promise<Blob>. */
+  function aufnahmeStarten() {
+    return global.navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
+      .then(function (strom) {
+        var typ = '';
+        for (var i = 0; i < MIME_KANDIDATEN.length; i++) {
+          try { if (global.MediaRecorder.isTypeSupported(MIME_KANDIDATEN[i])) { typ = MIME_KANDIDATEN[i]; break; } } catch (e) {}
+        }
+        var rec;
+        try { rec = typ ? new global.MediaRecorder(strom, { mimeType: typ, audioBitsPerSecond: 48000 }) : new global.MediaRecorder(strom); }
+        catch (e) { rec = new global.MediaRecorder(strom); }
+        var stuecke = [];
+        rec.addEventListener('dataavailable', function (e) { if (e.data && e.data.size) stuecke.push(e.data); });
+        rec.start(1000);
+        function spurenAus() { strom.getTracks().forEach(function (s) { try { s.stop(); } catch (e) {} }); }
+        return {
+          mime: rec.mimeType || typ || 'audio/webm',
+          stopp: function () {
+            return new Promise(function (loesen) {
+              rec.addEventListener('stop', function () {
+                spurenAus();
+                loesen(new Blob(stuecke, { type: rec.mimeType || typ || 'audio/webm' }));
+              });
+              try { rec.stop(); } catch (e) { spurenAus(); loesen(new Blob(stuecke, { type: typ || 'audio/webm' })); }
+            });
+          },
+          abbrechen: function () { try { rec.stop(); } catch (e) {} spurenAus(); }
+        };
+      });
+  }
+
+  /** Aufnahme oder Text an den Server geben. */
+  function senden(aufnahme, text, projekt, einstellungen) {
+    var Ab = global.Abgleich;
+    if (!Ab || typeof Ab.diktat !== 'function') return Promise.reject(new Error('Der Abgleich ist nicht eingerichtet.'));
+    var schema = felder(projekt, einstellungen);
+    var formular = new FormData();
+    if (aufnahme) {
+      var typ = (aufnahme.type || 'audio/webm').split(';')[0];
+      var endung = { 'audio/webm': 'webm', 'audio/mp4': 'mp4', 'audio/ogg': 'ogg', 'audio/mpeg': 'mp3', 'audio/wav': 'wav' }[typ] || 'webm';
+      formular.append('ton', aufnahme, 'aufnahme.' + endung);
+    } else {
+      formular.append('text', text || '');
+    }
+    formular.append('felder', JSON.stringify(schema));
+    formular.append('woerter', JSON.stringify(woerter(einstellungen)));
+    return Ab.diktat(formular).then(function (d) {
+      return { text: (d && d.text) || '', felder: (d && d.felder) || {}, offen: (d && d.offen) || [], schema: schema };
+    });
+  }
+
+  /* ---------------------------------------------------------------------
+   * Der Dialog
+   * ------------------------------------------------------------------- */
+  function zeit(s) { return Math.floor(s / 60) + ':' + (s % 60 < 10 ? '0' : '') + (s % 60); }
+
+  /**
+   * optionen: tuer (die Arbeitskopie des Formulars), projekt, einstellungen,
+   *           beiUebernahme(namen) - wird nach dem Schreiben gerufen.
+   */
+  function dialog(optionen) {
+    var A = global.AppKern, el = A.el;
+    var tuer = optionen.tuer, projekt = optionen.projekt, einstellungen = optionen.einstellungen;
+    var inhalt = el('div', { class: 'diktat' });
+    var dlg = A.dialogOeffnen({ titel: 'Tür einsprechen', inhalt: inhalt, knoepfe: [{ text: 'Abbrechen' }],
+      beimSchliessen: function () { aufraeumen(); } });
+    var fuss = dlg.kasten.querySelector('.fuss');
+    var laufend = null, uhr = null, sekunden = 0, letzteAufnahme = null, ergebnis = null;
+
+    function aufraeumen() {
+      if (uhr) { clearInterval(uhr); uhr = null; }
+      if (laufend) { try { laufend.abbrechen(); } catch (e) {} laufend = null; }
+    }
+    function fussSetzen(knoepfe) {
+      if (!fuss) return;
+      A.leeren(fuss);
+      fuss.appendChild(el('div', { class: 'fuellen' }));
+      knoepfe.forEach(function (k) { fuss.appendChild(el('button', k)); });
+    }
+
+    /* --- bereit --- */
+    function bereit() {
+      aufraeumen();
+      A.leeren(inhalt);
+      inhalt.appendChild(el('p', { class: 'hinweis', style: { marginTop: '0' },
+        text: 'Alle Angaben zur Tür in einem Stück sprechen - Bezeichnung, Bauteile, Maße, Besonderheiten. Das Werkzeug zeigt danach einen Vorschlag; erst mit „Übernehmen“ landet etwas in der Tür.' }));
+      inhalt.appendChild(el('p', { class: 'diktat-beispiel',
+        text: '„Büro Empfang, Halbzylinder 35 10, DIN links, Rosettengarnitur Drücker Drücker, Dornmaß 55, Wandleser außen, Kabel liegt schon.“' }));
+      if (!online()) {
+        inhalt.appendChild(el('div', { class: 'meldung warn' }, el('div', { text: 'Zum Einsprechen braucht das Gerät Netz - die Erkennung läuft über den Server.' })));
+      }
+      inhalt.appendChild(el('div', { class: 'diktat-mitte' },
+        el('button', { type: 'button', class: 'haupt diktat-aufnahme', text: '🎤 Aufnahme starten', disabled: !online(),
+          onclick: starten })));
+      fussSetzen([{ text: 'Abbrechen', onclick: function () { dlg.schliessen(); } }]);
+    }
+
+    /* --- läuft --- */
+    function starten() {
+      A.leeren(inhalt);
+      inhalt.appendChild(el('p', { class: 'zart', text: 'Mikrofon wird geöffnet …' }));
+      fussSetzen([]);
+      aufnahmeStarten().then(function (rec) {
+        laufend = rec; sekunden = 0;
+        A.leeren(inhalt);
+        var anzeige = el('div', { class: 'diktat-laeuft' }, [
+          el('span', { class: 'punkt', 'aria-hidden': 'true' }),
+          el('span', { text: 'Aufnahme läuft' }),
+          el('span', { class: 'dauer', text: zeit(0) })
+        ]);
+        inhalt.appendChild(anzeige);
+        inhalt.appendChild(el('p', { class: 'hinweis', text: 'Jetzt sprechen. Mit „Aufnahme beenden“ geht die Aufnahme an den Server.' }));
+        var dauer = anzeige.querySelector('.dauer');
+        uhr = setInterval(function () {
+          sekunden++;
+          dauer.textContent = zeit(sekunden);
+          if (sekunden >= HOECHSTDAUER) beenden();
+        }, 1000);
+        fussSetzen([
+          { text: 'Verwerfen', onclick: function () { bereit(); } },
+          { class: 'haupt', text: '■ Aufnahme beenden', onclick: beenden }
+        ]);
+      }).catch(function (f) {
+        fehler((f && (f.name === 'NotAllowedError' || f.name === 'SecurityError'))
+          ? 'Das Mikrofon ist für diese Seite nicht freigegeben. Bitte in den Browser-Einstellungen den Zugriff erlauben.'
+          : (f && f.name === 'NotFoundError') ? 'Es wurde kein Mikrofon gefunden.'
+          : 'Die Aufnahme konnte nicht gestartet werden' + (f && f.message ? ': ' + f.message : '.'));
+      });
+    }
+
+    function beenden() {
+      if (!laufend) return;
+      var rec = laufend; laufend = null;
+      if (uhr) { clearInterval(uhr); uhr = null; }
+      if (sekunden < 1) { bereit(); A.toast('Die Aufnahme war zu kurz.', 'warn'); return; }
+      rec.stopp().then(function (blob) {
+        letzteAufnahme = blob;
+        verarbeiten(blob, null);
+      });
+    }
+
+    /* --- sendet --- */
+    function verarbeiten(blob, text) {
+      A.leeren(inhalt);
+      inhalt.appendChild(el('div', { class: 'diktat-wartet' }, [
+        el('span', { class: 'punkt wartet', 'aria-hidden': 'true' }),
+        el('span', { text: blob ? 'Aufnahme wird erkannt und zugeordnet … das dauert einige Sekunden.' : 'Text wird zugeordnet …' })
+      ]));
+      fussSetzen([]);
+      senden(blob, text, projekt, einstellungen).then(function (e) {
+        ergebnis = e;
+        vorschlag();
+      }).catch(function (f) {
+        fehler((f && f.message) || 'Der Server hat nicht geantwortet.', !!blob);
+      });
+    }
+
+    /* --- Fehler --- */
+    function fehler(meldung, nochmalMoeglich) {
+      aufraeumen();
+      A.leeren(inhalt);
+      inhalt.appendChild(el('div', { class: 'meldung fehler' }, el('div', { text: meldung })));
+      var knoepfe = [{ text: 'Abbrechen', onclick: function () { dlg.schliessen(); } }];
+      if (nochmalMoeglich && letzteAufnahme) {
+        knoepfe.push({ text: 'Aufnahme erneut senden', onclick: function () { verarbeiten(letzteAufnahme, null); } });
+      }
+      knoepfe.push({ class: 'haupt', text: 'Neu aufnehmen', onclick: bereit });
+      fussSetzen(knoepfe);
+    }
+
+    /* --- Vorschlag --- */
+    function vorschlag() {
+      A.leeren(inhalt);
+      var e = ergebnis;
+      var reihen = zeilen(tuer, e.felder, e.schema);
+      var gewaehlt = {};
+      reihen.forEach(function (r) { gewaehlt[r.name] = !r.gleich; });
+      var offenGewaehlt = e.offen.length > 0;
+
+      /* Der verstandene Text - änderbar, dann wird neu zugeordnet */
+      var textKasten = el('div', { class: 'diktat-text' });
+      var textFeld = null;
+      function textZeigen() {
+        A.leeren(textKasten);
+        textKasten.appendChild(el('div', { class: 'zart', text: 'Verstanden:' }));
+        textKasten.appendChild(el('blockquote', { text: e.text || '(nichts)' }));
+        textKasten.appendChild(el('button', { type: 'button', class: 'klein', text: 'Text ändern und neu zuordnen', onclick: function () {
+          A.leeren(textKasten);
+          textFeld = el('textarea', { rows: 4, value: e.text || '' });
+          textKasten.appendChild(el('div', { class: 'zart', text: 'Verstandenen Text berichtigen:' }));
+          textKasten.appendChild(textFeld);
+          textKasten.appendChild(el('div', { class: 'knopfleiste', style: { marginTop: '6px' } }, [
+            el('button', { type: 'button', class: 'klein', text: 'Verwerfen', onclick: textZeigen }),
+            el('button', { type: 'button', class: 'klein haupt', text: 'Neu zuordnen', onclick: function () {
+              var t = (textFeld.value || '').trim();
+              if (!t) { A.toast('Der Text ist leer.', 'warn'); return; }
+              verarbeiten(null, t);
+            } })
+          ]));
+          textFeld.focus();
+        } }));
+      }
+      textZeigen();
+      inhalt.appendChild(textKasten);
+
+      if (!reihen.length && !e.offen.length) {
+        inhalt.appendChild(el('div', { class: 'meldung warn' }, el('div', { text: 'Daraus ließ sich keiner Angabe ein Feld zuordnen. Bitte den Text berichtigen oder neu aufnehmen.' })));
+      }
+      if (reihen.length) {
+        var tabelle = el('table', { class: 'diktat-tabelle' });
+        tabelle.appendChild(el('thead', {}, el('tr', {}, [
+          el('th', { text: '' }), el('th', { text: 'Angabe' }), el('th', { text: 'Bisher' }), el('th', { text: 'Neu' })
+        ])));
+        var tb = el('tbody');
+        reihen.forEach(function (r) {
+          var kasten = el('input', { type: 'checkbox', checked: gewaehlt[r.name], 'aria-label': r.frage,
+            onchange: function (ev) { gewaehlt[r.name] = ev.target.checked; zaehlen(); } });
+          tb.appendChild(el('tr', { class: r.gleich ? 'gleich' : '', 'data-feld': r.name,
+            onclick: function (ev) { if (ev.target !== kasten) { kasten.checked = !kasten.checked; gewaehlt[r.name] = kasten.checked; zaehlen(); } } }, [
+            el('td', {}, kasten),
+            el('td', { class: 'frage', text: r.frage }),
+            el('td', { class: 'alt', text: r.alt || '–' }),
+            el('td', { class: 'neu', text: r.gleich ? (r.neu + '  (unverändert)') : r.neu })
+          ]));
+        });
+        tabelle.appendChild(tb);
+        inhalt.appendChild(tabelle);
+      }
+      if (e.offen.length) {
+        var offenKasten = el('input', { type: 'checkbox', checked: true, onchange: function (ev) { offenGewaehlt = ev.target.checked; zaehlen(); } });
+        inhalt.appendChild(el('div', { class: 'diktat-offen' }, [
+          el('label', {}, [offenKasten, el('span', { text: ' Nicht zugeordnet - in die Bemerkung übernehmen:' })]),
+          el('ul', {}, e.offen.map(function (o) { return el('li', { text: o }); }))
+        ]));
+      }
+
+      var uebernehmenKnopf = { class: 'haupt', text: 'Übernehmen', onclick: uebernehmen };
+      fussSetzen([
+        { text: 'Abbrechen', onclick: function () { dlg.schliessen(); } },
+        { text: 'Neu aufnehmen', onclick: bereit },
+        uebernehmenKnopf
+      ]);
+      function zaehlen() {
+        var n = Object.keys(gewaehlt).filter(function (k) { return gewaehlt[k]; }).length + (offenGewaehlt && e.offen.length ? 1 : 0);
+        var knopf = fuss && fuss.querySelector('button.haupt');
+        if (knopf) { knopf.textContent = n ? ('Übernehmen (' + n + ')') : 'Übernehmen'; knopf.disabled = !n; }
+      }
+      zaehlen();
+
+      function uebernehmen() {
+        var namen = Object.keys(gewaehlt).filter(function (k) { return gewaehlt[k]; });
+        var werte = {};
+        namen.forEach(function (n) { werte[n] = e.felder[n]; });
+        if (offenGewaehlt && e.offen.length) {
+          var zusatz = e.offen.join('; ');
+          werte.notiz = werte.notiz ? (werte.notiz + '\n' + zusatz) : zusatz;
+          if (namen.indexOf('notiz') === -1) namen.push('notiz');
+        }
+        var geaendert = anwenden(tuer, werte, e.schema, namen);
+        dlg.schliessen();
+        if (optionen.beiUebernahme) optionen.beiUebernahme(geaendert);
+      }
+    }
+
+    bereit();
+    return dlg;
+  }
+
+  global.Diktat = {
+    felder: felder,
+    woerter: woerter,
+    zeilen: zeilen,
+    anwenden: anwenden,
+    neuerWert: neuerWert,
+    textVon: textVon,
+    verfuegbar: verfuegbar,
+    kannAufnehmen: kannAufnehmen,
+    aufnahmeStarten: aufnahmeStarten,
+    senden: senden,
+    dialog: dialog,
+    HOECHSTDAUER: HOECHSTDAUER
+  };
+
+  if (typeof module !== 'undefined' && module.exports) { module.exports = global.Diktat; }
+})(typeof window !== 'undefined' ? window : globalThis);
+
+
 /* ==== js/app.js ==== */
 /* =============================================================================
  * app.js — Oberfläche und Ablaufsteuerung
@@ -7440,7 +8059,7 @@ body.stift .zahl-knopf { min-width: 56px; }
      Anmeldeseite und in der Abgleich-Übersicht, damit man auf jedem Gerät
      in einer Sekunde sieht, welcher Stand dort läuft. Muss mit FASSUNG in
      sw.js übereinstimmen - der Prüflauf achtet darauf. */
-  var FASSUNG = '1.2.0';
+  var FASSUNG = '1.3.0';
 
   /* =========================================================================
    * DOM-Hilfsmittel
@@ -9878,7 +10497,23 @@ body.stift .zahl-knopf { min-width: 56px; }
           el('button', { type: 'button', class: gefuehrt ? '' : 'aktiv', text: 'Alle Felder',
             'aria-pressed': gefuehrt ? 'false' : 'true',
             onclick: function () { Zustand[modusSchluessel] = 'alle'; ansichtNeu(); } })
-        ])
+        ]),
+        /* Einsprechen gibt es nur, wenn der Server es anbietet und das
+         * Gerät aufnehmen kann - sonst bleibt die Leiste wie gewohnt. */
+        (global.Diktat && global.Diktat.verfuegbar()) ? el('button', {
+          type: 'button', class: 'diktat-start', 'aria-label': 'Einsprechen',
+          title: 'Angaben zur Tür einsprechen - das Werkzeug macht daraus einen Vorschlag',
+          onclick: function () {
+            global.Diktat.dialog({ tuer: t, projekt: p, einstellungen: Zustand.einstellungen,
+              beiUebernahme: function (namen) {
+                A.schrittMerken('Diktat übernommen');
+                A.alsGeaendertMarkieren();
+                ansichtNeu();
+                A.toast(namen.length
+                  ? (namen.length + (namen.length === 1 ? ' Angabe' : ' Angaben') + ' aus dem Diktat übernommen - bitte prüfen.')
+                  : 'Nichts übernommen - die Angaben standen schon so in der Tür.', namen.length ? 'ok' : 'warn');
+              } });
+          } }, [el('span', { class: 'symbol', 'aria-hidden': 'true', text: '🎤' }), el('span', { class: 'wort', text: ' Einsprechen' })]) : null
       ]));
     }
 
@@ -12170,6 +12805,23 @@ body.stift .zahl-knopf { min-width: 56px; }
     function pdZeichnen(pruefErgebnis) {
       A.leeren(pdBereich);
       A.leeren(pdDiagnose);
+      /* Tür einsprechen: läuft über den Server, hier nur der Stand */
+      var Ab2 = global.Abgleich && global.Abgleich.zustand ? global.Abgleich.zustand() : null;
+      if (Ab2 && Ab2.eingerichtet) {
+        pdBereich.appendChild(el('h2', { text: 'Tür einsprechen' }));
+        if (Ab2.diktat) {
+          pdBereich.appendChild(el('div', { class: 'meldung ok', style: { marginTop: '4px' } }, el('div', {}, [
+            el('b', { text: 'Über den Server eingerichtet. ' }),
+            'Im Türformular gibt es den Knopf „Einsprechen“: Aufnahme, Erkennung bei OpenAI, Vorschlag, Übernahme nach Bestätigung. ' +
+            'Der OpenAI-Schlüssel liegt in WordPress und verlässt den Server nicht; die Aufnahme wird nicht gespeichert.' +
+            (global.Diktat && !global.Diktat.kannAufnehmen() ? ' Dieser Browser kann allerdings nicht aufnehmen.' : '')
+          ])));
+        } else {
+          pdBereich.appendChild(el('p', { class: 'hinweis',
+            text: 'Nicht eingerichtet. Mit einem OpenAI-Schlüssel in WordPress (Einstellungen → Aufmaß-Abgleich → Tür einsprechen) ' +
+                  'lassen sich die Angaben zu einer Tür einsprechen; der Knopf erscheint dann im Türformular.' }));
+        }
+      }
       pdBereich.appendChild(el('h2', { text: 'Pipedrive' }));
       pdBereich.appendChild(el('p', { class: 'hinweis',
         text: 'Mit einer Verbindung zu Pipedrive lässt sich ein Aufmaß direkt aus einem Deal anlegen. ' +

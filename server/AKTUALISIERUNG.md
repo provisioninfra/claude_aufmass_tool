@@ -2,11 +2,17 @@
 
 Diese Anleitung gilt, wenn das Werkzeug **schon läuft**: Plugin
 „Aufmaß-Abgleich“ in WordPress, Ordner `aufmasstool` auf dem Webspace,
-Geräte angemeldet. Sie bringt beides auf den Stand **1.2.0** – Plugin
+Geräte angemeldet. Sie bringt beides auf den Stand **1.3.0** – Plugin
 und Werkzeug tragen dieselbe Fassungsnummer.
 
-**Was 1.2.0 bringt**
+**Was 1.3.0 bringt** (gegenüber 1.1)
 
+- **Tür einsprechen:** im Türformular der Knopf „Einsprechen“. Alle
+  Angaben zur Tür werden in einem Stück gesprochen, der Server lässt sie
+  bei OpenAI erkennen und den Feldern zuordnen, das Werkzeug zeigt je Feld
+  einen Vorschlag; übernommen wird nur, was bestätigt ist. Braucht einen
+  OpenAI-Schlüssel in WordPress (Schritt 4) – ohne ihn bleibt der Knopf
+  weg, sonst ändert sich nichts.
 - **Mitarbeiter und Gruppen** als eigene Listen unter dem Schließplan.
   Eine Spalte im Plan ist eine Gruppe (alle Mitglieder berechtigt), ein
   einzelner Mitarbeiter oder eine Schließung mit Rang; Medien werden je
@@ -72,10 +78,11 @@ Vorlage, Freigabe) – das erledigt WordPress beim ersten Aufruf von selbst
 4. Das Plugin bleibt dabei aktiv. Beim ersten Aufruf danach ergänzt es die
    Tabelle und übernimmt die Umschreibregel für den Kurzlink.
 
-**Prüfen:** *Plugins* öffnen – bei „Aufmaß-Abgleich“ muss **1.2.0**
+**Prüfen:** *Plugins* öffnen – bei „Aufmaß-Abgleich“ muss **1.3.0**
 stehen. Unter *Einstellungen → Aufmaß-Abgleich* muss neben der
 Organisationsdomäne die neuen Zeilen **„Neue Zugänge“** und **„Herkunft
-der Aufrufe“** erscheinen. Fehlen sie, läuft noch die alte Fassung.
+der Aufrufe“** erscheinen, weiter unten der Abschnitt **„Tür einsprechen
+(OpenAI)“**. Fehlen sie, läuft noch die alte Fassung.
 
 > **Nicht** das Plugin „Löschen“ und neu installieren: Löschen räumt die
 > Einstellungen weg (Google-Client-ID, Domäne), die müssten danach neu
@@ -89,14 +96,15 @@ der Aufrufe“** erscheinen. Fehlen sie, läuft noch die alte Fassung.
 
 ## Schritt 2 — Ordner `aufmasstool` austauschen (Webspace)
 
-Der neue Ordner enthält dieselben Dateien wie der alte plus **eine neue
-Datei** `js/views-personen.js` (Mitarbeiter und Gruppen). Deshalb immer
+Der neue Ordner enthält dieselben Dateien wie der alte plus **zwei neue
+Dateien**: `js/views-personen.js` (Mitarbeiter und Gruppen) und
+`js/diktat.js` (Tür einsprechen). Deshalb immer
 den ganzen Ordner tauschen, nie einzelne Dateien. Zwei Wege:
 
 **Weg A, mit Rückweg (empfohlen):**
 
 1. `aufmasstool.zip` auf dem Rechner entpacken → Ordner `aufmasstool`
-   (26 Dateien plus `LIESMICH.txt`).
+   (27 Dateien plus `LIESMICH.txt`).
 2. Per SFTP (FileZilla, Cyberduck) in das Wurzelverzeichnis der Website
    gehen – dort, wo `wp-admin/`, `wp-content/` und der bisherige Ordner
    `aufmasstool` liegen.
@@ -114,7 +122,8 @@ Umbenennen, aber ohne Rückweg.
 **Wichtig:** immer **alle** Dateien ersetzen, nie nur einzelne. Die
 Seite, der Service Worker (`sw.js`) und die Skripte gehören zusammen –
 eine Mischung aus alt und neu lädt nicht. Fehlt `js/views-personen.js`,
-bleibt der Schließplan leer.
+bleibt der Schließplan leer; fehlt `js/diktat.js`, scheitert die
+Vorbereitung für den Offline-Betrieb.
 
 Per SSH geht es auch in einer Zeile im Wurzelverzeichnis:
 
@@ -140,7 +149,7 @@ vorbei – und meldet sich dann:
   starten**. Der speichert und schließt zuerst; es geht nichts verloren.
 
 Unter *Einstellungen → Über dieses Werkzeug* steht, welche Fassung auf
-dem Gerät läuft (jetzt **1.2.0**), und ein Knopf **Auf neue Fassung
+dem Gerät läuft (jetzt **1.3.0**), und ein Knopf **Auf neue Fassung
 prüfen** stößt die Prüfung sofort an. Ein Gerät, das gerade ohne Netz
 ist, arbeitet mit der alten Fassung weiter, bis es wieder online war –
 auch das ist in Ordnung, die Aufmaße gleichen sich wie gewohnt ab.
@@ -181,6 +190,15 @@ auch das ist in Ordnung, die Aufmaße gleichen sich wie gewohnt ab.
   einer verbindlichen Freigabe jetzt „Verbindliche Freigabe des
   Schließplans …“.
 
+- *Tür einsprechen (OpenAI):* neuer Abschnitt. Ohne Eintrag bleibt das
+  Einsprechen ausgeblendet. Wer es nutzen will: bei OpenAI unter
+  platform.openai.com ein Konto für die Schnittstelle mit kleinem
+  Guthaben anlegen, unter *API keys* einen Schlüssel erzeugen, hier
+  eintragen, speichern und **„Verbindung prüfen“** anklicken (kostenlos,
+  holt nur die Modellliste). Das ChatGPT-Abo deckt die Schnittstelle
+  nicht ab. Die Felder für Adresse und Modelle bleiben leer; Einzelheiten
+  in `EINRICHTUNG.md`, Schritt 8.
+
 **WordPress → Einstellungen → Permalinks**
 
 Dort darf nicht „Einfach“ stehen – sonst lautet der Kurzlink
@@ -194,10 +212,10 @@ zu ändern: Das übernimmt die Umschreibregel des Plugins auf jeden Fall.
 
 1. `https://www.provision-infra.de/aufmasstool/` öffnen. Die Anmeldeseite
    mit dem Google-Knopf muss erscheinen; ganz unten steht die
-   Werkzeug-Fassung 1.2.0. Anmelden. Oben rechts steht danach
+   Werkzeug-Fassung 1.3.0. Anmelden. Oben rechts steht danach
    **„Abgeglichen“**, und unter *Einstellungen → Über dieses Werkzeug*
    stehen die Fassung des Werkzeugs und die des Server-Plugins (beide
-   1.2.0).
+   1.3.0).
 2. Ein bestehendes Aufmaß öffnen → **Schließplan**. Unter der Matrix
    stehen jetzt **Mitarbeiter und Gruppen**: Die früheren Personen je
    Schließung sind zur Mitarbeiterliste geworden, benannte Gruppen zu
@@ -229,6 +247,12 @@ zu ändern: Das übernimmt die Umschreibregel des Plugins auf jeden Fall.
 8. Beide Probelinks im Dialog *Kundenfreigabe* **zurückziehen** und das
    Probe-Aufmaß, falls eigens angelegt, löschen – oder den Freigabe-
    Vermerk im Aufmaß einfach stehen lassen, wenn es ein Testaufmaß war.
+9. Ist der OpenAI-Schlüssel eingetragen: eine Tür öffnen, auf
+   **Einsprechen** tippen, das Mikrofon erlauben, einen Satz sprechen
+   („Büro Empfang, Halbzylinder 35 10, DIN links“), Aufnahme beenden.
+   Nach einigen Sekunden erscheint der Vorschlag mit dem verstandenen
+   Text und den Feldern; **Übernehmen** schreibt sie in die Tür. Die Tür
+   danach nicht speichern, wenn es nur eine Probe war.
 
 Läuft alles bis hierher, ist die Aktualisierung fertig.
 
@@ -261,6 +285,8 @@ Läuft alles bis hierher, ist die Aktualisierung fertig.
 - **Anmeldung:** nichts zu tun, solange die Organisationsdomäne
   eingetragen ist. Wer die Freigabe neuer Zugänge einschaltet, muss
   künftig neue Kolleginnen und Kollegen unter „Zugänge“ freigeben.
+- **Tür einsprechen:** nichts zu tun. Ohne OpenAI-Schlüssel gibt es den
+  Knopf nicht; alles Übrige verhält sich wie bisher.
 - **Pipedrive:** unverändert.
 
 ---
@@ -289,6 +315,25 @@ Zeigt ein Gerät sie dauerhaft, geht seine Uhr falsch.
 werden“**
 Die Freigabe neuer Zugänge ist eingeschaltet. Eine Person mit Verwaltung
 gibt den Zugang unter *Einstellungen → Aufmaß-Abgleich → Zugänge* frei.
+
+**Der Knopf „Einsprechen“ fehlt im Türformular**
+Entweder ist kein OpenAI-Schlüssel in WordPress eingetragen (Schritt 4),
+das Gerät ist nicht angemeldet oder ohne Netz, oder der Browser kann
+nicht aufnehmen. Unter *Einstellungen → Tür einsprechen* im Werkzeug
+steht, woran es liegt.
+
+**„Das Mikrofon ist für diese Seite nicht freigegeben“**
+Im Browser den Zugriff erlauben: am iPad unter *Einstellungen → Safari →
+Mikrofon* beziehungsweise über das „aA“-Menü in der Adresszeile; am
+Rechner über das Schlosssymbol in der Adresszeile.
+
+**„OpenAI nimmt den hinterlegten Schlüssel nicht an“**
+Der Schlüssel ist falsch, widerrufen oder gehört zu einem anderen
+Projekt. In WordPress neu eintragen und „Verbindung prüfen“.
+
+**„OpenAI nimmt gerade keine Anfragen an“**
+Das Guthaben bei OpenAI ist aufgebraucht oder das Kontingent erreicht.
+Unter platform.openai.com → Billing nachsehen.
 
 **Der Google-Knopf erscheint nicht**
 Browser-Konsole öffnen (F12 → Console). Steht dort eine Meldung mit
@@ -332,7 +377,7 @@ Bedarf schließen und erneut öffnen.
 3. Cache leeren.
 
 Die ergänzten Tabellenspalten bleiben dabei stehen und stören die alte
-Fassung nicht. Aufmaße, die mit 1.2.0 geöffnet und gespeichert wurden,
+Fassung nicht. Aufmaße, die mit 1.3.0 geöffnet und gespeichert wurden,
 tragen bereits das neue Datenmodell; die alte Fassung zeigt bei ihnen
 Spalten ohne Personen – deshalb den Rückweg nur unmittelbar nach der
 Aktualisierung gehen, bevor damit gearbeitet wurde.

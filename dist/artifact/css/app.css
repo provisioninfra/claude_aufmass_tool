@@ -1020,3 +1020,67 @@ body.stift .zahl-knopf { min-width: 56px; }
 .zahl-feld .einheit-rechts {
   display: flex; align-items: center; color: var(--text-zart); font-size: 13px;
 }
+
+/* =========================================================================
+ * Tür einsprechen (Diktat)
+ * ====================================================================== */
+.modus-leiste { gap: 8px; }
+.modus-leiste .diktat-start {
+  flex: 0 0 auto; min-height: var(--tap); padding: 0 14px; font-weight: 600;
+  border: 1px solid var(--rand); border-radius: var(--radius-klein);
+  background: var(--hausfarbe-flaeche); color: var(--text); white-space: nowrap;
+}
+.modus-leiste .diktat-start:hover { border-color: var(--akzent); }
+.diktat .diktat-beispiel {
+  margin: 8px 0 14px; padding: 10px 14px; border-left: 3px solid var(--hausfarbe);
+  background: var(--flaeche-2); border-radius: 0 var(--radius-klein) var(--radius-klein) 0;
+  color: var(--text-schwach); font-size: 14px;
+}
+.diktat .diktat-mitte { display: flex; justify-content: center; padding: 10px 0 4px; }
+.diktat .diktat-aufnahme { min-height: var(--tap-gross); min-width: 60%; font-size: 17px; }
+.diktat .diktat-laeuft, .diktat .diktat-wartet {
+  display: flex; align-items: center; gap: 10px; padding: 14px 16px; margin-top: 2px;
+  border: 1px solid var(--rand); border-radius: var(--radius-klein); background: var(--flaeche-2);
+  font-weight: 600;
+}
+.diktat .punkt {
+  width: 14px; height: 14px; border-radius: 50%; background: var(--rot); flex: 0 0 auto;
+  animation: pulsieren 1.2s ease-in-out infinite;
+}
+.diktat .punkt.wartet { background: var(--akzent); }
+.diktat .dauer { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--text-schwach); }
+.diktat .diktat-text { margin-bottom: 14px; }
+.diktat .diktat-text blockquote {
+  margin: 4px 0 8px; padding: 10px 14px; border-left: 3px solid var(--akzent);
+  background: var(--flaeche-2); border-radius: 0 var(--radius-klein) var(--radius-klein) 0;
+  white-space: pre-wrap; font-size: 15px;
+}
+.diktat .diktat-text textarea { width: 100%; min-height: 96px; margin-top: 4px; }
+.diktat table.diktat-tabelle { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+.diktat table.diktat-tabelle th {
+  text-align: left; font-size: 12.5px; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--text-zart); padding: 6px 8px; border-bottom: 1px solid var(--rand);
+}
+.diktat table.diktat-tabelle td { padding: 9px 8px; border-bottom: 1px solid var(--rand-zart); vertical-align: top; }
+.diktat table.diktat-tabelle tr { cursor: pointer; }
+.diktat table.diktat-tabelle td:first-child { width: 36px; }
+.diktat table.diktat-tabelle input[type=checkbox] { width: 22px; height: 22px; }
+.diktat table.diktat-tabelle td.frage { font-weight: 600; }
+.diktat table.diktat-tabelle td.alt { color: var(--text-zart); }
+.diktat table.diktat-tabelle td.neu { color: var(--gruen); font-weight: 600; }
+.diktat table.diktat-tabelle tr.gleich td.neu { color: var(--text-zart); font-weight: 400; }
+.diktat .diktat-offen {
+  margin-top: 14px; padding: 10px 14px; border: 1px dashed var(--rand); border-radius: var(--radius-klein);
+}
+.diktat .diktat-offen label { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.diktat .diktat-offen input[type=checkbox] { width: 22px; height: 22px; }
+.diktat .diktat-offen ul { margin: 6px 0 0 30px; padding: 0; }
+.diktat .diktat-offen li { margin: 2px 0; }
+@media (max-width: 600px) {
+  .diktat table.diktat-tabelle td.alt { display: none; }
+  .diktat table.diktat-tabelle th:nth-child(3) { display: none; }
+  /* Auf dem Telefon nur das Mikrofon - sonst drängt der Knopf die
+     Umschalter „Schritt für Schritt / Alle Felder“ zusammen. */
+  .modus-leiste .diktat-start { padding: 0 12px; font-size: 20px; }
+  .modus-leiste .diktat-start .wort { display: none; }
+}

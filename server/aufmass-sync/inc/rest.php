@@ -69,6 +69,13 @@ class Aufmass_Rest {
            bewusst OHNE Anmeldung erreichbar - der Kunde hat kein Konto. Der
            Code im Weg ist dort der Ausweis; die Drosselung und die Prüfung
            der Antwort gegen die Freigabe stehen in freigaben.php. */
+        /* Tür einsprechen: Tonaufnahme (multipart, Feld „ton“) oder schon
+           erkannter Text, dazu das Feldschema des Werkzeugs. Nur für
+           Angemeldete und nur mit dem eigenen Kopffeld. */
+        register_rest_route(self::RAUM, '/diktat', array(
+            'methods' => 'POST', 'callback' => array(__CLASS__, 'diktat'),
+            'permission_callback' => array(__CLASS__, 'angemeldet_schreibend')
+        ));
         register_rest_route(self::RAUM, '/freigaben', array(
             array('methods' => 'GET', 'callback' => array(__CLASS__, 'freigaben_liste'),
                   'permission_callback' => array(__CLASS__, 'angemeldet')),
@@ -156,6 +163,7 @@ class Aufmass_Rest {
             /* Nur OB Pipedrive eingerichtet ist und wo - nie der Schlüssel. */
             $aus['pipedrive'] = Aufmass_Pipedrive::eingerichtet();
             $aus['pipedriveHost'] = $aus['pipedrive'] ? Aufmass_Pipedrive::host_anzeige() : '';
+            $aus['diktat'] = Aufmass_Diktat::eingerichtet();
             $aus['version'] = AUFMASS_VERSION;
         }
         return self::antwort($aus);
@@ -163,6 +171,17 @@ class Aufmass_Rest {
 
     public static function pipedrive($anfrage) {
         $e = Aufmass_Pipedrive::anfrage($anfrage['weg'], $anfrage->get_query_params());
+        return is_wp_error($e) ? $e : self::antwort($e);
+    }
+
+    public static function diktat($anfrage) {
+        $dateien = $anfrage->get_file_params();
+        $e = Aufmass_Diktat::verarbeiten(array(
+            'ton' => (is_array($dateien) && isset($dateien['ton'])) ? $dateien['ton'] : null,
+            'text' => (string) $anfrage->get_param('text'),
+            'felder' => $anfrage->get_param('felder'),
+            'woerter' => $anfrage->get_param('woerter')
+        ), Aufmass_Anmeldung::aktueller_benutzer());
         return is_wp_error($e) ? $e : self::antwort($e);
     }
 
@@ -201,6 +220,7 @@ class Aufmass_Rest {
            ein neu hinterlegter Schlüssel wirkt so ohne Neuladen. */
         $d['pipedrive'] = Aufmass_Pipedrive::eingerichtet();
         $d['pipedriveHost'] = $d['pipedrive'] ? Aufmass_Pipedrive::host_anzeige() : '';
+        $d['diktat'] = Aufmass_Diktat::eingerichtet();
         /* Kundenrückmeldungen, die auf diese Person warten: immer vollständig,
            nicht als Unterschied seit der Marke. So kann keine verloren gehen,
            und was übernommen wurde, verschwindet von selbst aus der Liste. */
