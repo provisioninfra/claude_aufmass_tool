@@ -316,6 +316,34 @@ const gespeichert = JSON.parse(fs.readFileSync(OPT, 'utf8'));
     const strukturNeu = await seite4.evaluate(() => { const s = document.querySelector('.dialog [data-feld="strukturId"] select'); return s ? s.value : null; });
     p(strukturNeu === bereich.id, 'im selben Bereich', String(strukturNeu));
     await seite4.keyboard.press('Escape'); await seite4.waitForTimeout(250);
+    /* Serie aus einer bestehenden Tür heraus: die erste Tür wird überschrieben, die weiteren entstehen in ihrem Bereich */
+    const bestehend = await seite4.evaluate(() => {
+      window.AppKern.Zustand.tuerFilter = { suche: '', struktur: '', status: '', system: '', unvollstaendig: false };
+      window.App.wechseln('tueren');
+      const pr = window.AppKern.Zustand.projekt;
+      const x = pr.tueren.find(y => y.strukturId && y.bezeichnung !== 'Büro Empfang');
+      return { id: x.id, nummer: x.nummer, struktur: x.strukturId, anzahl: pr.tueren.length };
+    });
+    await seite4.waitForSelector('.tuer-zeile', { timeout: 10000 });
+    await seite4.evaluate(id => { const pr = window.AppKern.Zustand.projekt; window.ViewsTueren.tuerBearbeiten(pr.tueren.find(y => y.id === id), () => window.App.zeichnen()); }, bestehend.id);
+    await seite4.waitForSelector('.dialog .modus-leiste .diktat-start', { timeout: 10000 });
+    await seite4.click('.dialog .modus-leiste .diktat-start');
+    await seite4.waitForSelector('.dialog .diktat .diktat-aufnahme', { timeout: 5000 });
+    await seite4.click('.dialog .diktat .diktat-aufnahme');
+    await seite4.waitForSelector('.dialog .diktat .diktat-laeuft', { timeout: 8000 });
+    await seite4.waitForTimeout(1200);
+    await seite4.click('.dialog .fuss button:has-text("Aufnahme beenden")');
+    await seite4.waitForSelector('.dialog:has-text("Türen eingesprochen")', { timeout: 25000 });
+    const danach = await seite4.evaluate(id => {
+      const pr = window.AppKern.Zustand.projekt;
+      const alt = pr.tueren.find(y => y.id === id);
+      return { anzahl: pr.tueren.length, altBez: alt.bezeichnung, altNr: alt.nummer, altZyl: alt.zylinderBauform,
+        neue: pr.tueren.slice(-2).map(y => ({ bez: y.bezeichnung, struktur: y.strukturId, nr: y.nummer })) };
+    }, bestehend.id);
+    p(danach.anzahl === bestehend.anzahl + 2 && danach.altBez === 'Büro Empfang' && danach.altNr === bestehend.nummer && danach.altZyl === 'Halbzylinder',
+      'aus einer bestehenden Tür heraus: sie bekommt den ersten Teil, behält ihre Nummer, zwei Türen kommen dazu', JSON.stringify(danach));
+    p(danach.neue.every(y => y.struktur === bestehend.struktur) && danach.neue.map(y => y.bez).join('|') === 'Lager hinten|Technikraum', 'die neuen Türen liegen im Bereich der bestehenden Tür', JSON.stringify(danach.neue));
+    await seite4.keyboard.press('Escape'); await seite4.waitForTimeout(250);
     fs.writeFileSync(MODUS, 'nur-befehl');
     await seite4.click('button:has-text("+ Neue Tür")');
     await seite4.waitForSelector('.dialog .modus-leiste .diktat-start', { timeout: 10000 });

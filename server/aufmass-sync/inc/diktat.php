@@ -33,8 +33,13 @@ class Aufmass_Diktat {
     const MODELL_ZUORDNUNG = 'gpt-4.1-mini';
     const TON_MAX = 26214400;      /* 25 MiB wie bei OpenAI - fünf Minuten Aufnahme sind rund 2 bis 5 MiB */
     const SEGMENTE_MAX = 30;       /* Türen je Aufnahme */
-    /** Der gesprochene Befehl, der die nächste Tür einleitet. */
-    const BEFEHL_NEUE_TUER = '/(?<![\p{L}\p{N}])(?:neue|nächste|naechste|noch\s+eine)\s+t(?:ü|ue)r(?:e)?(?![\p{L}\p{N}])[\s.,;:!?\-–]*/iu';
+    /** Der gesprochene Befehl, der die nächste Tür einleitet: „neue Tür“,
+     *  „nächste Tür“, „noch eine Tür“ - auch „Türe“, in jeder Schreibung,
+     *  mit Füllwörtern davor („und neue Tür“, „okay, nächste Tür“). Nicht
+     *  gemeint ist die Beschreibung einer Tür: „da kommt eine neue Tür
+     *  rein“, „die neue Tür bekommt …“, „zwei neue Türen“ - ein Artikel
+     *  oder Zahlwort davor und die Mehrzahl schließen den Befehl aus. */
+    const BEFEHL_NEUE_TUER = '/(?<![\p{L}\p{N}])(?<!eine\s|einer\s|die\s|der\s|den\s|dem\s|das\s|keine\s|zwei\s|drei\s|vier\s|fünf\s|sechs\s|als\s|ganze\s|neue\s)(?:(?:und|okay|ok|so|dann|jetzt|gut|also|nun|weiter)[\s,]+){0,2}(?:neue|nächste|naechste|noch\s+eine)\s+t(?:ü|ue)r(?:e)?(?![\p{L}\p{N}])[\s.,;:!?\-–]*/iu';
     const TEXT_MAX = 20000;
     const FELDER_MAX = 80;
     const WERTE_MAX = 80;

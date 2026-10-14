@@ -321,6 +321,12 @@ pruefe(Aufmass_Diktat::segmente('Neue Tür: Lager') === array('Lager'), 'ein Bef
 pruefe(Aufmass_Diktat::segmente('Lager, neue Türe Keller, noch eine Tür Flur') === array('Lager', 'Keller', 'Flur'), 'auch „Türe“ und „noch eine Tür“ zählen', json_encode(Aufmass_Diktat::segmente('Lager, neue Türe Keller, noch eine Tür Flur'), JSON_UNESCAPED_UNICODE));
 pruefe(Aufmass_Diktat::segmente('Haustür neu, zwei neue Türen, Türen neu') === array('Haustür neu, zwei neue Türen, Türen neu'), '„Haustür“, „neue Türen“ oder „Türen neu“ sind kein Befehl');
 pruefe(Aufmass_Diktat::segmente('neue tür') === array(), 'nur der Befehl: nichts übrig');
+$beschr = 'Hier kommt eine neue Tür rein, Halbzylinder 30 10. Die neue Tür bekommt einen Schutzbeschlag.';
+pruefe(Aufmass_Diktat::segmente($beschr) === array(rtrim($beschr, '.')), 'die Beschreibung „eine neue Tür“ oder „die neue Tür“ ist kein Befehl', json_encode(Aufmass_Diktat::segmente($beschr), JSON_UNESCAPED_UNICODE));
+pruefe(Aufmass_Diktat::segmente('Lager, und neue Tür, Technikraum. Okay neue Tür. Keller.') === array('Lager', 'Technikraum', 'Keller'), 'Füllwörter vor dem Befehl („und“, „okay“) bleiben nicht hängen', json_encode(Aufmass_Diktat::segmente('Lager, und neue Tür, Technikraum. Okay neue Tür. Keller.'), JSON_UNESCAPED_UNICODE));
+pruefe(Aufmass_Diktat::segmente('Büro Halbzylinder 35 10 neue Tür Lager DIN rechts') === array('Büro Halbzylinder 35 10', 'Lager DIN rechts'), 'auch ohne Satzzeichen wird getrennt');
+pruefe(Aufmass_Diktat::segmente('NEUE TÜR! Keller. neue türe - Flur') === array('Keller', 'Flur'), 'Großschreibung und „Türe“ mit Gedankenstrich');
+pruefe(Aufmass_Diktat::segmente('Neue Tür Nummer 12, Büro, DIN links.') === array('Nummer 12, Büro, DIN links'), 'eine genannte Nummer bleibt beim folgenden Teil');
 pruefe(Aufmass_Diktat::segmente('Lager') === array('Lager'), 'ohne Befehl bleibt der Text ein Teil');
 zuruecksetzen();
 $antworten[] = antwort_text('Büro Empfang. Neue Tür. Lager hinten, DIN rechts. Nächste Tür: Technikraum');
