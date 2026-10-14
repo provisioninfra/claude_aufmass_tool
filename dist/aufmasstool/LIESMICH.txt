@@ -9,4 +9,4 @@ Website legen. Danach ist das Werkzeug erreichbar unter:
 Voraussetzung ist das WordPress-Plugin "Aufmaß-Abgleich" aus dem
 Ordner server/aufmass-sync (siehe server/EINRICHTUNG.md).
 
-Erzeugt am 2026-10-12
+Erzeugt am 2026-10-14

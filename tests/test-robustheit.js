@@ -32,18 +32,28 @@ p.tueren.push(M.neueTuer({
   nummer: '', bezeichnung: '', strukturId: st.id, anzahl: 'keine Zahl',
   masseAussen: -5, masseInnen: 'abc', zylinderBauform: 'Z'.repeat(200),
   notiz: 'N'.repeat(3000), systemId: 'gibt-es-nicht',
-  zylinderAusfuehrung: 'kein Array', tueranforderungen: null, komponenten: undefined, fotos: 'kaputt'
+  zylinderAusfuehrung: 'kein Array', beschlagOptionen: null, komponenten: undefined, fotos: 'kaputt'
 }));
 p.tueren.push(M.neueTuer({ nummer: 'ok-1', bezeichnung: 'Normale Tür', strukturId: st.id,
   systemId: 'evva-4ks', zylinderBauform: 'Doppelzylinder', masseAussen: '30', masseInnen: '35' }));
-p.schliessungen.push(M.neueSchliessung({ kuerzel: '', bezeichnung: '', anzahlMedien: 'viele' }));
-p.schliessungen.push(M.neueSchliessung({ kuerzel: 'K'.repeat(120), bezeichnung: 'Sehr langes Kürzel', anzahlMedien: -3 }));
+p.schliessungen.push(M.neueSchliessung({ kuerzel: '', bezeichnung: '', medien: 'viele' }));
+p.schliessungen.push(M.neueSchliessung({ kuerzel: 'K'.repeat(120), bezeichnung: 'Sehr langes Kürzel', medien: [{ typ: 'x', anzahl: -3 }], traeger: 'kaputt' }));
+p.mitarbeiter = [{ id: 'ma-x', name: 'N'.repeat(300), gruppen: 'keine Liste', medien: [{ typ: null, anzahl: 'drei' }] }, null, 'unsinn'];
+p.gruppen = [{ id: 'grp-x', name: '' }, { name: 'ohne Kennung' }, 7];
+p.schliessungen.push(M.neueSchliessung({ art: 'gruppe', gruppeId: 'gibt-es-nicht', kuerzel: 'G?' }));
+p.freigabe = 'kaputt';
 
 const bereinigt = ohneAbsturz('Migration repariert kaputte Felder', () => M.migriere(p));
 if (bereinigt) {
   pruefe(Array.isArray(bereinigt.tueren[0].zylinderAusfuehrung), 'zylinderAusfuehrung wird zu einem Array repariert');
   pruefe(Array.isArray(bereinigt.tueren[0].fotos), 'fotos wird zu einem Array repariert');
-  pruefe(Array.isArray(bereinigt.tueren[0].tueranforderungen), 'tueranforderungen wird zu einem Array repariert');
+  pruefe(Array.isArray(bereinigt.tueren[0].beschlagOptionen), 'beschlagOptionen wird zu einem Array repariert');
+  pruefe(bereinigt.mitarbeiter.length === 1 && Array.isArray(bereinigt.mitarbeiter[0].gruppen) && bereinigt.mitarbeiter[0].medien[0].anzahl === 1,
+    'kaputte Mitarbeiter werden repariert oder verworfen', JSON.stringify(bereinigt.mitarbeiter));
+  pruefe(bereinigt.gruppen.length === 2 && bereinigt.gruppen.every(g => g.id), 'Gruppen bekommen Kennungen, Unsinn fällt heraus', JSON.stringify(bereinigt.gruppen));
+  pruefe(bereinigt.freigabe === null, 'eine kaputte Freigabe wird verworfen');
+  ohneAbsturz('Prüfung mit Grenzwerten', () => M.pruefeProjekt(bereinigt));
+  ohneAbsturz('Freigabestand mit Grenzwerten', () => M.freigabeStand(bereinigt));
   ohneAbsturz('Türliste mit Grenzwerten', () => Reports.tuerliste(bereinigt, {}, { modus: 'kompakt' }).build());
   ohneAbsturz('Datenblatt mit Grenzwerten', () => Reports.tuerliste(bereinigt, {}, { modus: 'detail' }).build());
   ohneAbsturz('Schließplan mit Grenzwerten', () => Reports.schliessplan(bereinigt, {}).build());
@@ -82,7 +92,7 @@ for (let g = 0; g < 12; g++) {
   }
 }
 for (let i = 0; i < 40; i++) {
-  gross.schliessungen.push(M.neueSchliessung({ kuerzel: 'S' + i, bezeichnung: 'Schließung ' + i, typ: 'ez', anzahlMedien: 2, sort: i }));
+  gross.schliessungen.push(M.neueSchliessung({ kuerzel: 'S' + i, bezeichnung: 'Schließung ' + i, typ: 'ez', medien: [{ typ: '', anzahl: 2 }], sort: i }));
 }
 gross.tueren.forEach((t, i) => gross.schliessungen.forEach((s, j) => {
   if ((i + j) % 5 === 0) M.setBerechtigung(gross, t.id, s.id, 'ja');
@@ -149,6 +159,28 @@ const VT = { naechste: (n) => {
   .forEach(([ein, erwartet]) => {
     pruefe(VT.naechste(ein) === erwartet, `Fortzählung "${ein}" -> "${erwartet}"`, 'ergab: ' + VT.naechste(ein));
   });
+
+console.log('\n== Eine Sicherung aller Projekte lässt sich wieder einlesen ==');
+{
+  const a = M.neuesProjekt('Eins'), b = M.neuesProjekt('Zwei');
+  const sicherung = JSON.stringify({ typ: 'schliessanlagen-aufmass-sicherung', version: 1, projekte: [a, b, { kaputt: true }] });
+  let erg = null, f = null;
+  try { erg = Store.importParsen(sicherung); } catch (e) { f = e.message; }
+  pruefe(erg && erg.sicherung === true && erg.projekte.length === 2, 'die Sicherung wird als solche erkannt, Unbrauchbares übergangen', f || JSON.stringify(erg && erg.projekte.map(x => x.name)));
+  pruefe(erg && erg.projekt && erg.projekt.id === a.id, 'das erste Projekt steht wie bisher bereit');
+  let f2 = null;
+  try { Store.importParsen(JSON.stringify({ typ: 'schliessanlagen-aufmass-sicherung', projekte: [] })); } catch (e) { f2 = e.message; }
+  pruefe(/kein Aufmaß-Projekt/.test(f2 || ''), 'eine leere Sicherung wird verständlich abgewiesen', f2);
+  const einzel = Store.importParsen(JSON.stringify({ typ: 'schliessanlagen-aufmass', projekt: a }));
+  pruefe(einzel.sicherung === false && einzel.projekte.length === 1, 'eine Projektdatei bleibt eine Projektdatei');
+}
+
+console.log('\n== Die Vorlage der Einstellungen wird nie geteilt ==');
+{
+  const e1 = Store.einstellungenStandard(); e1.eigeneSysteme.push('Fremdsystem');
+  const e2 = Store.einstellungenStandard();
+  pruefe(e2.eigeneSysteme.length === 0, 'ein Eintrag in einer Kopie verändert die Vorlage nicht', JSON.stringify(e2.eigeneSysteme));
+}
 
 console.log(`\nErgebnis Robustheit: ${ok} ok, ${fehler} Fehler`);
 process.exit(fehler ? 1 : 0);

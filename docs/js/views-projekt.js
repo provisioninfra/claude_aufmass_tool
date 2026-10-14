@@ -492,7 +492,7 @@
 
   function importDialog(neuLaden) {
     var dateiEingabe = el('input', {
-      type: 'file', accept: '.json,application/json',
+      type: 'file', accept: '.json,application/json', class: 'versteckt',
       onchange: function (e) {
         var datei = e.target.files && e.target.files[0];
         if (!datei) return;
@@ -503,6 +503,35 @@
           try { ergebnis = Store.importParsen(leser.result); }
           catch (fehler) { A.toast(fehler.message, 'fehler'); return; }
           Store.alleProjekte().then(function (vorhandene) {
+            /* Eine Sicherung („Alle Projekte sichern“) bringt mehrere
+               Projekte mit: alle einlesen, Vorhandenes nur auf Nachfrage
+               überschreiben, sonst als Kopie daneben legen. */
+            if (ergebnis.sicherung) {
+              var ids = {};
+              vorhandene.forEach(function (v) { ids[v.id] = v; });
+              var doppelt = ergebnis.projekte.filter(function (x) { return ids[x.id]; }).length;
+              var frage = doppelt
+                ? Promise.resolve(null).then(function () {
+                    return A.bestaetigen('Sicherung einlesen',
+                      ergebnis.projekte.length + ' Projekte in der Sicherung, davon ' + doppelt +
+                      ' bereits auf diesem Gerät. Sollen die vorhandenen überschrieben werden? ' +
+                      'Andernfalls werden sie als Kopie angelegt.', 'Überschreiben');
+                  })
+                : Promise.resolve(false);
+              frage.then(function (ueberschreiben) {
+                var reihe = Promise.resolve();
+                ergebnis.projekte.forEach(function (projekt) {
+                  var zuSpeichern = (ids[projekt.id] && !ueberschreiben)
+                    ? Store.projektKlonen(projekt, (projekt.name || 'Import') + ' (Sicherung)') : projekt;
+                  reihe = reihe.then(function () { return Store.projektSpeichern(zuSpeichern); });
+                });
+                return reihe;
+              }).then(function () {
+                A.toast(ergebnis.projekte.length + ' Projekte aus der Sicherung eingelesen.', 'ok');
+                dlg.schliessen(); neuLaden();
+              }).catch(function (fehler) { A.toast(fehler.message || 'Einlesen fehlgeschlagen.', 'fehler'); });
+              return;
+            }
             var gleich = vorhandene.filter(function (v) { return v.id === ergebnis.projekt.id; })[0];
             var fortsetzen = function (projekt) {
               Store.projektSpeichern(projekt).then(function () {

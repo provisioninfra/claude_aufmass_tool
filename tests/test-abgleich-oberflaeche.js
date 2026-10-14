@@ -2,7 +2,7 @@
  * Zustandsanzeige, Rückfrage bei Konflikt - gegen den echten Server. */
 const path = require('path'), fs = require('fs'), os = require('os'), crypto = require('crypto');
 const { spawn } = require('child_process');
-const { starte } = require('./browser.js');
+const { starte, istUmgebungsGeraeusch } = require('./browser.js');
 
 const W = path.join(__dirname, '..');
 const HAFEN = 8500 + (process.pid % 300);
@@ -23,7 +23,7 @@ function ausweis(sub, name) {
   const kopf = b64(JSON.stringify({ alg: 'RS256', kid: 'ui-1', typ: 'JWT' }));
   const inhalt = b64(JSON.stringify({ iss: 'https://accounts.google.com', aud: CLIENT, sub,
     email: sub + '@' + DOMAENE, email_verified: true, hd: DOMAENE, name,
-    iat: Math.floor(Date.now() / 1000) - 10, exp: Math.floor(Date.now() / 1000) + 3600 }));
+    iat: Math.floor(Date.now() / 1000) - 10, exp: Math.floor(Date.now() / 1000) + 3600, nonce: Math.random().toString(36).slice(2) }));
   return kopf + '.' + inhalt + '.' + crypto.sign('RSA-SHA256', Buffer.from(kopf + '.' + inhalt), privateKey).toString('base64url');
 }
 const OPT = path.join(ARBEIT, 'opt.json');
@@ -51,19 +51,23 @@ fs.writeFileSync(OPT, JSON.stringify({
     const ctx = await browser.newContext({ viewport: { width: 1180, height: 860 } });
     const seite = await ctx.newPage();
     const konsole = [];
-    seite.on('pageerror', e => konsole.push('PAGEERROR: ' + e.message));
+    seite.on('pageerror', e => {
+      if (istUmgebungsGeraeusch(e.message, e.stack)) return;
+      konsole.push('PAGEERROR: ' + e.message);
+    });
     /* Zwei Geräusche gehören zur Prüfumgebung, nicht zum Werkzeug:
        - Googles Anmeldeskript ist hier nicht erreichbar (Zertifikat/Proxy)
        - im Abschnitt "Ohne Netz" wird die Verbindung absichtlich gekappt */
-    const umgebung = /gsi\/client|accounts\.google|ERR_CERT|ERR_INTERNET_DISCONNECTED|ERR_NAME_NOT_RESOLVED/;
     seite.on('console', m => {
       if (m.type() !== 'error') return;
       const t = m.text();
-      if (umgebung.test(t)) return;
+      const wo = m.location() ? m.location().url : '';
+      /* Was Googles Anmeldeskript aus dem Netz nachlädt, liegt außerhalb des Werkzeugs. */
+      if (istUmgebungsGeraeusch(t, wo)) return;
       konsole.push(t + '  @ ' + (m.location() ? m.location().url : ''));
     });
     seite.on('requestfailed', r => {
-      if (umgebung.test(r.failure() ? r.failure().errorText : '')) return;
+      if (istUmgebungsGeraeusch(r.failure() ? r.failure().errorText : '', r.url())) return;
       if (/\/wp-json\//.test(r.url()) && offlineAbschnitt) return;
       konsole.push('Anfrage gescheitert: ' + r.url() + ' (' + (r.failure() || {}).errorText + ')');
     });

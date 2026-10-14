@@ -22,7 +22,7 @@ function ausweis(sub, name, zusatz) {
   const kopf = b64(JSON.stringify({ alg: 'RS256', kid: 'an-1', typ: 'JWT' }));
   const inhalt = b64(JSON.stringify(Object.assign({ iss: 'https://accounts.google.com', aud: CLIENT, sub,
     email: sub + '@' + DOMAENE, email_verified: true, hd: DOMAENE, name,
-    iat: Math.floor(Date.now() / 1000) - 10, exp: Math.floor(Date.now() / 1000) + 3600 }, zusatz || {})));
+    iat: Math.floor(Date.now() / 1000) - 10, exp: Math.floor(Date.now() / 1000) + 3600, nonce: Math.random().toString(36).slice(2) }, zusatz || {})));
   return kopf + '.' + inhalt + '.' + crypto.sign('RSA-SHA256', Buffer.from(kopf + '.' + inhalt), privateKey).toString('base64url');
 }
 const OPT = path.join(ARBEIT, 'opt.json');
@@ -79,13 +79,27 @@ async function ruf(weg, opt) {
       ['fremde Organisation', ausweis('u-fremd', 'F', { hd: 'boese.example', email: 'u-fremd@boese.example' })],
       ['unbestätigte Adresse', ausweis('u-x', 'X', { email_verified: false })],
       ['abgelaufen', ausweis('u-x', 'X', { exp: Math.floor(Date.now() / 1000) - 3600 })],
-      ['falsche Client-ID', ausweis('u-x', 'X', { aud: 'andere.apps.googleusercontent.com' })]
+      ['falsche Client-ID', ausweis('u-x', 'X', { aud: 'andere.apps.googleusercontent.com' })],
+      ['zu alt (20 Minuten, noch nicht abgelaufen)', ausweis('u-x', 'X', { iat: Math.floor(Date.now() / 1000) - 1200 })],
+      ['ohne Ausstellungszeit', ausweis('u-x', 'X', { iat: undefined })],
+      ['fremdes azp', ausweis('u-x', 'X', { azp: 'andere.apps.googleusercontent.com' })],
+      ['privates Konto ohne Organisation', ausweis('u-x', 'X', { hd: undefined, email: 'x@gmail.com' })],
+      ['Organisation nur in der Adresse', ausweis('u-x', 'X', { hd: undefined })],
+      ['Organisation nur im hd', ausweis('u-x', 'X', { email: 'x@gmail.com' })]
     ];
     for (const [name, token] of falsch) {
       const r = await ruf('/anmelden', { methode: 'POST', kopf: { 'X-Aufmass-Abgleich': '1' }, json: { token } });
       p(r.status === 401 || r.status === 400, 'abgewiesen: ' + name, String(r.status) + ' ' + (r.d && r.d.message));
       p(!(r.kopf.get('set-cookie') || '').includes('aufmass_sitzung='), 'und es gibt kein Sitzungscookie: ' + name);
     }
+
+    console.log('\n== Ein Ausweis gilt genau einmal ==');
+    const einmal = ausweis('u-weber', 'M. Weber');
+    const w1 = await ruf('/anmelden', { methode: 'POST', kopf: { 'X-Aufmass-Abgleich': '1' }, json: { token: einmal } });
+    const w2 = await ruf('/anmelden', { methode: 'POST', kopf: { 'X-Aufmass-Abgleich': '1' }, json: { token: einmal } });
+    p(w1.status === 200 && w2.status === 401 && /bereits verwendet/.test(w2.d && w2.d.message),
+      'derselbe Ausweis ein zweites Mal: abgewiesen - ein mitgelesener Ausweis eröffnet keine zweite Sitzung', w1.status + ' / ' + w2.status);
+    p(!(w2.kopf.get('set-cookie') || '').includes('aufmass_sitzung=' ) || /aufmass_sitzung=;/.test(w2.kopf.get('set-cookie') || ''), 'und ohne Sitzungscookie');
 
     console.log('\n== Echte Anmeldung: das Cookie ==');
     const an = await ruf('/anmelden', { methode: 'POST', kopf: { 'X-Aufmass-Abgleich': '1', 'X-Forwarded-Proto': 'https' }, json: { token: ausweis('u-weber', 'M. Weber') } });
@@ -108,8 +122,9 @@ async function ruf(weg, opt) {
     console.log('\n== Eine Freigabe anlegen, dann als Fremder daran rütteln ==');
     const projekt = { id: 'prj-a', kunde: 'Müller', objekt: 'Haus', tueren: [{ id: 't1' }, { id: 't2' }], schliessungen: [{ id: 's1' }, { id: 's2' }], standorte: [], matrix: {} };
     p((await ruf('/projekte/prj-a', { methode: 'PUT', kopf: echt, json: { daten: projekt, basisVersion: 0 } })).status === 200, 'Vorbereitung: Aufmaß liegt');
-    const daten = { f: 1, pid: 'prj-a', kunde: 'Müller', objekt: 'Haus', t: [['t1', '1', 'A', ''], ['t2', '2', 'B', '']],
-      s: [['s1', 'X', 'X', ''], ['s2', 'Y', 'Y', '', { a: '', g: '', p: [] }]], m: '0000', e: '0101' };
+    const daten = { f: 2, pid: 'prj-a', kunde: 'Müller', objekt: 'Haus', t: [['t1', '1', 'A', ''], ['t2', '2', 'B', '']],
+      r: { m: 1, g: 0, s: 0 }, mt: ['Karte'], gr: [['g1', 'EDV']], ma: [['m1', 'Herr Alt', ['g1'], [['Karte', 1]]]],
+      s: [['s1', 'X', 'X', '', 'schliessung', ''], ['s2', 'Y', 'Y', '', 'gruppe', 'g1']], m: '0000', e: '0101' };
     const f = await ruf('/freigaben', { methode: 'POST', kopf: echt, json: { projektId: 'prj-a', daten, seite: BASIS + '/freigabe.html' } });
     p(f.status === 200 && f.d.code, 'Vorbereitung: Freigabe angelegt', JSON.stringify(f.d).slice(0, 100));
     const code = f.d.code;
@@ -128,7 +143,7 @@ async function ruf(weg, opt) {
     }
 
     const kopfK = { 'X-Aufmass-Abgleich': '1' };
-    const antwortOk = { f: 1, pid: 'prj-a', typ: 'antwort', tIds: ['t1', 't2'], sIds: ['s1', 's2'], a: '1:1' };
+    const antwortOk = { f: 2, pid: 'prj-a', typ: 'antwort', tIds: ['t1', 't2'], sIds: ['s1', 's2'], a: '1:1' };
     const proben = [
       ['kein JSON', { koerper: '{{{{', kopf: Object.assign({ 'Content-Type': 'application/json' }, kopfK) }, [400]],
       ['leerer Körper', { koerper: '', kopf: Object.assign({ 'Content-Type': 'application/json' }, kopfK) }, [400]],
@@ -136,8 +151,13 @@ async function ruf(weg, opt) {
       ['nicht freigegebenes Feld', { json: { antwort: Object.assign({}, antwortOk, { a: '0:1' }), name: 'X' }, kopf: kopfK }, [400]],
       ['Feld außerhalb', { json: { antwort: Object.assign({}, antwortOk, { a: 'zzzzzzz:1' }), name: 'X' }, kopf: kopfK }, [400]],
       ['fremdes Aufmaß', { json: { antwort: Object.assign({}, antwortOk, { pid: 'prj-b' }), name: 'X' }, kopf: kopfK }, [400]],
-      ['Inhaberliste für gesperrte Spalte', { json: { antwort: Object.assign({}, antwortOk, { p: { '0': [['Hacker', '', 1]] } }), name: 'X' }, kopf: kopfK }, [400]],
-      ['Inhaberliste als Zeichenkette', { json: { antwort: Object.assign({}, antwortOk, { p: 'x' }), name: 'X' }, kopf: kopfK }, [400]],
+      ['Gruppen ohne Recht', { json: { antwort: Object.assign({}, antwortOk, { gr: [['neu-a', 'Hacker']] }), name: 'X' }, kopf: kopfK }, [400]],
+      ['neue Spalte ohne Recht', { json: { antwort: Object.assign({}, antwortOk, { n: [['gruppe', 'g1', '11']] }), name: 'X' }, kopf: kopfK }, [400]],
+      ['Mitarbeiterliste als Zeichenkette', { json: { antwort: Object.assign({}, antwortOk, { ma: 'x' }), name: 'X' }, kopf: kopfK }, [400]],
+      ['Mitarbeiter mit erfundener Kennung', { json: { antwort: Object.assign({}, antwortOk, { ma: [['m9', 'Fremd', [], []]] }), name: 'X' }, kopf: kopfK }, [400]],
+      ['Löschen einer unbekannten Kennung', { json: { antwort: Object.assign({}, antwortOk, { max: ['m9'] }), name: 'X' }, kopf: kopfK }, [400]],
+      ['Freigabe ohne Namen', { json: { antwort: Object.assign({}, antwortOk, { fr: { name: '' } }), name: 'X' }, kopf: kopfK }, [400]],
+      ['alte Fassung', { json: { antwort: Object.assign({}, antwortOk, { f: 1 }), name: 'X' }, kopf: kopfK }, [400]],
       ['ohne Namen', { json: { antwort: antwortOk }, kopf: kopfK }, [400]],
       ['Name als Objekt', { json: { antwort: antwortOk, name: { x: 1 } }, kopf: kopfK }, [400]],
       ['ohne Kopffeld', { json: { antwort: antwortOk, name: 'X' } }, [400]]
@@ -150,14 +170,14 @@ async function ruf(weg, opt) {
     p(gross.status === 413, 'ein übergroßer Körper wird abgewiesen (413), bevor er entziffert wird', String(gross.status));
     const stand = await ruf('/freigaben/' + code);
     p(stand.d.status === 'offen' && stand.d.antwort === null, 'keiner der Versuche hat eine Rückmeldung hinterlassen');
-    /* Unbrauchbares in einer Inhaberliste wird übergangen, die gültige
+    /* Unbrauchbares in der Mitarbeiterliste wird übergangen, die gültige
        Berechtigung daneben trotzdem angenommen - und nichts davon wandert
        in den Bauplan. */
     const tief = await ruf('/freigaben/' + code + '/antwort', { methode: 'POST', kopf: kopfK,
-      json: { antwort: Object.assign({}, antwortOk, { p: { '1': [[[[[[['x']]]]]]], '__proto__': { x: 1 } } }), name: 'Tief' } });
+      json: { antwort: Object.assign({}, antwortOk, { ma: [['m1', 'Herr Alt', ['g1'], [['Karte', 1]]], [[[[[[['x']]]]]]], { '__proto__': { x: 1 } }] }), name: 'Tief' } });
     p(tief.status === 200 && tief.d.listen === 0 && tief.d.anzahl === 1, 'tief verschachtelter Unsinn wird übergangen, die gültige Berechtigung angenommen', JSON.stringify(tief.d));
     const nachTief = await ruf('/freigaben/' + code);
-    p(nachTief.d.antwort && nachTief.d.antwort.p === undefined && nachTief.d.antwort.a === '1:1', 'abgelegt ist nur das Brauchbare', JSON.stringify(nachTief.d.antwort));
+    p(nachTief.d.antwort && nachTief.d.antwort.ma === undefined && nachTief.d.antwort.a === '1:1', 'abgelegt ist nur das Brauchbare - eine unveränderte Liste gar nicht', JSON.stringify(nachTief.d.antwort));
 
     console.log('\n== Eine gute Übertragung, mit bösem Text ==');
     const gut = await ruf('/freigaben/' + code + '/antwort', { methode: 'POST', kopf: kopfK,

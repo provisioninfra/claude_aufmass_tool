@@ -17,8 +17,6 @@ const listen = {
   BESCHLAG_SICHERHEIT: K.BESCHLAG_SICHERHEIT,
   SCHLOSS_BAUFORM: K.SCHLOSS_BAUFORM,
   SCHLOSS_FUNKTION: K.SCHLOSS_FUNKTION,
-  ZUTRITTSSEITE: K.ZUTRITTSSEITE,
-  TUERANFORDERUNG: K.TUERANFORDERUNG,
   STULPFORM: K.STULPFORM,
   FALLENART: K.FALLENART,
   SCHLOSS_NORM: K.SCHLOSS_NORM,
@@ -32,7 +30,8 @@ const EIGENTUEMER = {
   'komfort': 'ZYLINDER_AUSFUEHRUNG',
   'anti-panik': 'ZYLINDER_AUSFUEHRUNG',
   'wetterschutz': 'ZYLINDER_AUSFUEHRUNG',
-  'not- und gefahrenfunktion': 'ZYLINDER_AUSFUEHRUNG',
+  'bsz': 'ZYLINDER_AUSFUEHRUNG',
+  'monitoring': 'ZYLINDER_AUSFUEHRUNG',
   'halbzylinder': 'ZYLINDER_BAUFORM',
   'doppelzylinder': 'ZYLINDER_BAUFORM',
   'rosetten': 'BESCHLAG_BAUFORM',
@@ -41,8 +40,6 @@ const EIGENTUEMER = {
   'es2': 'BESCHLAG_SICHERHEIT',
   'einsteckschloss': 'SCHLOSS_BAUFORM',
   'rohrrahmen': 'SCHLOSS_BAUFORM',
-  'brandschutz': 'TUERANFORDERUNG',
-  'rauchschutz': 'TUERANFORDERUNG',
   /* Die Rollfalle ist eine Bauart der Falle und keine Funktion des
      Schlosses - sonst müsste man sich zwischen Panikfunktion und
      Rollfalle entscheiden, obwohl beides zusammen vorkommt. */
@@ -127,24 +124,21 @@ pruefe(n1.beschlagBauform === 'Schutzbeschlag' && n1.beschlagSicherheit === 'ES2
 pruefe(n1.schlossBauform === 'Einsteckschloss' && /Funktion E/.test(n1.schlossFunktion),
   'Schloss: Bauform und Panikfunktion getrennt',
   JSON.stringify({ b: n1.schlossBauform, f: n1.schlossFunktion }));
-pruefe(n1.zutrittsseite === 'innen und außen',
-  'Zutrittsseite aus der alten Mischliste gezogen', n1.zutrittsseite);
-pruefe(n1.tueranforderungen.includes('Flucht- und Rettungsweg') &&
-       n1.tueranforderungen.includes('Brandschutz') &&
-       n1.tueranforderungen.includes('Rauchschutz'),
-  '"Brand- und Rauchschutz" korrekt in zwei Anforderungen zerlegt',
-  JSON.stringify(n1.tueranforderungen));
+pruefe(!('zutrittsseite' in n1) && !('tueranforderungen' in n1),
+  'Zutrittsseite und bauliche Anforderungen gibt es seit Fassung 1.2 nicht mehr - sie werden nicht mitgeschleppt',
+  JSON.stringify({ z: n1.zutrittsseite, a: n1.tueranforderungen }));
 pruefe(n1.masseAussen === '35' && n1.masseInnen === '40', 'Maße bleiben unverändert erhalten');
 pruefe(n2.brauchtZylinder === false, '"Kein Zylinder" wird zum ausgeschalteten Bauteil');
 pruefe(n3.zylinderBauform === 'Doppelzylinder' &&
-       n3.zylinderAusfuehrung.includes('Not- und Gefahrenfunktion'),
-  'Not- und Gefahrenfunktion wird zur Ausführung',
+       n3.zylinderAusfuehrung.includes('BSZ (beidseitig schließbar)') &&
+       !n3.zylinderAusfuehrung.includes('Not- und Gefahrenfunktion'),
+  'Not- und Gefahrenfunktion wird zur Ausführung „BSZ (beidseitig schließbar)“',
   JSON.stringify({ b: n3.zylinderBauform, a: n3.zylinderAusfuehrung }));
 pruefe(n3.beschlagBestueckung === 'Knauf / Drücker', 'Bestückung aus dem Beschlagstext gezogen', n3.beschlagBestueckung);
 
 /* Keine Altfelder bleiben übrig */
 const reste = neu.tueren.flatMap(t2 =>
-  ['zylinderArt', 'beschlagArt', 'schlossArt', 'zutrittsarten', 'technologie', 'identmedien']
+  ['zylinderArt', 'beschlagArt', 'schlossArt', 'zutrittsarten', 'technologie', 'identmedien', 'zutrittsseite', 'tueranforderungen']
     .filter(f => f in t2).map(f => t2.nummer + '.' + f));
 pruefe(reste.length === 0, 'keine Altfelder bleiben zurück', reste.join(', '));
 
@@ -251,30 +245,42 @@ const typBegriffe = K.SCHLIESSUNG_TYPEN.map(x => x.label.toLowerCase());
 pruefe(!typBegriffe.some(x => /person|gruppe\b/.test(x) && !/gruppenschlüssel|untergruppen/.test(x)),
   'der Rang im Plan enthält keine Angabe zum Träger',
   typBegriffe.filter(x => /person|gruppe\b/.test(x)).join(', '));
-pruefe(K.TRAEGER_ART.map(x => x.id).join(',') === 'einzel,gruppe',
-  'der Träger ist eine eigene Frage mit genau zwei Antworten');
+pruefe(K.SPALTEN_ART.map(x => x.id).join(',') === 'gruppe,mitarbeiter,schliessung',
+  'eine Spalte ist Gruppe, Mitarbeiter oder Schließung');
 
-/* Die Überführung erfindet keinen Rang, sondern lässt ihn offen */
-const altPerson = { id: 's1', kuerzel: 'HM', bezeichnung: 'Hausmeister', typ: 'person',
-                    anzahlMedien: 2, person: 'Herr Özdemir', abteilung: 'Facility' };
-M.schliessungUeberfuehren(altPerson);
-pruefe(altPerson.traegerArt === 'einzel' && altPerson.typ === '',
-  'aus "Person" wird der Träger, der Rang bleibt offen statt erfunden',
-  JSON.stringify({ typ: altPerson.typ, traeger: altPerson.traegerArt }));
-pruefe(altPerson.personen.length === 1 && altPerson.personen[0].name === 'Herr Özdemir' &&
-       altPerson.personen[0].funktion === 'Facility',
-  'Name und Abteilung werden zur Personenliste', JSON.stringify(altPerson.personen));
-pruefe(M.medienAnzahl(altPerson) === 2,
-  'die bisherige Gesamtzahl der Medien bleibt maßgeblich', String(M.medienAnzahl(altPerson)));
-
-const altGruppe = { id: 's2', kuerzel: 'IT', bezeichnung: 'IT-Abteilung', typ: 'gruppe',
-                    anzahlMedien: 4, abteilung: 'EDV' };
-M.schliessungUeberfuehren(altGruppe);
-pruefe(altGruppe.traegerArt === 'gruppe' && altGruppe.gruppenName === 'EDV',
-  'aus "Personengruppe" wird eine benannte Gruppe', JSON.stringify(altGruppe.gruppenName));
+/* Ein Schließplan aus Fassung 1.1: Personen je Schließung werden zur
+   zentralen Mitarbeiterliste, Gruppen zu eigenen Gruppen mit Mitgliedern */
+const altPlan = { id: 'prj-alt-plan', name: 'Alt', tueren: [], standorte: [], matrix: {},
+  schliessungen: [
+    { id: 's1', kuerzel: 'HM', bezeichnung: 'Hausmeister', typ: 'person',
+      anzahlMedien: 2, person: 'Herr Özdemir', abteilung: 'Facility' },
+    { id: 's2', kuerzel: 'IT', bezeichnung: 'IT-Abteilung', typ: 'gruppe', traegerArt: 'gruppe', gruppenName: 'EDV',
+      personen: [{ id: 'per-a', name: 'Frau Adler', funktion: '', anzahlMedien: 2 }, { id: 'per-b', name: 'Herr Bauer', anzahlMedien: 1 }],
+      anzahlMedien: 3, medienTyp: 'Transponder' },
+    { id: 's3', kuerzel: 'GHS', bezeichnung: 'General', typ: 'ghs', anzahlMedien: 2, medienTyp: 'Schlüssel', medienVonHand: true }
+  ] };
+const neuPlan = M.migriere(JSON.parse(JSON.stringify(altPlan)));
+const [p1, p2, p3] = neuPlan.schliessungen;
+pruefe(p1.art === 'schliessung' && p1.typ === '' && p1.traeger.length === 1,
+  'aus "Person" wird eine Schließung mit einem Träger, der Rang bleibt offen statt erfunden',
+  JSON.stringify({ art: p1.art, typ: p1.typ, traeger: p1.traeger }));
+const oez = M.mitarbeiterVon(neuPlan, p1.traeger[0]);
+pruefe(oez && oez.name === 'Herr Özdemir' && oez.funktion === 'Facility' && M.mitarbeiterMedienAnzahl(oez) === 2,
+  'Name und Abteilung werden zum Mitarbeiter mit seiner Medienzahl', JSON.stringify(oez));
+pruefe(p2.art === 'gruppe' && M.gruppeVon(neuPlan, p2.gruppeId) && M.gruppeVon(neuPlan, p2.gruppeId).name === 'EDV',
+  'aus "Personengruppe" wird eine benannte Gruppe', JSON.stringify(p2));
+pruefe(M.gruppenMitglieder(neuPlan, p2.gruppeId).length === 2 && M.medienAnzahl(neuPlan, p2) === 3,
+  'die Mitglieder stehen in der Mitarbeiterliste, die Medienzahl bleibt 3', String(M.medienAnzahl(neuPlan, p2)));
+pruefe(M.gruppenMitglieder(neuPlan, p2.gruppeId).every(m => m.medien[0] && m.medien[0].typ === 'Transponder'),
+  'die Art des Mediums wandert zu den Mitgliedern');
+pruefe(p3.art === 'schliessung' && M.medienAnzahl(neuPlan, p3) === 2 && p3.medien[0].typ === 'Schlüssel',
+  'eine von Hand gezählte Schließung behält ihre eigene Medienliste', JSON.stringify(p3.medien));
+pruefe(neuPlan.schliessungen.every(s => !('personen' in s) && !('traegerArt' in s) && !('anzahlMedien' in s)),
+  'keine Altfelder bleiben an den Spalten zurück');
 /* Zweimal überführen darf nichts verdoppeln */
-M.schliessungUeberfuehren(altPerson);
-pruefe(altPerson.personen.length === 1, 'erneute Überführung verdoppelt keine Person');
+const nochmal = M.migriere(JSON.parse(JSON.stringify(neuPlan)));
+pruefe(nochmal.mitarbeiter.length === neuPlan.mitarbeiter.length && nochmal.gruppen.length === neuPlan.gruppen.length,
+  'erneute Überführung verdoppelt weder Mitarbeiter noch Gruppen');
 
 console.log('\n== Rollfalle gehört zur Falle, nicht zur Funktion ==');
 pruefe(!K.SCHLOSS_FUNKTION.includes('Rollfalle'),
@@ -324,8 +330,8 @@ const pTuer = M.neueTuer({ nummer: '001' });
 pProj.tueren.push(pTuer);
 const fehlen1 = M.pflichtfelder(pProj, pTuer).map(x => x.schluessel);
 pruefe(fehlen1.includes('bezeichnung') && fehlen1.includes('strukturId') &&
-       fehlen1.includes('zylinderBauform') && fehlen1.includes('zutrittsseite'),
-  'die Pflichtangaben eines Zylinders werden benannt', fehlen1.join(', '));
+       fehlen1.includes('zylinderBauform') && !fehlen1.includes('zutrittsseite'),
+  'die Pflichtangaben eines Zylinders werden benannt - ohne die abgeschaffte Zutrittsseite', fehlen1.join(', '));
 pruefe(!fehlen1.includes('schlossBauform') && !fehlen1.includes('beschlagBauform'),
   'nach abgewählten Bauteilen wird nicht gefragt', fehlen1.join(', '));
 /* Die Längen hängen an der Bauform: Beim Briefkastenzylinder gibt es keine.
@@ -350,7 +356,6 @@ pruefe(halb.includes('masseAussen') && !halb.includes('masseInnen'),
 M.statusAusPruefung(pProj, pTuer);
 pruefe(pTuer.status === 'klaerung', 'unvollständige Tür wird auf „Klärung nötig“ gesetzt', pTuer.status);
 pTuer.bezeichnung = 'Tür'; pTuer.strukturId = standort.id; pTuer.masseAussen = '30';
-pTuer.zutrittsseite = 'nur außen';
 M.statusAusPruefung(pProj, pTuer);
 pruefe(pTuer.status === 'aufgemessen', 'vollständige Tür gilt als aufgemessen', pTuer.status);
 pTuer.statusVonHand = true; pTuer.status = 'freigegeben'; pTuer.masseAussen = '';

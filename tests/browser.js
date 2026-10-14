@@ -18,4 +18,14 @@ async function ersteProjektOeffnen(page, timeout = 8000) {
   return true;
 }
 
-module.exports = { starte, chromium, EXE, ersteProjektOeffnen };
+/* Geräusche der Prüfumgebung, die nicht vom Werkzeug stammen: Googles
+   Anmeldeskript und sein CDN sind hier oft nicht erreichbar (Proxy, kein
+   Netz); dann scheitert das Skript in sich selbst ("gis is not defined").
+   Text und Fundstelle einer Konsolenmeldung bzw. Meldung und Stapel eines
+   Seitenfehlers werden gemeinsam geprüft. */
+const UMGEBUNG = /gsi\/client|accounts\.google|gstatic\.com|ERR_CERT|ERR_INTERNET_DISCONNECTED|ERR_NAME_NOT_RESOLVED|ERR_TUNNEL_CONNECTION_FAILED|\bgis is not defined/;
+function istUmgebungsGeraeusch(...teile) {
+  return UMGEBUNG.test(teile.filter(Boolean).join(' '));
+}
+
+module.exports = { starte, chromium, EXE, ersteProjektOeffnen, istUmgebungsGeraeusch };

@@ -91,7 +91,7 @@ class Aufmass_Fotos {
                 array('status' => 500));
         }
 
-        $wpdb->insert($tab, array(
+        $eingetragen = $wpdb->insert($tab, array(
             'id' => $id,
             'projekt_id' => $projekt_id,
             'tuer_id' => (string) $tuer_id,
@@ -101,6 +101,16 @@ class Aufmass_Fotos {
             'erstellt_am' => Aufmass_Datenbank::jetzt(),
             'hochgeladen_von' => $benutzer['id']
         ));
+        if ($eingetragen === false) {
+            /* Zwei Geräte haben dasselbe Foto gleichzeitig hochgeladen: Die
+               Zeile des anderen gilt, die eigene Datei wäre eine Waise. */
+            @unlink($ziel);
+            $andere = $wpdb->get_row($wpdb->prepare("SELECT * FROM $tab WHERE id = %s", $id), ARRAY_A);
+            if ($andere) { return self::beschreiben($andere); }
+            return new WP_Error('nicht_gespeichert',
+                'Das Foto ließ sich nicht eintragen. Bitte erneut versuchen.',
+                array('status' => 500));
+        }
         return self::beschreiben($wpdb->get_row($wpdb->prepare("SELECT * FROM $tab WHERE id = %s", $id), ARRAY_A));
     }
 

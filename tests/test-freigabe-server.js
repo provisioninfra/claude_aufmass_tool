@@ -5,7 +5,7 @@
  * Verwerfen, Zurückziehen, unbekannter Code, Sichtbarkeit für Unzuständige. */
 const path = require('path'), fs = require('fs'), os = require('os'), crypto = require('crypto');
 const { spawn } = require('child_process');
-const { starte, ersteProjektOeffnen } = require('./browser.js');
+const { starte, ersteProjektOeffnen, istUmgebungsGeraeusch } = require('./browser.js');
 const { baueTestprojekt, einstellungen } = require('./fixture.js');
 
 const W = path.join(__dirname, '..');
@@ -28,7 +28,7 @@ function ausweis(sub, name) {
   const kopf = b64(JSON.stringify({ alg: 'RS256', kid: 'fr-1', typ: 'JWT' }));
   const inhalt = b64(JSON.stringify({ iss: 'https://accounts.google.com', aud: CLIENT, sub,
     email: sub + '@' + DOMAENE, email_verified: true, hd: DOMAENE, name,
-    iat: Math.floor(Date.now() / 1000) - 10, exp: Math.floor(Date.now() / 1000) + 3600 }));
+    iat: Math.floor(Date.now() / 1000) - 10, exp: Math.floor(Date.now() / 1000) + 3600, nonce: Math.random().toString(36).slice(2) }));
   return kopf + '.' + inhalt + '.' + crypto.sign('RSA-SHA256', Buffer.from(kopf + '.' + inhalt), privateKey).toString('base64url');
 }
 const OPT = path.join(ARBEIT, 'opt.json');
@@ -57,13 +57,18 @@ function mails() {
   }
 
   const browser = await starte({ args: ARGS });
-  const umgebung = /gsi\/client|accounts\.google|ERR_CERT|ERR_INTERNET_DISCONNECTED|ERR_NAME_NOT_RESOLVED/;
   function ueberwachen(seite, sammler) {
-    seite.on('pageerror', e => sammler.push('PAGEERROR: ' + e.message));
+    seite.on('pageerror', e => {
+      /* Ohne Netz zu Googles CDN scheitert Googles Anmeldeskript in sich selbst ("gis is not defined"). */
+      if (istUmgebungsGeraeusch(e.message, e.stack)) return;
+      sammler.push('PAGEERROR: ' + e.message);
+    });
     seite.on('console', m => {
       if (m.type() !== 'error') return;
       const t = m.text();
-      if (umgebung.test(t)) return;
+      const wo = m.location() ? m.location().url : '';
+      /* Was Googles Anmeldeskript aus dem Netz nachlädt, liegt außerhalb des Werkzeugs. */
+      if (istUmgebungsGeraeusch(t, wo)) return;
       /* Die Kundenseite probiert bewusst Links aus, die 404/410 liefern. */
       if (/the server responded with a status of (404|410|400)/.test(t)) return;
       sammler.push(t + '  @ ' + (m.location() ? m.location().url : ''));
@@ -110,11 +115,12 @@ function mails() {
     p(kurzlink === BASIS + '/f/' + code && code.length === 10, 'der Kurzlink hat die Form /f/CODE mit zehn Zeichen', kurzlink);
     p(kurzlink.length < 60, 'und ist kurz (' + kurzlink.length + ' Zeichen statt tausender)');
     const hinweis = await seite.textContent('.dialog .hinweis >> nth=-1');
-    p(/Übertragen/.test(hinweis) && /geprüft/.test(hinweis), 'der Hinweis erklärt Übertragen und Prüfung', hinweis.slice(0, 80));
+    p(/Rückmeldung senden/.test(hinweis) && /geprüft/.test(hinweis), 'der Hinweis erklärt Rückmeldung, Freigabe und Prüfung', hinweis.slice(0, 80));
     await seite.waitForSelector('.dialog .freigabe-eintrag', { timeout: 5000 });
     const eintraege = await seite.$$eval('.dialog .freigabe-eintrag', n => n.map(x => x.textContent));
     p(eintraege.length === 1 && /Offen/.test(eintraege[0]) && /M\. Weber/.test(eintraege[0]),
       'die Liste der Freigabe-Links zeigt den neuen Link als offen', eintraege.join(' | ').slice(0, 120));
+    p(/Kunde darf: Mitarbeiter, Gruppen/.test(eintraege[0]), 'und nennt, was der Kunde darf', eintraege[0].slice(0, 160));
     await seite.click('.dialog .fuss button:has-text("Schließen")');
 
     console.log('\n== Kunde: Kurzlink öffnen, ohne Anmeldung ==');
@@ -129,7 +135,9 @@ function mails() {
     const kopf = await kunde.textContent('.fr-kopf');
     p(/Müller/.test(kopf), 'Kunde und Objekt werden angezeigt', kopf.trim().slice(0, 60));
     p(/Reinigungszeiten/.test(await kunde.textContent('.meldung.info')), 'der mitgegebene Hinweis erscheint');
-    p(/Übertragen/.test(await kunde.textContent('.meldung.info')), 'die Anleitung nennt den Knopf „Übertragen“');
+    p(/Rückmeldung senden/.test(await kunde.textContent('.meldung.info')), 'die Anleitung nennt den Knopf „Rückmeldung senden“');
+    p(/Mitarbeiter eintragen/.test(await kunde.textContent('.meldung.info')) && !/neue Spalte/.test(await kunde.textContent('.meldung.info')),
+      'und sagt, was der Kunde außerdem darf - und was nicht');
     const freieZellen = await kunde.$$eval('td.zelle.frei', n => n.length);
     p(freieZellen === projekt.tueren.length * 2, 'nur die freigegebenen Spalten sind bearbeitbar (' + freieZellen + ')');
     p((await ctxKunde.cookies()).length === 0, 'der Kunde bekommt kein Sitzungscookie');
@@ -145,21 +153,25 @@ function mails() {
     await freie[leer[0]].click(); await warte(80);
     await freie[leer[1]].click(); await warte(80); await freie[leer[1]].click(); await warte(80);
     await freie[leer[2]].click(); await warte(120);
-    const bloecke = await kunde.$$('.fr-inhaber-block');
-    await bloecke[0].$eval('button:has-text("+ Person")', b => b.click());
+    p(await kunde.$('#fr-gruppe-neu') !== null && await kunde.$('#fr-ma-neu') !== null, 'Gruppen und Mitarbeiter lassen sich pflegen');
+    p((await kunde.$$('#fr-listen button:has-text("Als Spalte aufnehmen")')).length === 0, 'neue Spalten darf dieser Link nicht aufnehmen');
+    await kunde.click('#fr-ma-neu');
+    await warte(150);
+    const neueKarte = (await kunde.$$('#fr-mitarbeiter .fr-ma')).pop();
+    await neueKarte.$eval('input.name', n => n.focus()); await kunde.keyboard.type('Frau Kundenseitig');
+    await neueKarte.$eval('.chip', c => c.click());
+    await neueKarte.$eval('button:has-text("+ Medium eintragen")', b => b.click());
     await warte(120);
-    const neueZeile = (await bloecke[0].$$('.fr-person-zeile')).pop();
-    await neueZeile.$eval('input.name', n => n.focus()); await kunde.keyboard.type('Frau Kundenseitig');
-    await neueZeile.$eval('input.funktion', n => n.focus()); await kunde.keyboard.type('Empfang');
+    await neueKarte.$eval('input.anzahl', n => { n.focus(); n.select(); }); await kunde.keyboard.type('2');
     await warte(120);
-    p(/3 Änderungen/.test(await kunde.textContent('#fr-zaehler')) && /1 Inhaberliste/.test(await kunde.textContent('#fr-zaehler')),
-      'drei Felder und eine Inhaberliste gelten als geändert', (await kunde.textContent('#fr-zaehler')).trim());
+    p(/3 Änderungen/.test(await kunde.textContent('#fr-zaehler')) && /Mitarbeiterliste geändert/.test(await kunde.textContent('#fr-zaehler')),
+      'drei Felder und die Mitarbeiterliste gelten als geändert', (await kunde.textContent('#fr-zaehler')).trim());
 
     console.log('\n== Kunde: Übertragen ==');
     await kunde.click('#fr-uebertragen');
     await kunde.waitForSelector('#fr-senden');
-    p(/3 Berechtigungen und 1 Inhaberliste geändert/.test(await kunde.textContent('.dialog .meldung')),
-      'die Zusammenfassung vor dem Übertragen stimmt', (await kunde.textContent('.dialog .meldung')).trim());
+    p(/3 Berechtigungen, Mitarbeiterliste/.test(await kunde.textContent('.dialog .meldung')),
+      'die Zusammenfassung vor dem Senden stimmt', (await kunde.textContent('.dialog .meldung')).trim());
     await kunde.click('#fr-senden');
     await warte(300);
     const fehlerText = await kunde.textContent('#fr-fehler');
@@ -172,7 +184,7 @@ function mails() {
     await kunde.waitForSelector('#fr-fertig', { timeout: 8000 });
     const fertig = await kunde.textContent('#fr-fertig');
     p(/Vielen Dank, Frau Kundig/.test(fertig), 'die Bestätigung nennt den Namen', fertig.trim().slice(0, 80));
-    p(/3 Berechtigungen und 1 Inhaberliste/.test(fertig), 'und zählt, was übertragen wurde');
+    p(/3 Berechtigungen und 1 Liste/.test(fertig), 'und zählt, was übertragen wurde');
     p(/Provision Infra GmbH prüft/.test(fertig), 'und sagt, dass erst geprüft wird');
 
     const post = mails();
@@ -187,8 +199,8 @@ function mails() {
     await kunde.waitForSelector('table.matrix', { timeout: 10000 });
     p(/bereits übertragen/.test(await kunde.textContent('#fr-stand')), 'nach dem Neuladen steht da: bereits übertragen');
     p((await kunde.$$eval('td.zelle.geaendert', n => n.length)) === 3, 'die drei geänderten Felder sind wieder eingetragen');
-    const namen = await kunde.$$eval('.fr-inhaber-block input.name', ns => ns.map(n => n.value));
-    p(namen.indexOf('Frau Kundenseitig') !== -1, 'und die eingetragene Person auch', namen.join(', '));
+    const namen = await kunde.$$eval('.fr-ma input.name', ns => ns.map(n => n.value));
+    p(namen.indexOf('Frau Kundenseitig') !== -1, 'und der eingetragene Mitarbeiter auch', namen.join(', '));
 
     console.log('\n== Werkzeug: die Rückmeldung kommt an, wird geprüft und übernommen ==');
     const vorherZellen = await seite.evaluate(() => Object.keys(window.AppKern.Zustand.projekt.matrix).length);
@@ -214,7 +226,7 @@ function mails() {
     await seite.waitForSelector('.antwort-bericht table', { timeout: 5000 });
     const bericht = await seite.textContent('.dialog');
     p((await seite.$$eval('.antwort-bericht tbody tr', n => n.length)) === 3, 'der Bericht listet drei Berechtigungen');
-    p(/Frau Kundenseitig/.test(bericht), 'und die neue Person');
+    p(/Frau Kundenseitig/.test(bericht) && /Mitarbeiter/.test(bericht), 'und den neuen Mitarbeiter');
     p(/Herr Özdemir zwei Schlüssel/.test(bericht), 'und die Anmerkung des Kunden');
     p(/erst etwas, wenn Sie unten auf „Übernehmen“/.test(bericht), 'und erklärt, dass noch nichts geändert ist');
     await seite.click('.dialog .fuss button:has-text("Übernehmen")');
@@ -222,12 +234,12 @@ function mails() {
     const nachher = await seite.evaluate(() => ({
       zellen: Object.keys(window.AppKern.Zustand.projekt.matrix).length,
       antworten: window.Abgleich.zustand().antworten.length,
-      personen: window.AppKern.Zustand.projekt.schliessungen.some(s => (s.personen || []).some(x => x.name === 'Frau Kundenseitig')),
+      personen: window.AppKern.Zustand.projekt.mitarbeiter.some(m => m.name === 'Frau Kundenseitig' && m.gruppen.length === 1 && m.medien[0] && m.medien[0].anzahl === 2),
       verlauf: window.Verlauf.naechsteBeschreibung(),
       ungesichert: window.AppKern.Zustand.ungesichert
     }));
     p(nachher.zellen === vorherZellen + 3, 'drei Berechtigungen stehen jetzt im geöffneten Aufmaß', vorherZellen + ' -> ' + nachher.zellen);
-    p(nachher.personen, 'die neue Person steht in der Inhaberliste');
+    p(nachher.personen, 'der neue Mitarbeiter steht mit Gruppe und Medien in der Mitarbeiterliste');
     p(nachher.antworten === 0, 'die Rückmeldung ist erledigt');
     p(nachher.verlauf === 'Kundenrückmeldung übernommen', 'der Schritt lässt sich zurücknehmen', nachher.verlauf);
     await warte(3500);
@@ -240,7 +252,7 @@ function mails() {
       { headers: { 'X-Aufmass-Abgleich': '1', Cookie: kekse } })).json();
     p(Object.keys(amServer.daten.matrix).length === vorherZellen + 3, 'und das geänderte Aufmaß liegt wieder auf dem Server',
       String(Object.keys(amServer.daten.matrix).length));
-    p(amServer.daten.schliessungen.some(s => (s.personen || []).some(x => x.name === 'Frau Kundenseitig')), 'samt der neuen Person');
+    p(amServer.daten.mitarbeiter.some(m => m.name === 'Frau Kundenseitig'), 'samt dem neuen Mitarbeiter');
     const chipDanach = await seite.textContent('.abgleich-status');
     p(!/Rückmeldung/.test(chipDanach), 'die Kopfzeile ist wieder ruhig', chipDanach.trim());
     p(await seite.$('.antworten-hinweis') === null, 'und der Hinweis im Schließplan ist weg');
@@ -318,6 +330,90 @@ function mails() {
     await kunde.waitForSelector('.meldung.fehler', { timeout: 10000 });
     p(/nicht mehr gültig/.test(await kunde.textContent('.meldung.fehler')), 'der Kunde sieht: Link nicht mehr gültig',
       (await kunde.textContent('.meldung.fehler')).trim().slice(0, 80));
+
+    console.log('\n== Zur verbindlichen Freigabe vorlegen ==');
+    await seite.keyboard.press('Escape');
+    await seite.waitForSelector('.dialog', { state: 'detached', timeout: 3000 }).catch(() => {});
+    await seite.evaluate(() => window.App.zeichnen());
+    await warte(300);
+    await seite.click('button:has-text("Kundenfreigabe")');
+    await seite.waitForSelector('.dialog');
+    await seite.click('.dialog button:has-text("Plan zur verbindlichen Freigabe vorlegen")');
+    await seite.waitForSelector('.dialog .kurzlink-feld', { timeout: 8000 });
+    const link2 = await seite.inputValue('.dialog .kurzlink-feld');
+    const code2 = (link2.match(/\/f\/([a-z0-9]+)$/) || [])[1] || '';
+    p(code2.length === 10 && code2 !== code, 'ein eigener Link zur Freigabe entsteht', link2);
+    p(/verbindlich freigeben/.test(await seite.textContent('.dialog .hinweis >> nth=-1')), 'der Hinweis erklärt die Freigabe');
+    await seite.waitForSelector('.dialog .freigabe-eintrag', { timeout: 5000 });
+    p(/vorgelegt/.test(await seite.textContent('.dialog .freigabe-eintrag >> nth=0')), 'die Liste zeigt den Link als vorgelegt');
+    await seite.click('.dialog .fuss button:has-text("Schließen")');
+
+    await kunde.goto(link2, { waitUntil: 'load' });
+    await kunde.waitForSelector('table.matrix', { timeout: 10000 });
+    p(await kunde.$('#fr-vorgelegt') !== null, 'der Kunde sieht: bitte prüfen und freigeben');
+    p((await kunde.$$eval('td.zelle.frei', n => n.length)) === 0, 'kein Feld ist bearbeitbar');
+    p(await kunde.$('#fr-ma-neu') === null && await kunde.$('#fr-uebertragen') === null, 'keine Listenpflege, kein Senden - nur die Freigabe');
+    const mitarbeiterZeilen = await kunde.$$eval('table.fr-tabelle tbody tr', n => n.length);
+    p(mitarbeiterZeilen === projekt.mitarbeiter.length + 1, 'die Mitarbeiter stehen zur Ansicht da - samt dem neu übernommenen', String(mitarbeiterZeilen));
+    const abgewiesen = await (await fetch(BASIS + '/wp-json/aufmass/v1/freigaben/' + code2 + '/antwort', { method: 'POST',
+      headers: { 'X-Aufmass-Abgleich': '1', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ antwort: { f: 2, pid: projekt.id, typ: 'antwort', tIds: [], sIds: [], a: '' }, name: 'X' }) })).status;
+    p(abgewiesen === 409, 'eine Rückmeldung auf einen vorgelegten Plan weist der Server ab (409)', String(abgewiesen));
+    await kunde.click('#fr-freigeben');
+    await kunde.waitForSelector('#fr-senden');
+    await kunde.click('#fr-senden');
+    await warte(300);
+    p(await kunde.isVisible('#fr-fehler') && /Namen/.test(await kunde.textContent('#fr-fehler')), 'ohne Namen keine Freigabe');
+    await kunde.fill('#fr-name', 'Frau Chefin');
+    await kunde.fill('#fr-funktion', 'Geschäftsführung');
+    await kunde.click('#fr-senden');
+    await warte(300);
+    p(/bestätigen/.test(await kunde.textContent('#fr-fehler')), 'ohne Bestätigung keine Freigabe', (await kunde.textContent('#fr-fehler')).trim());
+    await kunde.check('#fr-bestaetigen');
+    await kunde.click('#fr-senden');
+    await kunde.waitForSelector('#fr-fertig', { timeout: 8000 });
+    p(/verbindliche Freigabe/.test(await kunde.textContent('#fr-fertig')) && /Frau Chefin/.test(await kunde.textContent('#fr-fertig')),
+      'die Bestätigung nennt die Freigabe', (await kunde.textContent('#fr-fertig')).trim().slice(0, 100));
+    const mailFr = mails().pop();
+    p(mailFr && /Verbindliche Freigabe/.test(mailFr.betreff) && /Frau Chefin/.test(mailFr.text) && /Geschäftsführung/.test(mailFr.text),
+      'die E-Mail meldet die Freigabe mit Name und Funktion', mailFr && mailFr.betreff);
+    await kunde.reload({ waitUntil: 'load' });
+    await kunde.waitForSelector('table.matrix', { timeout: 10000 });
+    p(/verbindlich freigegeben/.test(await kunde.textContent('#fr-stand')) && await kunde.$('#fr-freigeben') === null,
+      'nach dem Neuladen ist die Seite gesperrt: freigegeben, kein Knopf mehr');
+
+    await seite.evaluate(() => window.Abgleich.jetzt());
+    await warte(1200);
+    const frAntworten = await seite.evaluate(() => window.Abgleich.zustand().antworten);
+    p(frAntworten.length === 1 && frAntworten[0].freigabe && frAntworten[0].freigabe.name === 'Frau Chefin',
+      'die Freigabe wartet im Werkzeug auf das Übernehmen', JSON.stringify(frAntworten.map(a => a.freigabe)));
+    await seite.evaluate(() => window.App.zeichnen());
+    await warte(300);
+    p(/Verbindliche Freigabe des Kunden liegt vor/.test(await seite.textContent('.antworten-hinweis')), 'der Hinweis nennt sie als Freigabe');
+    await seite.click('.antworten-hinweis button:has-text("Prüfen und übernehmen")');
+    await seite.waitForSelector('.antwort-bericht .meldung.ok', { timeout: 5000 });
+    p(/Verbindliche Freigabe durch Frau Chefin, Geschäftsführung/.test(await seite.textContent('.antwort-bericht')), 'der Bericht nennt Name und Funktion');
+    await seite.click('.dialog .fuss button:has-text("Übernehmen")');
+    await warte(1500);
+    const vermerk = await seite.evaluate(() => ({
+      freigabe: window.AppKern.Zustand.projekt.freigabe,
+      geaendert: window.Model.seitFreigabeGeaendert(window.AppKern.Zustand.projekt),
+      banner: document.querySelector('.freigabe-vermerk') ? document.querySelector('.freigabe-vermerk').textContent : ''
+    }));
+    p(vermerk.freigabe && vermerk.freigabe.name === 'Frau Chefin' && vermerk.freigabe.art === 'nachtraeglich' && vermerk.freigabe.code === code2,
+      'die Freigabe ist im Aufmaß vermerkt', JSON.stringify(vermerk.freigabe));
+    p(vermerk.geaendert === false && /verbindlich freigegeben/.test(vermerk.banner), 'der Schließplan zeigt den Vermerk', vermerk.banner.slice(0, 80));
+    const liste3 = await (await fetch(BASIS + '/wp-json/aufmass/v1/freigaben?projekt=' + projekt.id,
+      { headers: { 'X-Aufmass-Abgleich': '1', Cookie: kekse } })).json();
+    const eintrag2 = liste3.freigaben.filter(f => f.code === code2)[0];
+    p(eintrag2 && eintrag2.status === 'freigegeben', 'der Server weiß: freigegeben', eintrag2 && eintrag2.status);
+    const nochmal = await (await fetch(BASIS + '/wp-json/aufmass/v1/freigaben/' + code2 + '/freigeben', { method: 'POST',
+      headers: { 'X-Aufmass-Abgleich': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Nochmal' }) })).status;
+    p(nochmal === 409, 'eine zweite Freigabe wird abgewiesen - der Link ist für den Kunden zu', String(nochmal));
+    /* Wir ändern weiter - der Vermerk warnt */
+    await seite.evaluate(() => { const p2 = window.AppKern.Zustand.projekt; p2.gruppen[0].name += ' (neu)'; window.App.zeichnen(); });
+    await warte(300);
+    p(/Seit der Freigabe wurde der Plan geändert/.test(await seite.textContent('.freigabe-vermerk')), 'eine spätere Änderung wird am Vermerk gezeigt - wir dürfen, der Kunde nicht');
 
     console.log('\n== Unbekannter Code ==');
     await kunde.goto(BASIS + '/f/gibtsnicht1', { waitUntil: 'load' });

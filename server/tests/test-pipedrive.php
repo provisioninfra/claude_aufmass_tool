@@ -136,5 +136,20 @@ pruefe(is_wp_error($e) && strpos($e->get_error_message(), 'nicht mehr lesbar') !
     'ein unlesbarer Schlüssel wird benannt, nicht verschwiegen', fehlertext($e));
 $GLOBALS['wp_remote_attrappe'] = null;
 
+echo "\n== Der Schlüssel lässt sich auch beim ERSTEN Speichern hinterlegen ==\n";
+/* WordPress prüft beim ersten Speichern zweimal (update_option -> add_option);
+   der zweite Durchlauf bekommt die bereits verschlüsselte Fassung. */
+if (!function_exists('add_settings_error')) { function add_settings_error() { $GLOBALS['aufmass_test_fehler'][] = func_get_args(); } }
+require_once __DIR__ . '/../aufmass-sync/inc/einstellungen.php';
+$GLOBALS['aufmass_test_fehler'] = array();
+$klartext = 'abcdefghij1234567890ABCDEFGHIJ';
+$erster = Aufmass_Einstellungen::pipedrive_token_pruefen($klartext);
+$zweiter = Aufmass_Einstellungen::pipedrive_token_pruefen($erster);
+pruefe(Aufmass_Verschluesselung::ist_chiffre($erster), 'der erste Durchlauf verschlüsselt', substr((string) $erster, 0, 12));
+pruefe($zweiter === $erster, 'der zweite Durchlauf reicht die Chiffre unverändert durch', substr((string) $zweiter, 0, 12));
+pruefe(count($GLOBALS['aufmass_test_fehler']) === 0, 'und meldet keinen Fehler', count($GLOBALS['aufmass_test_fehler']));
+pruefe(Aufmass_Verschluesselung::entschluesseln($zweiter) === $klartext, 'gespeichert wird der richtige Schlüssel');
+pruefe(!Aufmass_Verschluesselung::ist_chiffre('s1:nicht base64!!') && !Aufmass_Verschluesselung::ist_chiffre($klartext), 'ein Klartext gilt nie als Chiffre');
+
 echo "\nErgebnis Pipedrive-Server: $ok ok, $fehler Fehler\n";
 exit($fehler ? 1 : 0);
