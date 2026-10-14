@@ -745,8 +745,16 @@
    * kommt mit dem Abgleich hierher - übernommen wird sie erst, wenn ein
    * Zuständiger den Bericht gesehen und bestätigt hat.
    * ---------------------------------------------------------------- */
-  function freigabeErstellen(projektId, daten, seite) {
-    return anfrage('/freigaben', { methode: 'POST', json: { projektId: projektId, daten: daten, seite: seite || '' } });
+  function freigabeErstellen(projektId, daten, seite, optionen) {
+    return anfrage('/freigaben', { methode: 'POST', json: { projektId: projektId, daten: daten, seite: seite || '',
+      vorlegen: !!(optionen && optionen.vorlegen) } });
+  }
+  /* Den aktuellen Plan über einen bestehenden Link zur verbindlichen
+     Freigabe vorlegen: Der Kunde sieht dann den neuen Stand ohne
+     Bearbeitung und kann ihn freigeben. */
+  function freigabeVorlegen(code, daten) {
+    return anfrage('/freigaben/' + encodeURIComponent(code) + '/vorlegen', { methode: 'POST', json: { daten: daten } })
+      .then(function (d) { return d && d.freigabe; });
   }
 
   function freigabenListe(projektId) {
@@ -786,11 +794,6 @@
     return new Error('Das Aufmaß liegt auf diesem Gerät noch nicht vor. Bitte kurz warten, bis der Abgleich es geholt hat.');
   }
 
-  /* Rückmeldungen über den Server hat der Server bereits gegen die Freigabe
-     geprüft und bereinigt (nur freigegebene Felder, nur freigegebene
-     Inhaberlisten). Die Prüfung gegen eine lokal abgelegte Freigabe gilt
-     dem Weg ohne Server - hier gäbe es keine. */
-  var SERVER_GEPRUEFT = { serverGeprueft: true };
 
   /** Was würde die Übernahme ändern? Ein Bericht, ohne etwas zu ändern. */
   function antwortVorschau(code) {
@@ -798,7 +801,7 @@
     if (!eintrag) { return Promise.reject(new Error('Diese Rückmeldung liegt nicht mehr vor.')); }
     return projektKopie(eintrag.projektId).then(function (kopie) {
       if (!kopie) { throw nichtDa(); }
-      var bericht = global.Freigabe.antwortUebernehmen(kopie, eintrag.antwort || {}, SERVER_GEPRUEFT);
+      var bericht = global.Freigabe.antwortUebernehmen(kopie, eintrag.antwort || {}, { serverGeprueft: true, code: code });
       return { eintrag: eintrag, bericht: bericht, projekt: kopie };
     });
   }
@@ -817,7 +820,7 @@
     var Kern = global.AppKern;
     return projektKopie(eintrag.projektId).then(function (kopie) {
       if (!kopie) { throw nichtDa(); }
-      var bericht = global.Freigabe.antwortUebernehmen(kopie, eintrag.antwort || {}, SERVER_GEPRUEFT);
+      var bericht = global.Freigabe.antwortUebernehmen(kopie, eintrag.antwort || {}, { serverGeprueft: true, code: code });
       return anfrage('/freigaben/' + encodeURIComponent(code) + '/uebernommen',
           { methode: 'POST', json: { antwortNr: eintrag.antwortNr } })
         .catch(function (f) {
@@ -906,6 +909,7 @@
     freigabeErstellen: freigabeErstellen,
     freigabenListe: freigabenListe,
     freigabeZurueckziehen: freigabeZurueckziehen,
+    freigabeVorlegen: freigabeVorlegen,
     antwortenFuer: antwortenFuer,
     antwortVorschau: antwortVorschau,
     antwortUebernehmen: antwortUebernehmen,

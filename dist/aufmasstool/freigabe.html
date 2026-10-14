@@ -5,11 +5,11 @@
 <!-- Diese Seite darf nur eigene Dateien laden und nur mit der eigenen
      Website sprechen. Das eingebettete Skript steht über seinen Prüfwert
      in der Richtlinie (tools/csp.js). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-96WCUqtpvxFWaIUivNkFxWOolLOviVAqLEZQ5IA6FCw=' 'sha256-L/Z9dgk+57zlhmGm2H18eWzGKHjiLnDcFmlxM6POt9A='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-96WCUqtpvxFWaIUivNkFxWOolLOviVAqLEZQ5IA6FCw=' 'sha256-HCOn/9OuqVw2PlYK7AltUoh7pHc258W7ZNWyZWg83gM='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<title>Zutrittsberechtigungen festlegen</title>
+<title>Schließplan abstimmen</title>
 <script>
 /* Darstellung vor dem ersten Bild festlegen, damit beim Start nichts
    aufblitzt. Der Wert liegt gespiegelt im einfachen Speicher, weil die
@@ -34,9 +34,9 @@
   .fr-kopf .objekt { font-size: 14px; color: var(--text-schwach); }
   .fr-inhalt { padding: 16px; max-width: 1400px; margin: 0 auto;
                padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
-  .fr-fuss { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+  .fr-fuss { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
              background: var(--flaeche); border-top: 1px solid var(--rand);
-             padding: 12px 16px; padding-bottom: calc(12px + env(safe-area-inset-bottom));
+             padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
              display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
              box-shadow: 0 -2px 12px rgba(20,30,45,.10); }
   .fr-fuss .zaehler { flex: 1; font-size: 14px; color: var(--text-schwach); min-width: 140px; }
@@ -47,24 +47,43 @@
   table.matrix td.zelle.gesperrt:hover, table.matrix td.zelle.gesperrt:active {
       background: repeating-linear-gradient(45deg, transparent, transparent 5px,
       var(--flaeche-3) 5px, var(--flaeche-3) 10px); color: var(--text-zart); }
+  table.matrix td.zelle.gesperrt.gesetzt-ja, table.matrix td.zelle.gesperrt.gesetzt-zeit { color: var(--akzent); }
   table.matrix td.zelle.frei { box-shadow: inset 0 0 0 2px var(--akzent-bg); }
   table.matrix td.zelle.geaendert { box-shadow: inset 0 0 0 2px var(--gruen); }
+  table.matrix th.spaltenkopf.neu { background: var(--akzent-bg); }
+  table.matrix th.spaltenkopf.neu .dreh { color: var(--akzent); }
+  table.matrix th.spaltenkopf .art { display: block; font-size: 9.5px; font-weight: 700; color: var(--akzent);
+      text-align: center; padding-bottom: 3px; }
   .schluessel-feld { width: 100%; min-height: 130px; font-family: ui-monospace, Menlo, Consolas, monospace;
                      font-size: 12px; word-break: break-all; }
-  /* Inhaberlisten: wer bekommt ein Medium */
-  .fr-inhaber { margin-top: 22px; }
-  .fr-inhaber-block { border: 1px solid var(--rand); border-radius: var(--radius-klein);
-                      padding: 12px 14px; margin-top: 12px; background: var(--flaeche); }
-  .fr-inhaber-block h3 { margin: 0 0 2px; font-size: 15px; }
-  .fr-inhaber-block .gruppe { font-size: 12.5px; color: var(--text-schwach); margin-bottom: 8px; }
-  .fr-inhaber-block.geaendert { border-color: var(--gruen); box-shadow: inset 0 0 0 1px var(--gruen); }
-  .fr-person-kopf, .fr-person-zeile { display: grid; grid-template-columns: 1.4fr 1.2fr 92px 48px;
-                                       gap: 8px; align-items: center; }
-  .fr-person-kopf { font-size: 11.5px; font-weight: 700; color: var(--text-zart); padding: 4px 0 2px; }
-  .fr-person-zeile { margin-bottom: 8px; }
-  .fr-person-zeile input { width: 100%; min-width: 0; }
-  .fr-person-zeile .anzahl { text-align: center; }
-  .fr-person-leer { font-size: 13px; color: var(--text-zart); padding: 6px 0 10px; }
+  /* Mitarbeiter und Gruppen */
+  .fr-listen { margin-top: 22px; }
+  .fr-block { margin-top: 16px; }
+  .fr-block h3 { margin: 0; }
+  .fr-block .kopfzeile { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+  .fr-block .kopfzeile h3 { flex: 1; }
+  .fr-gruppe { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 8px 10px;
+               border: 1px solid var(--rand-zart); border-radius: var(--radius-klein); margin-bottom: 8px;
+               background: var(--flaeche); }
+  .fr-gruppe input { flex: 1 1 200px; min-width: 0; }
+  .fr-gruppe .name { flex: 1 1 200px; font-weight: 700; }
+  .fr-gruppe .zart { flex: 0 1 auto; }
+  .fr-ma { border: 1px solid var(--rand); border-radius: var(--radius-klein); padding: 12px 14px;
+           margin-bottom: 10px; background: var(--flaeche); }
+  .fr-ma.geaendert, .fr-gruppe.geaendert { border-color: var(--gruen); box-shadow: inset 0 0 0 1px var(--gruen); }
+  .fr-ma .zeile { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .fr-ma input.name { flex: 1 1 240px; min-width: 0; font-weight: 600; }
+  .fr-ma .feldname { font-size: 11.5px; font-weight: 700; color: var(--text-zart); margin: 10px 0 4px; }
+  .fr-ma .chips { gap: 6px; }
+  .fr-ma .chip { min-height: 36px; padding: 0 12px; font-size: 13.5px; }
+  .fr-medien-zeile { display: grid; grid-template-columns: 1fr 90px 44px; gap: 8px; align-items: center; margin-bottom: 6px; }
+  .fr-medien-zeile input, .fr-medien-zeile select { width: 100%; min-width: 0; }
+  .fr-medien-zeile .anzahl { text-align: center; }
+  .fr-ma .aktionen { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
+  .fr-ma .aktionen .status { font-size: 13px; color: var(--text-schwach); flex: 1; }
+  .fr-leer { font-size: 13px; color: var(--text-zart); padding: 6px 0 10px; }
+  table.fr-tabelle { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.fr-tabelle th, table.fr-tabelle td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--rand-zart); vertical-align: top; }
   /* Übertragen und Abschluss */
   .fr-laden { padding: 40px 16px; text-align: center; color: var(--text-zart); font-size: 15px; }
   .fr-fertig { max-width: 560px; margin: 40px auto; padding: 0 16px; }
@@ -77,14 +96,16 @@
   .fr-feld label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 4px; }
   .fr-feld input, .fr-feld textarea { width: 100%; }
   .fr-feld .pflicht { color: var(--rot); }
+  .fr-bestaetigung { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.45;
+                     padding: 10px 12px; border: 1px solid var(--rand); border-radius: var(--radius-klein);
+                     background: var(--flaeche-2); margin: 12px 0; cursor: pointer; }
+  .fr-bestaetigung input { width: 22px; height: 22px; margin-top: 1px; flex: none; }
   @media (max-width: 560px) {
-    .fr-person-kopf { display: none; }
-    .fr-person-zeile { grid-template-columns: 1fr 72px 44px; }
-    .fr-person-zeile input.funktion { grid-column: 1 / -1; }
-    /* Am Telefon: Zähler oben in einer Zeile, darunter beide Knöpfe nebeneinander */
+    .fr-medien-zeile { grid-template-columns: 1fr 72px 44px; }
+    /* Am Telefon: Zähler oben in einer Zeile, darunter die Knöpfe */
     .fr-fuss .zaehler { flex: 1 1 100%; font-size: 13px; }
     .fr-fuss button { flex: 1 1 auto; }
-    .fr-inhalt { padding-bottom: calc(150px + env(safe-area-inset-bottom)); }
+    .fr-inhalt { padding-bottom: calc(190px + env(safe-area-inset-bottom)); }
   }
 </style>
 </head>
@@ -99,15 +120,20 @@
 <script src="js/freigabe.js"></script>
 <script>
 /* =============================================================================
- * Kundenseite: freigegebene Berechtigungen eintragen
+ * Kundenseite: Berechtigungen eintragen, Mitarbeiter und Gruppen pflegen,
+ * Plan freigeben
  *
  * Zwei Wege führen hierher:
  *  - Kurzlink: hinter dem Rautezeichen steht nur ein Code. Die Freigabe
- *    wird vom Server geholt, die Rückmeldung mit einem Klick auf
- *    „Übertragen“ dorthin zurückgegeben. Mehr muss der Kunde nicht tun.
+ *    wird vom Server geholt, die Rückmeldung mit einem Klick dorthin
+ *    zurückgegeben - auf Wunsch mit verbindlicher Freigabe. Liegt der Plan
+ *    nur zur Freigabe vor, gibt es nichts zu bearbeiten, nur den Knopf
+ *    „Plan verbindlich freigeben“. Nach einer Freigabe ist die Seite
+ *    gesperrt.
  *  - Langer Link: hinter dem Rautezeichen stehen die Plandaten selbst
  *    (plan=…). Dann gibt es keinen Server; die Rückmeldung entsteht als
- *    Rückschlüssel, den der Kunde zurückschickt.
+ *    Rückschlüssel, den der Kunde zurückschickt. Eine verbindliche
+ *    Freigabe gibt es auf diesem Weg nicht.
  * ========================================================================== */
 (function () {
   'use strict';
@@ -205,19 +231,37 @@
 
   var daten = null;
   /* Beim Kurzlink: was der Server über den Stand weiß */
-  var server = { status: 'offen', antwort: null, antwortAm: '', antwortName: '', antwortAnmerkung: '', gueltigBis: '' };
+  var server = { status: 'offen', antwort: null, antwortAm: '', antwortName: '', antwortAnmerkung: '',
+                 gueltigBis: '', vorgelegtAm: '', freigabe: null };
 
-  var arbeitsMatrix = [], spalten = 0, inhaberOriginal = [], inhaber = [];
+  /* Arbeitsstand des Kunden */
+  var arbeitsMatrix = [], spalten = 0;
+  var mitarbeiter = [], gruppen = [], entfernteMa = [], entfernteGr = [], neueSpalten = [];
   var FOLGE = ['nein', 'ja', 'zeit'];       /* was der Kunde vergeben darf */
 
-  /* Inhaberlisten je Schließung: null, wo der Kunde nichts eintragen darf.
-     Das Original bleibt liegen, damit nur echte Änderungen zurückgehen. */
-  function listenKopie(l) { return l ? l.map(function (x) { return x.slice(); }) : null; }
+  function kopie(x) { return JSON.parse(JSON.stringify(x)); }
+  function neueKennung() { return 'neu-' + Math.random().toString(36).slice(2, 10); }
+  function firma() { return daten.firma || 'den Absender'; }
+
+  /* 'offen' = bearbeitbar · 'vorgelegt' = nur freigeben · 'gesperrt' = nichts mehr */
+  function zustand() {
+    if (modus !== 'server') return 'offen';
+    if (server.status === 'vorgelegt') return 'vorgelegt';
+    if (server.status === 'freigegeben') return 'gesperrt';
+    if (server.status === 'beantwortet' && server.antwort && server.antwort.fr) return 'gesperrt';
+    return 'offen';
+  }
+  function rechte() {
+    if (zustand() !== 'offen') return { m: 0, g: 0, s: 0 };
+    return daten.r;
+  }
+
   function vorbereiten() {
     arbeitsMatrix = daten.matrix.split('');
     spalten = daten.s.length;
-    inhaberOriginal = daten.s.map(function (s) { return s[4] && Array.isArray(s[4].p) ? listenKopie(s[4].p) : null; });
-    inhaber = inhaberOriginal.map(listenKopie);
+    mitarbeiter = kopie(daten.ma);
+    gruppen = kopie(daten.gr);
+    entfernteMa = []; entfernteGr = []; neueSpalten = [];
   }
   /* Eine frühere Rückmeldung des Kunden wieder einspielen: Er sieht, was
      er zuletzt übertragen hat, und kann daran weiterarbeiten. */
@@ -231,35 +275,93 @@
       if (F.ZEICHEN.indexOf(teile[1]) === -1) return;
       arbeitsMatrix[i] = teile[1];
     });
-    var p = (antwort.p && typeof antwort.p === 'object') ? antwort.p : {};
-    Object.keys(p).forEach(function (k) {
-      var i = parseInt(k, 36);
-      if (!isFinite(i) || !inhaber[i] || !Array.isArray(p[k])) return;
-      inhaber[i] = F.personenBereinigen(p[k]).map(function (x) { return x.slice(); });
-    });
+    if (Array.isArray(antwort.gr)) gruppen = F.gruppenBereinigen(antwort.gr);
+    if (Array.isArray(antwort.grx)) {
+      entfernteGr = F.kennungenBereinigen(antwort.grx);
+      gruppen = gruppen.filter(function (g) { return entfernteGr.indexOf(g[0]) === -1; });
+    }
+    if (Array.isArray(antwort.ma)) mitarbeiter = F.mitarbeiterBereinigen(antwort.ma);
+    if (Array.isArray(antwort.max)) {
+      entfernteMa = F.kennungenBereinigen(antwort.max);
+      mitarbeiter = mitarbeiter.filter(function (m) { return entfernteMa.indexOf(m[0]) === -1; });
+    }
+    if (Array.isArray(antwort.n)) {
+      antwort.n.forEach(function (x) {
+        if (!Array.isArray(x)) return;
+        var zellen = F._intern.entpacken(String(x[2] || '')).split('');
+        while (zellen.length < daten.t.length) zellen.push('0');
+        neueSpalten.push({ art: x[0] === 'gruppe' ? 'gruppe' : 'mitarbeiter', refId: String(x[1] || ''),
+                           zellen: zellen.slice(0, daten.t.length) });
+      });
+    }
   }
 
+  function gruppeVon(id) { return gruppen.filter(function (g) { return g[0] === id; })[0] || null; }
+  /* Worüber ist ein Mitarbeiter berechtigt? Eigene Spalte, Gruppenspalten,
+     Schließungen, deren Träger er ist. */
+  function spaltenVon(m) {
+    return daten.s.filter(function (s) {
+      return (s[4] === 'mitarbeiter' && s[5] === m[0]) || (s[4] === 'gruppe' && m[2].indexOf(s[5]) !== -1) ||
+             (s[4] === 'schliessung' && Array.isArray(s[6]) && s[6].indexOf(m[0]) !== -1);
+    }).map(function (s) { return s[1] || s[2]; });
+  }
+  function mitarbeiterVon(id) { return mitarbeiter.filter(function (m) { return m[0] === id; })[0] || null; }
+  function spalteVorhanden(art, id) {
+    return daten.s.some(function (s) { return s[4] === art && s[5] === id; }) ||
+           neueSpalten.some(function (n) { return n.art === art && n.refId === id; });
+  }
+  function mitgliederVon(gid) { return mitarbeiter.filter(function (m) { return m[2].indexOf(gid) !== -1; }); }
   function indexVon(zeile, spalte) { return zeile * spalten + spalte; }
   function geaendertAnzahl() {
     var n = 0;
     for (var i = 0; i < arbeitsMatrix.length; i++) if (arbeitsMatrix[i] !== daten.matrix[i]) n++;
+    neueSpalten.forEach(function (sp) { sp.zellen.forEach(function (z) { if (z !== '0') n++; }); });
     return n;
   }
-  function inhaberGeaendert() {
-    var n = 0;
-    inhaber.forEach(function (l, i) { if (l && !F.personenGleich(l, inhaberOriginal[i])) n++; });
-    return n;
+  /* Ohne das jeweilige Recht wird die Liste nie gesendet - auch dann nicht,
+     wenn das Entfernen einer Gruppe die Gruppenzuordnung der Mitarbeiter
+     verändert hat (das erledigt die Übernahme von selbst). */
+  function mitarbeiterGeaendert() {
+    if (!rechte().m) return false;
+    return entfernteMa.length > 0 || !F.listenGleich(F.mitarbeiterBereinigen(mitarbeiter), F.mitarbeiterBereinigen(daten.ma));
   }
-  function inhaberFuerAntwort() {
-    return inhaber.map(function (l, i) { return (l && !F.personenGleich(l, inhaberOriginal[i])) ? l : null; });
+  function gruppenGeaendert() {
+    if (!rechte().g) return false;
+    return entfernteGr.length > 0 || !F.listenGleich(F.gruppenBereinigen(gruppen), F.gruppenBereinigen(daten.gr));
+  }
+  function namenlos() {
+    return mitarbeiter.some(function (m) { return !String(m[1]).trim(); }) || gruppen.some(function (g) { return !String(g[1]).trim(); });
+  }
+  function antwortBauen(fr) {
+    /* Spalten für Einträge ohne Namen fallen weg - die Einträge selbst auch */
+    var gueltigeMa = {}, gueltigeGr = {};
+    F.mitarbeiterBereinigen(mitarbeiter).forEach(function (m) { if (m[0]) gueltigeMa[m[0]] = true; });
+    F.gruppenBereinigen(gruppen).forEach(function (g) { if (g[0]) gueltigeGr[g[0]] = true; });
+    var n = neueSpalten.filter(function (x) { return x.art === 'gruppe' ? gueltigeGr[x.refId] : gueltigeMa[x.refId]; })
+      .map(function (x) { return [x.art, x.refId, x.zellen.join('')]; });
+    var r = rechte();
+    return F.antwortErstellen(daten, arbeitsMatrix.join(''), {
+      ma: mitarbeiterGeaendert() ? mitarbeiter : null, max: r.m ? entfernteMa : [],
+      gr: gruppenGeaendert() ? gruppen : null, grx: r.g ? entfernteGr : [],
+      n: r.s ? n : [], fr: fr || null
+    });
+  }
+  function zusammenfassung() {
+    var n = geaendertAnzahl(), teile = [];
+    teile.push(n ? (n === 1 ? '1 Berechtigung' : n + ' Berechtigungen') : 'keine Berechtigungen');
+    if (mitarbeiterGeaendert()) teile.push('Mitarbeiterliste');
+    if (gruppenGeaendert()) teile.push('Gruppen');
+    if (neueSpalten.length) teile.push(neueSpalten.length === 1 ? '1 neue Spalte' : neueSpalten.length + ' neue Spalten');
+    return teile;
   }
 
   /* --- Aufbau ------------------------------------------------------------ */
   function zeichnen() {
     leeren(WURZEL);
+    var z = zustand(), r = rechte();
 
     WURZEL.appendChild(el('div', { class: 'fr-kopf' }, [
-      el('h1', { text: 'Zutrittsberechtigungen festlegen' }),
+      el('h1', { text: 'Schließplan abstimmen' }),
       el('div', { class: 'objekt', text: [daten.kunde, daten.objekt].filter(Boolean).join('  ·  ') ||
         'Schließanlage' }),
       daten.anlage ? el('div', { class: 'zart', text: 'Anlagen-Nr. ' + daten.anlage }) : null
@@ -268,45 +370,118 @@
     var inhalt = el('div', { class: 'fr-inhalt' });
     WURZEL.appendChild(inhalt);
 
-    /* Anleitung */
-    inhalt.appendChild(el('div', { class: 'meldung info' }, el('div', {}, [
-      el('b', { text: 'So geht es: ' }),
-      'Tippen Sie in der Tabelle auf die Felder, die Sie freigeben möchten. ' +
-      'Ein Tippen setzt ein Kreuz (X), ein weiteres macht daraus eine zeitlich ' +
-      'begrenzte Berechtigung (Z), ein drittes entfernt sie wieder. ',
-      el('br'),
-      'Schraffierte Felder sind nicht zur Bearbeitung freigegeben.',
-      modus === 'server' ? el('span', { text: ' Zum Schluss unten auf „Übertragen“ klicken – das ist alles.' }) : null,
-      daten.hinweis ? el('div', { style: { marginTop: '8px' } }, [
-        el('b', { text: 'Hinweis: ' }), daten.hinweis
-      ]) : null,
-      daten.frist ? el('div', { style: { marginTop: '4px' } }, [
-        el('b', { text: 'Rückmeldung bitte bis: ' }), daten.frist
-      ]) : null
-    ])));
+    var zusatz = [
+      daten.hinweis ? el('div', { style: { marginTop: '8px' } }, [el('b', { text: 'Hinweis: ' }), daten.hinweis]) : null,
+      daten.frist && z === 'offen' ? el('div', { style: { marginTop: '4px' } }, [el('b', { text: 'Rückmeldung bitte bis: ' }), daten.frist]) : null
+    ];
 
-    /* Stand auf dem Server: schon einmal übertragen? */
-    if (modus === 'server' && server.antwort) {
+    if (z === 'gesperrt') {
+      var fr = server.freigabe || (server.antwort && server.antwort.fr) || {};
+      var wann = server.freigabe ? server.freigabe.am : server.antwortAm;
       inhalt.appendChild(el('div', { class: 'meldung ok', id: 'fr-stand' }, el('div', {}, [
-        el('b', { text: server.status === 'uebernommen'
-          ? 'Ihre Rückmeldung vom ' + datum(server.antwortAm) + ' wurde bereits übernommen.'
-          : 'Sie haben am ' + datum(server.antwortAm) + ' bereits übertragen.' }),
+        el('b', { text: 'Sie haben den Schließplan am ' + datum(wann) + ' verbindlich freigegeben' +
+          (fr.name ? ' (' + [fr.name, fr.funktion].filter(Boolean).join(', ') + ')' : '') + '.' }),
         el('div', { style: { marginTop: '4px', fontSize: '13.5px' },
-          text: 'Ihr damaliger Stand ist hier eingetragen. Sie können weitere Änderungen vornehmen und erneut übertragen.' })
+          text: 'Damit ist die Abstimmung abgeschlossen. Änderungen sind nur noch gegen Mehraufwand möglich - ' +
+                'bitte wenden Sie sich dafür an ' + firma() + '. Der Plan ist hier zur Ansicht eingetragen.' })
       ])));
+    } else if (z === 'vorgelegt') {
+      inhalt.appendChild(el('div', { class: 'meldung info', id: 'fr-vorgelegt' }, el('div', {}, [
+        el('b', { text: 'Bitte prüfen Sie den Schließplan. ' }),
+        'Wenn alles passt, klicken Sie unten auf „Plan verbindlich freigeben“. Mit der Freigabe ist die Abstimmung ' +
+        'abgeschlossen; spätere Änderungen sind nur noch gegen Mehraufwand möglich. Für Korrekturen wenden Sie sich ' +
+        'bitte vorher an ' + firma() + '.'
+      ].concat(zusatz))));
+    } else {
+      var kann = [];
+      if (r.m) kann.push('Mitarbeiter eintragen und ändern');
+      if (r.g) kann.push('Gruppen anlegen');
+      if (r.s) kann.push('Gruppen oder Mitarbeiter als neue Spalte aufnehmen');
+      inhalt.appendChild(el('div', { class: 'meldung info' }, el('div', {}, [
+        el('b', { text: 'So geht es: ' }),
+        'Tippen Sie in der Tabelle auf die Felder, die Sie freigeben möchten. ' +
+        'Ein Tippen setzt ein Kreuz (X), ein weiteres macht daraus eine zeitlich ' +
+        'begrenzte Berechtigung (Z), ein drittes entfernt sie wieder. ',
+        el('br'),
+        'Schraffierte Felder sind nicht zur Bearbeitung freigegeben.',
+        kann.length ? el('span', { text: ' Unter der Tabelle können Sie außerdem ' + kann.join(', ') + '.' }) : null,
+        modus === 'server'
+          ? el('span', { text: ' Zum Schluss unten auf „Rückmeldung senden“ klicken - oder auf „Rückmeldung senden und Plan freigeben“, wenn der Plan damit abgeschlossen sein soll.' })
+          : null
+      ].concat(zusatz))));
+
+      /* Stand auf dem Server: schon einmal übertragen? */
+      if (modus === 'server' && server.antwort) {
+        inhalt.appendChild(el('div', { class: 'meldung ok', id: 'fr-stand' }, el('div', {}, [
+          el('b', { text: server.status === 'uebernommen'
+            ? 'Ihre Rückmeldung vom ' + datum(server.antwortAm) + ' wurde bereits übernommen.'
+            : 'Sie haben am ' + datum(server.antwortAm) + ' bereits übertragen.' }),
+          el('div', { style: { marginTop: '4px', fontSize: '13.5px' },
+            text: 'Ihr damaliger Stand ist hier eingetragen. Sie können weitere Änderungen vornehmen und erneut übertragen.' })
+        ])));
+      }
     }
 
-    /* Matrix */
-    var tabelle = el('table', { class: 'matrix' });
-    var laengster = daten.s.reduce(function (m, s) {
-      var t = ((s[1] ? s[1] + ' ' : '') + (s[2] || '')).length; return t > m ? t : m; }, 0);
-    tabelle.style.setProperty('--kopfhoehe', Math.min(210, Math.max(70, laengster * 7.6 + 30)) + 'px');
+    matrixZeichnen(inhalt, z);
 
-    var kopf = el('tr', {}, [el('th', { class: 'ecke', text: 'Tür / Schließung' })]);
-    daten.s.forEach(function (s) {
-      var titel = (s[1] ? s[1] + ' ' : '') + (s[2] || '');
-      kopf.appendChild(el('th', { class: 'spaltenkopf', title: titel + (s[3] ? ' – ' + s[3] : '') }, [
-        el('span', { class: 'dreh', text: titel || '–' })
+    /* Legende */
+    var legende = el('div', { class: 'matrix-legende' });
+    [['X', 'berechtigt'], ['Z', 'berechtigt, zeitlich begrenzt']].forEach(function (l) {
+      legende.appendChild(el('span', {}, [el('b', { text: l[0] }), l[1]]));
+    });
+    if (z === 'offen') legende.appendChild(el('span', { text: 'Schraffiert = nicht zur Bearbeitung freigegeben' }));
+    inhalt.appendChild(legende);
+
+    inhalt.appendChild(listenKarte(z, r));
+
+    if (modus === 'server' && server.gueltigBis && z !== 'gesperrt') {
+      inhalt.appendChild(el('p', { class: 'zart', style: { marginTop: '18px' },
+        text: 'Dieser Link ist gültig bis ' + datumKurz(server.gueltigBis) + '.' }));
+    }
+
+    /* Fußleiste */
+    var fuss = el('div', { class: 'fr-fuss' });
+    fuss.appendChild(el('div', { class: 'zaehler', id: 'fr-zaehler' }));
+    if (z === 'offen') {
+      fuss.appendChild(el('button', { text: 'Zurücksetzen', onclick: function () {
+        vorbereiten(); zeichnen();
+      } }));
+      if (modus === 'server') {
+        fuss.appendChild(el('button', { id: 'fr-uebertragen', text: 'Rückmeldung senden',
+          onclick: function () { uebertragenDialog(false); } }));
+        fuss.appendChild(el('button', { class: 'haupt', id: 'fr-freigeben', text: 'Rückmeldung senden und Plan freigeben',
+          onclick: function () { uebertragenDialog(true); } }));
+      } else {
+        fuss.appendChild(el('button', { class: 'haupt', text: 'Rückmeldung erzeugen', onclick: antwortZeigen }));
+      }
+    } else if (z === 'vorgelegt') {
+      fuss.appendChild(el('button', { class: 'haupt', id: 'fr-freigeben', text: 'Plan verbindlich freigeben',
+        onclick: freigebenDialog }));
+    } else {
+      fuss.appendChild(el('span', { class: 'zart', text: 'Der Plan ist freigegeben und kann hier nicht mehr geändert werden.' }));
+    }
+    WURZEL.appendChild(fuss);
+    zaehlerAktualisieren();
+  }
+
+  /* --- Die Matrix ---------------------------------------------------------- */
+  function matrixZeichnen(inhalt, z) {
+    var tabelle = el('table', { class: 'matrix' });
+    var alle = daten.s.map(function (s) { return { titel: ((s[1] ? s[1] + ' ' : '') + (s[2] || '')).trim(), art: s[4], s: s }; })
+      .concat(neueSpalten.map(function (n) {
+        var ziel = n.art === 'gruppe' ? gruppeVon(n.refId) : mitarbeiterVon(n.refId);
+        return { titel: (ziel ? ziel[1] : '?') || '(ohne Namen)', art: n.art, neu: n };
+      }));
+    var laengster = alle.reduce(function (m, s) { return s.titel.length > m ? s.titel.length : m; }, 0);
+    tabelle.style.setProperty('--kopfhoehe', Math.min(220, Math.max(84, laengster * 7.6 + 44)) + 'px');
+
+    var kopf = el('tr', {}, [el('th', { class: 'ecke', text: 'Tür / Spalte' })]);
+    alle.forEach(function (sp) {
+      var artKurz = sp.art === 'gruppe' ? 'Gruppe' : (sp.art === 'mitarbeiter' ? 'Mitarb.' : '');
+      kopf.appendChild(el('th', { class: 'spaltenkopf' + (sp.neu ? ' neu' : ''),
+        title: sp.titel + (sp.s && sp.s[3] ? ' – ' + sp.s[3] : '') + (sp.neu ? ' (neue Spalte)' : '') }, [
+        el('span', { class: 'dreh', text: sp.titel || '–' }),
+        (artKurz || sp.neu) ? el('span', { class: 'art', text: sp.neu ? 'neu' : artKurz }) : null
       ]));
     });
     tabelle.appendChild(el('thead', {}, kopf));
@@ -317,7 +492,7 @@
       if (t[3] && t[3] !== letzterBereich) {
         letzterBereich = t[3];
         koerper.appendChild(el('tr', { class: 'gruppenzeile' },
-          el('td', { colspan: spalten + 1, text: t[3] })));
+          el('td', { colspan: alle.length + 1, text: t[3] })));
       }
       var tr = el('tr');
       tr.appendChild(el('td', { class: 'tuername' }, [
@@ -326,7 +501,7 @@
       ]));
       daten.s.forEach(function (s, spalte) {
         var i = indexVon(zeile, spalte);
-        var frei = daten.maske[i] === '1';
+        var frei = daten.maske[i] === '1' && z === 'offen';
         var zelle = el('td', {
           class: 'zelle',
           title: (t[1] || t[2]) + ' / ' + ((s[1] || '') + ' ' + (s[2] || '')).trim() +
@@ -345,145 +520,275 @@
         }
         tr.appendChild(zelle);
       });
+      neueSpalten.forEach(function (n) {
+        var frei = z === 'offen';
+        var zelle = el('td', { class: 'zelle', title: (t[1] || t[2]) + ' / neue Spalte' });
+        zelleNeuZeichnen(zelle, n, zeile, frei);
+        if (frei) {
+          zelle.addEventListener('click', function () {
+            var jetzt = F.zeichenZuWert(n.zellen[zeile]);
+            var pos = FOLGE.indexOf(jetzt);
+            var naechst = FOLGE[(pos === -1 ? 0 : pos + 1) % FOLGE.length];
+            n.zellen[zeile] = F.wertZuZeichen(naechst);
+            zelleNeuZeichnen(zelle, n, zeile, true);
+            zaehlerAktualisieren();
+          });
+        }
+        tr.appendChild(zelle);
+      });
       koerper.appendChild(tr);
     });
     tabelle.appendChild(koerper);
     inhalt.appendChild(el('div', { class: 'matrix-rahmen' }, tabelle));
-
-    /* Legende */
-    var legende = el('div', { class: 'matrix-legende' });
-    [['X', 'berechtigt'], ['Z', 'berechtigt, zeitlich begrenzt']].forEach(function (l) {
-      legende.appendChild(el('span', {}, [el('b', { text: l[0] }), l[1]]));
-    });
-    legende.appendChild(el('span', { text: 'Schraffiert = nicht zur Bearbeitung freigegeben' }));
-    inhalt.appendChild(legende);
-
-    inhaberZeichnen(inhalt);
-
-    if (modus === 'server' && server.gueltigBis) {
-      inhalt.appendChild(el('p', { class: 'zart', style: { marginTop: '18px' },
-        text: 'Dieser Link ist gültig bis ' + datumKurz(server.gueltigBis) + '.' }));
-    }
-
-    /* Fußleiste */
-    var zaehler = el('div', { class: 'zaehler', id: 'fr-zaehler' });
-    WURZEL.appendChild(el('div', { class: 'fr-fuss' }, [
-      zaehler,
-      el('button', { text: 'Zurücksetzen', onclick: function () {
-        arbeitsMatrix = daten.matrix.split('');
-        inhaber = inhaberOriginal.map(listenKopie);
-        zeichnen();
-      } }),
-      modus === 'server'
-        ? el('button', { class: 'haupt', id: 'fr-uebertragen', text: 'Übertragen', onclick: uebertragenDialog })
-        : el('button', { class: 'haupt', text: 'Rückmeldung erzeugen', onclick: antwortZeigen })
-    ]));
-    zaehlerAktualisieren();
-  }
-
-  /* --- Wer erhält ein Medium? ------------------------------------------- */
-  function inhaberZeichnen(inhalt) {
-    var bearbeitbar = [];
-    daten.s.forEach(function (s, i) { if (inhaber[i]) bearbeitbar.push(i); });
-    if (!bearbeitbar.length) return;
-
-    var karte = el('div', { class: 'karte fr-inhaber', id: 'fr-inhaber' });
-    karte.appendChild(el('h2', { style: { marginTop: '0' }, text: 'Wer erhält ein Medium?' }));
-    karte.appendChild(el('p', { class: 'hinweis', text:
-      'Für die freigegebenen Schließungen können Sie hier eintragen, wer einen Schlüssel, ' +
-      'eine Karte oder einen Transponder erhält - mit Funktion und Anzahl. Sie können Personen ' +
-      'ergänzen, ändern oder entfernen.' }));
-    bearbeitbar.forEach(function (i) { karte.appendChild(inhaberBlock(i)); });
-    inhalt.appendChild(karte);
-  }
-
-  function inhaberBlock(i) {
-    var s = daten.s[i], zusatz = s[4] || {};
-    var block = el('div', { class: 'fr-inhaber-block', 'data-index': String(i) });
-    var titel = ((s[1] ? s[1] + ' ' : '') + (s[2] || '')).trim() || 'Schließung';
-    block.appendChild(el('h3', { text: titel }));
-    if (zusatz.a === 'gruppe') {
-      block.appendChild(el('div', { class: 'gruppe', text: 'Gruppe' + (zusatz.g ? ' „' + zusatz.g + '“' : '') +
-        ' - bitte die Mitglieder eintragen' }));
-    }
-    var liste = el('div', { class: 'fr-personen' });
-    block.appendChild(liste);
-    block.appendChild(el('button', { class: 'klein', type: 'button', text: '+ Person',
-      onclick: function () {
-        inhaber[i].push(['', '', 1]);
-        listeZeichnen();
-        var felder = liste.querySelectorAll('input.name');
-        if (felder.length) felder[felder.length - 1].focus();
-      } }));
-
-    function markieren() {
-      var anders = !F.personenGleich(inhaber[i], inhaberOriginal[i]);
-      block.classList.toggle('geaendert', anders);
-      zaehlerAktualisieren();
-    }
-
-    function listeZeichnen() {
-      leeren(liste);
-      if (!inhaber[i].length) {
-        liste.appendChild(el('div', { class: 'fr-person-leer', text: 'Noch niemand eingetragen.' }));
-        markieren();
-        return;
-      }
-      liste.appendChild(el('div', { class: 'fr-person-kopf' }, [
-        el('span', { text: 'Name' }), el('span', { text: 'Funktion / Abteilung' }),
-        el('span', { text: 'Anzahl' }), el('span')
-      ]));
-      inhaber[i].forEach(function (person, j) {
-        var zeile = el('div', { class: 'fr-person-zeile' });
-        zeile.appendChild(el('input', { type: 'text', class: 'name', value: person[0],
-          placeholder: 'Name', autocomplete: 'off',
-          oninput: function (e) { inhaber[i][j][0] = e.target.value; markieren(); } }));
-        zeile.appendChild(el('input', { type: 'text', class: 'funktion', value: person[1],
-          placeholder: 'z. B. Hausmeister', autocomplete: 'off',
-          oninput: function (e) { inhaber[i][j][1] = e.target.value; markieren(); } }));
-        zeile.appendChild(el('input', { type: 'text', class: 'anzahl', inputmode: 'numeric',
-          value: String(person[2]), title: 'Anzahl Medien',
-          oninput: function (e) {
-            var roh = String(e.target.value).replace(/[^0-9]/g, '');
-            e.target.value = roh;
-            var n = parseInt(roh, 10);
-            inhaber[i][j][2] = isFinite(n) && n > 0 ? Math.min(99, n) : 1;
-            markieren();
-          },
-          onblur: function (e) { e.target.value = String(inhaber[i][j][2]); } }));
-        zeile.appendChild(el('button', { class: 'klein gefahr nur-symbol', type: 'button', text: '✕',
-          title: 'Person entfernen',
-          onclick: function () { inhaber[i].splice(j, 1); listeZeichnen(); } }));
-        liste.appendChild(zeile);
-      });
-      markieren();
-    }
-    listeZeichnen();
-    return block;
   }
 
   function zelleZeichnen(zelle, i, frei) {
     var wert = F.zeichenZuWert(arbeitsMatrix[i]);
-    var zeichen = K.berechtigungZeichen(wert);
-    zelle.textContent = zeichen;
-    var klassen = ['zelle'];
-    if (!frei) klassen.push('gesperrt');
-    else klassen.push('frei');
+    zelle.textContent = K.berechtigungZeichen(wert);
+    var klassen = ['zelle', frei ? 'frei' : 'gesperrt'];
     if (wert !== 'nein') klassen.push('gesetzt-' + wert);
     if (arbeitsMatrix[i] !== daten.matrix[i]) klassen.push('geaendert');
     zelle.className = klassen.join(' ');
+  }
+  function zelleNeuZeichnen(zelle, n, zeile, frei) {
+    var wert = F.zeichenZuWert(n.zellen[zeile]);
+    zelle.textContent = K.berechtigungZeichen(wert);
+    var klassen = ['zelle', 'neu', frei ? 'frei' : 'gesperrt'];
+    if (wert !== 'nein') { klassen.push('gesetzt-' + wert); klassen.push('geaendert'); }
+    zelle.className = klassen.join(' ');
+  }
+
+  /* --- Mitarbeiter und Gruppen ------------------------------------------- */
+  function listenKarte(z, r) {
+    var karte = el('div', { class: 'karte fr-listen', id: 'fr-listen' });
+    karte.appendChild(el('h2', { style: { marginTop: '0' }, text: 'Mitarbeiter und Gruppen' }));
+    karte.appendChild(el('p', { class: 'hinweis', text:
+      'Spalten im Plan sind Gruppen (alle Mitglieder berechtigt) oder einzelne Mitarbeiter. Jeder Mitarbeiter ' +
+      'erhält die bei ihm eingetragenen Medien - steht er einzeln und in einer Gruppe, trotzdem nur einmal.' +
+      (r.m || r.g || r.s ? '' : ' Diese Listen sind hier nur zur Ansicht.') }));
+    karte.appendChild(gruppenBlock(r));
+    karte.appendChild(mitarbeiterBlock(r));
+    return karte;
+  }
+
+  /* Nur die Listen neu aufbauen - die Matrix bleibt stehen (Bildlauf) */
+  function listenNeuZeichnen() {
+    var alt = document.getElementById('fr-listen');
+    if (!alt) return;
+    var neu = listenKarte(zustand(), rechte());
+    alt.parentNode.replaceChild(neu, alt);
+    zaehlerAktualisieren();
+  }
+
+  function gruppenBlock(r) {
+    var block = el('div', { class: 'fr-block', id: 'fr-gruppen' });
+    block.appendChild(el('div', { class: 'kopfzeile' }, [
+      el('h3', { text: 'Gruppen (' + gruppen.length + ')' }),
+      r.g ? el('button', { class: 'klein', type: 'button', id: 'fr-gruppe-neu', text: '+ Gruppe', onclick: function () {
+        gruppen.push([neueKennung(), '']);
+        listenNeuZeichnen();
+        var felder = document.querySelectorAll('#fr-gruppen input.name');
+        if (felder.length) felder[felder.length - 1].focus();
+      } }) : null
+    ]));
+    if (!gruppen.length) block.appendChild(el('div', { class: 'fr-leer', text: 'Noch keine Gruppen.' }));
+    var original = {};
+    daten.gr.forEach(function (g) { original[g[0]] = g[1]; });
+    gruppen.forEach(function (g, gi) {
+      var leute = mitgliederVon(g[0]);
+      var hatSpalte = spalteVorhanden('gruppe', g[0]);
+      var anders = !(g[0] in original) || original[g[0]] !== g[1];
+      var zeile = el('div', { class: 'fr-gruppe' + (anders && r.g ? ' geaendert' : '') });
+      if (r.g) {
+        zeile.appendChild(el('input', { type: 'text', class: 'name', value: g[1], placeholder: 'Name der Gruppe', autocomplete: 'off',
+          oninput: function (e) { gruppen[gi][1] = e.target.value; zeile.classList.toggle('geaendert', !(g[0] in original) || original[g[0]] !== e.target.value); zaehlerAktualisieren(); } }));
+      } else {
+        zeile.appendChild(el('span', { class: 'name', text: g[1] || '(ohne Namen)' }));
+      }
+      zeile.appendChild(el('span', { class: 'zart', text: leute.length + (leute.length === 1 ? ' Mitglied' : ' Mitglieder') +
+        (hatSpalte ? ' · Spalte im Plan' : ' · ohne Spalte') }));
+      if (r.s && !hatSpalte) {
+        zeile.appendChild(el('button', { class: 'klein', type: 'button', text: 'Als Spalte aufnehmen',
+          onclick: function () { spalteAufnehmen('gruppe', g[0]); } }));
+      }
+      if (r.g && !hatSpalte) {
+        zeile.appendChild(el('button', { class: 'klein gefahr nur-symbol', type: 'button', text: '✕', title: 'Gruppe entfernen',
+          onclick: function () {
+            gruppen.splice(gi, 1);
+            if (g[0] in original) entfernteGr.push(g[0]);
+            mitarbeiter.forEach(function (m) { m[2] = m[2].filter(function (x) { return x !== g[0]; }); });
+            listenNeuZeichnen();
+          } }));
+      }
+      block.appendChild(zeile);
+    });
+    return block;
+  }
+
+  function mitarbeiterBlock(r) {
+    var block = el('div', { class: 'fr-block', id: 'fr-mitarbeiter' });
+    block.appendChild(el('div', { class: 'kopfzeile' }, [
+      el('h3', { text: 'Mitarbeiter (' + mitarbeiter.length + ')' }),
+      r.m ? el('button', { class: 'klein', type: 'button', id: 'fr-ma-neu', text: '+ Mitarbeiter', onclick: function () {
+        mitarbeiter.push([neueKennung(), '', [], []]);
+        listenNeuZeichnen();
+        var felder = document.querySelectorAll('#fr-mitarbeiter input.name');
+        if (felder.length) { felder[felder.length - 1].focus(); felder[felder.length - 1].scrollIntoView({ block: 'center' }); }
+      } }) : null
+    ]));
+    if (!mitarbeiter.length) {
+      block.appendChild(el('div', { class: 'fr-leer', text: r.m ? 'Noch niemand eingetragen - mit „+ Mitarbeiter“ beginnen.' : 'Noch keine Mitarbeiter eingetragen.' }));
+      return block;
+    }
+    if (!r.m) {
+      var tab = el('table', { class: 'fr-tabelle' });
+      tab.appendChild(el('thead', {}, el('tr', {}, [
+        el('th', { text: 'Name' }), el('th', { text: 'Gruppen' }), el('th', { text: 'Medien' }), el('th', { text: 'Spalte' })
+      ])));
+      var tb = el('tbody');
+      mitarbeiter.forEach(function (m) {
+        var hatSpalte = spalteVorhanden('mitarbeiter', m[0]);
+        tb.appendChild(el('tr', {}, [
+          el('td', { text: m[1] || '(ohne Namen)' }),
+          el('td', { text: m[2].map(function (gid) { var g = gruppeVon(gid); return g ? g[1] : ''; }).filter(Boolean).join(', ') || '–' }),
+          el('td', { text: medienText(m[3]) }),
+          el('td', {}, [
+            el('span', { class: 'zart', text: hatSpalte ? 'eigene Spalte' : (spaltenVon(m).length ? 'über ' + spaltenVon(m).join(', ') : 'noch keine') }),
+            (r.s && !hatSpalte) ? el('button', { class: 'klein', type: 'button', text: 'Als Spalte aufnehmen', style: { marginLeft: '8px' },
+              onclick: function () { spalteAufnehmen('mitarbeiter', m[0]); } }) : null
+          ])
+        ]));
+      });
+      tab.appendChild(tb);
+      block.appendChild(tab);
+      return block;
+    }
+    var original = {};
+    daten.ma.forEach(function (m) { original[m[0]] = JSON.stringify(F.mitarbeiterBereinigen([m])); });
+    mitarbeiter.forEach(function (m, mi) { block.appendChild(mitarbeiterKarte(m, mi, r, original)); });
+    return block;
+  }
+
+  function medienText(liste) {
+    if (!liste || !liste.length) return '1× (Art offen)';
+    return liste.map(function (x) { return x[1] + '× ' + (x[0] || 'Art offen'); }).join(', ');
+  }
+
+  function mitarbeiterKarte(m, mi, r, original) {
+    var karte = el('div', { class: 'fr-ma', 'data-index': String(mi) });
+    function markieren() {
+      var jetzt = JSON.stringify(F.mitarbeiterBereinigen([m]));
+      karte.classList.toggle('geaendert', !(m[0] in original) || original[m[0]] !== jetzt);
+      zaehlerAktualisieren();
+    }
+    var hatSpalte = spalteVorhanden('mitarbeiter', m[0]);
+    karte.appendChild(el('div', { class: 'zeile' }, [
+      el('input', { type: 'text', class: 'name', value: m[1], placeholder: 'Vorname Nachname', autocomplete: 'off',
+        oninput: function (e) { m[1] = e.target.value; markieren(); } }),
+      !hatSpalte ? el('button', { class: 'klein gefahr nur-symbol', type: 'button', text: '✕', title: 'Mitarbeiter entfernen',
+        onclick: function () {
+          mitarbeiter.splice(mi, 1);
+          if (m[0] in original) entfernteMa.push(m[0]);
+          listenNeuZeichnen();
+        } }) : null
+    ]));
+
+    /* Gruppen als Chips */
+    karte.appendChild(el('div', { class: 'feldname', text: 'Abteilung / Gruppe' }));
+    var chips = el('div', { class: 'chips' });
+    gruppen.forEach(function (g) {
+      var aktiv = m[2].indexOf(g[0]) !== -1;
+      var chip = el('button', { type: 'button', class: 'chip', 'aria-pressed': aktiv ? 'true' : 'false', text: g[1] || '(ohne Namen)',
+        onclick: function () {
+          var i = m[2].indexOf(g[0]);
+          if (i === -1) m[2].push(g[0]); else m[2].splice(i, 1);
+          chip.setAttribute('aria-pressed', i === -1 ? 'true' : 'false');
+          markieren();
+        } });
+      chips.appendChild(chip);
+    });
+    if (!gruppen.length) chips.appendChild(el('span', { class: 'zart', text: r.g ? 'Noch keine Gruppen - oben anlegen.' : 'Keine Gruppen vorhanden.' }));
+    karte.appendChild(chips);
+
+    /* Medien */
+    karte.appendChild(el('div', { class: 'feldname', text: 'Medien (Art und Anzahl)' }));
+    var medien = el('div', { class: 'fr-medien' });
+    function medienZeichnen() {
+      leeren(medien);
+      if (!m[3].length) medien.appendChild(el('div', { class: 'fr-leer', text: 'Ohne Eintrag: ein Medium, Art noch offen.' }));
+      m[3].forEach(function (eintrag, ei) {
+        var zeile = el('div', { class: 'fr-medien-zeile' });
+        if (daten.mt.length) {
+          var auswahl = el('select', { onchange: function (e) { m[3][ei][0] = e.target.value; markieren(); } });
+          auswahl.appendChild(el('option', { value: '', text: '– Art wählen –' }));
+          daten.mt.forEach(function (art) { auswahl.appendChild(el('option', { value: art, text: art })); });
+          if (eintrag[0] && daten.mt.indexOf(eintrag[0]) === -1) auswahl.appendChild(el('option', { value: eintrag[0], text: eintrag[0] }));
+          auswahl.value = eintrag[0] || '';
+          zeile.appendChild(auswahl);
+        } else {
+          zeile.appendChild(el('input', { type: 'text', value: eintrag[0], placeholder: 'z. B. Schlüssel, Transponder', autocomplete: 'off',
+            oninput: function (e) { m[3][ei][0] = e.target.value; markieren(); } }));
+        }
+        zeile.appendChild(el('input', { type: 'text', class: 'anzahl', inputmode: 'numeric', value: String(eintrag[1]), title: 'Anzahl',
+          oninput: function (e) {
+            var roh = String(e.target.value).replace(/[^0-9]/g, '');
+            e.target.value = roh;
+            var n = parseInt(roh, 10);
+            m[3][ei][1] = isFinite(n) && n > 0 ? Math.min(999, n) : 1;
+            markieren();
+          },
+          onblur: function (e) { e.target.value = String(m[3][ei][1]); } }));
+        zeile.appendChild(el('button', { class: 'klein gefahr nur-symbol', type: 'button', text: '✕', title: 'Eintrag entfernen',
+          onclick: function () { m[3].splice(ei, 1); medienZeichnen(); markieren(); } }));
+        medien.appendChild(zeile);
+      });
+      medien.appendChild(el('button', { class: 'klein', type: 'button', text: m[3].length ? '+ weitere Art' : '+ Medium eintragen',
+        onclick: function () { m[3].push([daten.mt.length === 1 ? daten.mt[0] : '', 1]); medienZeichnen(); markieren(); } }));
+    }
+    medienZeichnen();
+    karte.appendChild(medien);
+
+    var aktionen = el('div', { class: 'aktionen' });
+    var spalten2 = spaltenVon(m);
+    aktionen.appendChild(el('span', { class: 'status', text: hatSpalte
+      ? 'Eigene Spalte im Plan' + (spalten2.length > 1 ? ' · außerdem über ' + spalten2.filter(function (x, i) { return i > 0; }).join(', ') : '')
+      : (spalten2.length ? 'Berechtigt über ' + spalten2.join(', ') : 'Noch in keiner Spalte des Plans') }));
+    if (r.s && !hatSpalte) {
+      aktionen.appendChild(el('button', { class: 'klein', type: 'button', text: 'Als Spalte aufnehmen',
+        onclick: function () {
+          if (!String(m[1]).trim()) { alert('Bitte zuerst den Namen eintragen.'); return; }
+          spalteAufnehmen('mitarbeiter', m[0]);
+        } }));
+    }
+    karte.appendChild(aktionen);
+    markieren();
+    return karte;
+  }
+
+  function spalteAufnehmen(art, id) {
+    if (spalteVorhanden(art, id)) return;
+    var zellen = [];
+    for (var i = 0; i < daten.t.length; i++) zellen.push('0');
+    neueSpalten.push({ art: art, refId: id, zellen: zellen });
+    zeichnen();
+    var rahmen = document.querySelector('.matrix-rahmen');
+    if (rahmen) { rahmen.scrollLeft = rahmen.scrollWidth; rahmen.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
   }
 
   function zaehlerAktualisieren() {
     var z = document.getElementById('fr-zaehler');
     if (!z) return;
-    var n = geaendertAnzahl(), m = inhaberGeaendert();
+    if (zustand() !== 'offen') { z.textContent = ''; return; }
+    var n = geaendertAnzahl();
     var frei = 0;
     for (var i = 0; i < daten.maske.length; i++) if (daten.maske[i] === '1') frei++;
+    frei += neueSpalten.length * daten.t.length;
     var text = n === 0
       ? (frei + ' Felder stehen zur Bearbeitung bereit')
       : (n === 1 ? '1 Änderung' : n + ' Änderungen') + ' von ' + frei + ' freigegebenen Feldern';
-    if (m) text += '  ·  ' + (m === 1 ? '1 Inhaberliste' : m + ' Inhaberlisten') + ' geändert';
+    if (mitarbeiterGeaendert()) text += '  ·  Mitarbeiterliste geändert';
+    if (gruppenGeaendert()) text += '  ·  Gruppen geändert';
+    if (neueSpalten.length) text += '  ·  ' + (neueSpalten.length === 1 ? '1 neue Spalte' : neueSpalten.length + ' neue Spalten');
     z.textContent = text;
   }
 
@@ -504,14 +809,27 @@
     return { schliessen: schliessen, kasten: kasten };
   }
 
+  function bestaetigungsFeld() {
+    var kasten = el('input', { type: 'checkbox', id: 'fr-bestaetigen' });
+    return { kasten: kasten, knoten: el('label', { class: 'fr-bestaetigung', for: 'fr-bestaetigen' }, [
+      kasten,
+      el('span', { text: 'Ich gebe den Schließplan hiermit verbindlich frei. Mir ist bekannt, dass die Abstimmung damit ' +
+                         'abgeschlossen ist und Änderungen danach nur noch gegen Mehraufwand möglich sind.' })
+    ]) };
+  }
+
   /* --- Kurzlink: Übertragen an den Server ------------------------------- */
-  function uebertragenDialog() {
-    var n = geaendertAnzahl(), m = inhaberGeaendert();
+  function uebertragenDialog(mitFreigabe) {
+    var teile = zusammenfassung();
+    var nichts = geaendertAnzahl() === 0 && !mitarbeiterGeaendert() && !gruppenGeaendert() && !neueSpalten.length;
     var nameFeld = el('input', { type: 'text', id: 'fr-name', value: server.antwortName || '',
       placeholder: 'Vor- und Nachname', autocomplete: 'name', maxlength: '120' });
+    var funktionFeld = el('input', { type: 'text', id: 'fr-funktion', placeholder: 'z. B. Geschäftsführung, Hausverwaltung',
+      autocomplete: 'organization-title', maxlength: '120' });
     var anmerkungFeld = el('textarea', { id: 'fr-anmerkung', rows: '3', maxlength: '2000',
       placeholder: 'Optional – zum Beispiel, was noch zu klären ist' });
     anmerkungFeld.value = server.antwortAnmerkung || '';
+    var bestaetigung = bestaetigungsFeld();
     var fehlerZeile = el('div', { class: 'meldung fehler', id: 'fr-fehler', style: { display: 'none' } });
     function fehler(text) {
       leeren(fehlerZeile);
@@ -519,26 +837,33 @@
       fehlerZeile.style.display = '';
     }
     var sendeKnopf;
-    var zusammenfassung = n || m
-      ? (n ? (n === 1 ? '1 Berechtigung' : n + ' Berechtigungen') : '')
-        + (n && m ? ' und ' : '') + (m ? (m === 1 ? '1 Inhaberliste' : m + ' Inhaberlisten') : '') + ' geändert.'
-      : 'Sie haben noch nichts geändert. Sie können trotzdem übertragen – die Rückmeldung enthält dann keine Änderungen.';
+    var zusammen = nichts
+      ? (mitFreigabe ? 'Sie haben nichts geändert - der Plan wird so freigegeben, wie er ist.'
+                     : 'Sie haben noch nichts geändert. Sie können trotzdem senden – die Rückmeldung enthält dann keine Änderungen.')
+      : 'Geändert: ' + teile.join(', ') + '.';
 
-    var d = dialog('Rückmeldung übertragen', [
-      el('div', { class: 'meldung ' + (n || m ? 'ok' : 'warn') }, el('div', { text: zusammenfassung })),
+    var d = dialog(mitFreigabe ? 'Rückmeldung senden und Plan freigeben' : 'Rückmeldung senden', [
+      el('div', { class: 'meldung ' + (nichts && !mitFreigabe ? 'warn' : 'ok') }, el('div', { text: zusammen })),
+      namenlos() ? el('div', { class: 'meldung warn' }, el('div', { text: 'Einträge ohne Namen werden nicht übertragen.' })) : null,
+      mitFreigabe ? el('p', { class: 'hinweis', text:
+        'Mit der verbindlichen Freigabe schließen Sie die Abstimmung ab. ' + firma() + ' prüft Ihre Angaben und vermerkt die Freigabe; ' +
+        'danach kann über diesen Link nichts mehr geändert werden.' }) : null,
       el('div', { class: 'fr-feld' }, [
         el('label', { for: 'fr-name' }, ['Ihr Name ', el('span', { class: 'pflicht', text: '*' })]),
         nameFeld
       ]),
+      mitFreigabe ? el('div', { class: 'fr-feld' }, [el('label', { for: 'fr-funktion', text: 'Ihre Funktion' }), funktionFeld]) : null,
       el('div', { class: 'fr-feld' }, [
-        el('label', { for: 'fr-anmerkung', text: 'Anmerkung an ' + (daten.firma || 'den Absender') }),
+        el('label', { for: 'fr-anmerkung', text: 'Anmerkung an ' + firma() }),
         anmerkungFeld
       ]),
+      mitFreigabe ? bestaetigung.knoten : null,
       fehlerZeile,
-      el('p', { class: 'hinweis', text: 'Nach dem Übertragen prüft ' + (daten.firma || 'der Absender')
+      mitFreigabe ? null : el('p', { class: 'hinweis', text: 'Nach dem Senden prüft ' + firma()
         + ' Ihre Angaben und übernimmt sie in den Schließplan. Sie können diesen Link später erneut öffnen und nachbessern.' })
     ], function (schliessen) {
-      sendeKnopf = el('button', { class: 'haupt', type: 'button', id: 'fr-senden', text: 'Jetzt übertragen',
+      sendeKnopf = el('button', { class: 'haupt', type: 'button', id: 'fr-senden',
+        text: mitFreigabe ? 'Jetzt senden und freigeben' : 'Jetzt senden',
         onclick: function () { absenden(schliessen); } });
       return [el('button', { type: 'button', text: 'Zurück', onclick: schliessen }), el('div', { class: 'fuellen' }), sendeKnopf];
     });
@@ -548,10 +873,11 @@
     function absenden(schliessen) {
       var name = nameFeld.value.trim();
       if (!name) { fehler('Bitte tragen Sie Ihren Namen ein.'); nameFeld.focus(); return; }
+      if (mitFreigabe && !bestaetigung.kasten.checked) { fehler('Bitte bestätigen Sie die verbindliche Freigabe.'); return; }
       fehlerZeile.style.display = 'none';
       sendeKnopf.disabled = true;
       sendeKnopf.textContent = 'Wird übertragen …';
-      var antwort = F.antwortErstellen(daten, arbeitsMatrix.join(''), inhaberFuerAntwort());
+      var antwort = antwortBauen(mitFreigabe ? { name: name, funktion: funktionFeld.value.trim() } : null);
       var anmerkung = anmerkungFeld.value.trim();
       anfrage('/freigaben/' + encodeURIComponent(code) + '/antwort', {
         methode: 'POST', json: { antwort: antwort, name: name, anmerkung: anmerkung }
@@ -561,31 +887,89 @@
         server.antwortName = name;
         server.antwortAnmerkung = anmerkung;
         server.antwortAm = (ergebnis && ergebnis.am) || new Date().toISOString();
+        if (mitFreigabe) server.freigabe = { am: server.antwortAm, name: name, funktion: funktionFeld.value.trim(), art: 'mit_antwort' };
         schliessen();
-        fertigZeigen(ergebnis || {}, name);
+        fertigZeigen(ergebnis || {}, name, mitFreigabe);
       }).catch(function (f) {
         sendeKnopf.disabled = false;
-        sendeKnopf.textContent = 'Jetzt übertragen';
+        sendeKnopf.textContent = mitFreigabe ? 'Jetzt senden und freigeben' : 'Jetzt senden';
         fehler(meldungFuer(f));
       });
     }
   }
 
-  function fertigZeigen(ergebnis, name) {
+  /* --- Vorgelegter Plan: verbindlich freigeben --------------------------- */
+  function freigebenDialog() {
+    var nameFeld = el('input', { type: 'text', id: 'fr-name', placeholder: 'Vor- und Nachname', autocomplete: 'name', maxlength: '120' });
+    var funktionFeld = el('input', { type: 'text', id: 'fr-funktion', placeholder: 'z. B. Geschäftsführung, Hausverwaltung',
+      autocomplete: 'organization-title', maxlength: '120' });
+    var anmerkungFeld = el('textarea', { id: 'fr-anmerkung', rows: '3', maxlength: '2000', placeholder: 'Optional' });
+    var bestaetigung = bestaetigungsFeld();
+    var fehlerZeile = el('div', { class: 'meldung fehler', id: 'fr-fehler', style: { display: 'none' } });
+    function fehler(text) { leeren(fehlerZeile); fehlerZeile.appendChild(el('div', { text: text })); fehlerZeile.style.display = ''; }
+    var sendeKnopf;
+    var d = dialog('Plan verbindlich freigeben', [
+      el('p', { class: 'hinweis', style: { marginTop: '0' }, text:
+        'Sie geben den Schließplan in der vorliegenden Form frei. ' + firma() + ' vermerkt die Freigabe; danach kann über diesen Link nichts mehr geändert werden.' }),
+      el('div', { class: 'fr-feld' }, [el('label', { for: 'fr-name' }, ['Ihr Name ', el('span', { class: 'pflicht', text: '*' })]), nameFeld]),
+      el('div', { class: 'fr-feld' }, [el('label', { for: 'fr-funktion', text: 'Ihre Funktion' }), funktionFeld]),
+      el('div', { class: 'fr-feld' }, [el('label', { for: 'fr-anmerkung', text: 'Anmerkung an ' + firma() }), anmerkungFeld]),
+      bestaetigung.knoten,
+      fehlerZeile
+    ], function (schliessen) {
+      sendeKnopf = el('button', { class: 'haupt', type: 'button', id: 'fr-senden', text: 'Jetzt verbindlich freigeben',
+        onclick: function () { absenden(schliessen); } });
+      return [el('button', { type: 'button', text: 'Zurück', onclick: schliessen }), el('div', { class: 'fuellen' }), sendeKnopf];
+    });
+    setTimeout(function () { nameFeld.focus(); }, 60);
+    nameFeld.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); absenden(d.schliessen); } });
+
+    function absenden(schliessen) {
+      var name = nameFeld.value.trim();
+      if (!name) { fehler('Bitte tragen Sie Ihren Namen ein.'); nameFeld.focus(); return; }
+      if (!bestaetigung.kasten.checked) { fehler('Bitte bestätigen Sie die verbindliche Freigabe.'); return; }
+      fehlerZeile.style.display = 'none';
+      sendeKnopf.disabled = true;
+      sendeKnopf.textContent = 'Wird übertragen …';
+      var funktion = funktionFeld.value.trim();
+      anfrage('/freigaben/' + encodeURIComponent(code) + '/freigeben', {
+        methode: 'POST', json: { name: name, funktion: funktion, anmerkung: anmerkungFeld.value.trim() }
+      }).then(function (ergebnis) {
+        server.status = 'beantwortet';
+        server.antwort = { fr: { name: name, funktion: funktion, art: 'nachtraeglich' } };
+        server.antwortName = name;
+        server.antwortAm = (ergebnis && ergebnis.am) || new Date().toISOString();
+        server.freigabe = { am: server.antwortAm, name: name, funktion: funktion, art: 'nachtraeglich' };
+        schliessen();
+        fertigZeigen(ergebnis || {}, name, true);
+      }).catch(function (f) {
+        sendeKnopf.disabled = false;
+        sendeKnopf.textContent = 'Jetzt verbindlich freigeben';
+        fehler(meldungFuer(f));
+      });
+    }
+  }
+
+  function fertigZeigen(ergebnis, name, mitFreigabe) {
     leeren(WURZEL);
     var n = ergebnis.anzahl || 0, m = ergebnis.listen || 0;
     var was = [];
     if (n) was.push(n === 1 ? '1 Berechtigung' : n + ' Berechtigungen');
-    if (m) was.push(m === 1 ? '1 Inhaberliste' : m + ' Inhaberlisten');
+    if (m) was.push(m === 1 ? '1 Liste bzw. neue Spalte' : m + ' Listen bzw. neue Spalten');
     WURZEL.appendChild(el('div', { class: 'fr-fertig', id: 'fr-fertig' }, [
       el('div', { class: 'haken', text: '✓' }),
       el('h2', { text: 'Vielen Dank, ' + name + '!' }),
-      el('p', { text: 'Ihre Rückmeldung wurde an ' + (daten.firma || 'den Absender') + ' übertragen'
-        + (was.length ? ': ' + was.join(' und ') + '.' : '.') }),
-      el('p', { class: 'zart', text: (daten.firma || 'Der Absender') + ' prüft die Angaben und übernimmt sie in den Schließplan. '
-        + 'Sie können diese Seite jetzt schließen.' }),
+      mitFreigabe
+        ? el('p', { text: 'Ihre verbindliche Freigabe wurde an ' + firma() + ' übertragen'
+            + (was.length ? ' - zusammen mit ' + was.join(' und ') + '.' : '.')
+            + ' Damit ist die Abstimmung des Schließplans abgeschlossen.' })
+        : el('p', { text: 'Ihre Rückmeldung wurde an ' + firma() + ' übertragen'
+            + (was.length ? ': ' + was.join(' und ') + '.' : '.') }),
+      el('p', { class: 'zart', text: mitFreigabe
+        ? firma() + ' vermerkt die Freigabe im Schließplan. Änderungen sind ab jetzt nur noch gegen Mehraufwand möglich. Sie können diese Seite jetzt schließen.'
+        : firma() + ' prüft die Angaben und übernimmt sie in den Schließplan. Sie können diese Seite jetzt schließen.' }),
       el('div', { class: 'knopfleiste', style: { justifyContent: 'center', marginTop: '18px' } }, [
-        el('button', { type: 'button', text: 'Weiter bearbeiten', onclick: zeichnen })
+        el('button', { type: 'button', text: mitFreigabe ? 'Plan ansehen' : 'Weiter bearbeiten', onclick: zeichnen })
       ])
     ]));
     window.scrollTo(0, 0);
@@ -593,21 +977,22 @@
 
   /* --- Langer Link: Rückmeldung als Rückschlüssel ----------------------- */
   function antwortZeigen() {
-    var n = geaendertAnzahl() + inhaberGeaendert();
-    var antwort = F.antwortErstellen(daten, arbeitsMatrix.join(''), inhaberFuerAntwort());
+    var teile = zusammenfassung();
+    var n = geaendertAnzahl() + (mitarbeiterGeaendert() ? 1 : 0) + (gruppenGeaendert() ? 1 : 0) + neueSpalten.length;
+    var antwort = antwortBauen(null);
     var schluessel = F.antwortAlsSchluessel(antwort);
 
     var feld = el('textarea', { class: 'schluessel-feld', readonly: true });
     feld.value = schluessel;
 
-    dialog('Rückmeldung an ' + (daten.firma || 'den Absender'), [
+    dialog('Rückmeldung an ' + firma(), [
       el('div', { class: 'meldung ' + (n ? 'ok' : 'warn') }, el('div', {}, [
-        el('b', { text: n ? (n + (n === 1 ? ' Änderung' : ' Änderungen') + ' erfasst.')
-                          : 'Sie haben noch nichts geändert.' }),
+        el('b', { text: n ? ('Erfasst: ' + teile.join(', ') + '.') : 'Sie haben noch nichts geändert.' }),
         el('div', { style: { marginTop: '4px', fontSize: '13.5px' },
           text: n ? 'Bitte senden Sie die Rückmeldung auf einem der folgenden Wege zurück.'
                   : 'Sie können die Rückmeldung dennoch senden – sie enthält dann keine Änderungen.' })
       ])),
+      namenlos() ? el('div', { class: 'meldung warn' }, el('div', { text: 'Einträge ohne Namen sind nicht enthalten.' })) : null,
       el('h3', { text: '1. Als Datei senden' }),
       el('p', { class: 'hinweis', text: 'Datei speichern und als Anhang zurücksenden. Das ist der zuverlässigste Weg.' }),
       el('button', { class: 'haupt', type: 'button', text: 'Rückmeldung als Datei speichern', onclick: function () {
@@ -666,7 +1051,9 @@
       antwortAm: (d && d.antwortAm) || '',
       antwortName: (d && d.antwortName) || '',
       antwortAnmerkung: (d && d.antwortAnmerkung) || '',
-      gueltigBis: (d && d.gueltigBis) || ''
+      gueltigBis: (d && d.gueltigBis) || '',
+      vorgelegtAm: (d && d.vorgelegtAm) || '',
+      freigabe: (d && d.freigabe) || null
     };
     vorbereiten();
     antwortEinspielen(server.antwort);

@@ -34,10 +34,17 @@ class Aufmass_Anmeldung {
 
     public static function anmelden($token) {
         $client = trim((string) get_option('aufmass_client_id', ''));
-        $domaene = trim((string) get_option('aufmass_domaene', ''));
+        $domaene = strtolower(trim((string) get_option('aufmass_domaene', '')));
         if ($client === '') {
             return new WP_Error('nicht_eingerichtet',
                 'Der Abgleich ist noch nicht eingerichtet: Es fehlt die Google-Client-ID.',
+                array('status' => 503));
+        }
+        /* Ohne Organisationsdomäne ist die Anmeldung gesperrt - nicht
+           offen für jedes Google-Konto. */
+        if ($domaene === '') {
+            return new WP_Error('nicht_eingerichtet',
+                'Der Abgleich ist noch nicht eingerichtet: Es fehlt die Organisationsdomäne. Ohne sie ist die Anmeldung gesperrt.',
                 array('status' => 503));
         }
         /* Jede Prüfung kostet eine RSA-Unterschrift. Wer mit erfundenen
@@ -50,6 +57,17 @@ class Aufmass_Anmeldung {
             return new WP_Error('anmeldung_abgelehnt', $ergebnis['grund'], array('status' => 401));
         }
         $a = $ergebnis['daten'];
+        /* Jeder Ausweis gilt genau einmal: Wer ihn unterwegs mitliest,
+           kann damit keine zweite Sitzung eröffnen. Gemerkt wird nur ein
+           Abdruck, und nur so lange, wie der Ausweis überhaupt gelten
+           könnte. */
+        $abdruck = 'aufmass_ausweis_' . substr(hash('sha256', (string) $token), 0, 40);
+        if (get_transient($abdruck)) {
+            Aufmass_Drossel::zaehlen('anmelden', self::DROSSEL_FEHLVERSUCHE, 600);
+            return new WP_Error('anmeldung_abgelehnt',
+                'Dieser Ausweis wurde bereits verwendet. Bitte erneut anmelden.', array('status' => 401));
+        }
+        set_transient($abdruck, 1, max(60, (int) $a['exp'] - time() + Aufmass_JWT::UHRSPANNE));
 
         global $wpdb;
         $tab = Aufmass_Datenbank::tabelle('benutzer');
@@ -59,7 +77,7 @@ class Aufmass_Anmeldung {
         if ($vorhanden) {
             if ((int) $vorhanden['aktiv'] !== 1) {
                 return new WP_Error('gesperrt',
-                    'Dieser Zugang wurde gesperrt. Bitte in der Verwaltung melden.',
+                    'Dieser Zugang ist gesperrt oder noch nicht freigegeben. Bitte in der Verwaltung melden.',
                     array('status' => 403));
             }
             /* Das Profilbild von Google wird nicht abgelegt: Das Werkzeug
@@ -73,16 +91,21 @@ class Aufmass_Anmeldung {
             $rolle = $vorhanden['rolle'];
         } else {
             /* Die erste Anmeldung bekommt die Verwaltung - sonst könnte
-               niemand die weiteren Zugänge freischalten. */
+               niemand die weiteren Zugänge freischalten. Alle weiteren
+               Konten der Organisation sind sofort dabei - oder, wenn die
+               Einstellung „erst freigeben“ gesetzt ist, erst nach einem
+               Klick der Verwaltung. */
             $erster = (int) $wpdb->get_var("SELECT COUNT(*) FROM $tab") === 0;
             $rolle = $erster ? 'verwaltung' : 'mitarbeit';
+            $freigeben = self::neue_erst_freigeben();
+            $aktiv = ($erster || !$freigeben) ? 1 : 0;
             $angelegt = $wpdb->insert($tab, array(
                 'id' => $a['sub'],
                 'email' => $a['email'],
                 'name' => isset($a['name']) ? mb_substr((string) $a['name'], 0, 190) : $a['email'],
                 'bild' => '',
                 'rolle' => $rolle,
-                'aktiv' => 1,
+                'aktiv' => $aktiv,
                 'erste_anmeldung' => $jetzt,
                 'letzte_anmeldung' => $jetzt
             ));
@@ -95,6 +118,11 @@ class Aufmass_Anmeldung {
                     'Der Zugang ließ sich nicht anlegen. Ist die E-Mail-Adresse schon einem anderen Zugang zugeordnet? '
                     . 'Dann den alten Zugang in der Verwaltung löschen.',
                     array('status' => 500));
+            }
+            if (!$aktiv) {
+                return new WP_Error('freigabe_noetig',
+                    'Ihr Zugang wurde angelegt und muss von der Verwaltung erst freigegeben werden. Bitte dort melden.',
+                    array('status' => 403));
             }
         }
 
@@ -109,6 +137,12 @@ class Aufmass_Anmeldung {
             ),
             'sitzung' => $sitzung
         );
+    }
+
+    /** Müssen neue Konten der Organisation erst von der Verwaltung freigegeben werden? */
+    public static function neue_erst_freigeben() {
+        $w = get_option('aufmass_neue_freigeben', '0');
+        return $w === '1' || $w === 1 || $w === true;
     }
 
     /* ---------------------------------------------------------------- */

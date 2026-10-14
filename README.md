@@ -28,8 +28,11 @@ Es gibt es in zwei Fassungen:
   nach *Speichern & nächste* – nichts wird von der vorherigen übernommen
 * **Vollständig mit dem Apple Pencil bedienbar** – feste Maße als Auswahl,
   Stückzahlen über – und +, und jedes Schreibfeld nimmt Handschrift an
-* **Kreuzschließplan** – Zutrittsmatrix Türen × Schließungen, direkt auf dem
-  Aufmaß aufbauend
+* **Kreuzschließplan** – Zutrittsmatrix Türen × Spalten, direkt auf dem
+  Aufmaß aufbauend. Eine Spalte ist eine Gruppe des Kunden (alle Mitglieder
+  berechtigt), ein einzelner Mitarbeiter oder eine Schließung mit Rang im
+  Plan; die Mitarbeiter- und Gruppenlisten stehen unter der Matrix. Spalten
+  lassen sich mit einem langen Druck auf den Kopf greifen und verschieben
 * **PDF-Ausgaben** auf Knopfdruck: Türliste (kompakt und ausführlich),
   Kreuzschließplan, Materialliste, Prüfprotokoll
 * **Projektdatei** zum Austausch zwischen iPad und Büro-Rechner
@@ -38,10 +41,13 @@ Es gibt es in zwei Fassungen:
   bei gleichzeitiger Arbeit; der Pipedrive-Schlüssel liegt dann einmal auf
   dem Server statt auf jedem Gerät
 * **Kundenfreigabe** – der Kunde trägt im Browser Berechtigungen ein und
-  benennt, wer ein Medium erhält. Mit gemeinsamer Ablage bekommt er einen
-  kurzen Link und klickt am Ende nur auf „Übertragen"; die Rückmeldung
-  wartet dann im Werkzeug und wird nach Prüfung übernommen. Ohne Server
-  kommt sie wie bisher als Rückschlüssel zurück
+  pflegt, soweit je Link erlaubt, Mitarbeiter und Gruppen oder nimmt neue
+  Spalten auf. Er sendet eine Rückmeldung oder gibt den Plan **verbindlich
+  frei**; ein fertiger Plan lässt sich ihm auch nachträglich zur Freigabe
+  vorlegen. Nach der Freigabe ist der Link für ihn gesperrt, das Werkzeug
+  bleibt änderbar und zeigt den Vermerk. Mit gemeinsamer Ablage ist das ein
+  kurzer Link; die Rückmeldung wartet im Werkzeug und wird erst nach Prüfung
+  übernommen. Ohne Server kommt sie als Rückschlüssel zurück
 
 In der Einzeldatei verbleiben alle Daten auf dem jeweiligen Gerät; es findet
 keinerlei Datenübertragung statt. In der gemeinsamen Fassung werden die
@@ -73,22 +79,25 @@ etwa für ein Fremdfabrikat im Bestand. Es bleibt leer, solange nichts abweicht.
 | Art der Anlage und System | *Stammdaten → Schließanlage* | gilt für alle Türen; die Technologie folgt daraus |
 | Ausführung der Tür | nur bei Hybridanlage im Abschnitt *Anlage* | bestimmt, welches der beiden Systeme für diese Tür gilt |
 | Zylinder-Bauform | Abschnitt *Bauteile* | Doppelzylinder, Halbzylinder, Knaufzylinder … – ohne Technologie im Namen |
-| Zylinder-Ausführung | Abschnitt *Bauteile* | Freidreh, Comfort, Anti-Panik, Wetterschutz, Not- und Gefahrenfunktion – jede einzeln anklickbar |
+| Zylinder-Ausführung | Abschnitt *Bauteile* | BSZ (beidseitig schließbar), beidseitig elektronisch, Freidreh, Comfort, Anti-Panik, Monitoring, VdS, SKG mit Stufe, Wetterschutz … – jede einzeln anklickbar |
+| Beschlag-Optionen | Abschnitt *Bauteile* | BSZ, VdS, SKG mit Stufe; „beidseitig elektronisch“ steht in der Ausführung des Beschlags |
 | Knaufseite (vom mech. festen Knauf) | nur bei Bauform „Knaufzylinder" | beim Doppelknaufzylinder ist sie bereits bestimmt |
 | Sicherheitsklasse | nur bei Beschlag-Bauform „Schutzbeschlag" | ES0 bis ES3 |
-| Bauliche Anforderungen | Abschnitt *Zutritt und Anforderungen* | Brandschutz, Rauchschutz, Fluchtweg, RC, VdS |
 
 Die Systemkomponenten enthalten nur noch Bauteile, die es sonst nirgends gibt
 (Wandleser, Netzwerkknoten, Programmiergeräte). Zylinder, Beschlag und Schloss
 werden ausschließlich im Abschnitt *Bauteile* erfasst.
 
-Widersprüche werden **gemeldet statt doppelt abgefragt**: Ist eine Tür als
-Flucht- und Rettungsweg gekennzeichnet, das Schloss hat aber keine
-Panikfunktion, erscheint ein Hinweis direkt im Formular und im Prüfprotokoll.
+Widersprüche werden **gemeldet statt doppelt abgefragt**: Ein Halbzylinder
+mit Innenlänge erzeugt einen Hinweis direkt im Formular und im Prüfprotokoll.
+Den Abschnitt *Zutritt und Anforderungen* (Zutrittsseite, bauliche
+Anforderungen) gibt es seit Fassung 1.2 nicht mehr – diese Angaben gehören
+nicht in das Aufmaß der Schließanlage.
 
 Aufmaße aus der früheren Fassung werden beim Öffnen automatisch überführt:
 „Elektronikzylinder Freidreh / Komfort" wird zu Bauform „Doppelknaufzylinder"
-plus Ausführung „Freidreh". Trug früher jede Tür ihr eigenes System, wird
+plus Ausführung „Freidreh", „Not- und Gefahrenfunktion" zu „BSZ (beidseitig
+schließbar)". Trug früher jede Tür ihr eigenes System, wird
 daraus die Anlage des Projekts erschlossen (das je Technologie häufigste
 System); weicht eine einzelne Tür davon ab, bleibt der Hinweis als
 *Besonderheit zu dieser Tür* erhalten. Es gehen keine Angaben verloren.
@@ -195,28 +204,45 @@ Zwischendienst nötig.
 ## Matrix vom Kunden ausfüllen lassen
 
 Unter *Schließplan → Kundenfreigabe* entsteht ein Link, den der Kunde im
-Browser öffnet. Er sieht die vollständige Matrix, kann aber nur die Felder
-anklicken, die zuvor freigegeben wurden – alle übrigen sind schraffiert und
-gesperrt. Freigeben lässt sich spaltenweise je Schließung, wahlweise
-beschränkt auf noch leere Felder. Hinweis und Rückmeldefrist werden mitgegeben.
+Browser öffnet. Er sieht den vollständigen Plan samt Mitarbeitern und
+Gruppen, kann aber nur die Felder anklicken, die zuvor freigegeben wurden –
+alle übrigen sind schraffiert und gesperrt. Freigeben lässt sich spaltenweise,
+wahlweise beschränkt auf noch leere Felder. **Je Link wird außerdem
+festgelegt, was der Kunde sonst darf**: Mitarbeiter pflegen (Namen,
+Gruppenzuordnung, Medien), Gruppen anlegen und umbenennen, Gruppen oder
+Mitarbeiter als neue Spalten aufnehmen. Hinweis und Rückmeldefrist werden
+mitgegeben.
+
+Der Kunde hat zwei Knöpfe: **„Rückmeldung senden“** und **„Rückmeldung
+senden und Plan freigeben“**. Die Freigabe ist verbindlich – sie schließt die
+Abstimmung ab, und die Seite sagt ihm, dass Änderungen danach nur noch gegen
+Mehraufwand möglich sind. Ist der Plan fertig, lässt er sich dem Kunden über
+*Kundenfreigabe → Plan zur verbindlichen Freigabe vorlegen* (oder über einen
+bestehenden Link mit „Zur Freigabe vorlegen“) zur **nachträglichen Freigabe**
+vorlegen: Er sieht den aktuellen Stand ohne Bearbeitung und klickt auf „Plan
+verbindlich freigeben“. Nach einer Freigabe ist der Link für den Kunden
+gesperrt; das Werkzeug bleibt änderbar und zeigt im Schließplan und im PDF den
+Vermerk – mit Warnung, sobald der Plan seit der Freigabe geändert wurde.
 
 **Mit gemeinsamer Ablage** (Fassung für den eigenen Webserver, angemeldet)
 entsteht ein kurzer Link wie `https://www.provision-infra.de/f/k7m2p9x4qa`.
-Der Kunde trägt ein, nennt seinen Namen und klickt auf „Übertragen". Die
-Rückmeldung liegt dann auf dem Server; Ersteller und Zuständige bekommen
-eine E-Mail, und jedes zuständige Gerät zeigt sie in der Kopfzeile und im
-Schließplan. Ein Bericht nennt jede Abweichung (Tür, Schließung, bisher →
-neu, Inhaberlisten, Anmerkung des Kunden). **Erst „Übernehmen" ändert das
-Aufmaß**; „Verwerfen" legt die Rückmeldung ab. Der Server nimmt nur Felder
-an, die freigegeben waren, drosselt das Raten von Codes und löscht
-erledigte Freigaben nach 180 Tagen. Jeder Link läuft ab (Vorgabe 30 Tage)
-und lässt sich zurückziehen. Einzelheiten in `server/EINRICHTUNG.md`.
+Die Rückmeldung – oder die Freigabe – liegt dann auf dem Server; Ersteller
+und Zuständige bekommen eine E-Mail, und jedes zuständige Gerät zeigt sie in
+der Kopfzeile und im Schließplan. Ein Bericht nennt jede Abweichung (Tür,
+Spalte, bisher → neu, neue oder geänderte Mitarbeiter und Gruppen, neue
+Spalten, die Freigabe, Anmerkung des Kunden). **Erst „Übernehmen" ändert das
+Aufmaß**; „Verwerfen" legt die Rückmeldung ab. Der Server nimmt nur an, was
+der Link erlaubt hat – andere Felder, Listen ohne Recht oder erfundene
+Kennungen weisen die ganze Rückmeldung ab –, drosselt das Raten von Codes und
+löscht erledigte Freigaben nach 180 Tagen. Jeder Link läuft ab (Vorgabe 30
+Tage) und lässt sich zurückziehen. Einzelheiten in `server/EINRICHTUNG.md`.
 
 **Ohne Server** (Einzeldatei) kommt die Rückmeldung als Datei oder als
-Textschlüssel zurück und wird
-unter *Schließplan → Rückmeldung* eingelesen. Übernommen werden ausschließlich
-Felder, die tatsächlich freigegeben waren; eine veränderte Rückmeldung kann
-keine gesperrten Berechtigungen setzen. Die Übernahme lässt sich über den
+Textschlüssel zurück und wird unter *Schließplan → Rückmeldung* eingelesen.
+Übernommen wird ausschließlich, was für diesen Link freigegeben war; eine
+veränderte Rückmeldung kann keine gesperrten Berechtigungen setzen und keine
+Listen ändern, für die kein Recht eingeräumt war. Eine verbindliche Freigabe
+gibt es nur über die gemeinsame Ablage. Die Übernahme lässt sich über den
 Zurück-Knopf rückgängig machen.
 
 **Es gibt dafür keinen Server.** Die Plandaten stehen im Anker (`#`) der
@@ -224,13 +250,16 @@ Adresse – dieser Teil einer Adresse wird von Browsern niemals an einen Server
 gesendet. Die Aufmaßdaten verlassen damit weder Ihr Gerät noch das des Kunden.
 Zwei Dinge folgen daraus:
 
-* Der Link ist lang (bei rund 150 Feldern etwa 3.500 Zeichen, bei 3.400
-  Feldern etwa 17.000). Die Anwendung warnt, wenn er sehr lang wird; er lässt
+* Der Link ist lang (bei rund 150 Feldern etwa 4.000 Zeichen, bei 3.400
+  Feldern etwa 18.000). Die Anwendung warnt, wenn er sehr lang wird; er lässt
   sich dann auch als Datei versenden.
 * Der Rückweg ist nicht automatisch: Der Kunde sendet Datei oder Schlüssel
   zurück. Die Rückmeldung enthält nur die Abweichungen und bleibt kurz.
 * Die Anwendung muss dafür über eine Web-Adresse laufen (siehe iPad-Abschnitt);
   aus einer lokal geöffneten Datei heraus weist der Dialog darauf hin.
+
+Links und Rückmeldungen aus Fassungen vor 1.2 werden nicht mehr angenommen –
+sie wurden mit einem anderen Datenmodell erzeugt. Bitte neue Links erzeugen.
 
 ## Bedienung auf der Baustelle
 
@@ -251,11 +280,12 @@ Anwendung, zusammen mit dem Firmennamen.
 
 ## Schließplan als Blanko-Plan
 
-Unter *Schließplan → Blanko-Plan erzeugen* entsteht aus der Gliederung ein
-vollständiger Plan als Arbeitsgrundlage: ein Generalhauptschlüssel, je Gebäude
-ein Hauptschlüssel, je Bereich ein Gruppenschlüssel und auf Wunsch je Tür eine
-Einzelschließung – die Berechtigungen werden gleich mitgesetzt. Vorab wird
-angezeigt, wie viele Schließungen entstehen.
+Unter *Schließplan → Blanko-Plan erzeugen* entsteht die Arbeitsgrundlage:
+ein Generalhauptschlüssel, der an allen Türen berechtigt ist, und auf Wunsch
+je Gruppe und je Mitarbeiter eine noch leere Spalte. Mehr ist nicht
+voreingestellt – alle weiteren Schließungen und Gruppen benennen Sie selbst.
+Vorab wird angezeigt, wie viele Spalten entstehen; vorhandene Spalten
+bleiben erhalten oder werden auf Wunsch vorher entfernt.
 
 ## Türen je Bereich erfassen
 
@@ -405,25 +435,31 @@ wiederherstellen.
 Einsteckschloss-Details, Türmaße, Zarge und Kabelweg sind ausdrücklich
 freiwillig und nie Pflicht.
 
-## Personen und Gruppen im Schließplan
+## Mitarbeiter und Gruppen im Schließplan
 
-Jede Schließung beantwortet zwei verschiedene Fragen getrennt:
+Unter der Matrix stehen die beiden Listen des Projekts: **Mitarbeiter**
+(Vorname Nachname in einem Feld, Abteilung/Gruppe – mehrere Gruppen möglich –
+und Medien) und **Gruppen** (frei benannt, etwa Verwaltung, Reinigung, EDV).
+Eine Spalte im Plan ist entweder
 
-* **Rang im Plan** – GHS, HS, GS, UGS, EZ oder extern
-* **Träger** – Einzelperson(en) oder eine Gruppe
+* eine **Gruppe** – alle Mitglieder sind über diese Spalte berechtigt,
+* ein **Mitarbeiter** – für Berechtigungen, die nur er bekommt, oder
+* eine **Schließung** mit Rang im Plan (GHS, HS, GS, UGS, EZ, extern), bei
+  der die Träger aus der Mitarbeiterliste gewählt werden; ohne benannten
+  Träger stehen Art und Anzahl der Medien direkt an der Spalte (etwa zwei
+  Generalhauptschlüssel im Tresor).
 
-Bei Einzelpersonen steht die Namensliste direkt im Dialog. Bei einer Gruppe
-wird der Gruppenname eingetragen; ein Tippen auf den Gruppennamen öffnet die
-Mitgliederliste. Je Person lassen sich Funktion/Abteilung und eine eigene
-Anzahl Medien hinterlegen.
+**Die Medien werden je Mitarbeiter geführt** – mehrere Arten gleichzeitig,
+etwa ein Transponder und ein Smartphone. Daraus ergeben sich die Stückzahlen
+in Spaltenkopf, Legende und Materialliste. Steht jemand einzeln *und* über
+seine Gruppe im Plan, erscheint ein Hinweis; gezählt wird er trotzdem nur
+einmal. Spalten lassen sich mit einem zwei Sekunden langen Druck auf den
+Spaltenkopf greifen und samt Kreuzen nach links oder rechts ziehen.
 
-**Die Anzahl der Medien ergibt sich aus der Summe der Personen** und wird
-mitgeführt, solange sie nicht ausdrücklich von Hand eingetragen wurde; das
-Feld sagt, welches davon gerade gilt.
-
-Früher standen „Person“ und „Personengruppe“ mit in der Typenliste – man
-musste zweimal dasselbe wählen. Die Überführung trennt das: Der Träger wird
-übernommen, der Rang bleibt offen statt erfunden zu werden.
+Aufmaße aus Fassung 1.1 werden beim Öffnen überführt: Die Personen je
+Schließung werden zur Mitarbeiterliste, benannte Gruppen zu Gruppen mit
+Mitgliedern, von Hand gezählte Medien bleiben an der Spalte. Es gehen keine
+Angaben verloren.
 
 ## Materialliste als Bestellgrundlage
 
@@ -443,10 +479,12 @@ Lieferanten – das Werkzeug erfindet keine Artikelnummern. Die Türnummern je
 Position sind im Export zuschaltbar, standardmäßig aus, damit die Maßspalten
 Platz haben.
 
-Die Identmedien aus dem Schließplan stehen mit Rang, Träger, den
-namentlichen Personen samt Anzahl und der **Art des Mediums** (Schlüssel,
-Transponder, Karte …) – die Auswahl ergibt sich aus den Systemen des
-Projekts. Fehlt sie, steht dort ausdrücklich „– offen –“ statt einer Lücke.
+Die Identmedien aus dem Schließplan stehen **je Mitarbeiter genau einmal**
+– mit Funktion, Gruppen, den Spalten, über die er berechtigt ist, und der
+**Art des Mediums** samt Anzahl (Schlüssel, Transponder, Karte …; die
+Auswahl ergibt sich aus den Systemen des Projekts). Dazu die Schließungen
+ohne benannten Träger mit ihrer eigenen Liste und je Art eine Summe. Fehlt
+die Art, steht dort ausdrücklich „– offen –“ statt einer Lücke.
 
 Unter *Stammdaten → Bestellangaben* lassen sich Kommission/Bestellzeichen und
 eine abweichende Lieferadresse pflegen. Beides erscheint am Ende der
@@ -586,7 +624,7 @@ Die Testreihen prüfen:
 | `test-robustheit.js` | leere und fehlerhafte Projekte, Grenzwerte, 300 Türen × 40 Schließungen, verwaiste Matrixeinträge, Importfehler |
 | `test-reports.js` | Erzeugung aller PDF-Ausgaben inklusive Randfälle |
 | `test-e2e.js` | vollständiger Durchlauf im echten Browser: Projekt anlegen, Struktur, Türen, Matrix, PDF-Download, Neuladen, Import, iPad- und Telefonbreite |
-| `test-bereich-gruppen.js` | Bereich aus der Gliederung öffnen und dort Türen erfassen, Pflichtangaben und ihre Folgen für den Status, freiwillige Felder, Einzelpersonen und Gruppen samt errechneter Medienanzahl |
+| `test-bereich-gruppen.js` | Bereich aus der Gliederung öffnen und dort Türen erfassen, Pflichtangaben und ihre Folgen für den Status, freiwillige Felder, Gruppen und Mitarbeiter als Spalten samt Medien je Mitarbeiter |
 | `test-exportlisten.js` | Materialliste: keine Doppelungen, Mengen stimmen mit dem Aufmaß überein, eigene Maßspalten je Bauteilart und die Leerspalten im erzeugten Dokument |
 | `test-bedienung.js` | Größe aller Bedienelemente (≥ 44 px), Schriftgröße der Eingabefelder (≥ 16 px gegen das Hineinzoomen auf iOS), Daumenzone, kein seitliches Scrollen |
 | `test-erscheinungsbild.js` | Hausfarben, Kontraste nach WCAG AA in beiden Darstellungen, Wahl der Darstellung samt Beständigkeit, Kundenseite, Farben auf dem Papier |

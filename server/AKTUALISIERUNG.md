@@ -1,19 +1,46 @@
 # Aufmaß-Werkzeug aktualisieren (laufende Installation)
 
 Diese Anleitung gilt, wenn das Werkzeug **schon läuft**: Plugin
-„Aufmaß-Abgleich“ 1.0 in WordPress, Ordner `aufmasstool` auf dem Webspace,
-Geräte angemeldet. Sie bringt beides auf den neuen Stand (Plugin 1.1.2,
-Werkzeug 1.1.2 mit Kurzlink-Freigabe, Sicherheitsrichtlinie,
-Aktualisierungshinweis und den Korrekturen aus dem Prüfdurchgang vom
-Oktober 2026 - unter anderem lässt sich der Pipedrive-Schlüssel jetzt
-auch beim ersten Versuch hinterlegen).
+„Aufmaß-Abgleich“ in WordPress, Ordner `aufmasstool` auf dem Webspace,
+Geräte angemeldet. Sie bringt beides auf den Stand **1.2.0** – Plugin
+und Werkzeug tragen dieselbe Fassungsnummer.
+
+**Was 1.2.0 bringt**
+
+- **Mitarbeiter und Gruppen** als eigene Listen unter dem Schließplan.
+  Eine Spalte im Plan ist eine Gruppe (alle Mitglieder berechtigt), ein
+  einzelner Mitarbeiter oder eine Schließung mit Rang; Medien werden je
+  Mitarbeiter geführt (mehrere Arten gleichzeitig). Bestehende Aufmaße
+  werden beim Öffnen von selbst überführt.
+- **Spalten verschieben** durch zwei Sekunden langes Drücken auf den
+  Spaltenkopf und Ziehen – samt aller Kreuze darunter.
+- **Blanko-Plan** legt nur noch den Generalhauptschlüssel und auf Wunsch
+  je Gruppe und je Mitarbeiter eine Spalte an; alles Weitere benennt man
+  selbst.
+- **Kundenfreigabe:** je Link wird festgelegt, was der Kunde darf
+  (Mitarbeiter pflegen, Gruppen anlegen, neue Spalten aufnehmen). Der
+  Kunde sendet eine Rückmeldung oder gibt den Plan **verbindlich frei**;
+  ein fertiger Plan lässt sich ihm auch nachträglich zur Freigabe
+  vorlegen. Nach der Freigabe ist der Link für ihn gesperrt, das Werkzeug
+  bleibt änderbar und zeigt den Vermerk (auch im PDF).
+- **Türformular:** der Abschnitt „Zutritt und Anforderungen“ entfällt.
+  Zylinder-Ausführungen: BSZ (beidseitig schließbar), beidseitig
+  elektronisch, Monitoring, VdS, SKG mit Stufe. Beschlag-Optionen: BSZ,
+  VdS, SKG mit Stufe.
+- **PDFs:** Legende mit Gruppen und Mitgliedern, Materialliste mit Medien
+  je Mitarbeiter und Summen je Medienart, Freigabe-Vermerk im Plan.
+- **Anmeldung gehärtet:** ohne eingetragene Organisationsdomäne ist die
+  Anmeldung gesperrt; der Google-Ausweis gilt genau einmal und höchstens
+  zehn Minuten; neue Konten der Organisation können auf Wunsch erst nach
+  Freigabe durch die Verwaltung zugelassen werden.
 
 **Zeitbedarf:** etwa 15 Minuten. **Ausfall:** keiner, die Aufmaße bleiben
 unberührt, niemand muss sich neu anmelden.
 
 **Reihenfolge einhalten:** zuerst das Plugin, dann der Ordner. Das neue
 Werkzeug fragt den Server nach Wegen, die das alte Plugin noch nicht
-kennt; umgekehrt kommt das alte Werkzeug mit dem neuen Plugin zurecht.
+kennt (Vorlegen, Freigeben); umgekehrt kommt das alte Werkzeug mit dem
+neuen Plugin zurecht – bis auf Freigabe-Links, siehe unten.
 
 ---
 
@@ -26,8 +53,10 @@ kennt; umgekehrt kommt das alte Werkzeug mit dem neuen Plugin zurecht.
    hat, braucht es nur für einen Rückweg, der praktisch nie nötig ist.
 
 Ein Datenbank-Backup legt Raidboxes ohnehin täglich an. Das neue Plugin
-ändert an den vorhandenen Tabellen nichts; es legt nur eine neue Tabelle
-hinzu (`wp_aufmass_freigaben`).
+ändert an den vorhandenen Tabellen nichts Zerstörendes; es **ergänzt die
+Tabelle `wp_aufmass_freigaben` um einige Spalten** (Rechte des Kunden,
+Vorlage, Freigabe) – das erledigt WordPress beim ersten Aufruf von selbst
+(`dbDelta`). Bestehende Zeilen bleiben.
 
 ---
 
@@ -39,13 +68,14 @@ hinzu (`wp_aufmass_freigaben`).
 3. WordPress erkennt, dass das Plugin schon vorhanden ist, und zeigt
    beide Fassungen nebeneinander. Auf **„Aktuelle durch hochgeladene
    ersetzen“** klicken.
-4. Das Plugin bleibt dabei aktiv. Beim ersten Aufruf danach legt es die
-   neue Tabelle selbst an und übernimmt die Umschreibregel für den
-   Kurzlink.
+4. Das Plugin bleibt dabei aktiv. Beim ersten Aufruf danach ergänzt es die
+   Tabelle und übernimmt die Umschreibregel für den Kurzlink.
 
-**Prüfen:** *Einstellungen → Aufmaß-Abgleich* öffnen. Dort muss jetzt
-ein Abschnitt **„Kundenfreigabe“** stehen (Gültigkeit der Links,
-Benachrichtigung). Fehlt er, läuft noch die alte Fassung.
+**Prüfen:** *Plugins* öffnen – bei „Aufmaß-Abgleich“ muss **1.2.0**
+stehen. Unter *Einstellungen → Aufmaß-Abgleich* muss neben der
+Organisationsdomäne die neue Zeile **„Neue Zugänge“** mit dem Haken
+„erst nach Freigabe durch die Verwaltung“ erscheinen. Fehlt sie, läuft
+noch die alte Fassung.
 
 > **Nicht** das Plugin „Löschen“ und neu installieren: Löschen räumt die
 > Einstellungen weg (Google-Client-ID, Domäne), die müssten danach neu
@@ -59,12 +89,14 @@ Benachrichtigung). Fehlt er, läuft noch die alte Fassung.
 
 ## Schritt 2 — Ordner `aufmasstool` austauschen (Webspace)
 
-Der neue Ordner enthält dieselben Dateien wie der alte (gleiche Namen,
-neuer Inhalt). Zwei Wege:
+Der neue Ordner enthält dieselben Dateien wie der alte plus **eine neue
+Datei** `js/views-personen.js` (Mitarbeiter und Gruppen). Deshalb immer
+den ganzen Ordner tauschen, nie einzelne Dateien. Zwei Wege:
 
 **Weg A, mit Rückweg (empfohlen):**
 
-1. `aufmasstool.zip` auf dem Rechner entpacken → Ordner `aufmasstool`.
+1. `aufmasstool.zip` auf dem Rechner entpacken → Ordner `aufmasstool`
+   (26 Dateien plus `LIESMICH.txt`).
 2. Per SFTP (FileZilla, Cyberduck) in das Wurzelverzeichnis der Website
    gehen – dort, wo `wp-admin/`, `wp-content/` und der bisherige Ordner
    `aufmasstool` liegen.
@@ -81,7 +113,8 @@ Umbenennen, aber ohne Rückweg.
 
 **Wichtig:** immer **alle** Dateien ersetzen, nie nur einzelne. Die
 Seite, der Service Worker (`sw.js`) und die Skripte gehören zusammen –
-eine Mischung aus alt und neu lädt nicht.
+eine Mischung aus alt und neu lädt nicht. Fehlt `js/views-personen.js`,
+bleibt der Schließplan leer.
 
 Per SSH geht es auch in einer Zeile im Wurzelverzeichnis:
 
@@ -107,10 +140,10 @@ vorbei – und meldet sich dann:
   starten**. Der speichert und schließt zuerst; es geht nichts verloren.
 
 Unter *Einstellungen → Über dieses Werkzeug* steht, welche Fassung auf
-dem Gerät läuft, und ein Knopf **Auf neue Fassung prüfen** stößt die
-Prüfung sofort an. Ein Gerät, das gerade ohne Netz ist, arbeitet mit der
-alten Fassung weiter, bis es wieder online war – auch das ist in Ordnung,
-die Aufmaße gleichen sich wie gewohnt ab.
+dem Gerät läuft (jetzt **1.2.0**), und ein Knopf **Auf neue Fassung
+prüfen** stößt die Prüfung sofort an. Ein Gerät, das gerade ohne Netz
+ist, arbeitet mit der alten Fassung weiter, bis es wieder online war –
+auch das ist in Ordnung, die Aufmaße gleichen sich wie gewohnt ab.
 
 > **Geräte, die noch auf der Fassung 1.1.0 oder älter hängen**, kennen
 > den Hinweis noch nicht. Dort: Werkzeug ganz schließen und zweimal mit
@@ -121,15 +154,22 @@ die Aufmaße gleichen sich wie gewohnt ab.
 
 ## Schritt 4 — Einstellungen einmal ansehen
 
-**WordPress → Einstellungen → Aufmaß-Abgleich → Kundenfreigabe**
+**WordPress → Einstellungen → Aufmaß-Abgleich**
 
-- *Gültigkeit der Links:* 30 Tage ist voreingestellt. 0 = unbegrenzt.
-- *Benachrichtigung:* eingeschaltet. Jede Übertragung eines Kunden geht
-  per E-Mail an den Ersteller des Links und alle Zuständigen des
-  Aufmaßes. Die Mail kommt von der WordPress-Mailfunktion
-  (`wordpress@provision-infra.de`, sofern kein Mail-Plugin etwas anderes
-  vorgibt).
-- *So sieht ein Link aus:* zeigt die Form des Kurzlinks.
+- *Organisationsdomäne:* muss eingetragen sein (`provision-infra.de`).
+  **Neu: Ohne Domäne ist die Anmeldung gesperrt** – bisher war sie dann
+  offen für jedes Google-Konto. Steht dort etwas, ändert sich nichts.
+- *Neue Zugänge:* der Haken **„Neue Konten der Organisation erst nach
+  Freigabe durch die Verwaltung zulassen“** ist aus (bisheriges
+  Verhalten: jedes Konto der Organisation ist sofort dabei). Wer möchte,
+  dass neue Kolleginnen und Kollegen erst freigeschaltet werden, setzt
+  den Haken; der Zugang wird dann angelegt, bleibt aber gesperrt, bis er
+  unter „Zugänge“ freigegeben wird. Die Betroffenen sehen beim Anmelden
+  einen klaren Hinweis.
+- *Kundenfreigabe:* Gültigkeit der Links (Vorgabe 30 Tage, 0 =
+  unbegrenzt) und Benachrichtigung – unverändert. Die E-Mail heißt bei
+  einer verbindlichen Freigabe jetzt „Verbindliche Freigabe des
+  Schließplans …“.
 
 **WordPress → Einstellungen → Permalinks**
 
@@ -140,27 +180,45 @@ zu ändern: Das übernimmt die Umschreibregel des Plugins auf jeden Fall.
 
 ---
 
-## Schritt 5 — Durchprobieren (fünf Minuten)
+## Schritt 5 — Durchprobieren (zehn Minuten)
 
 1. `https://www.provision-infra.de/aufmasstool/` öffnen. Die Anmeldeseite
    mit dem Google-Knopf muss erscheinen; ganz unten steht die
-   Werkzeug-Fassung. Anmelden. Oben rechts steht danach **„Abgeglichen“**,
-   und unter *Einstellungen → Über dieses Werkzeug* stehen die Fassung des
-   Werkzeugs und die des Server-Plugins.
-2. Ein Aufmaß öffnen → **Schließplan → Kundenfreigabe**. Eine Schließung
-   antippen, **Freigabe-Link erzeugen**. Es erscheint ein kurzer Link
-   `https://www.provision-infra.de/f/…` und darunter die Liste
-   „Bisherige Freigabe-Links“.
-3. Den Link in ein **privates Browserfenster** kopieren (dort ist niemand
-   angemeldet – so sieht es der Kunde). Die Matrix muss laden. Ein
-   freigegebenes Feld antippen, unten **Übertragen**, Namen eintragen,
-   **Jetzt übertragen**. „Vielen Dank“ erscheint.
-4. Zurück im Werkzeug: spätestens nach 15 Sekunden zeigt die Kopfzeile
+   Werkzeug-Fassung 1.2.0. Anmelden. Oben rechts steht danach
+   **„Abgeglichen“**, und unter *Einstellungen → Über dieses Werkzeug*
+   stehen die Fassung des Werkzeugs und die des Server-Plugins (beide
+   1.2.0).
+2. Ein bestehendes Aufmaß öffnen → **Schließplan**. Unter der Matrix
+   stehen jetzt **Mitarbeiter und Gruppen**: Die früheren Personen je
+   Schließung sind zur Mitarbeiterliste geworden, benannte Gruppen zu
+   Gruppen mit Mitgliedern. Die Spaltenköpfe zeigen die Medienzahl und
+   die Art (Gruppe / Mitarb.). Einen Spaltenkopf **zwei Sekunden halten**
+   und nach rechts ziehen – die Spalte wandert samt Kreuzen.
+3. **Kundenfreigabe** öffnen. Eine Spalte antippen, unter „Was darf der
+   Kunde außerdem?“ die Haken ansehen, **Freigabe-Link erzeugen**. Es
+   erscheint ein kurzer Link `https://www.provision-infra.de/f/…`,
+   darunter die Liste „Bisherige Freigabe-Links“ mit den Rechten.
+4. Den Link in ein **privates Browserfenster** kopieren (dort ist niemand
+   angemeldet – so sieht es der Kunde). Die Matrix muss laden, darunter
+   die Listen. Ein freigegebenes Feld antippen, unten **Rückmeldung
+   senden**, Namen eintragen, **Jetzt senden**. „Vielen Dank“ erscheint.
+5. Zurück im Werkzeug: spätestens nach 15 Sekunden zeigt die Kopfzeile
    **„1 Rückmeldung“** und der Schließplan einen Hinweis. **Prüfen und
    übernehmen** → der Bericht nennt das Feld → **Verwerfen** (es war ja
    nur ein Versuch).
-5. Im Postfach muss die Benachrichtigung liegen (ggf. Spam-Ordner).
-6. Im Dialog *Kundenfreigabe* den Probelink **zurückziehen**.
+6. Im Dialog *Kundenfreigabe* den Knopf **„Plan zur verbindlichen
+   Freigabe vorlegen“** drücken, den entstehenden Link wieder im privaten
+   Fenster öffnen: Der Plan ist nur zur Ansicht, unten steht **„Plan
+   verbindlich freigeben“**. Name und Funktion eintragen, Haken setzen,
+   freigeben. Im Werkzeug erscheint „Verbindliche Freigabe des Kunden
+   liegt vor“ → **Prüfen und übernehmen** → **Übernehmen**. Der Schließplan
+   zeigt jetzt den grünen Freigabe-Vermerk; das private Fenster meldet
+   nach dem Neuladen, dass der Plan freigegeben und gesperrt ist.
+7. Im Postfach müssen zwei Benachrichtigungen liegen (ggf. Spam-Ordner):
+   „Kundenrückmeldung …“ und „Verbindliche Freigabe des Schließplans …“.
+8. Beide Probelinks im Dialog *Kundenfreigabe* **zurückziehen** und das
+   Probe-Aufmaß, falls eigens angelegt, löschen – oder den Freigabe-
+   Vermerk im Aufmaß einfach stehen lassen, wenn es ein Testaufmaß war.
 
 Läuft alles bis hierher, ist die Aktualisierung fertig.
 
@@ -169,38 +227,71 @@ Läuft alles bis hierher, ist die Aktualisierung fertig.
 ## Was mit Bestehendem passiert
 
 - **Aufmaße, Fotos, Zuständigkeiten, Anmeldungen:** unverändert, nichts
-  muss neu gemacht werden.
-- **Alte, lange Freigabe-Links** (ohne Server erzeugt, vor 1.1.2): Die
-  Freigabeseite öffnet sie noch, aber ihre Rückmeldung lässt sich **nicht
-  mehr einlesen**. Seit 1.1.2 prüft das Werkzeug jede Rückmeldung gegen die
-  beim Erzeugen des Links abgelegte Freigabe; zu älteren Links gibt es
-  keine, und ungeprüft kommt nichts ins Aufmaß. Für laufende Freigaben
-  deshalb einen neuen Link erzeugen und dem Kunden senden. Kurzlinks über
-  den Server sind nicht betroffen.
-- **Pipedrive:** unverändert. Liegt der Schlüssel in WordPress, bleibt
-  er dort. Liegt er noch auf einzelnen Geräten und zeigt die Adresse
-  nicht auf `*.pipedrive.com`, dann den Schlüssel in WordPress eintragen
-  – die Seite lässt vom Gerät aus nur noch Verbindungen zu Pipedrive
-  selbst zu (Sicherheitsrichtlinie).
-- **Türen:** Stromversorgung und Vernetzung werden nicht mehr als
-  fehlend gezählt. Türen, die nur deshalb „unvollständig“ waren, gelten
-  jetzt als vollständig.
+  muss neu gemacht werden. Niemand wird abgemeldet.
+- **Schließpläne aus 1.1:** werden beim ersten Öffnen überführt.
+  Personen je Schließung → Mitarbeiterliste; Gruppen mit Mitgliedern →
+  Gruppen; eine Schließung mit Einzelpersonen behält sie als Träger;
+  von Hand gezählte Medien bleiben an der Spalte, die Art des Mediums
+  wandert zu den Mitgliedern. Die Überführung ist auf allen Geräten
+  gleich, daher entstehen beim Abgleich keine Konflikte. Es gehen keine
+  Angaben verloren; bitte die Mitarbeiterliste einmal durchsehen – wer
+  früher in zwei Schließungen namentlich stand, ist jetzt eine Person.
+- **Türen:** Zutrittsseite und bauliche Anforderungen (Brandschutz,
+  Fluchtweg, RC, VdS-Anforderung) werden nicht mehr erfasst und beim
+  Öffnen entfernt; Türen, die nur deshalb „unvollständig“ waren, gelten
+  jetzt als vollständig. „Not- und Gefahrenfunktion“ heißt jetzt „BSZ
+  (beidseitig schließbar)“.
+- **Freigabe-Links aus 1.1 (kurz und lang):** Sie wurden mit dem alten
+  Datenmodell erzeugt. Die Kundenseite meldet bei ihnen „aus einer
+  anderen Fassung“, und eine Rückmeldung dazu lässt sich nicht mehr
+  übernehmen. Für laufende Abstimmungen deshalb **neue Links erzeugen**
+  und dem Kunden senden. Rückmeldungen, die vor der Aktualisierung
+  bereits übertragen und noch nicht geprüft waren, bitte vor Schritt 1
+  prüfen – danach sind sie nicht mehr lesbar.
+- **Anmeldung:** nichts zu tun, solange die Organisationsdomäne
+  eingetragen ist. Wer die Freigabe neuer Zugänge einschaltet, muss
+  künftig neue Kolleginnen und Kollegen unter „Zugänge“ freigeben.
+- **Pipedrive:** unverändert.
 
 ---
 
 ## Wenn etwas nicht geht
 
-**Nach dem Austausch bleibt die Seite bei „Anwendung wird geladen …“**
-Alte und neue Dateien sind gemischt, oder der Zwischenspeicher liefert
-noch alte Dateien. Alle Dateien erneut hochladen, Cache leeren, Seite mit
-Strg+F5 (Mac: Cmd+Shift+R) neu laden.
+**Nach dem Austausch bleibt die Seite bei „Anwendung wird geladen …“
+oder der Schließplan ist leer**
+Alte und neue Dateien sind gemischt (meist fehlt `js/views-personen.js`),
+oder der Zwischenspeicher liefert noch alte Dateien. Alle Dateien erneut
+hochladen, Cache leeren, Seite mit Strg+F5 (Mac: Cmd+Shift+R) neu laden.
+
+**„Der Abgleich ist noch nicht eingerichtet: Es fehlt die
+Organisationsdomäne“**
+Unter *Einstellungen → Aufmaß-Abgleich* die Domäne eintragen und
+speichern. Bis dahin kann sich niemand anmelden – das ist beabsichtigt.
+
+**„Dieser Ausweis wurde bereits verwendet“ oder „Der Ausweis ist zu alt“**
+Einfach erneut auf den Google-Knopf tippen; es entsteht ein frischer
+Ausweis. Die Meldung erscheint nur, wenn derselbe Ausweis ein zweites Mal
+vorgezeigt wird oder zwischen Google und dem Werkzeug mehr als zehn
+Minuten vergangen sind (etwa nach einem Wechsel in eine andere App).
+Zeigt ein Gerät sie dauerhaft, geht seine Uhr falsch.
+
+**„Ihr Zugang wurde angelegt und muss von der Verwaltung erst freigegeben
+werden“**
+Die Freigabe neuer Zugänge ist eingeschaltet. Eine Person mit Verwaltung
+gibt den Zugang unter *Einstellungen → Aufmaß-Abgleich → Zugänge* frei.
 
 **Der Google-Knopf erscheint nicht**
 Browser-Konsole öffnen (F12 → Console). Steht dort eine Meldung mit
 „Content Security Policy“ und „accounts.google.com“, bitte den Wortlaut
-weitergeben. Übergangsweise lässt sich in `aufmasstool/index.html` die
-Zeile mit `Content-Security-Policy` entfernen – das Werkzeug läuft dann
-ohne diese zusätzliche Schutzschicht, bis die Richtlinie angepasst ist.
+weitergeben.
+
+**Der Kunde sieht „Der Link stammt aus einer anderen Fassung“**
+Das ist ein Link aus 1.1. Einen neuen Link erzeugen (siehe „Was mit
+Bestehendem passiert“).
+
+**„Zu diesem Link wartet noch eine Rückmeldung“ beim Vorlegen**
+Erst die wartende Rückmeldung prüfen (übernehmen oder verwerfen), dann
+vorlegen – sonst ginge sie stillschweigend unter.
 
 **Der Kurzlink zeigt die 404-Seite von WordPress**
 *Einstellungen → Permalinks → Änderungen speichern* (Schritt 4).
@@ -230,4 +321,8 @@ Bedarf schließen und erneut öffnen.
    hochgeladene ersetzen“ wählen.
 3. Cache leeren.
 
-Die neue Tabelle bleibt dabei stehen und stört die alte Fassung nicht.
+Die ergänzten Tabellenspalten bleiben dabei stehen und stören die alte
+Fassung nicht. Aufmaße, die mit 1.2.0 geöffnet und gespeichert wurden,
+tragen bereits das neue Datenmodell; die alte Fassung zeigt bei ihnen
+Spalten ohne Personen – deshalb den Rückweg nur unmittelbar nach der
+Aktualisierung gehen, bevor damit gearbeitet wurde.

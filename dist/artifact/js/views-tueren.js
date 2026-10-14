@@ -208,7 +208,7 @@
         var heu = [t.nummer, t.bezeichnung, t.kategorie, t.notiz, t.nacharbeitText,
                    K.zylinderText(t), K.beschlagText(t), K.schlossText(t),
                    K.systemLabel(M.tuerSystemId(p, t), eigeneListe('eigeneSysteme')), t.systemNotiz,
-                   t.zutrittsseite, (t.tueranforderungen || []).join(' ')].join(' ').toLowerCase();
+                   K.beschlagOptionenText(t)].join(' ').toLowerCase();
         if (heu.indexOf(q) === -1) return false;
       }
       return true;
@@ -370,7 +370,6 @@
       { id: 'zylinder',   titel: 'Zylinder',               schritt: 'Zylinder',              wenn: function () { return t.brauchtZylinder; }, bauen: zylinderBauen },
       { id: 'beschlag',   titel: 'Beschlag / Drücker',     schritt: 'Beschlag / Drücker',    wenn: function () { return t.brauchtBeschlag; }, bauen: beschlagBauen },
       { id: 'schloss',    titel: 'Schloss',                schritt: 'Schloss',               wenn: function () { return t.brauchtSchloss; }, bauen: schlossBauen },
-      { id: 'zutritt',    titel: 'Zutritt und Anforderungen', schritt: 'Zutritt',            immer: true,  bauen: zutrittBauen },
       { id: 'elektronik', titel: 'Elektronik und Vernetzung', schritt: 'Elektronik',         wenn: elektronikRelevant, bauen: elektronikBauen },
       { id: 'tuerdaten',  titel: 'Türdaten',               schritt: 'Türdaten',              immer: true,  freiwillig: true, bauen: tuerdatenBauen },
       { id: 'bestand',    titel: 'Bestand / Altanlage',    schritt: 'Bestand',               immer: true,  freiwillig: true, bauen: bestandBauen },
@@ -521,7 +520,17 @@
       gesamtlaengeZeigen();
       ziel.appendChild(A.chipFeld(t, 'zylinderAusfuehrung',
         'Ausführung <span class="einheit">(nur wenn zutreffend)</span>',
-        liste('ZYLINDER_AUSFUEHRUNG')));
+        liste('ZYLINDER_AUSFUEHRUNG'),
+        /* „SKG“ verlangt eine Stufe: das Feld erscheint, sobald der Chip gesetzt ist */
+        { beiAenderung: function (o) { if (o === 'SKG') abschnittNeu('zylinder'); } }));
+      if ((t.zylinderAusfuehrung || []).indexOf('SKG') !== -1) {
+        ziel.appendChild(el('div', { class: 'raster', style: { marginTop: '10px' } }, [
+          A.auswahlFeld(t, 'zylinderSkgStufe', 'SKG-Stufe', K.SKG_STUFE,
+            { leerText: '– bitte wählen –', beiAenderung: markieren })
+        ]));
+      } else if (t.zylinderSkgStufe) {
+        t.zylinderSkgStufe = '';
+      }
       ziel.appendChild(widerspruecheBauen());
     }
 
@@ -542,6 +551,17 @@
         t.beschlagSicherheit = '';
       }
       ziel.appendChild(raster);
+      ziel.appendChild(A.chipFeld(t, 'beschlagOptionen',
+        'Optionen <span class="einheit">(nur wenn zutreffend)</span>', K.BESCHLAG_OPTIONEN,
+        { beiAenderung: function (o) { if (o === 'SKG') abschnittNeu('beschlag'); } }));
+      if ((t.beschlagOptionen || []).indexOf('SKG') !== -1) {
+        ziel.appendChild(el('div', { class: 'raster', style: { marginTop: '10px' } }, [
+          A.auswahlFeld(t, 'beschlagSkgStufe', 'SKG-Stufe', K.SKG_STUFE,
+            { leerText: '– bitte wählen –', beiAenderung: markieren })
+        ]));
+      } else if (t.beschlagSkgStufe) {
+        t.beschlagSkgStufe = '';
+      }
       ziel.appendChild(el('h3', { text: 'Maße für den Beschlag' }));
       ziel.appendChild(masseRasterBauen());
       ziel.appendChild(widerspruecheBauen());
@@ -601,23 +621,6 @@
           ])
         ])
       ]));
-      ziel.appendChild(widerspruecheBauen());
-    }
-
-    /* --- 6. Zutritt ---------------------------------------------------- */
-    function zutrittBauen(ziel) {
-      ziel.appendChild(el('div', { class: 'raster' }, [
-        A.auswahlFeld(t, 'zutrittsseite', 'Von welcher Seite wird geöffnet?', K.ZUTRITTSSEITE,
-          { leerText: '– bitte wählen –', beiAenderung: markieren })
-      ]));
-      var feld = A.chipFeld(t, 'tueranforderungen',
-        'Bauliche Anforderungen <span class="einheit">(mehrere möglich)</span>',
-        liste('TUERANFORDERUNG', 'eigeneZutrittsarten'));
-      /* Eine Änderung hier kann einen Widerspruch zum Schloss auflösen */
-      feld.addEventListener('click', function () { setTimeout(widerspruecheZeigen, 0); });
-      ziel.appendChild(feld);
-      ziel.appendChild(el('p', { class: 'hinweis', style: { marginTop: '10px' },
-        text: 'Bei Flucht- und Rettungswegen sowie Brand- und Rauchschutztüren sind die bauaufsichtlichen Anforderungen zu beachten; die Auswahl hier ersetzt keine Prüfung vor Ort.' }));
       ziel.appendChild(widerspruecheBauen());
     }
 
@@ -761,17 +764,6 @@
      * wird, unter dem Stift wegziehen. */
     function widerspruecheZeigen() {
       var meldungen = [];
-      var istFlucht = (t.tueranforderungen || []).indexOf('Flucht- und Rettungsweg') !== -1;
-
-      if (istFlucht && t.brauchtSchloss && t.schlossFunktion && !/Panik/.test(t.schlossFunktion)) {
-        meldungen.push('Die Tür ist als Flucht- und Rettungsweg gekennzeichnet, das Schloss hat aber keine Panikfunktion.');
-      }
-      if (istFlucht && !t.brauchtSchloss) {
-        meldungen.push('Flucht- und Rettungsweg: Bitte das Schloss mit erfassen, die Panikfunktion ist bestellrelevant.');
-      }
-      if (t.brauchtZylinder && (t.zylinderAusfuehrung || []).indexOf('Anti-Panik') !== -1 && !istFlucht) {
-        meldungen.push('Zylinder mit Anti-Panik gewählt – gehört diese Tür zum Flucht- und Rettungsweg?');
-      }
       if (t.zylinderBauform === 'Halbzylinder' && t.masseInnen &&
           parseInt(String(t.masseInnen).replace(',', '.'), 10) > 15) {
         meldungen.push('Bei einem Halbzylinder ist die Innenlänge üblicherweise 10 mm.');

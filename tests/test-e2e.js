@@ -229,15 +229,16 @@ function pruefe(bedingung, text, info) {
   await page.click('button:has-text("Blanko-Plan")');
   await page.waitForSelector('.dialog');
   const vorschauText = await page.textContent('.dialog .meldung');
-  pruefe(/Schließung(en)? werden angelegt/.test(vorschauText),
-    'Blanko-Plan zeigt vorab, wie viele Schließungen entstehen', vorschauText.trim().slice(0, 60));
+  pruefe(/Spalten? (wird|werden) angelegt/.test(vorschauText),
+    'Blanko-Plan zeigt vorab, wie viele Spalten entstehen', vorschauText.trim().slice(0, 60));
   await page.click('.dialog button:has-text("Plan erzeugen")');
   await page.waitForSelector('table.matrix', { timeout: 6000 });
   const spalten = await page.$$eval('table.matrix th.spaltenkopf', n => n.length);
-  pruefe(spalten >= 3, 'Blanko-Plan legt GHS, Hauptschlüssel und Gruppe an (' + spalten + ' Schließungen)');
+  pruefe(spalten >= 1, 'Blanko-Plan legt den Generalhauptschlüssel an (' + spalten + ' Spalten)');
   const kuerzel = await page.$$eval('table.matrix th.spaltenkopf .dreh', n => n.map(x => x.textContent.trim()));
-  pruefe(kuerzel.some(k => /^GHS/.test(k)) && kuerzel.some(k => /^HS-/.test(k)),
-    'Hierarchie aus Generalhaupt- und Hauptschlüssel entsteht', kuerzel.join(' | '));
+  pruefe(kuerzel.some(k => /^GHS/.test(k)) && !kuerzel.some(k => /^HS-/.test(k)),
+    'nur der GHS ist voreingestellt - alle weiteren Spalten benennt man selbst', kuerzel.join(' | '));
+  pruefe(await page.$('.personen-karte') !== null, 'unter der Matrix stehen Mitarbeiter und Gruppen');
   const gesetzt = await page.$$eval('table.matrix td.zelle', z =>
     z.filter(c => c.textContent.trim()).length);
   pruefe(gesetzt > 0, 'Berechtigungen sind bereits gesetzt (' + gesetzt + ' Kreuze)');

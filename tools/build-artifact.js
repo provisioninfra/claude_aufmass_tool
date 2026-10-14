@@ -11,7 +11,7 @@ const ZIEL = path.join(WURZEL, 'dist', 'artifact');
 
 const SKRIPTE = [
   'catalog.js', 'model.js', 'pdf.js', 'reports.js', 'store.js', 'verlauf.js', 'freigabe.js', 'pipedrive.js',
-  'app.js', 'views-projekt.js', 'views-tueren.js', 'views-plan.js', 'main.js'
+  'app.js', 'views-projekt.js', 'views-tueren.js', 'views-personen.js', 'views-plan.js', 'main.js'
 ];
 
 fs.mkdirSync(path.join(ZIEL, 'js'), { recursive: true });

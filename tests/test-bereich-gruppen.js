@@ -1,6 +1,6 @@
 /* Prüft die vier neuen Funktionen gegen die Oberfläche:
  *   1. Türen aus einem Bereich der Gliederung heraus erfassen
- *   2. Einzelpersonen und Gruppen je Schließung
+ *   2. Gruppen und Mitarbeiter als Spalten im Schließplan
  *   3. Pflichtangaben an der Tür (kennzeichnen, nicht blockieren)
  *   4. Einsteckschloss-, Tür- und Kabelangaben als freiwillige Felder
  */
@@ -201,104 +201,77 @@ function pruefe(b, t, i) { if (b) { ok++; console.log('  OK   ' + t); } else { f
   await page.waitForTimeout(250);
 
   /* =======================================================================
-   * 4. Einzelpersonen und Gruppen je Schließung
+   * 4. Gruppen und Mitarbeiter als Spalten im Schließplan
    * ==================================================================== */
-  console.log('\n== Personen und Gruppen ==');
+  console.log('\n== Gruppen und Mitarbeiter ==');
   await page.click('nav.reiter button:has-text("Schließplan")');
   await page.waitForSelector('table.matrix');
-  await page.click('button:has-text("+ Schließung")');
+  pruefe(await page.$('.personen-karte') !== null, 'unter der Matrix stehen Mitarbeiter und Gruppen');
+
+  /* Eine neue Gruppe direkt als Spalte anlegen */
+  await page.click('button:has-text("+ Spalte")');
   await page.waitForSelector('.dialog');
-  await page.fill('.dialog input[type=text] >> nth=0', 'TEST-GR');
-  await page.fill('.dialog input[type=text] >> nth=1', 'Testgruppe');
-
-  const traegerWahl = page.locator('.dialog select').filter({
-    has: page.locator('option[value="gruppe"]') }).first();
-  pruefe(await traegerWahl.count() === 1, 'die Frage nach dem Träger wird gestellt');
-  await traegerWahl.selectOption('gruppe');
-  await page.waitForTimeout(300);
-
-  await page.fill('.dialog input[placeholder*="Reinigung"]', 'Reinigung Glanz GmbH');
+  const artChips = await page.$$eval('.dialog .chips >> nth=0 >> .chip', n => n.map(x => x.textContent.trim()));
+  pruefe(artChips.join('|') === 'Gruppe|Mitarbeiter|Schließung / Schlüssel',
+    'die Spaltenart wird zuerst gefragt: Gruppe, Mitarbeiter oder Schließung', artChips.join('|'));
+  await page.click('.dialog .chip:has-text("Gruppe")');
   await page.waitForTimeout(250);
-  const gruppenKnopf = await page.textContent('.dialog .gruppen-knopf');
-  pruefe(/Reinigung Glanz GmbH/.test(gruppenKnopf),
-    'der Gruppenname steht auf dem Knopf zur Mitgliederliste', gruppenKnopf.trim());
-
-  /* Auf den Gruppennamen tippen öffnet die Mitgliederliste */
-  await page.click('.dialog .gruppen-knopf');
-  await page.waitForTimeout(400);
-  const dialoge = await page.$$eval('.dialog', n => n.length);
-  pruefe(dialoge === 2, 'der Klick auf den Gruppennamen öffnet die Mitgliederliste');
-
-  const mitgliedDlg = '.dialog-hinter:last-of-type .dialog';
-  await page.click(mitgliedDlg + ' button:has-text("+ Mitglied")');
-  await page.waitForTimeout(250);
-  await page.fill(mitgliedDlg + ' .person-zeile >> nth=0 >> input >> nth=0', 'Frau Yilmaz');
-  await page.fill(mitgliedDlg + ' .person-zeile >> nth=0 >> input >> nth=1', 'Objektleitung');
-  await page.fill(mitgliedDlg + ' .person-zeile >> nth=0 >> input >> nth=2', '2');
-  await page.click(mitgliedDlg + ' button:has-text("+ Mitglied")');
-  await page.waitForTimeout(250);
-  await page.fill(mitgliedDlg + ' .person-zeile >> nth=1 >> input >> nth=0', 'Herr Novak');
-  await page.waitForTimeout(250);
-  await page.click(mitgliedDlg + ' .fuss button:has-text("Fertig")');
-  await page.waitForTimeout(400);
-
-  const nachMitglieder = await page.textContent('.dialog .gruppen-knopf');
-  pruefe(/2 Mitglieder/.test(nachMitglieder), 'die Mitgliederzahl wird am Gruppennamen geführt',
-    nachMitglieder.trim());
-
-  /* Die Medienzahl ergibt sich aus der Summe: 2 + 1 = 3 */
-  const medienFeld = await page.evaluate(() => {
-    const d = document.querySelector('.dialog');
-    const feld = [...d.querySelectorAll('.feld')].find(e =>
-      /Anzahl Schlüssel/.test(e.querySelector('label') ? e.querySelector('label').textContent : ''));
-    if (!feld) return null;
-    const eing = feld.querySelector('input');
-    return { wert: eing.value, nurLesen: eing.readOnly,
-             label: feld.querySelector('label').textContent };
-  });
-  pruefe(medienFeld && medienFeld.wert === '3' && medienFeld.nurLesen === true,
-    'die Anzahl der Medien ergibt sich aus den Personen (2 + 1 = 3)', JSON.stringify(medienFeld));
-  pruefe(medienFeld && /automatisch/.test(medienFeld.label),
-    'dass die Zahl errechnet wird, steht am Feld', medienFeld && medienFeld.label);
-
-  /* Von Hand übersteuern muss möglich bleiben */
-  await page.click('.dialog button:has-text("Anzahl von Hand eintragen")');
-  await page.waitForTimeout(300);
-  const vonHandFeld = await page.evaluate(() => {
-    const d = document.querySelector('.dialog');
-    const feld = [...d.querySelectorAll('.feld')].find(e =>
-      /Anzahl Schlüssel/.test(e.querySelector('label') ? e.querySelector('label').textContent : ''));
-    return feld ? { nurLesen: feld.querySelector('input').readOnly } : null;
-  });
-  pruefe(vonHandFeld && vonHandFeld.nurLesen === false,
-    'die Anzahl lässt sich auch von Hand eintragen');
-  await page.click('.dialog button:has-text("Wieder automatisch")');
-  await page.waitForTimeout(300);
-
+  await page.fill('.dialog input[placeholder="Name der neuen Gruppe"]', 'Reinigung Glanz GmbH');
   await page.click('.dialog .fuss button:has-text("Anlegen")');
+  await page.waitForTimeout(600);
+  const spalte = await page.evaluate(() => {
+    const p = window.AppKern.Zustand.projekt;
+    const g = p.gruppen.find(x => x.name === 'Reinigung Glanz GmbH');
+    const s = g && p.schliessungen.find(x => x.art === 'gruppe' && x.gruppeId === g.id);
+    return { gruppe: !!g, spalte: !!s, kuerzel: s && s.kuerzel, bezeichnung: s && s.bezeichnung };
+  });
+  pruefe(spalte.gruppe && spalte.spalte, 'die Gruppe ist angelegt und hat eine Spalte', JSON.stringify(spalte));
+  pruefe(spalte.kuerzel === 'RGG' && spalte.bezeichnung === 'Reinigung Glanz GmbH',
+    'die Spalte heißt wie die Gruppe und bekommt ein Kürzel aus dem Namen', JSON.stringify(spalte));
+
+  /* Mitglieder über die Gruppe anlegen - Medien je Mitarbeiter */
+  await page.click('.gruppen-liste .chip.gruppe:has-text("Reinigung Glanz GmbH")');
+  await page.waitForSelector('.dialog');
+  pruefe(/Gruppe bearbeiten/.test(await page.textContent('.dialog .kopf')), 'ein Tippen auf die Gruppe öffnet sie');
+  await page.click('.dialog .chip:has-text("+ Mitarbeiter anlegen")');
+  await page.waitForTimeout(300);
+  const mitarbeiterDlg = '.dialog-hinter:last-of-type .dialog';
+  pruefe((await page.$$eval('.dialog', n => n.length)) === 2, 'der neue Mitarbeiter entsteht in einem eigenen Dialog');
+  await page.fill(mitarbeiterDlg + ' input[placeholder="z. B. Max Mustermann"]', 'Frau Yilmaz');
+  await page.click(mitarbeiterDlg + ' button:has-text("+ Medium eintragen")');
+  await page.waitForTimeout(250);
+  await page.fill(mitarbeiterDlg + ' .medien-zeile .zahl-anzeige', '2');
+  await page.click(mitarbeiterDlg + ' .fuss button:has-text("Anlegen")');
+  await page.waitForTimeout(400);
+  await page.click('.dialog .chip:has-text("+ Mitarbeiter anlegen")');
+  await page.waitForTimeout(300);
+  await page.fill(mitarbeiterDlg + ' input[placeholder="z. B. Max Mustermann"]', 'Herr Novak');
+  await page.click(mitarbeiterDlg + ' .fuss button:has-text("Anlegen")');
+  await page.waitForTimeout(400);
+  const gedrueckt = await page.$$eval('.dialog .chip[aria-pressed="true"]', n => n.map(x => x.textContent.trim()));
+  pruefe(gedrueckt.indexOf('Frau Yilmaz') !== -1 && gedrueckt.indexOf('Herr Novak') !== -1,
+    'neu angelegte Mitarbeiter sind gleich als Mitglieder gewählt', gedrueckt.join(' | '));
+  await page.click('.dialog .fuss button:has-text("Übernehmen")');
   await page.waitForTimeout(600);
 
   const gespeichert = await page.evaluate(() => {
     const p = window.AppKern.Zustand.projekt;
-    const s = p.schliessungen.find(x => x.kuerzel === 'TEST-GR');
-    return { traegerArt: s.traegerArt, gruppenName: s.gruppenName,
-             personen: s.personen.map(x => x.name + '/' + x.funktion + '/' + x.anzahlMedien),
-             medien: window.Model.medienAnzahl(s), gespeichert: s.anzahlMedien };
+    const g = p.gruppen.find(x => x.name === 'Reinigung Glanz GmbH');
+    const s = p.schliessungen.find(x => x.art === 'gruppe' && x.gruppeId === g.id);
+    const leute = window.Model.gruppenMitglieder(p, g.id);
+    return { mitglieder: leute.map(m => m.name + '/' + window.Model.mitarbeiterMedienAnzahl(m)),
+             medien: window.Model.medienAnzahl(p, s), kopf: document.querySelector('th.spaltenkopf[data-id="' + s.id + '"] .medien').textContent };
   });
-  pruefe(gespeichert.traegerArt === 'gruppe' && gespeichert.gruppenName === 'Reinigung Glanz GmbH',
-    'die Gruppe ist gespeichert', JSON.stringify(gespeichert.gruppenName));
-  pruefe(gespeichert.personen.length === 2 && /Frau Yilmaz\/Objektleitung\/2/.test(gespeichert.personen[0]),
-    'die Mitglieder sind mit Funktion und Anzahl gespeichert', gespeichert.personen.join(' | '));
-  pruefe(gespeichert.medien === 3 && gespeichert.gespeichert === 3,
-    'die errechnete Anzahl steht auch im Projekt', String(gespeichert.gespeichert));
+  pruefe(gespeichert.mitglieder.length === 2 && /Frau Yilmaz\/2/.test(gespeichert.mitglieder.join()),
+    'die Mitglieder stehen in der Mitarbeiterliste - mit ihrer Medienzahl', gespeichert.mitglieder.join(' | '));
+  pruefe(gespeichert.medien === 3 && gespeichert.kopf === '3×',
+    'die Medien der Spalte ergeben sich aus den Mitarbeitern (2 + 1 = 3) - auch im Spaltenkopf', JSON.stringify(gespeichert));
+  pruefe(/2 Mitglieder/.test(await page.textContent('.gruppen-liste .chip.gruppe:has-text("Reinigung Glanz GmbH")')),
+    'die Mitgliederzahl steht an der Gruppe');
 
   /* Eine Gruppe ohne Namen wird nicht angelegt */
-  await page.click('button:has-text("+ Schließung")');
+  await page.click('.personen-karte button:has-text("+ Gruppe")');
   await page.waitForSelector('.dialog');
-  await page.fill('.dialog input[type=text] >> nth=0', 'X1');
-  await page.locator('.dialog select').filter({
-    has: page.locator('option[value="gruppe"]') }).first().selectOption('gruppe');
-  await page.waitForTimeout(250);
   await page.click('.dialog .fuss button:has-text("Anlegen")');
   await page.waitForTimeout(400);
   const nochOffen = await page.$$eval('.dialog', n => n.length);
@@ -306,15 +279,24 @@ function pruefe(b, t, i) { if (b) { ok++; console.log('  OK   ' + t); } else { f
   await page.keyboard.press('Escape');
   await page.waitForTimeout(300);
 
-  /* Verwaltungsliste zeigt den Träger */
+  /* Ein Mitarbeiter, der einzeln und über die Gruppe berechtigt ist, wird gemeldet */
+  await page.click('.personen-tabelle tr:has-text("Frau Yilmaz") button:has-text("Bearbeiten")');
+  await page.waitForSelector('.dialog');
+  await page.click('.dialog label.schalter:has-text("Eigene Spalte")');
+  await page.click('.dialog .fuss button:has-text("Übernehmen")');
+  await page.waitForTimeout(600);
+  pruefe(await page.$('.doppelt-hinweis') !== null && /Frau Yilmaz/.test(await page.textContent('.doppelt-hinweis')),
+    'steht jemand einzeln und in seiner Gruppe, erscheint ein Hinweis', (await page.textContent('.doppelt-hinweis').catch(() => '')).slice(0, 80));
+
+  /* Verwaltungsliste zeigt Art und Träger */
   await page.click('button:has-text("Verwalten")');
   await page.waitForSelector('.dialog table');
   const kopf = await page.$$eval('.dialog table th', n => n.map(x => x.textContent));
-  pruefe(kopf.indexOf('Träger') !== -1 && kopf.indexOf('Rang im Plan') !== -1,
-    'die Verwaltung unterscheidet Rang und Träger', kopf.join(' | '));
+  pruefe(kopf.indexOf('Art') !== -1 && kopf.indexOf('Träger / Mitglieder') !== -1,
+    'die Verwaltung unterscheidet Art und Träger', kopf.join(' | '));
   const zeilenText = await page.textContent('.dialog table');
-  pruefe(/Reinigung Glanz GmbH \(2 Personen\)/.test(zeilenText),
-    'die Gruppe erscheint mit Mitgliederzahl', (zeilenText.match(/Reinigung[^\n]{0,40}/) || [''])[0]);
+  pruefe(/Reinigung Glanz GmbH/.test(zeilenText) && /2 Mitglieder/.test(zeilenText),
+    'die Gruppe erscheint mit Mitgliederzahl', (zeilenText.match(/Reinigung[^\n]{0,60}/) || [''])[0]);
   await page.keyboard.press('Escape');
   await page.waitForTimeout(300);
 

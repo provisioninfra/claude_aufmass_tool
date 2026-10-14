@@ -230,12 +230,46 @@ function token($paar, $zusatz = array()) {
         'iss' => 'https://accounts.google.com', 'aud' => '111-abc.apps.googleusercontent.com',
         'sub' => 'u-neu', 'email' => 'neu@provision-infra.de', 'email_verified' => true,
         'hd' => 'provision-infra.de', 'name' => 'Neue Person',
-        'iat' => time() - 10, 'exp' => time() + 3600), $zusatz)));
+        'iat' => time() - 10, 'exp' => time() + 3600,
+        /* Jeder Ausweis anders - wie bei Google, wo kein Ausweis dem anderen gleicht */
+        'nonce' => bin2hex(random_bytes(6))), $zusatz)));
     openssl_sign($kopf . '.' . $inhalt, $sig, $paar, OPENSSL_ALGO_SHA256);
     return $kopf . '.' . $inhalt . '.' . b64t($sig);
 }
 
 $_COOKIE = array();
+/* Ohne Organisationsdomäne ist die Anmeldung gesperrt */
+update_option('aufmass_domaene', '');
+$e = Aufmass_Anmeldung::anmelden(token($paar));
+pruefe(is_wp_error($e) && $e->get_error_code() === 'nicht_eingerichtet' && stripos($e->get_error_message(), 'domäne') !== false,
+    'ohne Organisationsdomäne wird niemand angemeldet - auch kein Konto der Organisation', fehlertext($e));
+update_option('aufmass_domaene', 'provision-infra.de');
+/* Derselbe Ausweis gilt genau einmal */
+$selbe = token($paar);
+$e1 = Aufmass_Anmeldung::anmelden($selbe);
+$e2 = Aufmass_Anmeldung::anmelden($selbe);
+pruefe(!is_wp_error($e1) && is_wp_error($e2) && $e2->get_error_code() === 'anmeldung_abgelehnt' && strpos($e2->get_error_message(), 'bereits verwendet') !== false,
+    'derselbe Ausweis gilt nur einmal - ein mitgelesener Ausweis eröffnet keine zweite Sitzung', fehlertext($e2));
+Aufmass_Anmeldung::abmelden();
+$_COOKIE = array();
+/* Ein alter Ausweis wird abgelehnt, auch wenn er noch nicht abgelaufen ist */
+$e = Aufmass_Anmeldung::anmelden(token($paar, array('iat' => time() - 1200)));
+pruefe(is_wp_error($e) && strpos($e->get_error_message(), 'zu alt') !== false, 'ein 20 Minuten alter Ausweis wird abgelehnt', fehlertext($e));
+/* Neue Konten erst nach Freigabe - wenn so eingestellt */
+update_option('aufmass_neue_freigeben', '1');
+$e = Aufmass_Anmeldung::anmelden(token($paar, array('sub' => 'u-wartet', 'email' => 'wartet@provision-infra.de', 'name' => 'W. Wartet')));
+pruefe(is_wp_error($e) && $e->get_error_code() === 'freigabe_noetig' && $e->get_error_data()['status'] === 403,
+    'mit der Einstellung „erst freigeben“ bekommt ein neues Konto keine Sitzung, sondern den Hinweis', fehlertext($e));
+pruefe((int) $wpdb->get_var("SELECT aktiv FROM wp_aufmass_benutzer WHERE id = 'u-wartet'") === 0 && empty($_COOKIE['aufmass_sitzung']),
+    'der Zugang ist angelegt, aber gesperrt - und es gibt kein Cookie');
+$e = Aufmass_Anmeldung::anmelden(token($paar, array('sub' => 'u-wartet', 'email' => 'wartet@provision-infra.de')));
+pruefe(is_wp_error($e) && $e->get_error_code() === 'gesperrt', 'ein zweiter Versuch meldet: gesperrt oder noch nicht freigegeben', fehlertext($e));
+$wpdb->update('wp_aufmass_benutzer', array('aktiv' => 1), array('id' => 'u-wartet'));
+$e = Aufmass_Anmeldung::anmelden(token($paar, array('sub' => 'u-wartet', 'email' => 'wartet@provision-infra.de')));
+pruefe(!is_wp_error($e) && $e['benutzer']['id'] === 'u-wartet', 'nach der Freigabe geht die Anmeldung', fehlertext($e));
+Aufmass_Anmeldung::abmelden();
+$_COOKIE = array();
+update_option('aufmass_neue_freigeben', '0');
 $e = Aufmass_Anmeldung::anmelden(token($paar));
 pruefe(!is_wp_error($e) && $e['benutzer']['id'] === 'u-neu', 'die Anmeldung legt den Benutzer an', fehlertext($e));
 pruefe($e['benutzer']['rolle'] === 'mitarbeit', 'ein weiterer Benutzer bekommt nur Mitarbeit', $e['benutzer']['rolle']);

@@ -93,15 +93,16 @@ In WordPress: **Einstellungen → Aufmaß-Abgleich**
 Speichern.
 
 > **Die Domäne ist die eigentliche Zugangssperre.** Bleibt das Feld leer,
-> darf sich *jedes beliebige* Google-Konto anmelden. Der Server prüft bei
-> jeder Anmeldung, dass das Konto zu dieser Organisation gehört – und
-> zusätzlich, dass die Adresse auf `@provision-infra.de` endet.
+> ist die Anmeldung gesperrt – niemand kommt hinein, bis die Domäne
+> eingetragen ist. Der Server prüft bei jeder Anmeldung, dass das Konto zu
+> dieser Organisation gehört (Organisationsangabe im Ausweis von Google)
+> – und zusätzlich, dass die Adresse auf `@provision-infra.de` endet.
 
 ---
 
 ## Schritt 4 — Das Werkzeug ablegen
 
-Das Werkzeug besteht aus 25 normalen Dateien. Sie werden **nicht in
+Das Werkzeug besteht aus 26 normalen Dateien. Sie werden **nicht in
 WordPress installiert**, sondern *neben* WordPress auf denselben Webspace
 gelegt. Der Webserver liefert einen echten Ordner direkt aus und reicht
 nur Anfragen an WordPress weiter, zu denen es keine Datei gibt – deshalb
@@ -136,7 +137,7 @@ Protokoll SFTP, Port 22.
 2. Im FTP-Programm rechts ins Wurzelverzeichnis gehen.
 3. Den **ganzen Ordner `aufmasstool`** hinüberziehen – den Ordner, nicht
    nur seinen Inhalt. Die Unterordner `js/` und `css/` kommen so mit.
-4. Warten, bis die Warteschlange leer ist: 26 Dateien (25 plus
+4. Warten, bis die Warteschlange leer ist: 27 Dateien (26 plus
    `LIESMICH.txt`, die darf mit).
 
 **Weg 2 – ZIP per SSH** (wer SSH ohnehin nutzt):
@@ -162,7 +163,7 @@ unzip ~/aufmasstool.zip       # legt den Ordner aufmasstool an
     ├── manifest.webmanifest
     ├── icon.svg, icon-180.png, icon-192.png, icon-512.png
     ├── css/app.css
-    └── js/…                          (16 Dateien)
+    └── js/…                          (17 Dateien)
 ```
 
 Typische Fehler: Der Ordner heißt anders (`aufmasstool (1)`,
@@ -208,6 +209,31 @@ lassen sich einzeln sperren. **Sperren meldet sofort alle Geräte dieser
 Person ab** – wichtig, wenn jemand ausscheidet oder ein iPad abhanden
 kommt.
 
+**Wer sich anmelden darf – und wie das geprüft wird**
+
+* Ausschließlich Google-Workspace-Konten der eingetragenen
+  **Organisationsdomäne**. Der Server prüft beides: die
+  Organisationsangabe (`hd`) im Ausweis von Google *und* die Adresse.
+  Private Google-Konten (gmail.com) tragen keine Organisation und fallen
+  heraus. **Ohne eingetragene Domäne ist die Anmeldung gesperrt** – nicht
+  etwa offen.
+* Das Kennwort bleibt bei Google; der Server sieht es nie. Google
+  bestätigt die Anmeldung mit einem unterschriebenen Ausweis, den der
+  Server gegen Googles aktuelle Schlüssel prüft (nur RS256; „alg: none“
+  und andere Verfahren werden abgewiesen). Der Ausweis muss für genau
+  diese Client-ID ausgestellt sein, darf höchstens zehn Minuten alt sein
+  und gilt **genau einmal** – ein mitgelesener Ausweis eröffnet keine
+  zweite Sitzung.
+* Danach weist sich das Gerät über ein eigenes Sitzungscookie aus
+  (HttpOnly, Secure, SameSite=Strict, 30 Tage); jede schreibende Anfrage
+  braucht zusätzlich das eigene Kopffeld des Werkzeugs. Fehlversuche
+  werden je Herkunft gedrosselt.
+* Mit dem Haken **„Neue Konten der Organisation erst nach Freigabe durch
+  die Verwaltung zulassen“** wird ein neues Konto zwar angelegt, bleibt
+  aber gesperrt, bis es unter „Zugänge“ freigegeben wird. Ohne Haken ist
+  jedes Konto der Organisation sofort dabei. Die erste Anmeldung erhält
+  in jedem Fall die Verwaltung.
+
 ---
 
 ## Schritt 6 — Pipedrive (optional)
@@ -244,9 +270,20 @@ auf dem Gerät.
 
 Der Kunde bekommt einen **kurzen Link**, zum Beispiel
 `https://www.provision-infra.de/f/k7m2p9x4qa`. Er öffnet ihn im Browser,
-trägt in den freigegebenen Feldern ein, wer welche Tür öffnen darf, gibt
-seinen Namen an und klickt auf **Übertragen**. Mehr muss er nicht tun -
-kein Konto, keine Datei, kein Zurückschicken.
+trägt in den freigegebenen Feldern ein, wer welche Tür öffnen darf, pflegt
+- soweit der Link es erlaubt - seine Mitarbeiter und Gruppen oder nimmt
+neue Spalten auf, gibt seinen Namen an und klickt auf **Rückmeldung
+senden** oder auf **Rückmeldung senden und Plan freigeben**. Mehr muss er
+nicht tun - kein Konto, keine Datei, kein Zurückschicken.
+
+Was der Kunde darf, legt die Person fest, die den Link erzeugt: welche
+Spalten er bearbeiten darf, ob er Mitarbeiter pflegen, Gruppen anlegen
+und neue Spalten aufnehmen darf. Die **verbindliche Freigabe** schließt
+die Abstimmung ab: Danach ist der Link für den Kunden gesperrt, das
+Werkzeug bleibt änderbar und zeigt den Vermerk. Ein fertiger Plan lässt
+sich dem Kunden auch nachträglich zur Freigabe vorlegen (*Kundenfreigabe
+→ Plan zur verbindlichen Freigabe vorlegen*); er sieht dann den aktuellen
+Stand ohne Bearbeitung und klickt nur auf „Plan verbindlich freigeben“.
 
 **Was dann passiert**
 
@@ -256,15 +293,19 @@ kein Konto, keine Datei, kein Zurückschicken.
 2. Im Werkzeug erscheint auf jedem zuständigen Gerät mit Internet oben in
    der Kopfzeile **„1 Rückmeldung"** und im Schließplan ein Hinweis.
 3. **Prüfen und übernehmen** zeigt einen Bericht: welche Tür, welche
-   Schließung, bisher → neu, dazu geänderte Inhaberlisten und die
-   Anmerkung des Kunden. **Erst „Übernehmen" ändert das Aufmaß.**
-   „Verwerfen" legt die Rückmeldung ab, ohne etwas zu ändern. Der Kunde
-   kann jederzeit erneut übertragen; dann wartet eine neue Rückmeldung.
+   Spalte, bisher → neu, dazu neue oder geänderte Mitarbeiter und
+   Gruppen, neue Spalten, eine verbindliche Freigabe und die Anmerkung
+   des Kunden. **Erst „Übernehmen" ändert das Aufmaß.** „Verwerfen" legt
+   die Rückmeldung ab, ohne etwas zu ändern - eine verworfene Freigabe
+   gilt nicht. Ohne Freigabe kann der Kunde jederzeit erneut übertragen;
+   nach einer übernommenen Freigabe ist der Link für ihn gesperrt.
 
 Der Link wird im Werkzeug unter *Schließplan → Kundenfreigabe* erzeugt.
 Dort stehen auch alle bisherigen Links des Aufmaßes mit ihrem Zustand
-(offen, wartet auf Prüfung, übernommen, verworfen, abgelaufen) und ein
-Knopf **Zurückziehen**, der einen Link sofort unbrauchbar macht.
+(offen, wartet auf Prüfung, übernommen, zur Freigabe vorgelegt,
+freigegeben, verworfen, abgelaufen), den eingeräumten Rechten, einem Knopf
+**Zur Freigabe vorlegen** und einem Knopf **Zurückziehen**, der einen Link
+sofort unbrauchbar macht.
 
 **Einstellungen in WordPress** (*Einstellungen → Aufmaß-Abgleich →
 Kundenfreigabe*): Gültigkeit der Links in Tagen (Vorgabe 30, 0 =
@@ -280,9 +321,11 @@ beim Aktivieren und bei jeder neuen Fassung von selbst.
 > und stammt aus dem Zufallsgenerator des Systems. Wer Codes rät, wird je
 > Herkunftsadresse gedrosselt. Jeder Link läuft ab und lässt sich
 > zurückziehen. Der Server prüft jede Antwort gegen die Freigabe: Nur
-> Felder, die freigegeben waren, werden angenommen - alles andere wird
-> abgewiesen. Und ins Aufmaß kommt nichts ohne die Bestätigung einer
-> zuständigen Person. Erledigte Freigaben werden nach 180 Tagen gelöscht.
+> Felder, die freigegeben waren, und nur Listen, für die der Link das
+> Recht einräumt, werden angenommen - alles andere, auch eine erfundene
+> Kennung, weist die ganze Antwort ab. Und ins Aufmaß kommt nichts ohne
+> die Bestätigung einer zuständigen Person. Erledigte Freigaben werden
+> nach 180 Tagen gelöscht.
 
 Die Einzeldatei (ohne Server) erzeugt weiterhin den langen Link mit den
 Daten im Anker; die Rückmeldung kommt dort wie bisher als Rückschlüssel.
@@ -344,8 +387,9 @@ nichts länger als nötig behalten, nichts an Dritte geben.
 | Zugänge | Google-Kennung, Name, E-Mail-Adresse, erste und letzte Anmeldung | bis der Zugang in WordPress gelöscht wird |
 | Sitzungen | je Gerät eine Kennung; das Geheimnis nur als Prüfwert | 30 Tage, dann von selbst weg; Sperren beendet sie sofort |
 | Aufmaße, Fotos, Zuständigkeiten | was im Werkzeug angelegt wird | bis zum Löschen im Werkzeug, danach 90 Tage im Papierkorb, dann endgültig |
-| Kundenfreigaben | die Plandaten des Links (Türen, Schließungen, bekannte Inhaber) | bis der Link abläuft oder zurückgezogen wird – dann sofort entfernt |
-| Rückmeldungen | Name und Anmerkung des Kunden, seine Eintragungen | bis eine zuständige Person sie übernommen oder verworfen hat, danach noch 180 Tage |
+| Kundenfreigaben | die Plandaten des Links (Türen, Spalten, Mitarbeiter und Gruppen des Kunden, Rechte) | bis der Link abläuft oder zurückgezogen wird – dann sofort entfernt |
+| Rückmeldungen | Name und Anmerkung des Kunden, seine Eintragungen; bei einer Freigabe Name, Funktion und Zeitpunkt | bis eine zuständige Person sie übernommen oder verworfen hat, danach noch 180 Tage |
+| Anmeldung | ein Abdruck jedes verwendeten Google-Ausweises (gegen Wiederverwendung) | bis der Ausweis bei Google abgelaufen wäre, höchstens rund eine Stunde |
 | Drosselung | ein Zähler je Herkunft (gekürzter, gehashter Adressbereich – keine IP-Adresse) | 10 Minuten |
 
 Die Fristen räumt ein täglicher WordPress-Zeitplan ab; er läuft, sobald
@@ -364,10 +408,10 @@ liegt in jedem Fall im Werkzeug.
 
 ### Was der Kunde sieht
 
-Über seinen Link sieht der Kunde nur den freigegebenen Ausschnitt: die
-Türen, die freigegebenen Schließungen und die bisher bekannten Inhaber.
-Er sieht keine Kennungen, keine Namen von Mitarbeitern und keine anderen
-Aufmaße. Der Kurzlink taucht in den Zugriffsprotokollen des Hosters auf,
+Über seinen Link sieht der Kunde nur sein eigenes Aufmaß: die Türen,
+alle Spalten des Plans, seine Mitarbeiter und Gruppen (es sind seine
+eigenen Leute) und die Rechte, die der Link ihm einräumt. Er sieht keine
+Zugänge, keine Namen eurer Mitarbeiter und keine anderen Aufmaße. Der Kurzlink taucht in den Zugriffsprotokollen des Hosters auf,
 die Raidboxes nach eigener Regel aufbewahrt; wer das vermeiden will,
 zieht den Link nach der Rückmeldung zurück – dann ist er wertlos.
 
@@ -468,9 +512,13 @@ hinterlegen (Schritt 6), der Server übernimmt die Abfrage.
   vorgeschalteten Proxy des Hosters. Sperren einer Person meldet alle ihre
   Geräte sofort ab.
 - **Der Google-Ausweis** wird serverseitig gegen Googles Schlüssel geprüft
-  (Unterschrift, Aussteller, Client-ID, Ablauf, bestätigte Adresse,
-  Organisationsdomäne). Fehlgeschlagene Anmeldungen werden je Herkunft
-  gedrosselt (30 in zehn Minuten), damit niemand den Server mit
+  (Unterschrift nur RS256, Aussteller, Client-ID samt `azp`, Ablauf,
+  Ausstellungszeit – höchstens zehn Minuten alt –, bestätigte Adresse,
+  Organisationsdomäne im `hd` *und* in der Adresse). Jeder Ausweis gilt
+  genau einmal; ein zweites Vorzeigen wird abgewiesen. Ohne eingetragene
+  Domäne ist die Anmeldung gesperrt. Fehlgeschlagene Anmeldungen werden
+  je Herkunft gedrosselt (30 in zehn Minuten), Googles Schlüssel werden
+  höchstens einmal je Minute neu geholt, damit niemand den Server mit
   erfundenen Ausweisen beschäftigt.
 - **Kundenfreigabe:** Code mit rund 50 Bit Zufall; je Herkunft werden
   unbekannte Codes (30), Aufrufe (120) und Übertragungen (12) in zehn

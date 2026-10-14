@@ -16,7 +16,8 @@ function basisProjekt() {
     id: 'prj', kunde: 'Müller GmbH', objekt: 'Haus A', bemerkung: '',
     standorte: [{ id: 'st1', ebene: 'standort', name: 'Düsseldorf', parentId: null, sort: 0 }],
     tueren: [tuer('t1'), tuer('t2'), tuer('t3')],
-    schliessungen: [{ id: 's1', kuerzel: 'GHS', bezeichnung: 'General', personen: [] }],
+    schliessungen: [{ id: 's1', kuerzel: 'GHS', bezeichnung: 'General', art: 'schliessung', traeger: [], medien: [] }],
+    mitarbeiter: [], gruppen: [],
     matrix: { 't1|s1': 'ja' }
   };
 }
@@ -168,18 +169,19 @@ p(e.ergebnis.tueren[0].fotos.length === 2, 'beide Fotos überleben',
   JSON.stringify(e.ergebnis.tueren[0].fotos.map(f => f.id)));
 
 meins = k(b); server = k(b);
-meins.schliessungen[0].personen.push({ id: 'p1', name: 'Frau A', anzahlMedien: 1 });
-server.schliessungen[0].personen.push({ id: 'p2', name: 'Herr B', anzahlMedien: 2 });
+meins.mitarbeiter.push({ id: 'ma-1', name: 'Frau A', gruppen: [], medien: [{ typ: 'Karte', anzahl: 1 }] });
+server.mitarbeiter.push({ id: 'ma-2', name: 'Herr B', gruppen: [], medien: [] });
+server.gruppen.push({ id: 'grp-1', name: 'EDV' });
 e = Z.projekte(b, meins, server);
-p(e.konflikte.length === 0, 'beide ergänzen eine Person: kein Konflikt');
-p(e.ergebnis.schliessungen[0].personen.length === 2, 'beide Personen überleben');
+p(e.konflikte.length === 0, 'beide ergänzen einen Mitarbeiter, einer eine Gruppe: kein Konflikt', JSON.stringify(e.konflikte));
+p(e.ergebnis.mitarbeiter.length === 2 && e.ergebnis.gruppen.length === 1, 'beide Mitarbeiter und die Gruppe überleben');
 
 meins = k(b); server = k(b);
-meins.schliessungen[0].personen.push({ id: 'p1', name: 'Frau A', anzahlMedien: 1 });
-server.schliessungen[0].personen.push({ id: 'p1', name: 'Frau A', anzahlMedien: 3 });
+meins.mitarbeiter.push({ id: 'ma-1', name: 'Frau A', gruppen: [], medien: [{ typ: 'Karte', anzahl: 1 }] });
+server.mitarbeiter.push({ id: 'ma-1', name: 'Frau A', gruppen: [], medien: [{ typ: 'Karte', anzahl: 3 }] });
 e = Z.projekte(b, meins, server);
-p(e.konflikte.length === 1 && e.konflikte[0].bereich === 'Person',
-  'dieselbe Person mit verschiedener Medienzahl: Konflikt', JSON.stringify(e.konflikte));
+p(e.konflikte.length === 1 && /Mitarbeiter/.test(e.konflikte[0].bereich),
+  'derselbe Mitarbeiter mit verschiedener Medienzahl: Konflikt', JSON.stringify(e.konflikte));
 
 console.log('\n== Stammdaten ==');
 b = basisProjekt();

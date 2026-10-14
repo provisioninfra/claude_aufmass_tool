@@ -5,14 +5,14 @@
  * Die Fassung hier muss mit FASSUNG in js/app.js übereinstimmen (der
  * Prüflauf achtet darauf). Jede neue Fassung bekommt damit eine neue
  * Ablage, und alle Geräte holen beim nächsten Start den neuen Stand. */
-var FASSUNG = '1.1.2';
+var FASSUNG = '1.2.0';
 var CACHE = 'aufmass-tool-' + FASSUNG;
 var DATEIEN = [
   './', './index.html', './freigabe.html', './css/app.css', './manifest.webmanifest',
   './icon.svg', './icon-180.png', './icon-192.png', './icon-512.png',
   './js/catalog.js', './js/model.js', './js/pdf.js', './js/reports.js',
   './js/store.js', './js/verlauf.js', './js/freigabe.js', './js/pipedrive.js', './js/app.js', './js/views-projekt.js', './js/views-tueren.js',
-  './js/views-plan.js', './js/main.js',
+  './js/views-personen.js', './js/views-plan.js', './js/main.js',
   /* Der Abgleich gehört mit in die Ablage: Sonst stünde das Werkzeug
      beim Start ohne Netz ohne diese Dateien da. */
   './js/zusammenfuehren.js', './js/abgleich.js', './js/abgleich-ui.js',

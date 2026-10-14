@@ -83,7 +83,7 @@ if ($rest === '/start' && $art === 'GET') {
     if ($b) {
         $aus['pipedrive'] = Aufmass_Pipedrive::eingerichtet();
         $aus['pipedriveHost'] = $aus['pipedrive'] ? Aufmass_Pipedrive::host_anzeige() : '';
-        $aus['version'] = '1.0.0-test';
+        $aus['version'] = '1.2.0-test';
     }
     raus($aus);
 }
@@ -129,7 +129,25 @@ if ($rest === '/freigaben' && $art === 'POST') {
     kopffeldPruefen();
     $b = benutzerOderRaus();
     $e = Aufmass_Freigaben::anlegen(isset($json['projektId']) ? $json['projektId'] : '',
-        isset($json['daten']) ? $json['daten'] : null, isset($json['seite']) ? $json['seite'] : '', $b);
+        isset($json['daten']) ? $json['daten'] : null, isset($json['seite']) ? $json['seite'] : '', $b,
+        !empty($json['vorlegen']));
+    if (is_wp_error($e)) { fehler($e); }
+    raus($e);
+}
+if (preg_match('#^/freigaben/([A-Za-z0-9]{6,16})/vorlegen$#', $rest, $t) && $art === 'POST') {
+    kopffeldPruefen();
+    $b = benutzerOderRaus();
+    $e = Aufmass_Freigaben::vorlegen($t[1], isset($json['daten']) ? $json['daten'] : null, $b);
+    if (is_wp_error($e)) { fehler($e); }
+    raus(array('freigabe' => $e));
+}
+if (preg_match('#^/freigaben/([A-Za-z0-9]{6,16})/freigeben$#', $rest, $t) && $art === 'POST') {
+    kopffeldPruefen();
+    if (strlen($koerper) > Aufmass_Freigaben::KOERPER_MAX) {
+        raus(array('code' => 'zu_gross', 'message' => 'Die Anfrage ist zu umfangreich.'), 413);
+    }
+    $e = Aufmass_Freigaben::freigeben($t[1], isset($json['name']) ? $json['name'] : '',
+        isset($json['funktion']) ? $json['funktion'] : '', isset($json['anmerkung']) ? $json['anmerkung'] : '');
     if (is_wp_error($e)) { fehler($e); }
     raus($e);
 }

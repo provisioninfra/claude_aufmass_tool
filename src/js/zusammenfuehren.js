@@ -33,7 +33,11 @@
     standorte: { name: 'Gliederung', bezeichnung: function (k) { return k.name || 'ohne Namen'; },
                  unterlisten: [] },
     freigabenLokal: { name: 'Freigabe', bezeichnung: function (f) { return f.erstellt || 'Freigabe'; },
-                      unterlisten: [] }
+                      unterlisten: [] },
+    mitarbeiter: { name: 'Mitarbeiter', bezeichnung: function (m) { return m.name || 'ohne Namen'; },
+                   unterlisten: [] },
+    gruppen: { name: 'Gruppe', bezeichnung: function (g) { return g.name || 'ohne Namen'; },
+               unterlisten: [] }
   };
 
   /* Verständliche Namen für die Angaben, über die gestritten werden kann. */
@@ -72,8 +76,8 @@
     anlagenart: 'Art der Anlage', systemMechanik: 'Mechanisches System',
     systemElektronik: 'Elektronisches System', systemDetail: 'Detail zur Anlage',
     bemerkung: 'Bemerkung', kommission: 'Kommission', lieferAdresse: 'Lieferadresse',
-    kuerzel: 'Kürzel', traegerArt: 'Trägerart', gruppenName: 'Gruppenname',
-    medienTyp: 'Art des Mediums', anzahlMedien: 'Anzahl Medien',
+    kuerzel: 'Kürzel', art: 'Art der Spalte', traeger: 'Träger', medien: 'Medien',
+    gruppen: 'Gruppen', gruppeId: 'Gruppe', mitarbeiterId: 'Mitarbeiter', freigabe: 'Freigabe des Kunden',
     name: 'Name', funktion: 'Funktion / Abteilung', typ: 'Rang im Plan',
     sort: 'Reihenfolge', parentId: 'übergeordnet', ebene: 'Ebene',
     beschriftung: 'Bildunterschrift'

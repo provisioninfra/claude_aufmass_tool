@@ -112,7 +112,7 @@
       struktur:  { text: '+ Standort',     tun: function () { VP.standortAnlegen(zeichnen); } },
       bereich:   { text: '+ Neue Tür hier', tun: function () {
                      VT.tuerBearbeiten(null, zeichnen, { strukturId: Zustand.bereichId }); } },
-      plan:      { text: '+ Schließung',   tun: function () { VPL.schliessungBearbeiten(null, zeichnen); } }
+      plan:      { text: '+ Spalte',       tun: function () { VPL.schliessungBearbeiten(null, zeichnen); } }
     };
 
     if (!p && ['projekte', 'einstellungen'].indexOf(Zustand.ansicht) === -1) {

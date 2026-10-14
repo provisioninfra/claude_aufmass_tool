@@ -43,7 +43,7 @@ function pruefe(b, t, i) { if (b) { ok++; console.log('  OK   ' + t); } else { f
   await chips[10].click();
   await page.waitForTimeout(200);
   const vorschau = await page.textContent('.dialog .meldung');
-  pruefe(/2 Schließungen/.test(vorschau), 'Vorschau nennt den Umfang', vorschau.trim().slice(0, 70));
+  pruefe(/2 Spalten/.test(vorschau), 'Vorschau nennt den Umfang', vorschau.trim().slice(0, 70));
 
   await page.fill('.dialog input[type=text] >> nth=0', 'Bitte die Reinigungszeiten eintragen');
   await page.click('.dialog button:has-text("Freigabe-Link erzeugen")');
@@ -97,35 +97,38 @@ function pruefe(b, t, i) { if (b) { ok++; console.log('  OK   ' + t); } else { f
   const zaehlerText = await kundeSeite.textContent('#fr-zaehler');
   pruefe(/Änderung/.test(zaehlerText), 'die Änderungen werden gezählt', zaehlerText.trim());
 
-  // --- Inhaberlisten: nur für die zwei freigegebenen Schließungen ---
-  const bloecke = await kundeSeite.$$('.fr-inhaber-block');
-  pruefe(bloecke.length === 2, 'genau die zwei freigegebenen Schließungen haben eine Inhaberliste (' + bloecke.length + ')');
-  const blockTitel = (await bloecke[0].$eval('h3', n => n.textContent)).trim();
-  const kuerzelKunde = blockTitel.split(' ')[0];
-  const personenVorher = await bloecke[0].$$eval('.fr-person-zeile', n => n.length);
-  pruefe(personenVorher > 0, 'die heutigen Inhaber stehen bereits drin (' + personenVorher + ')');
-  await bloecke[0].$eval('button:has-text("+ Person")', b => b.click());
+  // --- Mitarbeiter und Gruppen: der Kunde darf sie pflegen (Vorgabe des Links) ---
+  pruefe(await kundeSeite.$('#fr-listen') !== null, 'unter der Matrix stehen Mitarbeiter und Gruppen');
+  const karten = await kundeSeite.$$eval('#fr-mitarbeiter .fr-ma', n => n.length);
+  pruefe(karten === projekt.mitarbeiter.length, 'alle Mitarbeiter stehen zur Bearbeitung bereit (' + karten + ')');
+  await kundeSeite.click('#fr-ma-neu');
   await kundeSeite.waitForTimeout(150);
-  const neueZeile = (await bloecke[0].$$('.fr-person-zeile')).pop();
-  await neueZeile.$eval('input.name', n => { n.focus(); });
+  const neueKarte = (await kundeSeite.$$('#fr-mitarbeiter .fr-ma')).pop();
+  await neueKarte.$eval('input.name', n => { n.focus(); });
   await kundeSeite.keyboard.type('Frau Kundenseitig');
-  await neueZeile.$eval('input.funktion', n => { n.focus(); });
-  await kundeSeite.keyboard.type('Empfang');
-  await neueZeile.$eval('input.anzahl', n => { n.focus(); n.select(); });
+  await neueKarte.$eval('.chip', c => c.click());
+  await neueKarte.$eval('button:has-text("+ Medium eintragen")', b => b.click());
+  await kundeSeite.waitForTimeout(150);
+  await neueKarte.$eval('input.anzahl', n => { n.focus(); n.select(); });
   await kundeSeite.keyboard.type('3');
   await kundeSeite.waitForTimeout(150);
-  pruefe(await bloecke[0].evaluate(n => n.classList.contains('geaendert')), 'die geänderte Liste wird markiert');
+  pruefe(await neueKarte.evaluate(n => n.classList.contains('geaendert')), 'der neue Mitarbeiter wird als Änderung markiert');
   const zaehler2 = await kundeSeite.textContent('#fr-zaehler');
-  pruefe(/1 Inhaberliste geändert/.test(zaehler2), 'der Zähler nennt die geänderte Inhaberliste', zaehler2.trim());
-  // Die andere Liste: eine Person entfernen und wieder prüfen, dass der Zähler stimmt
-  const zweiter = bloecke[1];
-  const zeilen2 = await zweiter.$$('.fr-person-zeile');
-  if (zeilen2.length) {
-    await zeilen2[0].$eval('button[title="Person entfernen"]', b => b.click());
+  pruefe(/Mitarbeiterliste geändert/.test(zaehler2), 'der Zähler nennt die geänderte Mitarbeiterliste', zaehler2.trim());
+  // Einen Mitarbeiter ohne eigene Spalte entfernen
+  const entfernbar = await kundeSeite.$('#fr-mitarbeiter .fr-ma button[title="Mitarbeiter entfernen"]');
+  if (entfernbar) {
+    await entfernbar.click();
     await kundeSeite.waitForTimeout(150);
-    const zaehler3 = await kundeSeite.textContent('#fr-zaehler');
-    pruefe(/2 Inhaberlisten geändert/.test(zaehler3), 'auch das Entfernen zählt', zaehler3.trim());
+    pruefe((await kundeSeite.$$eval('#fr-mitarbeiter .fr-ma', n => n.length)) === karten, 'auch das Entfernen zählt (einer dazu, einer weg)');
   }
+  // Eine neue Gruppe
+  await kundeSeite.click('#fr-gruppe-neu');
+  await kundeSeite.waitForTimeout(150);
+  await kundeSeite.keyboard.type('Empfang');
+  await kundeSeite.waitForTimeout(150);
+  const zaehler3 = await kundeSeite.textContent('#fr-zaehler');
+  pruefe(/Gruppen geändert/.test(zaehler3), 'der Zähler nennt die geänderten Gruppen', zaehler3.trim());
 
   // --- Rückmeldung erzeugen ---
   await kundeSeite.click('button:has-text("Rückmeldung erzeugen")');
@@ -164,17 +167,17 @@ function pruefe(b, t, i) { if (b) { ok++; console.log('  OK   ' + t); } else { f
   await page.waitForTimeout(600);
   const nachher = await page.evaluate(() => JSON.stringify(window.AppKern.Zustand.projekt.matrix));
   pruefe(vorher !== nachher, 'die Berechtigungen des Kunden stehen im Projekt');
-  pruefe(/Inhaberliste/.test(meldung), 'die Meldung nennt die übernommenen Inhaberlisten', meldung.trim().slice(0, 90));
-  const inhaberImProjekt = await page.evaluate(k => {
-    const s = window.AppKern.Zustand.projekt.schliessungen.filter(x => x.kuerzel === k)[0];
-    return s ? s.personen.map(x => [x.name, x.funktion, x.anzahlMedien, /^per-/.test(x.id)]) : null;
-  }, kuerzelKunde);
-  const neu = (inhaberImProjekt || []).filter(x => x[0] === 'Frau Kundenseitig')[0];
-  pruefe(!!neu, 'die vom Kunden eingetragene Person steht in der Schließung ' + kuerzelKunde,
-    JSON.stringify(inhaberImProjekt));
-  pruefe(neu && neu[1] === 'Empfang' && neu[2] === 3, 'mit Funktion und Anzahl', JSON.stringify(neu));
-  pruefe(neu && neu[3] === true, 'und hat eine eigene Kennung bekommen');
-  pruefe((inhaberImProjekt || []).every(x => x[3]), 'alle Personen der Liste tragen Kennungen');
+  pruefe(/Mitarbeiter neu/.test(meldung) && /Gruppe neu/.test(meldung), 'die Meldung nennt den neuen Mitarbeiter und die neue Gruppe', meldung.trim().slice(0, 120));
+  const imProjekt = await page.evaluate(() => {
+    const p = window.AppKern.Zustand.projekt;
+    const m = p.mitarbeiter.find(x => x.name === 'Frau Kundenseitig');
+    return { mitarbeiter: m ? [m.name, m.gruppen.length, m.medien.map(x => x.anzahl), /^ma-/.test(m.id)] : null,
+             gruppe: p.gruppen.some(g => g.name === 'Empfang'), alleKennungen: p.mitarbeiter.every(x => /^ma-/.test(x.id)) };
+  });
+  pruefe(imProjekt.mitarbeiter && imProjekt.mitarbeiter[1] === 1 && imProjekt.mitarbeiter[2][0] === 3,
+    'der vom Kunden eingetragene Mitarbeiter steht mit Gruppe und Anzahl im Projekt', JSON.stringify(imProjekt));
+  pruefe(imProjekt.mitarbeiter && imProjekt.mitarbeiter[3] === true && imProjekt.alleKennungen, 'und alle Mitarbeiter tragen eigene Kennungen');
+  pruefe(imProjekt.gruppe, 'die neue Gruppe „Empfang“ ist angelegt');
 
   // Zurück-Knopf kann die Übernahme rücknehmen
   const zurueckMoeglich = await page.$('.zurueck-knopf:not([disabled])');

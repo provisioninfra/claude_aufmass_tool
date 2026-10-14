@@ -208,6 +208,8 @@ class WPDB_Attrappe {
             antwort TEXT, antwort_nr INTEGER DEFAULT 0, antwort_am TEXT, antwort_name TEXT DEFAULT '',
             antwort_anmerkung TEXT, antwort_anzahl INTEGER DEFAULT 0, antwort_listen INTEGER DEFAULT 0,
             uebernommen_nr INTEGER DEFAULT 0, uebernommen_am TEXT, uebernommen_von TEXT DEFAULT '',
+            rechte TEXT DEFAULT '', vorgelegt_am TEXT, freigabe_am TEXT, freigabe_name TEXT DEFAULT '',
+            freigabe_funktion TEXT DEFAULT '', freigabe_art TEXT DEFAULT '',
             geaendert_am TEXT)");
     }
 

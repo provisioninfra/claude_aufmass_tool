@@ -83,6 +83,16 @@ class Aufmass_Rest {
             'methods' => 'POST', 'callback' => array(__CLASS__, 'freigabe_antwort'),
             'permission_callback' => array(__CLASS__, 'schreibschutz')
         ));
+        /* Verbindliche Freigabe des vorgelegten Plans - vom Kunden, ohne Konto */
+        register_rest_route(self::RAUM, '/freigaben/(?P<code>[A-Za-z0-9]{6,16})/freigeben', array(
+            'methods' => 'POST', 'callback' => array(__CLASS__, 'freigabe_freigeben'),
+            'permission_callback' => array(__CLASS__, 'schreibschutz')
+        ));
+        /* Den aktuellen Plan zur verbindlichen Freigabe vorlegen - von den Zuständigen */
+        register_rest_route(self::RAUM, '/freigaben/(?P<code>[A-Za-z0-9]{6,16})/vorlegen', array(
+            'methods' => 'POST', 'callback' => array(__CLASS__, 'freigabe_vorlegen'),
+            'permission_callback' => array(__CLASS__, 'angemeldet_schreibend')
+        ));
         register_rest_route(self::RAUM, '/freigaben/(?P<code>[A-Za-z0-9]{6,16})/(?P<aktion>uebernommen|verwerfen|zurueckziehen)', array(
             'methods' => 'POST', 'callback' => array(__CLASS__, 'freigabe_aktion'),
             'permission_callback' => array(__CLASS__, 'angemeldet_schreibend')
@@ -212,7 +222,28 @@ class Aufmass_Rest {
             (string) $anfrage->get_param('projektId'),
             $anfrage->get_param('daten'),
             (string) $anfrage->get_param('seite'),
+            Aufmass_Anmeldung::aktueller_benutzer(),
+            !empty($anfrage->get_param('vorlegen')));
+        return is_wp_error($e) ? $e : self::antwort($e);
+    }
+
+    public static function freigabe_vorlegen($anfrage) {
+        $e = Aufmass_Freigaben::vorlegen(
+            self::pfad($anfrage, 'code'),
+            $anfrage->get_param('daten'),
             Aufmass_Anmeldung::aktueller_benutzer());
+        return is_wp_error($e) ? $e : self::antwort(array('freigabe' => $e));
+    }
+
+    public static function freigabe_freigeben($anfrage) {
+        if (strlen((string) $anfrage->get_body()) > Aufmass_Freigaben::KOERPER_MAX) {
+            return new WP_Error('zu_gross', 'Die Anfrage ist zu umfangreich.', array('status' => 413));
+        }
+        $e = Aufmass_Freigaben::freigeben(
+            self::pfad($anfrage, 'code'),
+            (string) $anfrage->get_param('name'),
+            (string) $anfrage->get_param('funktion'),
+            (string) $anfrage->get_param('anmerkung'));
         return is_wp_error($e) ? $e : self::antwort($e);
     }
 

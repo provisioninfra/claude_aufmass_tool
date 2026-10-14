@@ -215,7 +215,6 @@
     standardBearbeiter: '',
     eigeneSysteme: [],
     eigeneZylinderarten: [],
-    eigeneZutrittsarten: [],
     eigeneBeschlagarten: [],
     eigeneSchlossarten: [],
     /* Pipedrive: Der Schlüssel verbleibt auf diesem Gerät und wird weder

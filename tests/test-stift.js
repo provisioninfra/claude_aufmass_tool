@@ -378,22 +378,28 @@ const MIT_ZAEHLER = ['anzahl', 'bestandAnzahlSchluessel'];
   await page.keyboard.press('Escape');
   await page.waitForTimeout(300);
 
-  /* Schließung samt Personen und Mitgliederliste */
+  /* Spalte, Gruppe und Mitarbeiter samt Medienliste */
   await page.evaluate(() => window.App.wechseln('plan'));
   await page.waitForSelector('table.matrix');
-  await page.click('.spaltenkopf:has-text("IT")');
+  await page.click('th.spaltenkopf.art-gruppe >> nth=0');
   await page.waitForSelector('.dialog');
   await page.waitForTimeout(400);
   const schlProbe = await schreibprobe('.dialog');
   pruefe(schlProbe.kaputt.length === 0,
     'die Felder der Schließung überstehen die Eingabe (' + schlProbe.geprueft + ')',
     schlProbe.kaputt.join(', '));
-  await page.click('.dialog .gruppen-knopf');
+  await page.click('.dialog button:has-text("Gruppe bearbeiten")');
   await page.waitForTimeout(400);
-  const mitglProbe = await schreibprobe('.dialog-hinter:last-of-type .dialog');
-  pruefe(mitglProbe.kaputt.length === 0,
-    'auch die Mitgliederliste übersteht die Eingabe (' + mitglProbe.geprueft + ')',
-    mitglProbe.kaputt.join(', '));
+  const grpProbe = await schreibprobe('.dialog');
+  pruefe(grpProbe.kaputt.length === 0,
+    'auch die Gruppe übersteht die Eingabe (' + grpProbe.geprueft + ')',
+    grpProbe.kaputt.join(', '));
+  await page.click('.dialog .chip:has-text("+ Mitarbeiter anlegen")');
+  await page.waitForTimeout(400);
+  const maProbe = await schreibprobe('.dialog-hinter:last-of-type .dialog');
+  pruefe(maProbe.kaputt.length === 0,
+    'und der Mitarbeiter samt Medienliste ebenso (' + maProbe.geprueft + ')',
+    maProbe.kaputt.join(', '));
   await page.keyboard.press('Escape');
   await page.waitForTimeout(200);
   await page.keyboard.press('Escape');

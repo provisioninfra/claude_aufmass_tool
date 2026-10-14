@@ -25,6 +25,10 @@ class Aufmass_Einstellungen {
         register_setting('aufmass_sync', 'aufmass_domaene', array(
             'type' => 'string', 'sanitize_callback' => array(__CLASS__, 'domaene_pruefen'), 'default' => ''
         ));
+        /* Neue Konten der Organisation: sofort dabei oder erst nach Freigabe */
+        register_setting('aufmass_sync', 'aufmass_neue_freigeben', array(
+            'type' => 'string', 'sanitize_callback' => array(__CLASS__, 'schalter_pruefen'), 'default' => '0'
+        ));
         /* Der Pipedrive-Schlüssel wird verschlüsselt abgelegt. Das Formular
            zeigt ihn nie an; ein leeres Feld heißt "unverändert lassen". */
         register_setting('aufmass_sync', 'aufmass_pipedrive_token', array(
@@ -114,8 +118,8 @@ class Aufmass_Einstellungen {
         $wert = trim($wert, '/ ');
         if ($wert === '') {
             add_settings_error('aufmass_sync', 'domaene',
-                'Ohne Domäne darf sich jedes Google-Konto anmelden. Bitte die Organisationsdomäne eintragen.',
-                'warning');
+                'Ohne Organisationsdomäne ist die Anmeldung gesperrt - bitte die Domäne eintragen.',
+                'error');
             return '';
         }
         if (!preg_match('/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/', $wert)) {
@@ -182,11 +186,26 @@ class Aufmass_Einstellungen {
                   <input name="aufmass_domaene" id="aufmass_domaene" type="text" class="regular-text code"
                          value="<?php echo esc_attr(get_option('aufmass_domaene', '')); ?>"
                          placeholder="provision-infra.de">
-                  <p class="description">Nur Google-Konten dieser Organisation dürfen sich anmelden.
-                     <strong>Bleibt das Feld leer, darf sich jedes beliebige Google-Konto anmelden.</strong></p>
+                  <p class="description">Nur Google-Workspace-Konten dieser Organisation dürfen sich anmelden -
+                     geprüft an der Organisationsangabe des Ausweises <em>und</em> an der Adresse.
+                     <strong>Bleibt das Feld leer, ist die Anmeldung gesperrt.</strong></p>
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Neue Zugänge</th>
+                <td>
+                  <input type="hidden" name="aufmass_neue_freigeben" value="0">
+                  <label><input type="checkbox" name="aufmass_neue_freigeben" value="1" <?php checked(Aufmass_Anmeldung::neue_erst_freigeben()); ?>>
+                    Neue Konten der Organisation erst nach Freigabe durch die Verwaltung zulassen</label>
+                  <p class="description">Ohne Haken ist jedes Konto der Organisation sofort dabei. Mit Haken wird
+                     der Zugang angelegt, bleibt aber gesperrt, bis er unten unter „Zugänge“ freigegeben wird.
+                     Die erste Anmeldung erhält in jedem Fall die Verwaltung.</p>
                 </td>
               </tr>
             </table>
+            <p class="description">Sicherheit der Anmeldung: Der Ausweis von Google wird gegen Googles aktuelle
+               Schlüssel geprüft (nur RS256), muss für diese Client-ID ausgestellt sein, darf höchstens zehn Minuten
+               alt sein und gilt genau einmal. Das Kennwort bleibt bei Google; der Server sieht es nie.</p>
 
             <h2>Pipedrive</h2>
             <p>Mit dem Schlüssel hier kann jedes angemeldete Gerät Aufmaße aus Pipedrive-Deals anlegen -

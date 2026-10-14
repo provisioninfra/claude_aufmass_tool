@@ -10,7 +10,7 @@
      Anmeldeseite und in der Abgleich-Übersicht, damit man auf jedem Gerät
      in einer Sekunde sieht, welcher Stand dort läuft. Muss mit FASSUNG in
      sw.js übereinstimmen - der Prüflauf achtet darauf. */
-  var FASSUNG = '1.1.2';
+  var FASSUNG = '1.2.0';
 
   /* =========================================================================
    * DOM-Hilfsmittel
@@ -450,7 +450,8 @@
   }
 
   /* Mehrfachauswahl als anklickbare Chips */
-  function chipFeld(objekt, schluessel, beschriftung, optionen) {
+  function chipFeld(objekt, schluessel, beschriftung, optionen, konfig) {
+    konfig = konfig || {};
     if (!Array.isArray(objekt[schluessel])) objekt[schluessel] = [];
     var behaelter = el('div', { class: 'chips' });
     optionen.forEach(function (o) {
@@ -463,6 +464,7 @@
           if (i === -1) objekt[schluessel].push(o); else objekt[schluessel].splice(i, 1);
           chip.setAttribute('aria-pressed', i === -1 ? 'true' : 'false');
           alsGeaendertMarkieren();
+          if (konfig.beiAenderung) konfig.beiAenderung(o, i === -1);
         }
       });
       behaelter.appendChild(chip);

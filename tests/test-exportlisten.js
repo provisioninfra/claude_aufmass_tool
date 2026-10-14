@@ -125,7 +125,8 @@ pruefe(kuerzel.length === new Set(kuerzel).size, 'kein Kürzel doppelt vergeben'
 
 /* --- 8. Blanko-Plan erzeugt keine Doppelungen --- */
 const blanko = baueTestprojekt();
-M.blankoSchliessplan(blanko, { proBereich: true, vorhandeneErsetzen: true });
+blanko.schliessungen = []; blanko.matrix = {};
+M.blankoSchliessplan(blanko, { ghs: true, proGruppe: true, proMitarbeiter: true });
 const bk = blanko.schliessungen.map(s => s.kuerzel);
 pruefe(bk.length === new Set(bk).size, 'Blanko-Plan vergibt eindeutige Kürzel', bk.join(', '));
 const matrixSchluessel = Object.keys(blanko.matrix);
@@ -133,10 +134,12 @@ pruefe(matrixSchluessel.length === new Set(matrixSchluessel).size,
   'Blanko-Plan setzt jede Berechtigung nur einmal');
 /* Zweimal anwenden darf nicht verdoppeln */
 const vorher = blanko.schliessungen.length;
-M.blankoSchliessplan(blanko, { proBereich: true, vorhandeneErsetzen: true });
+M.blankoSchliessplan(blanko, { ghs: true, proGruppe: true, proMitarbeiter: true });
 pruefe(blanko.schliessungen.length === vorher,
-  'erneutes Erzeugen mit "ersetzen" verdoppelt nichts',
+  'erneutes Erzeugen verdoppelt nichts - vorhandene Spalten werden erkannt',
   vorher + ' -> ' + blanko.schliessungen.length);
+pruefe(vorher === 1 + blanko.gruppen.length + blanko.mitarbeiter.length,
+  'GHS plus je eine Spalte für jede Gruppe und jeden Mitarbeiter', String(vorher));
 
 /* --- 9. Materialliste als Dokument: Spalten und Leerfelder --------------- */
 console.log('\n== Materialliste als Bestelldokument ==');
