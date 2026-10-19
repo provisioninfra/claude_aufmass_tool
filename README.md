@@ -358,6 +358,30 @@ Wer stattdessen in der Türliste nach einem Bereich filtert, bekommt neue
 Türen ebenfalls gleich diesem Bereich zugeordnet – derselbe Gedanke, zweiter
 Weg.
 
+## Gliederung wiederherstellen
+
+Verweisen Türen auf Bereiche, die es in der Gliederung nicht mehr gibt,
+meldet die Strukturansicht das oben mit der Zahl der betroffenen Türen.
+Beim Löschen über die Oberfläche passiert das nicht (dabei werden die
+Türen abgehängt), sondern nur, wenn die Gliederung auf anderem Weg
+verloren ging, etwa durch einen Abgleich. Die Türen selbst sind dann
+vollständig. Zwei Wege zurück:
+
+* **Bereiche wiederherstellen** (Knopf im Hinweis) legt die fehlenden
+  Bereiche unter denselben Kennungen neu an, unter einem Standort und
+  einem Gebäude, die als „wiederhergestellt“ gekennzeichnet sind. Alle
+  Türen hängen sofort wieder an ihrem Bereich; die Einträge werden dann
+  nur noch umbenannt. Nennen alle Türen eines Bereichs dieselbe Etage,
+  heißt er gleich so.
+* **Nur Gliederung übernehmen:** Liegt eine Sicherung von vorher vor
+  (Export des Projekts, „Alle Projekte sichern“ oder die Projektdaten aus
+  einer Datenbanksicherung des Servers), wird sie auf der Projektübersicht
+  über *Projekt importieren* eingelesen. Bei gleicher Kennung bietet das
+  Werkzeug „Nur Gliederung übernehmen“ an: Es ergänzt nur die Standorte,
+  Gebäude und Bereiche, die fehlen, setzt wiederhergestellte Platzhalter
+  auf Name und Platz aus der Sicherung zurück und lässt Türen und alles
+  andere unangetastet.
+
 ## Erscheinungsbild
 
 Farben und Formen sind von **provision-infra.de** abgenommen. Die Werte sind

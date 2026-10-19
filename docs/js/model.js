@@ -610,9 +610,14 @@
     return null;
   }
 
+  /* Ohne Elternteil heißt: parentId null - oder leer. Die Zusammenführung
+   * des Abgleichs schreibt null als leeren Text; mit einem strengen
+   * Vergleich fände der Baum danach keine Wurzel mehr, und die Gliederung
+   * wäre unsichtbar, obwohl sie vollständig da ist. */
   function kinderVon(projekt, parentId) {
-    return projekt.standorte.filter(function (k) { return k.parentId === (parentId || null); })
-      .sort(function (a, b) { return (a.sort - b.sort) || a.name.localeCompare(b.name, 'de'); });
+    var eltern = parentId || null;
+    return (projekt.standorte || []).filter(function (k) { return k && (k.parentId || null) === eltern; })
+      .sort(function (a, b) { return (a.sort - b.sort) || String(a.name || '').localeCompare(String(b.name || ''), 'de'); });
   }
 
   /* Ein Knoten und alle seine Unterknoten - als Kennungsliste. */
@@ -675,6 +680,109 @@
     return ordnung;
   }
 
+  /* --- Verwaiste Bereiche -------------------------------------------------
+   * Türen, deren Bereich es in der Gliederung nicht mehr gibt. Beim Löschen
+   * über die Oberfläche werden Türen abgehängt (strukturId = null); ein
+   * solcher Verweis bleibt nur zurück, wenn die Gliederung auf anderem Weg
+   * verschwunden ist - etwa durch einen Abgleich, der sie als gelöscht
+   * ansah. Die Türen sind dann vollständig, nur ihr Bereich fehlt. */
+  function verwaisteBereiche(projekt) {
+    var gruppen = [], index = {};
+    (projekt.tueren || []).forEach(function (t) {
+      if (!t || !t.strukturId || findeStruktur(projekt, t.strukturId)) return;
+      if (!index[t.strukturId]) {
+        index[t.strukturId] = { id: t.strukturId, tueren: [] };
+        gruppen.push(index[t.strukturId]);
+      }
+      index[t.strukturId].tueren.push(t);
+    });
+    return gruppen;
+  }
+
+  var WIEDERHERGESTELLT = ' (wiederhergestellt)';
+
+  /* Ein Platzhalter aus „Bereiche wiederherstellen“ - oder ein Eintrag,
+   * der unter einem solchen hängt (ein wiederhergestellter Bereich kann
+   * schon umbenannt sein; sein Platz unter dem Platzhalter verrät ihn). */
+  function istWiederhergestellt(projekt, k) {
+    var guard = 0;
+    while (k && guard++ < 20) {
+      if (String(k.name || '').indexOf(WIEDERHERGESTELLT) !== -1) return true;
+      k = k.parentId ? findeStruktur(projekt, k.parentId) : null;
+    }
+    return false;
+  }
+
+  /* Die fehlenden Bereiche unter denselben Kennungen neu anlegen: Dann
+   * hängen die Türen wieder daran, ohne dass eine Tür angefasst wird.
+   * Standort und Gebäude darüber sind nicht mehr bekannt; sie entstehen
+   * als „wiederhergestellt“ - zum Umbenennen. Gibt die neuen Einträge
+   * zurück. */
+  function bereicheWiederherstellen(projekt) {
+    var verwaist = verwaisteBereiche(projekt);
+    if (!verwaist.length) return [];
+    if (!Array.isArray(projekt.standorte)) projekt.standorte = [];
+    var standort = neuerStrukturknoten('standort', (projekt.objekt || projekt.kunde || 'Standort') + WIEDERHERGESTELLT, null);
+    standort.sort = kinderVon(projekt, null).length;
+    var gebaeude = neuerStrukturknoten('gebaeude', 'Gebäude' + WIEDERHERGESTELLT, standort.id);
+    projekt.standorte.push(standort, gebaeude);
+    var neu = [standort, gebaeude];
+    verwaist.forEach(function (v, i) {
+      /* Nennen alle Türen dieselbe Etage, ist das der beste Name */
+      var etagen = v.tueren.map(function (t) { return String(t.etage || '').trim(); });
+      var gleich = etagen[0] && etagen.every(function (e) { return e === etagen[0]; });
+      var k = neuerStrukturknoten('bereich', gleich ? etagen[0] : ('Bereich ' + (i + 1) + WIEDERHERGESTELLT), gebaeude.id);
+      k.id = v.id;          /* dieselbe Kennung - darum finden die Türen ihn wieder */
+      k.sort = i;
+      projekt.standorte.push(k);
+      neu.push(k);
+    });
+    return neu;
+  }
+
+  /* Gliederung aus einer anderen Fassung desselben Aufmaßes übernehmen -
+   * etwa aus einer Sicherung von vor dem Verlust. Es kommen nur Einträge
+   * hinzu, die hier fehlen (nach Kennung); „wiederhergestellte“
+   * Platzhalter bekommen Name und Platz aus der Quelle zurück. Vorhandene
+   * Einträge und alle Türen bleiben unangetastet. Gibt die Zahl der
+   * übernommenen Einträge zurück. */
+  function gliederungUebernehmen(ziel, quelle) {
+    if (!Array.isArray(ziel.standorte)) ziel.standorte = [];
+    var hier = {};
+    ziel.standorte.forEach(function (k) { if (k && k.id) hier[k.id] = k; });
+    var anzahl = 0;
+    ((quelle && quelle.standorte) || []).forEach(function (k) {
+      if (!k || !k.id) return;
+      var sauber = {
+        id: k.id, ebene: k.ebene || 'standort', name: String(k.name || ''),
+        parentId: k.parentId || null, bemerkung: String(k.bemerkung || ''),
+        sort: typeof k.sort === 'number' ? k.sort : 0
+      };
+      var da = hier[k.id];
+      if (!da) { ziel.standorte.push(sauber); hier[k.id] = sauber; anzahl++; return; }
+      if (istWiederhergestellt(ziel, da)) {
+        da.name = sauber.name; da.ebene = sauber.ebene; da.parentId = sauber.parentId; da.sort = sauber.sort;
+        anzahl++;
+      }
+    });
+    /* Ein Eintrag, dessen Elternteil nirgends steht, wird zum Standort -
+       sonst wäre er unsichtbar. */
+    ziel.standorte.forEach(function (k) {
+      if (k.parentId && !hier[k.parentId]) { k.parentId = null; k.ebene = 'standort'; }
+    });
+    /* Leere Platzhalter von „Bereiche wiederherstellen“ räumen sich weg */
+    var weg = true;
+    while (weg) {
+      weg = false;
+      ziel.standorte.slice().forEach(function (k) {
+        if (String(k.name || '').indexOf(WIEDERHERGESTELLT) === -1) return;
+        if (kinderVon(ziel, k.id).length || tuerenUnter(ziel, k.id).length) return;
+        ziel.standorte.splice(ziel.standorte.indexOf(k), 1); weg = true;
+      });
+    }
+    return anzahl;
+  }
+
   /* --- Türen gruppiert nach Struktur (für Listen & PDF) ------------------- */
   function tuerenGruppiert(projekt) {
     var gruppen = [], index = {};
@@ -684,7 +792,7 @@
       if (!index[key]) {
         index[key] = {
           key: key,
-          titel: t.strukturId ? strukturPfadText(projekt, t.strukturId) : 'Ohne Zuordnung',
+          titel: t.strukturId ? (strukturPfadText(projekt, t.strukturId) || 'Bereich nicht mehr vorhanden') : 'Ohne Zuordnung',
           tueren: []
         };
         gruppen.push(index[key]);
@@ -1944,6 +2052,9 @@
     findeStruktur: findeStruktur,
     strukturPfadText: strukturPfadText,
     kinderVon: kinderVon,
+    verwaisteBereiche: verwaisteBereiche,
+    bereicheWiederherstellen: bereicheWiederherstellen,
+    gliederungUebernehmen: gliederungUebernehmen,
     loescheStruktur: loescheStruktur,
     strukturReihenfolge: strukturReihenfolge,
     tuerenGruppiert: tuerenGruppiert,

@@ -540,14 +540,44 @@
                 dlg.schliessen(); neuLaden();
               });
             };
-            if (gleich) {
-              A.bestaetigen('Projekt bereits vorhanden',
-                'Ein Projekt mit derselben Kennung existiert bereits („' + (gleich.kunde || gleich.name) +
-                '“). Soll es überschrieben werden? Andernfalls wird eine Kopie angelegt.',
-                'Überschreiben').then(function (ueberschreiben) {
-                  fortsetzen(ueberschreiben ? ergebnis.projekt
-                    : Store.projektKlonen(ergebnis.projekt, (ergebnis.projekt.name || 'Import') + ' (Import)'));
+            /* Dasselbe Aufmaß liegt schon hier: nur die Gliederung aus der
+               Datei ergänzen (Standorte, Gebäude, Bereiche, die hier fehlen -
+               Türen und alles andere bleiben, wie sie sind). So kommt eine
+               verlorene Gliederung aus einer Sicherung zurück. */
+            var nurGliederung = function () {
+              Store.projektLaden(gleich.id).then(function (vorhanden) {
+                if (!vorhanden) throw new Error('Das vorhandene Projekt ließ sich nicht laden.');
+                var anzahl = M.gliederungUebernehmen(vorhanden, ergebnis.projekt);
+                if (!anzahl) { A.toast('Die Gliederung aus der Datei ist hier schon vollständig vorhanden.', 'warn'); return; }
+                return Store.projektSpeichern(vorhanden).then(function () {
+                  var geladen = M.migriere(vorhanden);
+                  geladen.id = vorhanden.id;
+                  A.projektOeffnenIntern(geladen, 'struktur');
+                  A.toast(anzahl + (anzahl === 1 ? ' Eintrag' : ' Einträge') + ' der Gliederung übernommen - Türen unverändert.', 'ok');
+                  dlg.schliessen(); neuLaden();
                 });
+              }).catch(function (f) { A.toast(f.message || 'Übernahme fehlgeschlagen.', 'fehler'); });
+            };
+            if (gleich) {
+              A.dialogOeffnen({
+                titel: 'Projekt bereits vorhanden', klein: true,
+                inhalt: el('div', {}, [
+                  el('p', { style: { marginTop: '0' }, text: 'Ein Projekt mit derselben Kennung existiert bereits („' +
+                    (gleich.kunde || gleich.name) + '“).' }),
+                  el('p', { class: 'zart', text: '„Nur Gliederung übernehmen“ ergänzt im vorhandenen Projekt die Standorte, ' +
+                    'Gebäude und Bereiche aus der Datei, die hier fehlen - Türen und alles andere bleiben unverändert. ' +
+                    'So lässt sich eine verlorene Gliederung aus einer Sicherung zurückholen. „Überschreiben“ ersetzt ' +
+                    'das ganze Projekt durch die Datei.' })
+                ]),
+                knoepfe: [
+                  { text: 'Abbrechen' },
+                  { fuellen: true },
+                  { text: 'Nur Gliederung übernehmen', klasse: 'weiter', aktion: function () { nurGliederung(); } },
+                  { text: 'Als Kopie anlegen', aktion: function () {
+                    fortsetzen(Store.projektKlonen(ergebnis.projekt, (ergebnis.projekt.name || 'Import') + ' (Import)')); } },
+                  { text: 'Überschreiben', klasse: 'gefahr', aktion: function () { fortsetzen(ergebnis.projekt); } }
+                ]
+              });
             } else { fortsetzen(ergebnis.projekt); }
           });
         };
@@ -744,6 +774,33 @@
       el('button', { class: 'haupt', text: '+ Standort',
         onclick: function () { knotenAnlegen('standort', null, neuZeichnen); } })
     ]));
+
+    /* Türen, deren Bereich es nicht mehr gibt: Die Gliederung ist auf
+       anderem Weg verschwunden (etwa durch einen Abgleich), die Türen
+       sind vollständig. Die fehlenden Bereiche lassen sich unter denselben
+       Kennungen wieder anlegen - dann hängen die Türen wieder daran. */
+    var verwaist = M.verwaisteBereiche(p);
+    if (verwaist.length) {
+      var betroffen = verwaist.reduce(function (n, v) { return n + v.tueren.length; }, 0);
+      seite.appendChild(el('div', { class: 'meldung warn verwaist-hinweis' }, el('div', {}, [
+        el('b', { text: 'Gliederung fehlt: ' }),
+        betroffen + (betroffen === 1 ? ' Tür verweist' : ' Türen verweisen') + ' auf ' + verwaist.length +
+          (verwaist.length === 1 ? ' Bereich, den' : ' Bereiche, die') + ' es in der Gliederung nicht mehr gibt - ' +
+          'etwa nach einem Abgleich, bei dem die Gliederung verloren ging. Die Türen selbst sind vollständig. ' +
+          '„Bereiche wiederherstellen“ legt die fehlenden Bereiche unter einem neuen Standort wieder an; die Türen hängen ' +
+          'dann wieder daran, und die Einträge lassen sich umbenennen. Liegt eine Sicherung von vorher vor, lässt sich ' +
+          'stattdessen auf der Projektübersicht über „Projekt importieren“ nur die Gliederung aus ihr übernehmen.',
+        el('div', { class: 'knopfleiste', style: { marginTop: '8px' } }, [
+          el('button', { class: 'klein haupt', text: 'Bereiche wiederherstellen', onclick: function () {
+            A.schrittMerken('Bereiche wiederhergestellt');
+            var neu = M.bereicheWiederherstellen(p);
+            A.alsGeaendertMarkieren();
+            A.toast(neu.length + ' Einträge angelegt - bitte umbenennen. Alle Türen hängen wieder an ihrem Bereich.', 'ok');
+            neuZeichnen();
+          } })
+        ])
+      ])));
+    }
 
     var wurzeln = M.kinderVon(p, null);
     if (!wurzeln.length) {

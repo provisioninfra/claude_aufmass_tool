@@ -18,6 +18,7 @@ const reihen = [
   ['Browser (E2E)',   'test-e2e.js'],
   ['Bereich & Gruppen','test-bereich-gruppen.js'],
   ['Mitarbeiter & Gruppen', 'test-personen.js'],
+  ['Gliederung',       'test-gliederung.js'],
   ['Stiftbedienung',  'test-stift.js'],
   ['Spalten verschieben', 'test-verschieben.js'],
   ['Erscheinungsbild','test-erscheinungsbild.js'],

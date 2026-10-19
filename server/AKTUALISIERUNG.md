@@ -19,6 +19,19 @@ und Werkzeug tragen dieselbe Fassungsnummer.
   Das Plugin ändert sich nur in der Fassungsnummer: Wer schon 1.3.0
   einsetzt, tauscht nur den Ordner `aufmasstool` (Schritt 3) und leert
   den Cache; das Plugin kann bleiben.
+- **Gliederung nach einer Zusammenführung sichtbar:** Die Zusammenführung
+  des Abgleichs schreibt leere Angaben als leeren Text statt null. Der
+  Strukturbaum fand danach seine Standorte nicht mehr und zeigte „Noch
+  keine Gliederung angelegt“, obwohl alles da war (der Zähler am Reiter
+  „Struktur“ stimmte weiter; nach Schließen und Öffnen des Aufmaßes war
+  der Baum wieder da). Der Baum findet seine Wurzeln jetzt in beiden
+  Schreibweisen.
+- **Verlorene Gliederung zurückholen:** Verweisen Türen auf Bereiche, die
+  es nicht mehr gibt, meldet die Strukturansicht das und bietet „Bereiche
+  wiederherstellen“ an. Über *Projekt importieren* lässt sich bei gleicher
+  Kennung „Nur Gliederung übernehmen“ – aus einem Export oder aus den
+  Projektdaten einer Datenbanksicherung. Türen bleiben in beiden Fällen
+  unverändert (README, Abschnitt „Gliederung wiederherstellen“).
 
 **Was 1.3.0 bringt** (gegenüber 1.1)
 
