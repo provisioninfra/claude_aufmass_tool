@@ -25,6 +25,7 @@ const reihen = [
   ['Ausgabeweg',      'test-downloads.js'],
   ['Fassungen',       'test-fassungen.js'],
   ['Abgleich (2 Geräte)', 'test-abgleich.js'],
+  ['Abgleich bei geöffnetem Aufmaß', 'test-abgleich-offen.js'],
   ['Abgleich-Oberfläche', 'test-abgleich-oberflaeche.js'],
   ['Pipedrive über Server', 'test-pipedrive-server.js'],
   ['Freigabe über Server', 'test-freigabe-server.js'],

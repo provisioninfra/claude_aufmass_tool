@@ -331,9 +331,17 @@
   }
 
   function zusammenfuehren(hier, satz, voll) {
+    /* Ist das Aufmaß geöffnet, zählt der Speicher in genau diesem
+       Augenblick - nicht eine Kopie, die vor einer Anfrage ans Netz
+       gezogen wurde. Zwischen dieser Kopie, der Zusammenführung und der
+       Übernahme in den Speicher wartet nichts: So kann keine Eingabe
+       dazwischenrutschen, die im Ergebnis fehlte und beim Übernehmen
+       zurückgedreht würde. */
+    var offen = offenesProjekt(hier.id);
+    if (offen) { hier = JSON.parse(JSON.stringify(offen)); }
     var e = Z.projekte(satz.basis || {}, hier, voll.daten);
     if (e.konflikte.length) {
-      konfliktMerken(hier, e, voll);
+      konfliktMerken(hier, e, voll, satz.basis || {});
       return;
     }
     /* Sauber zusammengeführt: lokal sichern und zum Senden vormerken.
@@ -348,19 +356,22 @@
     /* Gab es hier gar keine eigene Arbeit (nur ein geöffnetes Aufmaß), ist
        das Ergebnis der Serverstand - dann gibt es nichts zu senden. */
     var eigeneArbeit = JSON.stringify(hier) !== JSON.stringify(satz.basis || {});
+    /* Zuerst der Speicher - sofort, auch mitten in einer Eingabe. Was im
+       Aufmaß steht, war in der Kopie und steckt im Ergebnis; was gerade
+       erst getippt wird und noch nicht im Aufmaß steht (eine Tür im
+       Formular), bleibt unberührt. Bliebe der Speicher hier zurück, weil
+       gerade getippt wird, schriebe die nächste Speicherung den alten
+       Speicherstand über die Datenbank und dann über den Server: Die
+       fremden Änderungen - etwa eine eben auf dem anderen Gerät angelegte
+       Gliederung - wären überall weg, als wären sie hier gelöscht worden.
+       Genau das ist passiert. */
+    if (offen) { speicherUebernehmen(offen, e.ergebnis, eigeneArbeit); }
     return Store.projektSpeichern(e.ergebnis, { vomAbgleich: true }).then(function () {
       return satzSchreiben(hier.id, voll.version, voll.daten, eigeneArbeit);
-    })
-      /* Das Ergebnis enthält die eigenen - auch die noch ungesicherten -
-         Eingaben: Es darf und muss in den Speicher, selbst mitten in einer
-         Eingabe. Und zwar jetzt, nicht erst nach dem Fotodownload: Der
-         dauert Sekunden, und was in der Zeit getippt wird, steckt nicht
-         mehr im Ergebnis. */
-      .then(function () { return offenesMitziehen(hier.id, eigeneArbeit, e.ergebnis); })
-      .then(function () { return fotosHolen(hier.id, voll.daten); });
+    }).then(function () { return fotosHolen(hier.id, voll.daten); });
   }
 
-  function konfliktMerken(hier, e, voll) {
+  function konfliktMerken(hier, e, voll, basis) {
     var vorhanden = -1;
     zustand.konflikte.forEach(function (x, i) { if (x.projektId === hier.id) { vorhanden = i; } });
     var satz = {
@@ -368,6 +379,7 @@
       name: hier.kunde || hier.name || 'Aufmaß',
       konflikte: e.konflikte,
       ergebnis: e.ergebnis,
+      basis: basis || {},
       serverVersion: voll.version,
       serverDaten: voll.daten,
       wer: voll.geaendertVon || 'eine andere Stelle'
@@ -383,8 +395,23 @@
     zustand.konflikte.forEach(function (x) { if (x.projektId === projektId) { satz = x; } });
     if (!satz) { return Promise.resolve(false); }
 
-    var fertig = Z.anwenden(satz.ergebnis, satz.konflikte, wahl || {});
-    fertig.id = projektId;
+    var fertig;
+    var offen = offenesProjekt(projektId);
+    if (offen) {
+      /* Seit der Rückfrage wurde womöglich weitergearbeitet. Deshalb noch
+         einmal gegen den Speicher von jetzt zusammenführen, die
+         Entscheidungen darauf anwenden und sofort übernehmen - ohne
+         Wartezeit dazwischen. Eine Angabe, über die erst seitdem Streit
+         entstand, bleibt in der eigenen Fassung. */
+      var frisch = JSON.parse(JSON.stringify(offen));
+      var e = Z.projekte(satz.basis || {}, frisch, satz.serverDaten);
+      fertig = Z.anwenden(e.ergebnis, e.konflikte, wahl || {});
+      fertig.id = projektId;
+      speicherUebernehmen(offen, fertig, true);
+    } else {
+      fertig = Z.anwenden(satz.ergebnis, satz.konflikte, wahl || {});
+      fertig.id = projektId;
+    }
     return Store.projektSpeichern(fertig, { vomAbgleich: true })
       .then(function () {
         /* Als Basis gilt jetzt der Serverstand: Darauf baut das Senden auf. */
@@ -393,10 +420,10 @@
       .then(function () {
         zustand.konflikte = zustand.konflikte.filter(function (x) { return x.projektId !== projektId; });
         melden();
-        /* Die Auflösung ist die eben getroffene Entscheidung - sie gehört
-           in den Speicher, auch wenn gerade eine Eingabe aussteht. Sonst
-           überschriebe der nächste Autosave sie mit dem alten Stand. */
-        return offenesMitziehen(projektId, true, fertig);
+        /* War das Aufmaß beim Auflösen nicht geöffnet, wurde es womöglich
+           seither geöffnet: dann jetzt nachziehen. Ein geöffnetes hat die
+           Entscheidung schon oben bekommen. */
+        if (!offen) { return offenesMitziehen(projektId, true, fertig); }
       })
       .then(function () { return jetzt(); })
       .then(function () { return true; });
@@ -646,22 +673,30 @@
     if (!erzwingen && (Kern.Zustand.ungesichert || Kern.Zustand.speichertGerade)) { return Promise.resolve(); }
     return (daten ? Promise.resolve(daten) : Store.projektLaden(id)).then(function (frisch) {
       if (!frisch) { return; }
-      inPlatzUebernehmen(Kern.Zustand.projekt, frisch);
-      /* Der Verlauf beginnt neu: Seine Stände stammen von vor der
-         Zusammenführung. Ein „Zurück“ dorthin nähme fremde Änderungen
-         zurück - und sendete das als eigene Arbeit an den Server. */
-      if (global.Verlauf && global.Verlauf.beginnen) {
-        try { global.Verlauf.beginnen(Kern.Zustand.projekt); } catch (e) {}
-      }
-      /* Was jetzt im Speicher steht, muss auch in die Datenbank - der
-         nächste Autosave erledigt das. */
-      if (erzwingen && typeof Kern.alsGeaendertMarkieren === 'function') {
-        try { Kern.alsGeaendertMarkieren(); } catch (e) {}
-      }
-      if (global.App && global.App.zeichnen) {
-        try { global.App.zeichnen(); } catch (e) {}
-      }
+      speicherUebernehmen(Kern.Zustand.projekt, frisch, erzwingen);
     });
+  }
+
+  /* Einen Stand in das geöffnete Aufmaß übernehmen - an Ort und Stelle,
+     ohne Wartezeit. Wer das aufruft, hat 'daten' aus dem Speicher von
+     eben abgeleitet; dazwischen darf nichts gewartet haben. */
+  function speicherUebernehmen(ziel, daten, geaendert) {
+    var Kern = global.AppKern;
+    inPlatzUebernehmen(ziel, daten);
+    /* Der Verlauf beginnt neu: Seine Stände stammen von vor der
+       Zusammenführung. Ein „Zurück“ dorthin nähme fremde Änderungen
+       zurück - und sendete das als eigene Arbeit an den Server. */
+    if (global.Verlauf && global.Verlauf.beginnen) {
+      try { global.Verlauf.beginnen(ziel); } catch (e) {}
+    }
+    /* Was jetzt im Speicher steht, muss auch in die Datenbank - der
+       nächste Autosave erledigt das. */
+    if (geaendert && Kern && typeof Kern.alsGeaendertMarkieren === 'function') {
+      try { Kern.alsGeaendertMarkieren(); } catch (e) {}
+    }
+    if (global.App && global.App.zeichnen) {
+      try { global.App.zeichnen(); } catch (e) {}
+    }
   }
 
   /* ---------------------------------------------------------------- */

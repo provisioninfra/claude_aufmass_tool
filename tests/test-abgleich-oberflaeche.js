@@ -244,6 +244,56 @@ fs.writeFileSync(OPT, JSON.stringify({
       JSON.stringify({ kundenNr: amServer3.daten.kundenNr, ansprechpartner: amServer3.daten.ansprechpartner }));
     p(danach2.konflikte === 0, 'ohne Rückfrage - es waren verschiedene Angaben', String(danach2.konflikte));
 
+    console.log('\n== Die Gliederung kommt vom anderen Gerät, während hier eine Tür getippt wird ==');
+    /* Der Fall aus der Praxis: Im Büro wird die Gliederung angelegt, vor
+       Ort ist dasselbe Aufmaß geöffnet und jemand tippt gerade die erste
+       Tür ein. Die Tür ist noch nicht im Aufmaß (erst „Tür speichern“
+       bringt sie hinein), das Werkzeug gilt aber als ungesichert. Die
+       Gliederung muss trotzdem im geöffneten Aufmaß ankommen - sonst
+       schreibt das Speichern der Tür den Stand ohne Gliederung über den
+       Server, und das Büro verliert seine Gliederung. */
+    const stand3 = await (await fetch(BASIS + '/wp-json/aufmass/v1/projekte/' + projektId,
+      { headers: { 'X-Aufmass-Abgleich': '1', Cookie: kekse } })).json();
+    const fremd3 = JSON.parse(JSON.stringify(stand3.daten));
+    fremd3.standorte = [
+      { id: 'st-ui', ebene: 'standort', name: 'Standort Ibsen', parentId: null, bemerkung: '', sort: 0 },
+      { id: 'geb-ui', ebene: 'gebaeude', name: 'Haus 1', parentId: 'st-ui', bemerkung: '', sort: 0 },
+      { id: 'ber-ui', ebene: 'bereich', name: 'Erdgeschoss', parentId: 'geb-ui', bemerkung: '', sort: 0 }
+    ];
+    const a3 = await fetch(BASIS + '/wp-json/aufmass/v1/projekte/' + projektId, {
+      method: 'PUT', headers: { 'X-Aufmass-Abgleich': '1', 'Content-Type': 'application/json', Cookie: kekse },
+      body: JSON.stringify({ daten: fremd3, basisVersion: stand3.version }) });
+    p(a3.ok, 'Vorbereitung: das Büro hat die Gliederung angelegt', String(a3.status));
+    /* Hier: Türformular öffnen und tippen - noch nichts im Aufmaß */
+    await seite.evaluate(() => window.App.wechseln('tueren'));
+    await seite.waitForTimeout(400);
+    await seite.click('button:has-text("+ Neue Tür") >> nth=0');
+    await seite.waitForSelector('.dialog [data-feld="bezeichnung"] input');
+    await seite.type('.dialog [data-feld="bezeichnung"] input', 'Eingang Ibsen');
+    const waehrend = await seite.evaluate(() => ({ ungesichert: window.AppKern.Zustand.ungesichert,
+      tueren: window.AppKern.Zustand.projekt.tueren.length, standorte: window.AppKern.Zustand.projekt.standorte.length }));
+    p(waehrend.ungesichert === true && waehrend.standorte === 0, 'während des Tippens: ungesichert, die Tür noch nicht im Aufmaß, keine Gliederung', JSON.stringify(waehrend));
+    await seite.evaluate(() => window.Abgleich.jetzt());    /* der Abgleich kommt mitten ins Tippen */
+    await seite.waitForTimeout(1500);
+    const imSpeicher = await seite.evaluate(() => window.AppKern.Zustand.projekt.standorte.map(k => k.name).join(' > '));
+    p(imSpeicher === 'Standort Ibsen > Haus 1 > Erdgeschoss', 'die Gliederung steht im geöffneten Aufmaß - obwohl gerade getippt wird', imSpeicher || '(keine)');
+    p((await seite.$$eval('.dialog', n => n.length)) === 1, 'das Türformular ist dabei offen geblieben');
+    /* Die Tür speichern - das löst Autosave und Senden aus */
+    await seite.click('.dialog .fuss button:has-text("Tür speichern")');
+    await seite.waitForTimeout(4500);
+    await seite.evaluate(() => window.Abgleich.jetzt());
+    await seite.waitForTimeout(1500);
+    const amServer4 = await (await fetch(BASIS + '/wp-json/aufmass/v1/projekte/' + projektId,
+      { headers: { 'X-Aufmass-Abgleich': '1', Cookie: kekse } })).json();
+    p((amServer4.daten.standorte || []).length === 3, 'auf dem Server steht die Gliederung noch - das Speichern der Tür hat sie nicht überschrieben',
+      JSON.stringify((amServer4.daten.standorte || []).map(k => k.name)));
+    p((amServer4.daten.tueren || []).some(x => x.bezeichnung === 'Eingang Ibsen'), 'und die neue Tür ist angekommen',
+      JSON.stringify((amServer4.daten.tueren || []).map(x => x.bezeichnung)));
+    await seite.evaluate(() => window.App.wechseln('struktur'));
+    await seite.waitForTimeout(500);
+    const baum = await seite.$$eval('.knoten .name', n => n.map(x => x.textContent));
+    p(baum.join(' > ') === 'Standort Ibsen > Haus 1 > Erdgeschoss', 'der Reiter „Struktur“ zeigt die Gliederung', baum.join(' > ') || '(leer)');
+
     p(konsole.length === 0, 'keine JavaScript-Fehler in der Oberfläche', konsole.join(' | '));
     p(serverFehler === '', 'keine Fehler auf dem Server', serverFehler.slice(0, 300));
   } catch (e) {
