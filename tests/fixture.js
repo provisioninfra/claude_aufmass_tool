@@ -35,8 +35,6 @@ function baueTestprojekt(opt = {}) {
       brauchtZylinder:true, zylinderBauform:'Doppelknaufzylinder',
       brauchtBeschlag:true, beschlagBauform:'Schutzbeschlag', beschlagSicherheit:'ES1', beschlagBestueckung:'Knauf / Drücker',
       brauchtSchloss:true, schlossBauform:'Einsteckschloss', schlossFunktion:'Panik Funktion B (Umschaltfunktion)',
-      zutrittsseite:'innen und außen',
-      tueranforderungen:['Flucht- und Rettungsweg','einbruchhemmend (RC)'],
       brauchtWandleser:true,
       masseAussen:'40', masseInnen:'45', tuerblattstaerke:'68', dornmass:'65', entfernung:'92', vierkant:'9',
       tuermaterial:'Alu (Rohrrahmen)', dinRichtung:'DIN links', oeffnungsrichtung:'nach außen öffnend',
@@ -47,14 +45,12 @@ function baueTestprojekt(opt = {}) {
     { nummer:'A-EG-02', bezeichnung:'Nebeneingang Hof', strukturId:egA.id, kategorie:'Nebeneingang',
       tuerTechnologie:'elektronik',
       brauchtZylinder:true, zylinderBauform:'Doppelknaufzylinder',
-      zutrittsseite:'nur außen',
       masseAussen:'35', masseInnen:'35', tuerblattstaerke:'55', dinRichtung:'DIN rechts',
       status:'aufgemessen', anzahl:1, elFunkabdeckung:'mittel', elStromversorgung:'Batterie' },
     { nummer:'A-EG-03', bezeichnung:'Büro Empfang', strukturId:egA.id, kategorie:'Innentür Büro',
       tuerTechnologie:'mechanik',
-      brauchtZylinder:true, zylinderBauform:'Doppelzylinder', zylinderAusfuehrung:['Not- und Gefahrenfunktion'],
+      brauchtZylinder:true, zylinderBauform:'Doppelzylinder', zylinderAusfuehrung:['BSZ (beidseitig schließbar)'],
       brauchtBeschlag:true, beschlagBauform:'Rosettengarnitur', beschlagBestueckung:'Drücker / Drücker',
-      zutrittsseite:'innen und außen',
       masseAussen:'30', masseInnen:'35', dornmass:'55', entfernung:'72', vierkant:'8',
       dinRichtung:'DIN links', status:'aufgemessen', anzahl:4,
       notiz:'4 baugleiche Bürotüren im Flur Empfang.' },
@@ -62,7 +58,6 @@ function baueTestprojekt(opt = {}) {
       tuerTechnologie:'elektronik', systemNotiz:'SimonsVoss AX, AX .SmartCore',
       brauchtZylinder:true, zylinderBauform:'Doppelknaufzylinder', zylinderAusfuehrung:['Freidreh'],
       brauchtSchloss:true, schlossBauform:'Einsteckschloss', schlossFunktion:'selbstverriegelnd',
-      zutrittsseite:'innen und außen', tueranforderungen:['VdS-Anforderung'],
       komponenten:[],
       masseAussen:'35', masseInnen:'45', tuerblattstaerke:'48', dornmass:'55',
       dinRichtung:'DIN rechts', status:'klaerung', anzahl:1,
@@ -72,30 +67,24 @@ function baueTestprojekt(opt = {}) {
     { nummer:'A-OG-02', bezeichnung:'Büro Geschäftsleitung', strukturId:ogA.id, kategorie:'Innentür Büro',
       tuerTechnologie:'mechanik', brauchtZylinder:true, zylinderBauform:'Doppelzylinder',
       brauchtBeschlag:true, beschlagBauform:'Rosettengarnitur', beschlagBestueckung:'Knauf / Drücker',
-      zutrittsseite:'innen und außen',
       masseAussen:'30', masseInnen:'30', vierkant:'8', dinRichtung:'DIN links',
       status:'aufgemessen', anzahl:1 },
     { nummer:'A-OG-03', bezeichnung:'Archiv / Aktenlager', strukturId:ogA.id, kategorie:'Lager / Archiv',
       tuerTechnologie:'mechanik', brauchtZylinder:true, zylinderBauform:'Halbzylinder',
-      zutrittsseite:'nur außen',
       masseAussen:'35', masseInnen:'10', status:'offen', anzahl:1 },
     { nummer:'B-UG-01', bezeichnung:'Heizungsraum', strukturId:ugB.id, kategorie:'Technikraum / Heizung',
       tuerTechnologie:'mechanik', brauchtZylinder:true, zylinderBauform:'Doppelzylinder',
-      zutrittsseite:'innen und außen', tueranforderungen:['Brandschutz'],
       brauchtSchloss:true, schlossBauform:'Einsteckschloss', schlossFunktion:'Profilzylinder (PZ)', masseAussen:'30', masseInnen:'35', dornmass:'65',
       dinRichtung:'DIN rechts', status:'aufgemessen', anzahl:1,
       notiz:'T30-Tür, Zulassung beachten.' },
     { nummer:'B-UG-02', bezeichnung:'Elektro-Hauptverteilung', strukturId:ugB.id, kategorie:'Elektroraum / HAK',
       tuerTechnologie:'mechanik', brauchtZylinder:true, zylinderBauform:'Halbzylinder',
-      zutrittsseite:'nur außen',
       masseAussen:'30', masseInnen:'10', status:'aufgemessen', anzahl:1 },
     { nummer:'B-UG-03', bezeichnung:'Notausgang Hofseite', strukturId:ugB.id, kategorie:'Fluchttür / Notausgang',
       tuerTechnologie:'elektronik',
       brauchtZylinder:true, zylinderBauform:'Doppelknaufzylinder', zylinderAusfuehrung:['Anti-Panik'],
       brauchtSchloss:true, schlossBauform:'Einsteckschloss', schlossFunktion:'Panik Funktion E (Wechselfunktion)',
       brauchtBeschlag:true, beschlagBauform:'Panikbeschlag / Fluchttürbeschlag', beschlagBestueckung:'Drücker / Stoßgriff',
-      zutrittsseite:'nur außen',
-      tueranforderungen:['Flucht- und Rettungsweg','Brandschutz','Rauchschutz'],
       masseAussen:'35', masseInnen:'40', dornmass:'65', entfernung:'92', vierkant:'9',
       dinRichtung:'DIN rechts', oeffnungsrichtung:'nach außen öffnend',
       status:'aufgemessen', anzahl:1,
@@ -105,51 +94,59 @@ function baueTestprojekt(opt = {}) {
       zylinderBauform:'', status:'offen', anzahl:1, notiz:'Raum war verschlossen, Aufmaß nachholen.' },
     { nummer:'A-EG-04', bezeichnung:'Briefkastenanlage (12 Fächer)', strukturId:egA.id,
       kategorie:'Briefkastenanlage', tuerTechnologie:'mechanik',
-      brauchtZylinder:true, zylinderBauform:'Briefkastenzylinder', zutrittsseite:'nur außen',
-      masseAussen:'', masseInnen:'', status:'aufgemessen', anzahl:12,
+      brauchtZylinder:true, zylinderBauform:'Briefkastenzylinder', masseAussen:'', masseInnen:'', status:'aufgemessen', anzahl:12,
       notiz:'Gleichschließend je Mietpartei gewünscht.' },
     { nummer:'A-EG-05', bezeichnung:'Tiefgaragentor', strukturId:egA.id, kategorie:'Tiefgarage / Garagentor',
       tuerTechnologie:'elektronik', systemNotiz:'Nuki Opener an vorhandener Torsteuerung', brauchtZylinder:false,
       brauchtWandleser:true, komponenten:[],
-      zutrittsseite:'nur außen', tueranforderungen:['Zeitsteuerung vorgesehen'],
       status:'klaerung', anzahl:1, elStromversorgung:'12V', elFunkabdeckung:'gut',
       notiz:'Anbindung an vorhandene Torsteuerung prüfen (Potentialfreier Kontakt).' }
   ];
   tueren.forEach(t => p.tueren.push(M.neueTuer(t)));
 
-  /* Rang im Plan (typ) und Träger (traegerArt) sind zwei verschiedene
-     Angaben. Bei Gruppen entsteht die Medienzahl aus den Mitgliedern. */
-  /* Über M.neuePerson, damit die Personen - wie in der Oberfläche - eine
-     eigene id tragen. Ohne id vergibt die Migration bei jedem Lauf eine neue. */
-  const person = (name, funktion, medien) =>
-    M.neuePerson({ name, funktion: funktion || '', anzahlMedien: medien || 1 });
+  /* Mitarbeiter und Gruppen des Kunden - die Spalten des Plans verweisen
+     darauf. Über die Modellfunktionen, damit jeder Eintrag wie in der
+     Oberfläche eine eigene id trägt. */
+  const gruppen = {};
+  ['EDV', 'Verwaltung'].forEach(name => { const g = M.neueGruppe({ name }); gruppen[name] = g; p.gruppen.push(g); });
+  const ma = {};
+  const mitarbeiter = (name, funktion, gruppenNamen, medien) => {
+    const m = M.neuerMitarbeiter({ name, funktion: funktion || '',
+      gruppen: (gruppenNamen || []).map(n => gruppen[n].id), medien: medien || [] });
+    ma[name] = m; p.mitarbeiter.push(m); return m;
+  };
+  mitarbeiter('Frau Dr. Schäfer', 'Geschäftsführung', [], [{ typ: 'Schlüssel', anzahl: 2 }]);
+  mitarbeiter('Herr Baumann', 'Prokura', [], [{ typ: 'Schlüssel', anzahl: 1 }]);
+  mitarbeiter('Herr Lorenz', 'Objektleitung', [], [{ typ: 'Schlüssel', anzahl: 2 }]);
+  mitarbeiter('Herr Kraus', 'Technik', [], [{ typ: 'Schlüssel', anzahl: 2 }]);
+  mitarbeiter('Herr Özdemir', 'Facility', [], [{ typ: 'Transponder', anzahl: 1 }, { typ: 'Smartphone (App)', anzahl: 1 }]);
+  mitarbeiter('Frau Weiß', 'Systemadministration', ['EDV'], [{ typ: 'Karte', anzahl: 1 }]);
+  mitarbeiter('Herr Tran', 'Netzwerk', ['EDV'], [{ typ: 'Karte', anzahl: 1 }]);
+  mitarbeiter('Frau Köhler', 'Support', ['EDV'], [{ typ: 'Karte', anzahl: 1 }]);
+  mitarbeiter('Herr Adler', 'Support', ['EDV', 'Verwaltung'], [{ typ: 'Karte', anzahl: 1 }]);
+  mitarbeiter('Frau Berg', 'Buchhaltung', ['Verwaltung'], []);
+  mitarbeiter('Herr Imholz', 'Einkauf', ['Verwaltung'], []);
+  mitarbeiter('Familie Richter', 'Mietpartei', [], [{ typ: 'Schlüssel', anzahl: 3 }]);
+  mitarbeiter('Herr Pohl', 'Mietpartei', [], [{ typ: 'Schlüssel', anzahl: 3 }]);
+
+  /* Spalten: Schließungen mit Trägern, Gruppen, ein einzelner Mitarbeiter,
+     Schließungen ohne benannte Träger mit eigener Medienliste */
   const schliessungen = [
-    { kuerzel:'GHS', bezeichnung:'Generalhauptschlüssel', typ:'ghs', traegerArt:'einzel', medienTyp:'Schlüssel',
-      personen:[person('Frau Dr. Schäfer','Geschäftsführung',2), person('Herr Baumann','Prokura',1)] },
-    { kuerzel:'HS-A', bezeichnung:'Hauptschlüssel Haus A', typ:'hs', traegerArt:'einzel',
-      personen:[person('Herr Lorenz','Objektleitung',2)] },
-    { kuerzel:'HS-B', bezeichnung:'Hauptschlüssel Haus B', typ:'hs', traegerArt:'einzel',
-      personen:[person('Herr Kraus','Technik',2)] },
-    { kuerzel:'HM', bezeichnung:'Hausmeister', typ:'ez', traegerArt:'einzel',
-      personen:[person('Herr Özdemir','Facility',2)] },
-    { kuerzel:'IT', bezeichnung:'IT-Abteilung', typ:'gs', traegerArt:'gruppe', gruppenName:'EDV', medienTyp:'Karte',
-      personen:[person('Frau Weiß','Systemadministration'), person('Herr Tran','Netzwerk'),
-                person('Frau Köhler','Support'), person('Herr Adler','Support')] },
-    { kuerzel:'VW', bezeichnung:'Verwaltung', typ:'gs', traegerArt:'gruppe', gruppenName:'Verwaltung',
-      anzahlMedien:11, medienVonHand:true,
-      personen:[person('Frau Berg','Buchhaltung'), person('Herr Imholz','Einkauf')] },
-    { kuerzel:'REIN', bezeichnung:'Reinigungsfirma Glanz GmbH', typ:'extern', traegerArt:'gruppe',
-      gruppenName:'Reinigung Glanz', anzahlMedien:5, medienVonHand:true, bemerkung:'Mo–Fr 18–22 Uhr' },
-    { kuerzel:'NOT', bezeichnung:'Notdienst / Feuerwehr', typ:'extern', traegerArt:'gruppe',
-      gruppenName:'Feuerwehr / Schlüsseldepot', anzahlMedien:1, medienVonHand:true, bemerkung:'Schlüsseldepot' },
-    { kuerzel:'EZ-GL', bezeichnung:'Einzelschließung GL-Büro', typ:'ez', anzahlMedien:2 },
-    { kuerzel:'EZ-ARCH', bezeichnung:'Einzelschließung Archiv', typ:'ez', anzahlMedien:2 },
-    { kuerzel:'MP-01', bezeichnung:'Mietpartei 01', typ:'ez', traegerArt:'einzel',
-      personen:[person('Familie Richter','Mietpartei',3)] },
-    { kuerzel:'MP-02', bezeichnung:'Mietpartei 02', typ:'ez', traegerArt:'einzel',
-      personen:[person('Herr Pohl','Mietpartei',3)] }
+    { kuerzel:'GHS', bezeichnung:'Generalhauptschlüssel', typ:'ghs', traeger:[ma['Frau Dr. Schäfer'].id, ma['Herr Baumann'].id] },
+    { kuerzel:'HS-A', bezeichnung:'Hauptschlüssel Haus A', typ:'hs', traeger:[ma['Herr Lorenz'].id] },
+    { kuerzel:'HS-B', bezeichnung:'Hauptschlüssel Haus B', typ:'hs', traeger:[ma['Herr Kraus'].id] },
+    { kuerzel:'HM', art:'mitarbeiter', mitarbeiterId: ma['Herr Özdemir'].id },
+    { kuerzel:'IT', art:'gruppe', gruppeId: gruppen['EDV'].id },
+    { kuerzel:'VW', art:'gruppe', gruppeId: gruppen['Verwaltung'].id },
+    { kuerzel:'REIN', bezeichnung:'Reinigungsfirma Glanz GmbH', typ:'extern', medien:[{ typ:'Karte', anzahl:5 }], bemerkung:'Mo–Fr 18–22 Uhr' },
+    { kuerzel:'NOT', bezeichnung:'Notdienst / Feuerwehr', typ:'extern', medien:[{ typ:'Schlüssel', anzahl:1 }], bemerkung:'Schlüsseldepot' },
+    { kuerzel:'EZ-GL', bezeichnung:'Einzelschließung GL-Büro', typ:'ez', medien:[{ typ:'', anzahl:2 }] },
+    { kuerzel:'EZ-ARCH', bezeichnung:'Einzelschließung Archiv', typ:'ez', medien:[{ typ:'', anzahl:2 }] },
+    { kuerzel:'MP-01', bezeichnung:'Mietpartei 01', typ:'ez', traeger:[ma['Familie Richter'].id] },
+    { kuerzel:'MP-02', bezeichnung:'Mietpartei 02', typ:'ez', traeger:[ma['Herr Pohl'].id] }
   ];
   schliessungen.forEach((s, i) => p.schliessungen.push(M.neueSchliessung(Object.assign({ sort: i }, s))));
+  M.spaltenAngleichen(p);
 
   /* Berechtigungen setzen */
   const T = n => p.tueren.find(t => t.nummer === n).id;

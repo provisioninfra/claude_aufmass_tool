@@ -6,8 +6,10 @@ const reihen = [
   ['Zusammenführen',  'test-zusammenfuehren.js'],
   ['Entdoppelung',    'test-entdoppelung.js'],
   ['Exportlisten',    'test-exportlisten.js'],
+  ['Testfoto',        'make-jpeg.js'],
   ['Bedienung',       'test-bedienung.js'],
   ['Verlauf',         'test-verlauf.js'],
+  ['Speichern',       'test-speichern.js'],
   ['Kundenfreigabe',  'test-freigabe.js'],
   ['Freigabe: Inhaber', 'test-freigabe-personen.js'],
   ['Pipedrive',       'test-pipedrive.js'],
@@ -15,15 +17,20 @@ const reihen = [
   ['Report-Erzeugung','test-reports.js'],
   ['Browser (E2E)',   'test-e2e.js'],
   ['Bereich & Gruppen','test-bereich-gruppen.js'],
+  ['Mitarbeiter & Gruppen', 'test-personen.js'],
+  ['Gliederung',       'test-gliederung.js'],
   ['Stiftbedienung',  'test-stift.js'],
+  ['Spalten verschieben', 'test-verschieben.js'],
   ['Erscheinungsbild','test-erscheinungsbild.js'],
   ['Einzeldatei',     'test-standalone.js'],
   ['Ausgabeweg',      'test-downloads.js'],
   ['Fassungen',       'test-fassungen.js'],
   ['Abgleich (2 Geräte)', 'test-abgleich.js'],
+  ['Abgleich bei geöffnetem Aufmaß', 'test-abgleich-offen.js'],
   ['Abgleich-Oberfläche', 'test-abgleich-oberflaeche.js'],
   ['Pipedrive über Server', 'test-pipedrive-server.js'],
   ['Freigabe über Server', 'test-freigabe-server.js'],
+  ['Tür einsprechen',  'test-diktat.js'],
   ['Angriffsproben',   'test-angriffe.js'],
   ['Gleichlauf PHP↔JS','test-gleichlauf.js'],
   ['Offline-Betrieb', 'test-offline-pwa.js'],
@@ -37,7 +44,8 @@ const phpReihen = [
   ['Google-Ausweis (PHP)', '../server/tests/test-jwt.php'],
   ['Server-Logik (PHP)',   '../server/tests/test-server.php'],
   ['Pipedrive-Server (PHP)', '../server/tests/test-pipedrive.php'],
-  ['Freigaben-Server (PHP)', '../server/tests/test-freigaben.php']
+  ['Freigaben-Server (PHP)', '../server/tests/test-freigaben.php'],
+  ['Diktat-Server (PHP)', '../server/tests/test-diktat.php']
 ];
 let phpDa = true;
 try { execFileSync('php', ['--version'], { stdio: 'ignore' }); } catch (e) { phpDa = false; }

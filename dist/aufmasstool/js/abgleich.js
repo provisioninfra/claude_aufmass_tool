@@ -39,6 +39,8 @@
        Pipedrive-Anbindung dort, und dieses Gerät braucht keinen. */
     pipedrive: false,
     pipedriveHost: '',
+    /* Bietet der Server das Einsprechen an (OpenAI-Schlüssel hinterlegt)? */
+    diktat: false,
     serverVersion: '',       /* Fassung des Plugins - nennt der Server nur Angemeldeten */
     laeuft: false,
     offen: 0,                /* noch nicht gesendete Projekte */
@@ -71,7 +73,8 @@
       method: optionen.methode || 'GET',
       credentials: 'same-origin',
       headers: kopf,
-      body: optionen.json !== undefined ? JSON.stringify(optionen.json) : (optionen.koerper || undefined)
+      body: optionen.json !== undefined ? JSON.stringify(optionen.json) : (optionen.koerper || undefined),
+      signal: optionen.signal || undefined
     }).then(function (antwort) {
       if (optionen.roh) {
         if (!antwort.ok) { return fehlerAus(antwort); }
@@ -130,6 +133,7 @@
       zustand.benutzer = (d && d.benutzer) || null;
       zustand.serverVersion = (d && d.version) || '';
       pipedriveMerken(d);
+      diktatMerken(d);
       melden();
       return zustand;
     }).catch(function (f) {
@@ -152,6 +156,19 @@
       zustand.pipedriveHost = host;
       melden();
     }
+  }
+
+  /* Ebenso das Einsprechen: Ein in WordPress hinterlegter OpenAI-Schlüssel
+     schaltet den Knopf im Türformular auf allen Geräten frei. */
+  function diktatMerken(d) {
+    if (!d || d.diktat === undefined) { return; }
+    var neu = !!d.diktat;
+    if (neu !== zustand.diktat) { zustand.diktat = neu; melden(); }
+  }
+
+  /** Tür einsprechen: Aufnahme oder Text samt Feldschema an den Server. */
+  function diktat(formular, signal) {
+    return anfrage('/diktat', { methode: 'POST', koerper: formular, signal: signal });
   }
 
   /* Wartende Kundenrückmeldungen kommen bei jedem Abgleich vollständig
@@ -232,6 +249,7 @@
   function holen() {
     return anfrage('/projekte?seit=' + encodeURIComponent(marke)).then(function (d) {
       pipedriveMerken(d);
+      diktatMerken(d);
       antwortenMerken(d);
       var reihe = Promise.resolve();
       (d.projekte || []).forEach(function (eintrag) {
@@ -290,7 +308,14 @@
              zurückschreiben, und die fremde Änderung wäre ohne Rückfrage
              verloren. Der Prüflauf im Browser hat genau das gezeigt. */
           var ungesendet = (satz && satz.schmutzig) || offenUngesichert(eintrag.id);
-          if (!ungesendet) {
+          /* Ein geöffnetes Aufmaß nimmt immer den Zusammenführungsweg -
+             auch ohne eigene Änderungen. Der Direktweg schreibt erst die
+             Datenbank und zieht dann den Speicher nach; wird genau in
+             dieser Lücke getippt, bliebe der Speicher auf dem alten Stand
+             und der Autosave schriebe ihn über den Serverstand zurück.
+             Die Zusammenführung arbeitet dagegen mit dem Speicherstand und
+             bringt das Ergebnis in einem Zug hinein. */
+          if (!ungesendet && !offenesProjekt(eintrag.id)) {
             /* Hier liegt nichts Ungesendetes: Serverstand übernehmen */
             return Store.projektSpeichern(voll.daten, { vomAbgleich: true }).then(function () {
               return satzSchreiben(eintrag.id, voll.version, voll.daten, false);
@@ -306,9 +331,17 @@
   }
 
   function zusammenfuehren(hier, satz, voll) {
+    /* Ist das Aufmaß geöffnet, zählt der Speicher in genau diesem
+       Augenblick - nicht eine Kopie, die vor einer Anfrage ans Netz
+       gezogen wurde. Zwischen dieser Kopie, der Zusammenführung und der
+       Übernahme in den Speicher wartet nichts: So kann keine Eingabe
+       dazwischenrutschen, die im Ergebnis fehlte und beim Übernehmen
+       zurückgedreht würde. */
+    var offen = offenesProjekt(hier.id);
+    if (offen) { hier = JSON.parse(JSON.stringify(offen)); }
     var e = Z.projekte(satz.basis || {}, hier, voll.daten);
     if (e.konflikte.length) {
-      konfliktMerken(hier, e, voll);
+      konfliktMerken(hier, e, voll, satz.basis || {});
       return;
     }
     /* Sauber zusammengeführt: lokal sichern und zum Senden vormerken.
@@ -320,16 +353,25 @@
      * eine Rückfrage zu etwas, das man nie angefasst hat. Der Prüflauf mit
      * zwei Geräten hat genau das gezeigt. */
     e.ergebnis.id = hier.id;
+    /* Gab es hier gar keine eigene Arbeit (nur ein geöffnetes Aufmaß), ist
+       das Ergebnis der Serverstand - dann gibt es nichts zu senden. */
+    var eigeneArbeit = JSON.stringify(hier) !== JSON.stringify(satz.basis || {});
+    /* Zuerst der Speicher - sofort, auch mitten in einer Eingabe. Was im
+       Aufmaß steht, war in der Kopie und steckt im Ergebnis; was gerade
+       erst getippt wird und noch nicht im Aufmaß steht (eine Tür im
+       Formular), bleibt unberührt. Bliebe der Speicher hier zurück, weil
+       gerade getippt wird, schriebe die nächste Speicherung den alten
+       Speicherstand über die Datenbank und dann über den Server: Die
+       fremden Änderungen - etwa eine eben auf dem anderen Gerät angelegte
+       Gliederung - wären überall weg, als wären sie hier gelöscht worden.
+       Genau das ist passiert. */
+    if (offen) { speicherUebernehmen(offen, e.ergebnis, eigeneArbeit); }
     return Store.projektSpeichern(e.ergebnis, { vomAbgleich: true }).then(function () {
-      return satzSchreiben(hier.id, voll.version, voll.daten, true);
-    }).then(function () { return fotosHolen(hier.id, voll.daten); })
-      /* Das Ergebnis enthält die eigenen - auch die noch ungesicherten -
-         Eingaben: Es darf und muss in den Speicher, selbst mitten in einer
-         Eingabe. */
-      .then(function () { return offenesMitziehen(hier.id, true, e.ergebnis); });
+      return satzSchreiben(hier.id, voll.version, voll.daten, eigeneArbeit);
+    }).then(function () { return fotosHolen(hier.id, voll.daten); });
   }
 
-  function konfliktMerken(hier, e, voll) {
+  function konfliktMerken(hier, e, voll, basis) {
     var vorhanden = -1;
     zustand.konflikte.forEach(function (x, i) { if (x.projektId === hier.id) { vorhanden = i; } });
     var satz = {
@@ -337,6 +379,7 @@
       name: hier.kunde || hier.name || 'Aufmaß',
       konflikte: e.konflikte,
       ergebnis: e.ergebnis,
+      basis: basis || {},
       serverVersion: voll.version,
       serverDaten: voll.daten,
       wer: voll.geaendertVon || 'eine andere Stelle'
@@ -352,8 +395,23 @@
     zustand.konflikte.forEach(function (x) { if (x.projektId === projektId) { satz = x; } });
     if (!satz) { return Promise.resolve(false); }
 
-    var fertig = Z.anwenden(satz.ergebnis, satz.konflikte, wahl || {});
-    fertig.id = projektId;
+    var fertig;
+    var offen = offenesProjekt(projektId);
+    if (offen) {
+      /* Seit der Rückfrage wurde womöglich weitergearbeitet. Deshalb noch
+         einmal gegen den Speicher von jetzt zusammenführen, die
+         Entscheidungen darauf anwenden und sofort übernehmen - ohne
+         Wartezeit dazwischen. Eine Angabe, über die erst seitdem Streit
+         entstand, bleibt in der eigenen Fassung. */
+      var frisch = JSON.parse(JSON.stringify(offen));
+      var e = Z.projekte(satz.basis || {}, frisch, satz.serverDaten);
+      fertig = Z.anwenden(e.ergebnis, e.konflikte, wahl || {});
+      fertig.id = projektId;
+      speicherUebernehmen(offen, fertig, true);
+    } else {
+      fertig = Z.anwenden(satz.ergebnis, satz.konflikte, wahl || {});
+      fertig.id = projektId;
+    }
     return Store.projektSpeichern(fertig, { vomAbgleich: true })
       .then(function () {
         /* Als Basis gilt jetzt der Serverstand: Darauf baut das Senden auf. */
@@ -362,7 +420,10 @@
       .then(function () {
         zustand.konflikte = zustand.konflikte.filter(function (x) { return x.projektId !== projektId; });
         melden();
-        return offenesMitziehen(projektId);
+        /* War das Aufmaß beim Auflösen nicht geöffnet, wurde es womöglich
+           seither geöffnet: dann jetzt nachziehen. Ein geöffnetes hat die
+           Entscheidung schon oben bekommen. */
+        if (!offen) { return offenesMitziehen(projektId, true, fertig); }
       })
       .then(function () { return jetzt(); })
       .then(function () { return true; });
@@ -504,16 +565,41 @@
       var fehlend = fotoListe(projekt).filter(function (x) { return !x.foto.dataUrl; });
       if (!fehlend.length) { return; }
 
+      var geholt = {};
       var reihe = Promise.resolve();
       fehlend.forEach(function (x) {
         reihe = reihe.then(function () {
           return anfrage('/fotos/' + encodeURIComponent(x.foto.id), { roh: true })
             .then(function (blob) { return blobAlsDataUrl(blob); })
-            .then(function (url) { x.foto.dataUrl = url; })
+            .then(function (url) { geholt[x.foto.id] = url; })
             .catch(function () { /* Foto fehlt serverseitig: Eintrag bleibt ohne Bild */ });
         });
       });
-      return reihe.then(function () { return Store.projektSpeichern(projekt, { vomAbgleich: true }); });
+      return reihe.then(function () {
+        if (!Object.keys(geholt).length) { return; }
+        /* Der Download dauert; in der Zeit kann ein Autosave gelaufen sein.
+           Deshalb erst jetzt den Stand aus der Datenbank nehmen und nur die
+           Bilddaten nachtragen - und dasselbe im Speicher, falls das Aufmaß
+           gerade offen ist. */
+        return Store.projektLaden(projektId).then(function (frisch) {
+          if (!frisch) { return; }
+          fotosEintragen(frisch, geholt);
+          var Kern = global.AppKern;
+          if (Kern && Kern.Zustand && Kern.Zustand.projekt && Kern.Zustand.projekt.id === projektId) {
+            fotosEintragen(Kern.Zustand.projekt, geholt);
+            if (!Kern.Zustand.ungesichert && global.App && global.App.zeichnen) {
+              try { global.App.zeichnen(); } catch (e) {}
+            }
+          }
+          return Store.projektSpeichern(frisch, { vomAbgleich: true });
+        });
+      });
+    });
+  }
+
+  function fotosEintragen(projekt, geholt) {
+    fotoListe(projekt).forEach(function (x) {
+      if (!x.foto.dataUrl && geholt[x.foto.id]) { x.foto.dataUrl = geholt[x.foto.id]; }
     });
   }
 
@@ -587,16 +673,30 @@
     if (!erzwingen && (Kern.Zustand.ungesichert || Kern.Zustand.speichertGerade)) { return Promise.resolve(); }
     return (daten ? Promise.resolve(daten) : Store.projektLaden(id)).then(function (frisch) {
       if (!frisch) { return; }
-      inPlatzUebernehmen(Kern.Zustand.projekt, frisch);
-      /* Was jetzt im Speicher steht, muss auch in die Datenbank - der
-         nächste Autosave erledigt das. */
-      if (erzwingen && typeof Kern.alsGeaendertMarkieren === 'function') {
-        try { Kern.alsGeaendertMarkieren(); } catch (e) {}
-      }
-      if (global.App && global.App.zeichnen) {
-        try { global.App.zeichnen(); } catch (e) {}
-      }
+      speicherUebernehmen(Kern.Zustand.projekt, frisch, erzwingen);
     });
+  }
+
+  /* Einen Stand in das geöffnete Aufmaß übernehmen - an Ort und Stelle,
+     ohne Wartezeit. Wer das aufruft, hat 'daten' aus dem Speicher von
+     eben abgeleitet; dazwischen darf nichts gewartet haben. */
+  function speicherUebernehmen(ziel, daten, geaendert) {
+    var Kern = global.AppKern;
+    inPlatzUebernehmen(ziel, daten);
+    /* Der Verlauf beginnt neu: Seine Stände stammen von vor der
+       Zusammenführung. Ein „Zurück“ dorthin nähme fremde Änderungen
+       zurück - und sendete das als eigene Arbeit an den Server. */
+    if (global.Verlauf && global.Verlauf.beginnen) {
+      try { global.Verlauf.beginnen(ziel); } catch (e) {}
+    }
+    /* Was jetzt im Speicher steht, muss auch in die Datenbank - der
+       nächste Autosave erledigt das. */
+    if (geaendert && Kern && typeof Kern.alsGeaendertMarkieren === 'function') {
+      try { Kern.alsGeaendertMarkieren(); } catch (e) {}
+    }
+    if (global.App && global.App.zeichnen) {
+      try { global.App.zeichnen(); } catch (e) {}
+    }
   }
 
   /* ---------------------------------------------------------------- */
@@ -698,8 +798,16 @@
    * kommt mit dem Abgleich hierher - übernommen wird sie erst, wenn ein
    * Zuständiger den Bericht gesehen und bestätigt hat.
    * ---------------------------------------------------------------- */
-  function freigabeErstellen(projektId, daten, seite) {
-    return anfrage('/freigaben', { methode: 'POST', json: { projektId: projektId, daten: daten, seite: seite || '' } });
+  function freigabeErstellen(projektId, daten, seite, optionen) {
+    return anfrage('/freigaben', { methode: 'POST', json: { projektId: projektId, daten: daten, seite: seite || '',
+      vorlegen: !!(optionen && optionen.vorlegen) } });
+  }
+  /* Den aktuellen Plan über einen bestehenden Link zur verbindlichen
+     Freigabe vorlegen: Der Kunde sieht dann den neuen Stand ohne
+     Bearbeitung und kann ihn freigeben. */
+  function freigabeVorlegen(code, daten) {
+    return anfrage('/freigaben/' + encodeURIComponent(code) + '/vorlegen', { methode: 'POST', json: { daten: daten } })
+      .then(function (d) { return d && d.freigabe; });
   }
 
   function freigabenListe(projektId) {
@@ -739,13 +847,14 @@
     return new Error('Das Aufmaß liegt auf diesem Gerät noch nicht vor. Bitte kurz warten, bis der Abgleich es geholt hat.');
   }
 
+
   /** Was würde die Übernahme ändern? Ein Bericht, ohne etwas zu ändern. */
   function antwortVorschau(code) {
     var eintrag = antwortFinden(code);
     if (!eintrag) { return Promise.reject(new Error('Diese Rückmeldung liegt nicht mehr vor.')); }
     return projektKopie(eintrag.projektId).then(function (kopie) {
       if (!kopie) { throw nichtDa(); }
-      var bericht = global.Freigabe.antwortUebernehmen(kopie, eintrag.antwort || {});
+      var bericht = global.Freigabe.antwortUebernehmen(kopie, eintrag.antwort || {}, { serverGeprueft: true, code: code });
       return { eintrag: eintrag, bericht: bericht, projekt: kopie };
     });
   }
@@ -764,7 +873,7 @@
     var Kern = global.AppKern;
     return projektKopie(eintrag.projektId).then(function (kopie) {
       if (!kopie) { throw nichtDa(); }
-      var bericht = global.Freigabe.antwortUebernehmen(kopie, eintrag.antwort || {});
+      var bericht = global.Freigabe.antwortUebernehmen(kopie, eintrag.antwort || {}, { serverGeprueft: true, code: code });
       return anfrage('/freigaben/' + encodeURIComponent(code) + '/uebernommen',
           { methode: 'POST', json: { antwortNr: eintrag.antwortNr } })
         .catch(function (f) {
@@ -853,10 +962,12 @@
     freigabeErstellen: freigabeErstellen,
     freigabenListe: freigabenListe,
     freigabeZurueckziehen: freigabeZurueckziehen,
+    freigabeVorlegen: freigabeVorlegen,
     antwortenFuer: antwortenFuer,
     antwortVorschau: antwortVorschau,
     antwortUebernehmen: antwortUebernehmen,
     antwortVerwerfen: antwortVerwerfen,
+    diktat: diktat,
     zustand: function () { return zustand; },
     /* für Tests */
     _intern: { ohneBilddaten: ohneBilddaten, fotoListe: fotoListe,

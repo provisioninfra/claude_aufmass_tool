@@ -93,15 +93,16 @@ In WordPress: **Einstellungen → Aufmaß-Abgleich**
 Speichern.
 
 > **Die Domäne ist die eigentliche Zugangssperre.** Bleibt das Feld leer,
-> darf sich *jedes beliebige* Google-Konto anmelden. Der Server prüft bei
-> jeder Anmeldung, dass das Konto zu dieser Organisation gehört – und
-> zusätzlich, dass die Adresse auf `@provision-infra.de` endet.
+> ist die Anmeldung gesperrt – niemand kommt hinein, bis die Domäne
+> eingetragen ist. Der Server prüft bei jeder Anmeldung, dass das Konto zu
+> dieser Organisation gehört (Organisationsangabe im Ausweis von Google)
+> – und zusätzlich, dass die Adresse auf `@provision-infra.de` endet.
 
 ---
 
 ## Schritt 4 — Das Werkzeug ablegen
 
-Das Werkzeug besteht aus 25 normalen Dateien. Sie werden **nicht in
+Das Werkzeug besteht aus 27 normalen Dateien. Sie werden **nicht in
 WordPress installiert**, sondern *neben* WordPress auf denselben Webspace
 gelegt. Der Webserver liefert einen echten Ordner direkt aus und reicht
 nur Anfragen an WordPress weiter, zu denen es keine Datei gibt – deshalb
@@ -136,7 +137,7 @@ Protokoll SFTP, Port 22.
 2. Im FTP-Programm rechts ins Wurzelverzeichnis gehen.
 3. Den **ganzen Ordner `aufmasstool`** hinüberziehen – den Ordner, nicht
    nur seinen Inhalt. Die Unterordner `js/` und `css/` kommen so mit.
-4. Warten, bis die Warteschlange leer ist: 26 Dateien (25 plus
+4. Warten, bis die Warteschlange leer ist: 28 Dateien (27 plus
    `LIESMICH.txt`, die darf mit).
 
 **Weg 2 – ZIP per SSH** (wer SSH ohnehin nutzt):
@@ -162,7 +163,7 @@ unzip ~/aufmasstool.zip       # legt den Ordner aufmasstool an
     ├── manifest.webmanifest
     ├── icon.svg, icon-180.png, icon-192.png, icon-512.png
     ├── css/app.css
-    └── js/…                          (16 Dateien)
+    └── js/…                          (18 Dateien)
 ```
 
 Typische Fehler: Der Ordner heißt anders (`aufmasstool (1)`,
@@ -208,6 +209,40 @@ lassen sich einzeln sperren. **Sperren meldet sofort alle Geräte dieser
 Person ab** – wichtig, wenn jemand ausscheidet oder ein iPad abhanden
 kommt.
 
+**Wer sich anmelden darf – und wie das geprüft wird**
+
+* Ausschließlich Google-Workspace-Konten der eingetragenen
+  **Organisationsdomäne**. Der Server prüft beides: die
+  Organisationsangabe (`hd`) im Ausweis von Google *und* die Adresse.
+  Private Google-Konten (gmail.com) tragen keine Organisation und fallen
+  heraus. **Ohne eingetragene Domäne ist die Anmeldung gesperrt** – nicht
+  etwa offen.
+* Das Kennwort bleibt bei Google; der Server sieht es nie. Google
+  bestätigt die Anmeldung mit einem unterschriebenen Ausweis, den der
+  Server gegen Googles aktuelle Schlüssel prüft (nur RS256; „alg: none“
+  und andere Verfahren werden abgewiesen). Der Ausweis muss für genau
+  diese Client-ID ausgestellt sein, darf höchstens zehn Minuten alt sein
+  und gilt **genau einmal** – ein mitgelesener Ausweis eröffnet keine
+  zweite Sitzung.
+* Danach weist sich das Gerät über ein eigenes Sitzungscookie aus
+  (HttpOnly, Secure, SameSite=Strict, 30 Tage); jede schreibende Anfrage
+  braucht zusätzlich das eigene Kopffeld des Werkzeugs. Fehlversuche
+  werden je Herkunft gedrosselt.
+* Mit dem Haken **„Neue Konten der Organisation erst nach Freigabe durch
+  die Verwaltung zulassen“** wird ein neues Konto zwar angelegt, bleibt
+  aber gesperrt, bis es unter „Zugänge“ freigegeben wird. Ohne Haken ist
+  jedes Konto der Organisation sofort dabei. Die erste Anmeldung erhält
+  in jedem Fall die Verwaltung.
+* Die Zeile **„Herkunft der Aufrufe“** zeigt, von welcher Adresse der
+  Aufruf für den Server kommt. Die Drosseln zählen je Besucheradresse;
+  sieht PHP nur eine interne Adresse des Hosters, liest das Plugin die
+  Besucheradresse von selbst aus dem Kopffeld des Proxys. Steht der
+  Proxy auf einer öffentlichen Adresse (CDN) – erkennbar daran, dass von
+  jedem Gerät und Netz aus dieselbe Adresse angezeigt wird –, den Haken
+  **„hinter einem Proxy oder CDN“** setzen. Bei direkter Verbindung
+  bleibt der Haken aus: Ein Kopffeld, das ein Besucher selbst mitschickt,
+  zählt dann nicht.
+
 ---
 
 ## Schritt 6 — Pipedrive (optional)
@@ -244,9 +279,20 @@ auf dem Gerät.
 
 Der Kunde bekommt einen **kurzen Link**, zum Beispiel
 `https://www.provision-infra.de/f/k7m2p9x4qa`. Er öffnet ihn im Browser,
-trägt in den freigegebenen Feldern ein, wer welche Tür öffnen darf, gibt
-seinen Namen an und klickt auf **Übertragen**. Mehr muss er nicht tun -
-kein Konto, keine Datei, kein Zurückschicken.
+trägt in den freigegebenen Feldern ein, wer welche Tür öffnen darf, pflegt
+- soweit der Link es erlaubt - seine Mitarbeiter und Gruppen oder nimmt
+neue Spalten auf, gibt seinen Namen an und klickt auf **Rückmeldung
+senden** oder auf **Rückmeldung senden und Plan freigeben**. Mehr muss er
+nicht tun - kein Konto, keine Datei, kein Zurückschicken.
+
+Was der Kunde darf, legt die Person fest, die den Link erzeugt: welche
+Spalten er bearbeiten darf, ob er Mitarbeiter pflegen, Gruppen anlegen
+und neue Spalten aufnehmen darf. Die **verbindliche Freigabe** schließt
+die Abstimmung ab: Danach ist der Link für den Kunden gesperrt, das
+Werkzeug bleibt änderbar und zeigt den Vermerk. Ein fertiger Plan lässt
+sich dem Kunden auch nachträglich zur Freigabe vorlegen (*Kundenfreigabe
+→ Plan zur verbindlichen Freigabe vorlegen*); er sieht dann den aktuellen
+Stand ohne Bearbeitung und klickt nur auf „Plan verbindlich freigeben“.
 
 **Was dann passiert**
 
@@ -256,15 +302,19 @@ kein Konto, keine Datei, kein Zurückschicken.
 2. Im Werkzeug erscheint auf jedem zuständigen Gerät mit Internet oben in
    der Kopfzeile **„1 Rückmeldung"** und im Schließplan ein Hinweis.
 3. **Prüfen und übernehmen** zeigt einen Bericht: welche Tür, welche
-   Schließung, bisher → neu, dazu geänderte Inhaberlisten und die
-   Anmerkung des Kunden. **Erst „Übernehmen" ändert das Aufmaß.**
-   „Verwerfen" legt die Rückmeldung ab, ohne etwas zu ändern. Der Kunde
-   kann jederzeit erneut übertragen; dann wartet eine neue Rückmeldung.
+   Spalte, bisher → neu, dazu neue oder geänderte Mitarbeiter und
+   Gruppen, neue Spalten, eine verbindliche Freigabe und die Anmerkung
+   des Kunden. **Erst „Übernehmen" ändert das Aufmaß.** „Verwerfen" legt
+   die Rückmeldung ab, ohne etwas zu ändern - eine verworfene Freigabe
+   gilt nicht. Ohne Freigabe kann der Kunde jederzeit erneut übertragen;
+   nach einer übernommenen Freigabe ist der Link für ihn gesperrt.
 
 Der Link wird im Werkzeug unter *Schließplan → Kundenfreigabe* erzeugt.
 Dort stehen auch alle bisherigen Links des Aufmaßes mit ihrem Zustand
-(offen, wartet auf Prüfung, übernommen, verworfen, abgelaufen) und ein
-Knopf **Zurückziehen**, der einen Link sofort unbrauchbar macht.
+(offen, wartet auf Prüfung, übernommen, zur Freigabe vorgelegt,
+freigegeben, verworfen, abgelaufen), den eingeräumten Rechten, einem Knopf
+**Zur Freigabe vorlegen** und einem Knopf **Zurückziehen**, der einen Link
+sofort unbrauchbar macht.
 
 **Einstellungen in WordPress** (*Einstellungen → Aufmaß-Abgleich →
 Kundenfreigabe*): Gültigkeit der Links in Tagen (Vorgabe 30, 0 =
@@ -280,12 +330,65 @@ beim Aktivieren und bei jeder neuen Fassung von selbst.
 > und stammt aus dem Zufallsgenerator des Systems. Wer Codes rät, wird je
 > Herkunftsadresse gedrosselt. Jeder Link läuft ab und lässt sich
 > zurückziehen. Der Server prüft jede Antwort gegen die Freigabe: Nur
-> Felder, die freigegeben waren, werden angenommen - alles andere wird
-> abgewiesen. Und ins Aufmaß kommt nichts ohne die Bestätigung einer
-> zuständigen Person. Erledigte Freigaben werden nach 180 Tagen gelöscht.
+> Felder, die freigegeben waren, und nur Listen, für die der Link das
+> Recht einräumt, werden angenommen - alles andere, auch eine erfundene
+> Kennung, weist die ganze Antwort ab. Und ins Aufmaß kommt nichts ohne
+> die Bestätigung einer zuständigen Person. Erledigte Freigaben werden
+> nach 180 Tagen gelöscht.
 
 Die Einzeldatei (ohne Server) erzeugt weiterhin den langen Link mit den
 Daten im Anker; die Rückmeldung kommt dort wie bisher als Rückschlüssel.
+
+---
+
+## Schritt 8 — Tür einsprechen (OpenAI, optional)
+
+Mit einem OpenAI-Schlüssel auf dem Server bekommt das Türformular den
+Knopf **Einsprechen**: Die Angaben zu einer Tür werden in einem Stück
+gesprochen, OpenAI verwandelt die Aufnahme in Text und ordnet ihn den
+Feldern zu, das Werkzeug zeigt einen Vorschlag, und erst die Bestätigung
+schreibt in die Tür. Ohne Schlüssel fehlt der Knopf einfach.
+
+1. Bei OpenAI ein Konto für die Schnittstelle anlegen:
+   **platform.openai.com** (das ChatGPT-Abo deckt die Schnittstelle nicht
+   ab; sie wird nach Nutzung abgerechnet, eine Tür kostet unter einem
+   Cent). Unter *Billing* ein kleines Guthaben hinterlegen.
+2. Unter *API keys* einen Schlüssel erzeugen (ein Projektschlüssel genügt)
+   und kopieren – er wird nur einmal angezeigt.
+3. In WordPress: **Einstellungen → Aufmaß-Abgleich → Tür einsprechen
+   (OpenAI)** – den Schlüssel eintragen, speichern. Danach **„Verbindung
+   prüfen“** anklicken: Das holt nur die Modellliste (kostenlos) und
+   sagt, ob der Schlüssel gilt und ob die beiden Modelle verfügbar sind.
+4. Auf einem Gerät eine Tür öffnen: Der Knopf **Einsprechen** ist da
+   (nach spätestens einem Abgleich, also 15 Sekunden). Beim ersten Mal
+   fragt der Browser nach dem Mikrofon – erlauben.
+5. Mehrere Türen in einem Zug: in der Aufnahme **„neue Tür“** sagen und
+   weitersprechen. Jede Tür wird dann ohne Rückfrage eingetragen – die
+   erste in die geöffnete Tür, jede weitere als neue Tür im selben
+   Bereich. Die Zusammenfassung danach bietet **„Weiter einsprechen“**.
+
+**Verarbeitung in der EU.** Wer das möchte, legt bei OpenAI ein Projekt
+mit EU-Datenresidenz an und trägt als Adresse `eu.api.openai.com` ein.
+Mit einem gewöhnlichen Projekt funktioniert diese Adresse nicht.
+
+**Modelle.** Vorgegeben sind `gpt-4o-transcribe` (Erkennung) und
+`gpt-4.1-mini` (Zuordnung). Die Felder bleiben leer, solange nichts
+anderes gewünscht ist; kündigt OpenAI ein Modell ab, wird hier der
+Nachfolger eingetragen – „Verbindung prüfen“ zeigt, ob er verfügbar ist.
+
+**Was übertragen wird – und was nicht.** An OpenAI gehen die Aufnahme,
+die Fachwörter und das Feldschema (Feldnamen und erlaubte Werte) sowie
+beim Berichtigen der Text. Nicht übertragen werden Kundenname, Adresse,
+Objekt oder der Schließplan. Der Server legt weder Aufnahme noch Text noch
+Ergebnis ab. Laut OpenAI werden Daten der Schnittstelle nicht zum
+Trainieren verwendet; ein Auftragsverarbeitungsvertrag (Data Processing
+Addendum) lässt sich im OpenAI-Konto abschließen – das sollte vor dem
+Einsatz geschehen.
+
+> **Wie der Schlüssel abgelegt ist:** wie der Pipedrive-Schlüssel
+> verschlüsselt mit einem Schlüssel aus der `wp-config.php`. Er verlässt
+> den Server nie; die Geräte sprechen nur mit dem eigenen Server. Werden
+> die Salts erneuert, ist er nicht mehr lesbar und wird neu eingetragen.
 
 ---
 
@@ -344,9 +447,11 @@ nichts länger als nötig behalten, nichts an Dritte geben.
 | Zugänge | Google-Kennung, Name, E-Mail-Adresse, erste und letzte Anmeldung | bis der Zugang in WordPress gelöscht wird |
 | Sitzungen | je Gerät eine Kennung; das Geheimnis nur als Prüfwert | 30 Tage, dann von selbst weg; Sperren beendet sie sofort |
 | Aufmaße, Fotos, Zuständigkeiten | was im Werkzeug angelegt wird | bis zum Löschen im Werkzeug, danach 90 Tage im Papierkorb, dann endgültig |
-| Kundenfreigaben | die Plandaten des Links (Türen, Schließungen, bekannte Inhaber) | bis der Link abläuft oder zurückgezogen wird – dann sofort entfernt |
-| Rückmeldungen | Name und Anmerkung des Kunden, seine Eintragungen | bis eine zuständige Person sie übernommen oder verworfen hat, danach noch 180 Tage |
+| Kundenfreigaben | die Plandaten des Links (Türen, Spalten, Mitarbeiter und Gruppen des Kunden, Rechte) | bis der Link abläuft oder zurückgezogen wird – dann sofort entfernt |
+| Rückmeldungen | Name und Anmerkung des Kunden, seine Eintragungen; bei einer Freigabe Name, Funktion und Zeitpunkt | bis eine zuständige Person sie übernommen oder verworfen hat, danach noch 180 Tage |
+| Anmeldung | ein Abdruck jedes verwendeten Google-Ausweises (gegen Wiederverwendung) | bis der Ausweis bei Google abgelaufen wäre, höchstens rund eine Stunde |
 | Drosselung | ein Zähler je Herkunft (gekürzter, gehashter Adressbereich – keine IP-Adresse) | 10 Minuten |
+| Tür einsprechen | nichts – Aufnahme, Text und Vorschlag werden nur durchgereicht und nicht abgelegt; je Person ein Zähler der Diktate | Zähler: eine Minute bzw. ein Tag |
 
 Die Fristen räumt ein täglicher WordPress-Zeitplan ab; er läuft, sobald
 die Website besucht wird. Die Gültigkeit der Links lässt sich unter
@@ -364,10 +469,10 @@ liegt in jedem Fall im Werkzeug.
 
 ### Was der Kunde sieht
 
-Über seinen Link sieht der Kunde nur den freigegebenen Ausschnitt: die
-Türen, die freigegebenen Schließungen und die bisher bekannten Inhaber.
-Er sieht keine Kennungen, keine Namen von Mitarbeitern und keine anderen
-Aufmaße. Der Kurzlink taucht in den Zugriffsprotokollen des Hosters auf,
+Über seinen Link sieht der Kunde nur sein eigenes Aufmaß: die Türen,
+alle Spalten des Plans, seine Mitarbeiter und Gruppen (es sind seine
+eigenen Leute) und die Rechte, die der Link ihm einräumt. Er sieht keine
+Zugänge, keine Namen eurer Mitarbeiter und keine anderen Aufmaße. Der Kurzlink taucht in den Zugriffsprotokollen des Hosters auf,
 die Raidboxes nach eigener Regel aufbewahrt; wer das vermeiden will,
 zieht den Link nach der Rückmeldung zurück – dann ist er wertlos.
 
@@ -468,10 +573,16 @@ hinterlegen (Schritt 6), der Server übernimmt die Abfrage.
   vorgeschalteten Proxy des Hosters. Sperren einer Person meldet alle ihre
   Geräte sofort ab.
 - **Der Google-Ausweis** wird serverseitig gegen Googles Schlüssel geprüft
-  (Unterschrift, Aussteller, Client-ID, Ablauf, bestätigte Adresse,
-  Organisationsdomäne). Fehlgeschlagene Anmeldungen werden je Herkunft
-  gedrosselt (30 in zehn Minuten), damit niemand den Server mit
-  erfundenen Ausweisen beschäftigt.
+  (Unterschrift nur RS256, Aussteller, Client-ID samt `azp`, Ablauf,
+  Ausstellungszeit – höchstens zehn Minuten alt –, bestätigte Adresse,
+  Organisationsdomäne im `hd` *und* in der Adresse). Jeder Ausweis gilt
+  genau einmal; ein zweites Vorzeigen wird abgewiesen. Ohne eingetragene
+  Domäne ist die Anmeldung gesperrt. Fehlgeschlagene Anmeldungen werden
+  je Herkunft gedrosselt (30 in zehn Minuten), Googles Schlüssel werden
+  höchstens einmal je Minute neu geholt, damit niemand den Server mit
+  erfundenen Ausweisen beschäftigt. Die Herkunft ist die Besucheradresse –
+  hinter einem Proxy des Hosters die weitergereichte, nie ein Kopffeld,
+  das ein Besucher bei direkter Verbindung selbst mitschickt.
 - **Kundenfreigabe:** Code mit rund 50 Bit Zufall; je Herkunft werden
   unbekannte Codes (30), Aufrufe (120) und Übertragungen (12) in zehn
   Minuten gedrosselt, je Link höchstens 40 Übertragungen am Tag;
@@ -495,6 +606,12 @@ hinterlegen (Schritt 6), der Server übernimmt die Abfrage.
   Angemeldete ausgeliefert, mit Prüfung der Bildart am Inhalt.
 - **Pipedrive-Schlüssel** verschlüsselt mit einem Schlüssel aus der
   `wp-config.php`; die Weiterleitung kennt nur lesende Wege.
+- **OpenAI-Schlüssel** ebenso verschlüsselt; nur der Server spricht mit
+  OpenAI. Je Person zwölf Diktate je Minute und 400 je Tag, Aufnahmen
+  höchstens 10 MB in bekannten Tonformaten. Das Feldschema aus dem
+  Werkzeug wird in Form und Umfang geprüft, die Antwort des Modells gegen
+  das Schema bereinigt (nur bekannte Felder, nur erlaubte Werte), und
+  OpenAIs Fehlermeldungen werden ohne den Schlüssel weitergegeben.
 
 Was das Plugin nicht leisten kann: Kopfzeilen des Webservers (HSTS,
 `X-Frame-Options`) setzt der Hoster. Bei Raidboxes ist HTTPS erzwungen;

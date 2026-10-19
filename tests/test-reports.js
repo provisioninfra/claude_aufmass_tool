@@ -41,7 +41,7 @@ ausgaben.forEach(([name, fn]) => {
 const gross = baueTestprojekt();
 const M = require('../src/js/model.js');
 for (let i = 0; i < 48; i++) {
-  gross.schliessungen.push(M.neueSchliessung({ kuerzel: 'MP-' + (i+20), bezeichnung: 'Mietpartei Nr. ' + (i+20), typ: 'ez', anzahlMedien: 3, sort: 100+i }));
+  gross.schliessungen.push(M.neueSchliessung({ kuerzel: 'MP-' + (i+20), bezeichnung: 'Mietpartei Nr. ' + (i+20), typ: 'ez', medien: [{ typ: 'Schlüssel', anzahl: 3 }], sort: 100+i }));
 }
 for (let i = 0; i < 60; i++) {
   gross.tueren.push(M.neueTuer({ nummer: 'X-' + i, bezeichnung: 'Zusatztür Nummer ' + i + ' Langer Raumname Verwaltung', systemId: 'evva-4ks', zylinderArt: 'Doppelzylinder', masseAussen:'30', masseInnen:'35', strukturId: gross.standorte[3].id }));

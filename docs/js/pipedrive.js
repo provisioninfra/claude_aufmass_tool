@@ -44,14 +44,24 @@
     return e;
   }
 
+  /* Eine Pipedrive-Adresse in Reinform - oder '' wenn das keine ist.
+   * Angenommen wird nur ein Rechnername unter pipedrive.com; alles andere
+   * könnte die Seite ohnehin nicht ansprechen (die Seite erlaubt nur pipedrive.com),
+   * und ein Tippfehler soll nicht in rätselhaften Fehlern enden. */
+  function hostRein(text) {
+    var roh = String(text || '').trim().toLowerCase();
+    if (!roh) return '';
+    /* Auch eine vollständige Adresse aus dem Browser wird angenommen */
+    roh = roh.replace(/^https?:\/\//, '').replace(/[\/?#].*$/, '').replace(/:\d+$/, '').trim();
+    return /^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+pipedrive\.com$/.test(roh) ? roh : '';
+  }
+  function hostGueltig(text) {
+    return !String(text || '').trim() || hostRein(text) !== '';
+  }
   function hostAus(einstellungen) {
     var server = serverWeg();
     if (server) return server.host;
-    var roh = String((einstellungen && einstellungen.pipedriveHost) || '').trim();
-    if (!roh) return STANDARD_HOST;
-    /* Auch eine vollständige Adresse aus dem Browser wird angenommen */
-    roh = roh.replace(/^https?:\/\//, '').replace(/\/.*$/, '').trim();
-    return roh || STANDARD_HOST;
+    return hostRein(einstellungen && einstellungen.pipedriveHost) || STANDARD_HOST;
   }
 
   /* =========================================================================
@@ -634,6 +644,8 @@
 
   global.Pipedrive = {
     STANDARD_HOST: STANDARD_HOST,
+    hostRein: hostRein,
+    hostGueltig: hostGueltig,
     hostAus: hostAus,
     quelle: quelle,
     verbindungPruefen: verbindungPruefen,

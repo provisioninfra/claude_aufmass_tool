@@ -112,7 +112,7 @@
       struktur:  { text: '+ Standort',     tun: function () { VP.standortAnlegen(zeichnen); } },
       bereich:   { text: '+ Neue Tür hier', tun: function () {
                      VT.tuerBearbeiten(null, zeichnen, { strukturId: Zustand.bereichId }); } },
-      plan:      { text: '+ Schließung',   tun: function () { VPL.schliessungBearbeiten(null, zeichnen); } }
+      plan:      { text: '+ Spalte',       tun: function () { VPL.schliessungBearbeiten(null, zeichnen); } }
     };
 
     if (!p && ['projekte', 'einstellungen'].indexOf(Zustand.ansicht) === -1) {
@@ -238,6 +238,11 @@
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
       var imFeld = /^(INPUT|TEXTAREA|SELECT)$/.test((e.target || {}).tagName || '');
       if (imFeld) return;                 /* im Eingabefeld gilt die Textrücknahme */
+      /* Ein offener Dialog arbeitet auf einer Kopie (z. B. das Türformular).
+         Würde hier das Projekt zurückgesetzt, schriebe der Dialog beim
+         Speichern in ein Objekt, das nicht mehr das Projekt ist - die Tür
+         wäre weg, obwohl „Gespeichert“ gemeldet wird. */
+      if (document.querySelector('.dialog')) return;
       if (!Zustand.projekt) return;
       e.preventDefault();
       schrittZurueckNehmen();

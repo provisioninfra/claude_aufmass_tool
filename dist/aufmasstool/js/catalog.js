@@ -144,16 +144,27 @@
   ];
 
   var ZYLINDER_AUSFUEHRUNG = [
-    'Not- und Gefahrenfunktion',
+    'BSZ (beidseitig schließbar)',
+    'beidseitig elektronisch',
     'Freidreh',
     'Comfort',
     'Anti-Panik',
+    'Monitoring',
+    'VdS',
+    'SKG',
     'Wetterschutz',
     'erhöhter Bohrschutz',
     'Ziehschutz',
     'gleichschließend',
     'Sonderlänge'
   ];
+
+  /* Stufe, sobald „SKG“ gewählt ist - beim Zylinder wie beim Beschlag */
+  var SKG_STUFE = ['SKG *', 'SKG **', 'SKG ***'];
+
+  /* Zusatzoptionen am Beschlag; „beidseitig elektronisch“ steht dort in
+   * der Ausführung, deshalb nicht noch einmal hier. */
+  var BESCHLAG_OPTIONEN = ['BSZ (beidseitig schließbar)', 'VdS', 'SKG'];
 
   /* Nur bei Knaufzylinder abgefragt */
   var KNAUFSEITE = ['Knauf außen', 'Knauf innen', 'Knauf beidseitig'];
@@ -167,33 +178,20 @@
     if (tuer.zylinderKnaufseite && tuer.zylinderBauform === 'Knaufzylinder') {
       teile.push('(' + tuer.zylinderKnaufseite + ')');
     }
-    var a = (tuer.zylinderAusfuehrung || []).filter(Boolean);
+    var a = (tuer.zylinderAusfuehrung || []).filter(Boolean).map(function (x) {
+      /* Die SKG-Stufe steht statt des bloßen „SKG“ */
+      return (x === 'SKG' && tuer.zylinderSkgStufe) ? tuer.zylinderSkgStufe : x;
+    });
     if (a.length) teile.push('· ' + a.join(', '));
     return teile.join(' ').trim();
   }
 
-  /* --- Zutrittsseite und Türanforderungen --------------------------------
-   * Früher eine gemischte Liste; jetzt getrennt, weil es zwei verschiedene
-   * Fragen sind. Zylinderfunktionen (Freidreh, Not- und Gefahrenfunktion)
-   * stehen ausschließlich bei der Zylinderausführung.
-   * -------------------------------------------------------------------- */
-  var ZUTRITTSSEITE = [
-    'nur außen',
-    'innen und außen',
-    'nur innen',
-    'Durchgangsfunktion / dauerentriegelt'
-  ];
-
-  var TUERANFORDERUNG = [
-    'Flucht- und Rettungsweg',
-    'Brandschutz',
-    'Rauchschutz',
-    'einbruchhemmend (RC)',
-    'VdS-Anforderung',
-    'Nassbereich / Außenbereich',
-    'barrierefrei',
-    'Zeitsteuerung vorgesehen'
-  ];
+  /* Zusatzoptionen des Beschlags als Text (BSZ, VdS, SKG mit Stufe) */
+  function beschlagOptionenText(tuer) {
+    return (tuer && tuer.beschlagOptionen || []).filter(Boolean).map(function (x) {
+      return (x === 'SKG' && tuer.beschlagSkgStufe) ? tuer.beschlagSkgStufe : x;
+    }).join(', ');
+  }
 
   /* --- Beschlag ----------------------------------------------------------
    * Bauform, Bestückung und Sicherheitsklasse sind unabhängig voneinander.
@@ -445,39 +443,16 @@
     { id: 'extern',label: 'Extern (Reinigung, Notdienst)',kuerzel: 'EXT' }
   ];
 
-  /* --- Träger einer Schließung -------------------------------------------
-   * Antwort auf die Frage "Wer bekommt dieses Medium?". Bewusst getrennt
-   * vom Typ: der Typ sagt, welchen Rang die Schließung im Plan hat
-   * (GHS, HS, GS ...), der Träger sagt, wer sie in der Hand hält.
-   * -------------------------------------------------------------------- */
-  var TRAEGER_ART = [
-    { id: 'einzel', label: 'Einzelperson(en)',
-      hinweis: 'Namentlich benannte Personen. Jede Person kann eine eigene Anzahl Medien haben.' },
-    { id: 'gruppe', label: 'Gruppe',
-      hinweis: 'Eine benannte Gruppe (z. B. Reinigung, IT). Auf den Gruppennamen tippen, um die Mitglieder zu hinterlegen.' }
+  /* --- Arten von Spalten im Schließplan ---------------------------------- */
+  var SPALTEN_ART = [
+    { id: 'gruppe',      label: 'Gruppe',
+      hinweis: 'Alle Mitglieder der Gruppe sind über diese Spalte berechtigt.' },
+    { id: 'mitarbeiter', label: 'Mitarbeiter',
+      hinweis: 'Ein einzelner Mitarbeiter - etwa für Berechtigungen, die nur er bekommt.' },
+    { id: 'schliessung', label: 'Schließung / Schlüssel',
+      hinweis: 'Ein Schlüssel oder eine Schließung mit Rang im Plan (z. B. Generalhauptschlüssel). Wer ihn bekommt, wird als Träger benannt.' }
   ];
 
-  /* Kurztext zum Träger für Spaltenköpfe, Listen und PDF */
-  function traegerText(schliessung) {
-    var s = schliessung || {};
-    var personen = (s.personen || []).filter(function (x) { return x && x.name; });
-    if (s.traegerArt === 'gruppe') {
-      var name = s.gruppenName || s.abteilung || '';
-      if (!name) name = 'Gruppe';
-      return name + (personen.length ? (' (' + personen.length +
-        (personen.length === 1 ? ' Person)' : ' Personen)')) : '');
-    }
-    if (personen.length) {
-      if (personen.length <= 2) {
-        return personen.map(function (x) { return x.name; }).join(', ');
-      }
-      return personen[0].name + ' und ' + (personen.length - 1) + ' weitere';
-    }
-    /* Angaben aus einer früheren Fassung, falls noch nicht überführt */
-    return s.person || s.abteilung || '';
-  }
-
-  /* --- Berechtigungswerte in der Matrix ----------------------------------- */
   var BERECHTIGUNG = [
     { id: 'nein',  zeichen: '',   label: 'nicht berechtigt' },
     { id: 'ja',    zeichen: 'X',  label: 'berechtigt' },
@@ -572,16 +547,16 @@
     /* Tür */
     TUER_ANSCHLAG: TUER_ANSCHLAG,
     KABELUEBERGANG: KABELUEBERGANG,
-    ZUTRITTSSEITE: ZUTRITTSSEITE,
-    TUERANFORDERUNG: TUERANFORDERUNG,
     DIN_RICHTUNG: DIN_RICHTUNG,
     TUER_OEFFNUNG: TUER_OEFFNUNG,
     TUERKATEGORIEN: TUERKATEGORIEN,
     TUERMATERIAL: TUERMATERIAL,
     STATUS: STATUS,
     SCHLIESSUNG_TYPEN: SCHLIESSUNG_TYPEN,
-    TRAEGER_ART: TRAEGER_ART,
-    traegerText: traegerText,
+    SPALTEN_ART: SPALTEN_ART,
+    SKG_STUFE: SKG_STUFE,
+    BESCHLAG_OPTIONEN: BESCHLAG_OPTIONEN,
+    beschlagOptionenText: beschlagOptionenText,
     BERECHTIGUNG: BERECHTIGUNG,
     systemById: systemById,
     systemLabel: systemLabel,

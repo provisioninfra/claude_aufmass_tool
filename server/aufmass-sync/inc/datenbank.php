@@ -113,7 +113,10 @@ class Aufmass_Datenbank {
         /* Eine Kundenfreigabe: Der Plan liegt hier, der Kunde bekommt nur
            den kurzen Code. Seine Antwort landet in derselben Zeile und
            wartet dort, bis ein Zuständiger sie geprüft und übernommen
-           hat. Die Antwort selbst ist klein - nur die Abweichungen. */
+           hat. Die Antwort selbst ist klein - nur die Abweichungen.
+           Seit Fassung 1.2: die Rechte des Kunden (rechte), die Vorlage
+           zur verbindlichen Freigabe (vorgelegt_am) und die Freigabe
+           selbst (freigabe_*). */
         dbDelta("CREATE TABLE $freigaben (
   code varchar(16) NOT NULL,
   projekt_id varchar(64) NOT NULL,
@@ -133,6 +136,12 @@ class Aufmass_Datenbank {
   uebernommen_nr int(10) unsigned NOT NULL DEFAULT 0,
   uebernommen_am datetime(6) DEFAULT NULL,
   uebernommen_von varchar(64) NOT NULL DEFAULT '',
+  rechte varchar(20) NOT NULL DEFAULT '',
+  vorgelegt_am datetime(6) DEFAULT NULL,
+  freigabe_am datetime(6) DEFAULT NULL,
+  freigabe_name varchar(190) NOT NULL DEFAULT '',
+  freigabe_funktion varchar(190) NOT NULL DEFAULT '',
+  freigabe_art varchar(20) NOT NULL DEFAULT '',
   geaendert_am datetime(6) DEFAULT NULL,
   PRIMARY KEY  (code),
   KEY projekt_id (projekt_id),
