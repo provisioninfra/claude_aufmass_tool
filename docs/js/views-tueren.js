@@ -147,7 +147,7 @@
     /* --- Filterleiste --- */
     var f = Zustand.tuerFilter;
     var suchfeld = el('input', {
-      type: 'search', placeholder: 'Suche: Nummer, Raum, System, Bemerkung …', value: f.suche,
+      type: 'search', placeholder: 'Suche: Nr., Raum, System …', title: 'Sucht in Nummer, Bezeichnung, System und Bemerkung', value: f.suche,
       oninput: function (e) { f.suche = e.target.value; listeZeichnen(); }
     });
     var strukturWahl = el('select', {
@@ -208,7 +208,7 @@
         var heu = [t.nummer, t.bezeichnung, t.kategorie, t.notiz, t.nacharbeitText,
                    K.zylinderText(t), K.beschlagText(t), K.schlossText(t),
                    K.systemLabel(M.tuerSystemId(p, t), eigeneListe('eigeneSysteme')), t.systemNotiz,
-                   t.zutrittsseite, (t.tueranforderungen || []).join(' ')].join(' ').toLowerCase();
+                   K.beschlagOptionenText(t)].join(' ').toLowerCase();
         if (heu.indexOf(q) === -1) return false;
       }
       return true;
@@ -322,6 +322,11 @@
     /* Auf einer Kopie arbeiten, damit „Abbrechen“ wirklich verwirft */
     var t = istNeu ? M.neueTuer(vorlageFuerNeueTuer(vorgaben))
                    : JSON.parse(JSON.stringify(vorhandene));
+    /* Der Stand beim Öffnen: Damit lässt sich beim Speichern erkennen,
+     * was dieser Dialog geändert hat - und was in der Zwischenzeit von
+     * anderswo (Abgleich mit einem zweiten Gerät) an der Tür geändert
+     * wurde und erhalten bleiben muss. */
+    var beimOeffnen = istNeu ? null : JSON.stringify(t);
 
     /* Die gewählte Ansicht überlebt den Dialog - getrennt für neue und
      * vorhandene Türen, weil beide Fälle verschieden benutzt werden. */
@@ -331,6 +336,7 @@
     var inhalt = el('div', { class: 'tuer-formular' });
     var modusLeiste = el('div');
     var statusLeiste = el('div', { class: 'pflicht-leiste' });
+    var chipsOffen = null;   /* null = Vorgabe je Ansicht, sonst die Wahl im Dialog */
     var fortschritt = el('div', { class: 'schritt-fortschritt' });
     var koerper = el('div');
     inhalt.appendChild(modusLeiste);
@@ -364,7 +370,6 @@
       { id: 'zylinder',   titel: 'Zylinder',               schritt: 'Zylinder',              wenn: function () { return t.brauchtZylinder; }, bauen: zylinderBauen },
       { id: 'beschlag',   titel: 'Beschlag / Drücker',     schritt: 'Beschlag / Drücker',    wenn: function () { return t.brauchtBeschlag; }, bauen: beschlagBauen },
       { id: 'schloss',    titel: 'Schloss',                schritt: 'Schloss',               wenn: function () { return t.brauchtSchloss; }, bauen: schlossBauen },
-      { id: 'zutritt',    titel: 'Zutritt und Anforderungen', schritt: 'Zutritt',            immer: true,  bauen: zutrittBauen },
       { id: 'elektronik', titel: 'Elektronik und Vernetzung', schritt: 'Elektronik',         wenn: elektronikRelevant, bauen: elektronikBauen },
       { id: 'tuerdaten',  titel: 'Türdaten',               schritt: 'Türdaten',              immer: true,  freiwillig: true, bauen: tuerdatenBauen },
       { id: 'bestand',    titel: 'Bestand / Altanlage',    schritt: 'Bestand',               immer: true,  freiwillig: true, bauen: bestandBauen },
@@ -515,7 +520,17 @@
       gesamtlaengeZeigen();
       ziel.appendChild(A.chipFeld(t, 'zylinderAusfuehrung',
         'Ausführung <span class="einheit">(nur wenn zutreffend)</span>',
-        liste('ZYLINDER_AUSFUEHRUNG')));
+        liste('ZYLINDER_AUSFUEHRUNG'),
+        /* „SKG“ verlangt eine Stufe: das Feld erscheint, sobald der Chip gesetzt ist */
+        { beiAenderung: function (o) { if (o === 'SKG') abschnittNeu('zylinder'); } }));
+      if ((t.zylinderAusfuehrung || []).indexOf('SKG') !== -1) {
+        ziel.appendChild(el('div', { class: 'raster', style: { marginTop: '10px' } }, [
+          A.auswahlFeld(t, 'zylinderSkgStufe', 'SKG-Stufe', K.SKG_STUFE,
+            { leerText: '– bitte wählen –', beiAenderung: markieren })
+        ]));
+      } else if (t.zylinderSkgStufe) {
+        t.zylinderSkgStufe = '';
+      }
       ziel.appendChild(widerspruecheBauen());
     }
 
@@ -536,6 +551,17 @@
         t.beschlagSicherheit = '';
       }
       ziel.appendChild(raster);
+      ziel.appendChild(A.chipFeld(t, 'beschlagOptionen',
+        'Optionen <span class="einheit">(nur wenn zutreffend)</span>', K.BESCHLAG_OPTIONEN,
+        { beiAenderung: function (o) { if (o === 'SKG') abschnittNeu('beschlag'); } }));
+      if ((t.beschlagOptionen || []).indexOf('SKG') !== -1) {
+        ziel.appendChild(el('div', { class: 'raster', style: { marginTop: '10px' } }, [
+          A.auswahlFeld(t, 'beschlagSkgStufe', 'SKG-Stufe', K.SKG_STUFE,
+            { leerText: '– bitte wählen –', beiAenderung: markieren })
+        ]));
+      } else if (t.beschlagSkgStufe) {
+        t.beschlagSkgStufe = '';
+      }
       ziel.appendChild(el('h3', { text: 'Maße für den Beschlag' }));
       ziel.appendChild(masseRasterBauen());
       ziel.appendChild(widerspruecheBauen());
@@ -595,23 +621,6 @@
           ])
         ])
       ]));
-      ziel.appendChild(widerspruecheBauen());
-    }
-
-    /* --- 6. Zutritt ---------------------------------------------------- */
-    function zutrittBauen(ziel) {
-      ziel.appendChild(el('div', { class: 'raster' }, [
-        A.auswahlFeld(t, 'zutrittsseite', 'Von welcher Seite wird geöffnet?', K.ZUTRITTSSEITE,
-          { leerText: '– bitte wählen –', beiAenderung: markieren })
-      ]));
-      var feld = A.chipFeld(t, 'tueranforderungen',
-        'Bauliche Anforderungen <span class="einheit">(mehrere möglich)</span>',
-        liste('TUERANFORDERUNG', 'eigeneZutrittsarten'));
-      /* Eine Änderung hier kann einen Widerspruch zum Schloss auflösen */
-      feld.addEventListener('click', function () { setTimeout(widerspruecheZeigen, 0); });
-      ziel.appendChild(feld);
-      ziel.appendChild(el('p', { class: 'hinweis', style: { marginTop: '10px' },
-        text: 'Bei Flucht- und Rettungswegen sowie Brand- und Rauchschutztüren sind die bauaufsichtlichen Anforderungen zu beachten; die Auswahl hier ersetzt keine Prüfung vor Ort.' }));
       ziel.appendChild(widerspruecheBauen());
     }
 
@@ -755,17 +764,6 @@
      * wird, unter dem Stift wegziehen. */
     function widerspruecheZeigen() {
       var meldungen = [];
-      var istFlucht = (t.tueranforderungen || []).indexOf('Flucht- und Rettungsweg') !== -1;
-
-      if (istFlucht && t.brauchtSchloss && t.schlossFunktion && !/Panik/.test(t.schlossFunktion)) {
-        meldungen.push('Die Tür ist als Flucht- und Rettungsweg gekennzeichnet, das Schloss hat aber keine Panikfunktion.');
-      }
-      if (istFlucht && !t.brauchtSchloss) {
-        meldungen.push('Flucht- und Rettungsweg: Bitte das Schloss mit erfassen, die Panikfunktion ist bestellrelevant.');
-      }
-      if (t.brauchtZylinder && (t.zylinderAusfuehrung || []).indexOf('Anti-Panik') !== -1 && !istFlucht) {
-        meldungen.push('Zylinder mit Anti-Panik gewählt – gehört diese Tür zum Flucht- und Rettungsweg?');
-      }
       if (t.zylinderBauform === 'Halbzylinder' && t.masseInnen &&
           parseInt(String(t.masseInnen).replace(',', '.'), 10) > 15) {
         meldungen.push('Bei einem Halbzylinder ist die Innenlänge üblicherweise 10 mm.');
@@ -807,18 +805,36 @@
       } else {
         statusLeiste.className = 'pflicht-leiste offen';
         statusLeiste.appendChild(el('span', { class: 'zeichen', text: '!' }));
-        statusLeiste.appendChild(el('span', { class: 'fuellen', text:
-          fehlende.length + (fehlende.length === 1 ? ' Pflichtangabe fehlt' : ' Pflichtangaben fehlen') +
-          '  ·  Speichern ist möglich' }));
-        var chips = el('span', { class: 'chips' });
-        fehlende.slice(0, 8).forEach(function (f) {
-          chips.appendChild(el('button', {
-            type: 'button', class: 'chip klein', text: f.label,
-            title: 'Zu dieser Angabe springen',
-            onclick: function () { zuAbschnitt(f.abschnitt, f.schluessel); }
-          }));
-        });
-        statusLeiste.appendChild(chips);
+        /* Im geführten Ablauf bleibt die Liste der fehlenden Angaben
+         * eingeklappt: Der Fortschrittsbalken zeigt ohnehin, in welchen
+         * Schritten etwas fehlt, und auf dem Telefon würde die Liste sonst
+         * die eigentliche Frage vom Bildschirm schieben. In der Vollansicht
+         * ist sie aufgeklappt - dort sind die Chips der schnellste Weg zum
+         * Feld. Ein Antippen der Zeile klappt um; die Wahl bleibt, solange
+         * der Dialog offen ist. */
+        var zeigen = chipsOffen === null ? Zustand[modusSchluessel] !== 'gefuehrt' : chipsOffen;
+        statusLeiste.appendChild(el('button', {
+          type: 'button', class: 'fuellen pflicht-umschalter',
+          'aria-expanded': zeigen ? 'true' : 'false',
+          title: zeigen ? 'Liste einklappen' : 'Zeigen, welche Angaben fehlen',
+          onclick: function () { chipsOffen = !zeigen; markieren(); }
+        }, [
+          el('span', { text: fehlende.length +
+            (fehlende.length === 1 ? ' Pflichtangabe fehlt' : ' Pflichtangaben fehlen') +
+            '  ·  Speichern ist möglich' }),
+          el('span', { class: 'pfeil', 'aria-hidden': 'true', text: zeigen ? '▴' : '▾' })
+        ]));
+        if (zeigen) {
+          var chips = el('span', { class: 'chips' });
+          fehlende.slice(0, 8).forEach(function (f) {
+            chips.appendChild(el('button', {
+              type: 'button', class: 'chip klein', text: f.label,
+              title: 'Zu dieser Angabe springen',
+              onclick: function () { zuAbschnitt(f.abschnitt, f.schluessel); }
+            }));
+          });
+          statusLeiste.appendChild(chips);
+        }
       }
       fortschrittZeichnen();
     }
@@ -846,6 +862,106 @@
     }
 
     /* =======================================================================
+     * Einsprechen
+     * =====================================================================
+     * Eine Tür: Vorschlag, dann Übernahme nach Bestätigung. Mehrere Türen
+     * (Befehl „neue Tür“ in der Aufnahme): jede wird ohne Rückfrage
+     * eingetragen - die erste in diese Tür, jede weitere als neue Tür im
+     * selben Bereich. Danach die Zusammenfassung mit „Weiter einsprechen“.
+     */
+    function diktatOeffnen() {
+      if (!global.Diktat || !global.Diktat.verfuegbar()) return;
+      global.Diktat.dialog({ tuer: t, projekt: p, einstellungen: Zustand.einstellungen,
+        beiUebernahme: function (namen) {
+          A.schrittMerken('Diktat übernommen');
+          A.alsGeaendertMarkieren();
+          /* Das Diktat füllt Felder in allen Schritten - danach alle
+           * Felder zeigen, damit sich der Vorschlag prüfen lässt. */
+          if (namen.length) Zustand[modusSchluessel] = 'alle';
+          ansichtNeu();
+          var rollen = inhalt.closest ? inhalt.closest('.koerper') : null;
+          if (rollen) rollen.scrollTop = 0;
+          A.toast(namen.length
+            ? (namen.length + (namen.length === 1 ? ' Angabe' : ' Angaben') + ' aus dem Diktat übernommen - bitte prüfen.')
+            : 'Nichts übernommen - die Angaben standen schon so in der Tür.', namen.length ? 'ok' : 'warn');
+        },
+        beiSerie: serieUebernehmen });
+    }
+
+    /* Der Bereich, in dem die Serie entsteht: der dieser Tür, sonst der,
+     * aus dem heraus sie angelegt wurde, sonst der gerade gefilterte. */
+    function bereichDerTuer() {
+      if (t.strukturId) return t.strukturId;
+      if (vorgaben && vorgaben.strukturId) return vorgaben.strukturId;
+      var f2 = Zustand.tuerFilter;
+      return (f2 && f2.struktur && f2.struktur !== '__ohne__') ? f2.struktur : null;
+    }
+
+    function serieUebernehmen(serie) {
+      var struktur = bereichDerTuer();
+      var angelegt = [];
+      var liste = serie.tueren || [];
+      for (var i = 0; i < liste.length; i++) {
+        var d = liste[i];
+        var werte = {};
+        Object.keys(d.felder || {}).forEach(function (k) { werte[k] = d.felder[k]; });
+        if (d.offen && d.offen.length) werte.notiz = (werte.notiz ? werte.notiz + '\n' : '') + d.offen.join('; ');
+        /* Wurde in einem Teil gar nichts erkannt, bleibt wenigstens der
+           gesprochene Text in der Bemerkung - nichts geht verloren. */
+        if (!Object.keys(werte).length && d.text) werte.notiz = String(d.text);
+        if (i === 0) {
+          global.Diktat.anwenden(t, werte, serie.schema);
+          if (struktur && !t.strukturId) t.strukturId = struktur;
+          if (!t.nummer && !t.bezeichnung) t.nummer = M.naechsteLaufendeNummer(p);
+          if (!uebernehmen(false)) return;
+          angelegt.push(t);
+        } else {
+          var ziel = Zustand.projekt && Zustand.projekt.id === p.id ? Zustand.projekt : p;
+          var neu = M.neueTuer(vorlageFuerNeueTuer(struktur ? { strukturId: struktur } : null));
+          global.Diktat.anwenden(neu, werte, serie.schema);
+          if (!neu.nummer && !neu.bezeichnung) neu.nummer = M.naechsteLaufendeNummer(ziel);
+          neu.anzahl = Math.max(1, parseInt(neu.anzahl, 10) || 1);
+          neu.geaendert = new Date().toISOString();
+          M.statusAusPruefung(ziel, neu);
+          ziel.tueren.push(neu);
+          angelegt.push(neu);
+        }
+      }
+      if (!angelegt.length) return;
+      A.schrittMerken(angelegt.length + ' Türen eingesprochen');
+      A.alsGeaendertMarkieren(); A.speichern();
+      dlg.schliessen();
+      neuZeichnen();
+      serieZusammenfassung(angelegt, struktur);
+    }
+
+    function serieZusammenfassung(angelegt, struktur) {
+      var pr = Zustand.projekt && Zustand.projekt.id === p.id ? Zustand.projekt : p;
+      var bereich = struktur ? M.strukturPfadText(pr, struktur) : '';
+      var offen = angelegt.filter(function (x) { return M.pflichtfelder(pr, x).length; }).length;
+      var kasten = el('div', { class: 'serie' });
+      kasten.appendChild(el('p', { class: 'hinweis', style: { marginTop: '0' },
+        text: angelegt.length + (angelegt.length === 1 ? ' Tür wurde' : ' Türen wurden') + ' aus dem Diktat eingetragen' +
+          (bereich ? ' - Bereich „' + bereich + '“' : '') + '.' +
+          (offen ? (' Bei ' + offen + (offen === 1 ? ' Tür fehlen' : ' Türen fehlen') + ' noch Pflichtangaben.') : '') +
+          ' Antippen öffnet eine Tür zum Prüfen.' }));
+      var zeilen = el('div', { class: 'tuer-liste' });
+      var dlg2 = A.dialogOeffnen({ titel: 'Türen eingesprochen', inhalt: kasten, knoepfe: [
+        { text: 'Fertig' },
+        { text: '🎤 Weiter einsprechen', klasse: 'haupt', aktion: function () {
+          setTimeout(function () { tuerBearbeiten(null, neuZeichnen, { strukturId: struktur, sofortEinsprechen: true }); }, 120);
+        } }
+      ] });
+      angelegt.forEach(function (tuer) {
+        var zeile = tuerZeile(tuer, neuZeichnen);
+        /* erst die Zusammenfassung schließen, dann öffnet die Zeile die Tür */
+        zeile.addEventListener('click', function () { dlg2.schliessen(); }, true);
+        zeilen.appendChild(zeile);
+      });
+      kasten.appendChild(zeilen);
+    }
+
+    /* =======================================================================
      * Aufbau der Ansicht
      * ==================================================================== */
     function modusLeisteZeichnen() {
@@ -859,7 +975,13 @@
           el('button', { type: 'button', class: gefuehrt ? '' : 'aktiv', text: 'Alle Felder',
             'aria-pressed': gefuehrt ? 'false' : 'true',
             onclick: function () { Zustand[modusSchluessel] = 'alle'; ansichtNeu(); } })
-        ])
+        ]),
+        /* Einsprechen gibt es nur, wenn der Server es anbietet und das
+         * Gerät aufnehmen kann - sonst bleibt die Leiste wie gewohnt. */
+        (global.Diktat && global.Diktat.verfuegbar()) ? el('button', {
+          type: 'button', class: 'diktat-start', 'aria-label': 'Einsprechen',
+          title: 'Angaben zur Tür einsprechen - das Werkzeug macht daraus einen Vorschlag; „neue Tür“ trennt mehrere Türen',
+          onclick: diktatOeffnen }, [el('span', { class: 'symbol', 'aria-hidden': 'true', text: '🎤' }), el('span', { class: 'wort', text: ' Einsprechen' })]) : null
       ]));
     }
 
@@ -953,6 +1075,25 @@
     /* =======================================================================
      * Speichern
      * ==================================================================== */
+    /* Während der Dialog offen war, kann der Abgleich dieselbe Tür von
+     * einem anderen Gerät her verändert haben (eine Bemerkung, ein Foto).
+     * Felder, die hier NICHT angefasst wurden, dort aber schon, bleiben
+     * erhalten; was hier geändert wurde, gewinnt. */
+    function fremdeAenderungenBehalten(aktuell) {
+      if (!beimOeffnen || !aktuell) return;
+      var alt = JSON.parse(beimOeffnen);
+      var schluessel = {};
+      Object.keys(alt).concat(Object.keys(aktuell)).forEach(function (k) { schluessel[k] = true; });
+      Object.keys(schluessel).forEach(function (k) {
+        if (k === 'id' || k === 'geaendert') return;
+        var hierUnveraendert = JSON.stringify(t[k]) === JSON.stringify(alt[k]);
+        var dortGeaendert = JSON.stringify(aktuell[k]) !== JSON.stringify(alt[k]);
+        if (hierUnveraendert && dortGeaendert) {
+          if (aktuell[k] === undefined) delete t[k]; else t[k] = aktuell[k];
+        }
+      });
+    }
+
     function uebernehmen(undWeiter) {
       if (!t.nummer && !t.bezeichnung) {
         A.toast('Bitte mindestens Türnummer oder Bezeichnung angeben.', 'fehler');
@@ -968,11 +1109,16 @@
 
       A.schrittMerken(istNeu ? ('Tür ' + (t.nummer || t.bezeichnung) + ' angelegt')
                              : ('Tür ' + (t.nummer || t.bezeichnung) + ' geändert'));
+      /* Immer in das Projekt schreiben, das JETZT geöffnet ist - nicht in
+       * die beim Öffnen gefangene Fassung (die kann ein „Zurück“ oder der
+       * Abgleich inzwischen ersetzt haben). */
+      var ziel = Zustand.projekt && Zustand.projekt.id === p.id ? Zustand.projekt : p;
       if (istNeu) {
-        p.tueren.push(t);
+        ziel.tueren.push(t);
       } else {
-        var i = p.tueren.findIndex(function (x) { return x.id === t.id; });
-        if (i >= 0) p.tueren[i] = t; else p.tueren.push(t);
+        var i = ziel.tueren.findIndex(function (x) { return x.id === t.id; });
+        if (i >= 0) { fremdeAenderungenBehalten(ziel.tueren[i]); ziel.tueren[i] = t; }
+        else ziel.tueren.push(t);
       }
       A.alsGeaendertMarkieren();
       A.speichern();
@@ -982,9 +1128,15 @@
            (fehlende.length === 1 ? ' Pflichtangabe fehlt noch.' : ' Pflichtangaben fehlen noch.'))
         : 'Tür gespeichert.';
       if (undWeiter) {
+        /* Die nächste Tür beginnt leer - nichts von der eben gesicherten
+         * wird übernommen. Ein vorbelegter, aber falscher Wert fiele vor
+         * Ort weniger auf als ein leeres Pflichtfeld. Nur der Bereich, aus
+         * dem heraus angelegt wird (vorgaben), bleibt gesetzt. */
         A.toast(meldung + ' Nächste Tür …', fehlende.length ? 'warn' : 'ok');
         neuZeichnen();
-        setTimeout(function () { tuerBearbeiten(null, neuZeichnen, vorgaben); }, 120);
+        /* Nur der Bereich geht mit - nicht etwa ein „sofort einsprechen“ */
+        var folge = (vorgaben && vorgaben.strukturId) ? { strukturId: vorgaben.strukturId } : null;
+        setTimeout(function () { tuerBearbeiten(null, neuZeichnen, folge); }, 120);
         return true;
       }
       A.toast(meldung, fehlende.length ? 'warn' : 'ok');
@@ -1073,6 +1225,8 @@
     }
 
     ansichtNeu();
+    /* Nach einer Serie geht es mit „Weiter einsprechen“ direkt weiter */
+    if (vorgaben && vorgaben.sofortEinsprechen) setTimeout(diktatOeffnen, 150);
   }
 
   /* Gesamtlänge eines Zylinders, sofern beide Maße vorliegen. */
@@ -1089,7 +1243,8 @@
   function vorlageFuerNeueTuer(vorgaben) {
     var v = { nummer: M.naechsteLaufendeNummer(Zustand.projekt), status: 'aufgemessen' };
     /* Wird die Tür aus einem Bereich heraus angelegt, steht der Bereich
-     * schon fest und muss nicht erneut gewählt werden. */
+     * schon fest und muss nicht erneut gewählt werden. Alles andere beginnt
+     * leer - auch nach „Speichern & nächste“. */
     if (vorgaben && vorgaben.strukturId) v.strukturId = vorgaben.strukturId;
     return v;
   }

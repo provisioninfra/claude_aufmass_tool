@@ -154,7 +154,13 @@ class Aufmass_Projekte {
                 array('status' => 409, 'server' => $server));
         }
 
-        $wpdb->update($tab, array(
+        /* Die Version steht mit in der WHERE-Bedingung: Zwischen dem Lesen
+           oben und dem Schreiben hier kann ein zweites Gerät mit derselben
+           Basis gespeichert haben. Ohne diese Bedingung überschriebe der
+           Zweite den Ersten stillschweigend - ein verlorener Stand, den
+           niemand bemerkt. So trifft die Änderung nur die erwartete Version;
+           sonst gibt es den Konflikt wie oben, samt Serverstand. */
+        $betroffen = $wpdb->update($tab, array(
             'kunde' => self::kurz(isset($daten['kunde']) ? $daten['kunde'] : '', 255),
             'objekt' => self::kurz(isset($daten['objekt']) ? $daten['objekt'] : '', 255),
             'anlagen_nr' => self::kurz(isset($daten['anlagenNr']) ? $daten['anlagenNr'] : '', 100),
@@ -165,7 +171,12 @@ class Aufmass_Projekte {
             /* Ein erneutes Speichern holt ein gelöschtes Aufmaß zurück. */
             'geloescht' => 0,
             'geloescht_am' => null
-        ), array('id' => $id));
+        ), array('id' => $id, 'version' => (int) $vorhanden['version']));
+        if (!$betroffen) {
+            return new WP_Error('konflikt',
+                'Dieses Aufmaß wurde im selben Augenblick von einer anderen Stelle geändert.',
+                array('status' => 409, 'server' => self::laden($id)));
+        }
 
         return self::laden($id);
     }
@@ -182,11 +193,11 @@ class Aufmass_Projekte {
         if (is_wp_error($darf)) { return $darf; }
 
         $jetzt = Aufmass_Datenbank::jetzt();
-        $wpdb->update($tab, array(
-            'geloescht' => 1, 'geloescht_am' => $jetzt,
-            'geaendert_am' => $jetzt, 'geaendert_von' => $benutzer['id'],
-            'version' => $wpdb->get_var($wpdb->prepare("SELECT version FROM $tab WHERE id = %s", $id)) + 1
-        ), array('id' => $id));
+        /* Die Version zählt die Datenbank selbst hoch - in einem Schritt,
+           ohne Lücke zwischen Lesen und Schreiben. */
+        $wpdb->query($wpdb->prepare(
+            "UPDATE $tab SET geloescht = 1, geloescht_am = %s, geaendert_am = %s, geaendert_von = %s, version = version + 1 WHERE id = %s",
+            $jetzt, $jetzt, $benutzer['id'], $id));
         return array('ok' => true);
     }
 

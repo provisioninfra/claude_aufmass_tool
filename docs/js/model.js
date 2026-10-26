@@ -60,6 +60,19 @@
       /* Verknüpfung zu Pipedrive, sofern das Projekt von dort stammt.
        * Enthält nur Kennungen und den Link - niemals Zugangsdaten. */
       pipedrive: null,
+      /* Ohne Server erzeugte Freigabe-Links: je Link, welche Felder und
+       * Schließungen freigegeben waren. Damit wird eine Rückmeldung beim
+       * Einlesen gegen die Freigabe geprüft - wie es der Server tut. */
+      freigabenLokal: [],
+      /* Mitarbeiter und Gruppen des Kunden. Die Spalten des Plans beziehen
+       * sich darauf: eine Gruppe (alle Mitglieder), ein einzelner
+       * Mitarbeiter oder eine Schließung (Schlüssel) mit benannten Trägern. */
+      mitarbeiter: [],
+      gruppen: [],
+      /* Verbindliche Freigabe des Plans durch den Kunden (nur über den Server):
+       * { am, name, funktion, code, art, stand } - 'stand' ist der Prüfwert des
+       * Plans zum Zeitpunkt der Freigabe, damit spätere Änderungen auffallen. */
+      freigabe: null,
 
       erstellt: new Date().toISOString(),
       geaendert: new Date().toISOString(),
@@ -156,11 +169,14 @@
       zylinderBauform: '',        // genau eine Bauform
       zylinderAusfuehrung: [],    // Zusatzfunktionen, mehrere möglich
       zylinderKnaufseite: '',     // nur bei Knaufzylinder
+      zylinderSkgStufe: '',       // nur, wenn die Ausführung „SKG“ gewählt ist
 
       beschlagBauform: '',
       beschlagBestueckung: '',
       beschlagSicherheit: '',     // nur bei Schutzbeschlag
       beschlagAusfuehrung: '',    // mechanisch oder elektronisch, ein-/beidseitig
+      beschlagOptionen: [],       // BSZ, VdS, SKG - mehrere möglich
+      beschlagSkgStufe: '',       // nur, wenn „SKG“ gewählt ist
 
       schlossBauform: '',
       schlossFunktion: '',
@@ -177,10 +193,6 @@
       schlossNorm: '',
 
       komponenten: [],            // nur Bauteile, die sonst nirgends erfasst sind
-
-      /* --- Zutritt und Anforderungen --- */
-      zutrittsseite: '',          // genau eine Angabe
-      tueranforderungen: [],      // bauliche Anforderungen, mehrere möglich
 
       /* --- Maße --- */
       masseAussen: '',            // Zylinderlänge außen (mm)
@@ -257,63 +269,276 @@
     return naechste;
   }
 
-  /* --- Schließung (Spalte im Kreuzschließplan) ---------------------------- */
+  /* --- Schließung (Spalte im Kreuzschließplan) ----------------------------
+   * Drei Arten von Spalten:
+   *   'gruppe'       - eine Gruppe des Kunden; alle Mitglieder sind berechtigt
+   *   'mitarbeiter'  - ein einzelner Mitarbeiter
+   *   'schliessung'  - eine Schließung bzw. ein Schlüssel mit Rang im Plan
+   *                    (GHS, HS ...); wer ihn bekommt, steht in 'traeger'
+   * Die Bezeichnung wird bei Gruppen und Mitarbeitern aus deren Namen
+   * geführt (spaltenAngleichen), damit Listen, PDF und Freigabe nichts
+   * nachschlagen müssen. */
   function neueSchliessung(vorgabe) {
     var s = {
       id: uid('sch'),
+      art: 'schliessung',        // 'schliessung' | 'gruppe' | 'mitarbeiter'
+      gruppeId: '',              // bei art 'gruppe'
+      mitarbeiterId: '',         // bei art 'mitarbeiter'
       kuerzel: '',
       bezeichnung: '',
-      typ: 'ez',                 // Rang im Plan: GHS, HS, GS, UGS, EZ, extern
-
-      /* --- Träger: wer hält dieses Medium in der Hand? ---
-       * 'einzel' = namentlich benannte Personen, 'gruppe' = benannte Gruppe
-       * mit Mitgliederliste. Bewusst getrennt vom Rang im Plan. */
-      traegerArt: '',
-      gruppenName: '',
-      personen: [],              // [{ id, name, funktion, anzahlMedien }]
-
-      anzahlMedien: 1,           // Anzahl Schlüssel / Transponder / Karten
-      medienTyp: '',             // Art des Mediums - bestellrelevant
-      medienVonHand: false,      // true: Zahl wurde selbst eingetragen
-      person: '',                // aus früheren Fassungen, wird überführt
-      abteilung: '',             // aus früheren Fassungen, wird überführt
+      typ: '',                   // Rang im Plan (GHS, HS, GS, UGS, EZ, extern) - nur bei 'schliessung'
+      traeger: [],               // Kennungen der Mitarbeiter, die diesen Schlüssel bekommen (nur 'schliessung')
+      medien: [],                // [{ typ, anzahl }] - nur, wenn keine Träger benannt sind
       bemerkung: '',
       sort: 0
     };
     if (vorgabe) { for (var k in vorgabe) { if (Object.prototype.hasOwnProperty.call(vorgabe, k)) s[k] = vorgabe[k]; } }
+    if (!s.art) s.art = 'schliessung';
+    if (!Array.isArray(s.traeger)) s.traeger = [];
+    s.medien = medienBereinigen(s.medien);
     return s;
   }
 
-  /* --- Person einer Schließung -------------------------------------------- */
+  /* Person einer Schließung aus einer früheren Fassung - nur noch für die
+   * Überführung gebraucht. */
   function neuePerson(vorgabe) {
     var x = { id: uid('per'), name: '', funktion: '', anzahlMedien: 1 };
     if (vorgabe) { for (var k in vorgabe) { if (Object.prototype.hasOwnProperty.call(vorgabe, k)) x[k] = vorgabe[k]; } }
     return x;
   }
 
-  /* Anzahl Medien einer Schließung.
-   * Sie ergibt sich aus der Summe der Personen - außer die Zahl wurde
-   * ausdrücklich selbst eingetragen. Dann gilt die eingetragene Zahl. */
-  function medienAnzahl(schliessung) {
-    var s = schliessung || {};
-    var personen = (s.personen || []).filter(function (x) { return x && String(x.name || '').trim(); });
-    if (s.medienVonHand || !personen.length) {
-      var n = parseInt(s.anzahlMedien, 10);
-      return (!n || n < 0) ? 0 : n;
-    }
-    return personen.reduce(function (sum, x) {
-      var n2 = parseInt(x.anzahlMedien, 10);
-      return sum + ((!n2 || n2 < 1) ? 1 : n2);
-    }, 0);
+  /* --- Mitarbeiter und Gruppen des Kunden --------------------------------- */
+  function neuerMitarbeiter(vorgabe) {
+    var m = {
+      id: uid('ma'),
+      name: '',                  // Vorname Nachname in einem Feld
+      funktion: '',              // aus früheren Fassungen; wird gezeigt, aber nicht mehr abgefragt
+      gruppen: [],               // Kennungen der Gruppen - mehrere möglich
+      medien: []                 // [{ typ, anzahl }] - was dieser Mitarbeiter bekommt
+    };
+    if (vorgabe) { for (var k in vorgabe) { if (Object.prototype.hasOwnProperty.call(vorgabe, k)) m[k] = vorgabe[k]; } }
+    if (!Array.isArray(m.gruppen)) m.gruppen = [];
+    m.gruppen = m.gruppen.filter(function (x) { return typeof x === 'string' && x; });
+    m.medien = medienBereinigen(m.medien);
+    return m;
   }
 
-  /* Die errechnete Anzahl in die Schließung zurückschreiben, damit
-   * Exporte und ältere Auswertungen dieselbe Zahl sehen. */
-  function medienAngleichen(schliessung) {
-    if (!schliessung) return 0;
-    var n = medienAnzahl(schliessung);
-    schliessung.anzahlMedien = n;
-    return n;
+  function neueGruppe(vorgabe) {
+    var g = { id: uid('grp'), name: '' };
+    if (vorgabe) { for (var k in vorgabe) { if (Object.prototype.hasOwnProperty.call(vorgabe, k)) g[k] = vorgabe[k]; } }
+    return g;
+  }
+
+  /* Eine Medienliste in die feste Form [{ typ, anzahl }] bringen. Gleiche
+   * Arten werden zusammengezogen, Unbrauchbares fällt heraus. */
+  function medienBereinigen(liste) {
+    if (!Array.isArray(liste)) return [];
+    var aus = [];
+    liste.forEach(function (x) {
+      if (x === null || x === undefined) return;
+      var typ = '', anzahl = 1;
+      if (Array.isArray(x)) { typ = x[0]; anzahl = x[1]; }
+      else if (typeof x === 'object') { typ = x.typ; anzahl = x.anzahl; }
+      else if (typeof x === 'string') { typ = x; }
+      else return;
+      typ = String(typ === undefined || typ === null ? '' : typ).trim().slice(0, 60);
+      var n = parseInt(anzahl, 10);
+      if (!isFinite(n) || n < 1) n = 1;
+      if (n > 999) n = 999;
+      var da = aus.filter(function (y) { return y.typ === typ; })[0];
+      if (da) da.anzahl = Math.min(999, da.anzahl + n); else aus.push({ typ: typ, anzahl: n });
+    });
+    return aus;
+  }
+
+  /* Anzahl Medien eines Mitarbeiters: die Summe seiner Einträge. Ohne
+   * Eintrag gilt ein Medium - wer im Plan steht, braucht eines. */
+  function mitarbeiterMedienAnzahl(m) {
+    var liste = medienBereinigen(m && m.medien);
+    if (!liste.length) return 1;
+    return liste.reduce(function (sum, x) { return sum + x.anzahl; }, 0);
+  }
+
+  function mitarbeiterVon(projekt, id) {
+    if (!id || !projekt) return null;
+    return (projekt.mitarbeiter || []).filter(function (m) { return m && m.id === id; })[0] || null;
+  }
+  function gruppeVon(projekt, id) {
+    if (!id || !projekt) return null;
+    return (projekt.gruppen || []).filter(function (g) { return g && g.id === id; })[0] || null;
+  }
+  function gruppenMitglieder(projekt, gruppeId) {
+    if (!gruppeId) return [];
+    return (projekt.mitarbeiter || []).filter(function (m) {
+      return m && Array.isArray(m.gruppen) && m.gruppen.indexOf(gruppeId) !== -1;
+    });
+  }
+
+  /* Wer steht hinter einer Spalte? Bei einer Gruppe ihre Mitglieder, bei
+   * einem Mitarbeiter er selbst, bei einer Schließung ihre Träger. */
+  function spaltenMitglieder(projekt, s) {
+    if (!s || !projekt) return [];
+    if (s.art === 'gruppe') return gruppenMitglieder(projekt, s.gruppeId);
+    if (s.art === 'mitarbeiter') { var m = mitarbeiterVon(projekt, s.mitarbeiterId); return m ? [m] : []; }
+    return (s.traeger || []).map(function (id) { return mitarbeiterVon(projekt, id); }).filter(Boolean);
+  }
+
+  /* Anzahl Medien einer Spalte: die Summe über die Mitarbeiter dahinter.
+   * Eine Schließung ohne benannte Träger zählt ihre eigene Medienliste. */
+  function medienAnzahl(projekt, s) {
+    if (!s) return 0;
+    var leute = spaltenMitglieder(projekt, s);
+    if (leute.length) {
+      return leute.reduce(function (sum, m) { return sum + mitarbeiterMedienAnzahl(m); }, 0);
+    }
+    /* Ohne Mitglieder dahinter zählt die eigene Liste - auch bei einer
+       Gruppe, deren Mitglieder (noch) nicht namentlich bekannt sind. */
+    return medienBereinigen(s.medien).reduce(function (sum, x) { return sum + x.anzahl; }, 0);
+  }
+
+  /* Kurztext zum Träger einer Spalte - für Spaltenköpfe, Listen und PDF */
+  function traegerText(projekt, s) {
+    if (!s) return '';
+    var leute = spaltenMitglieder(projekt, s);
+    if (s.art === 'gruppe') {
+      return 'Gruppe' + (leute.length
+        ? ' · ' + leute.length + (leute.length === 1 ? ' Mitglied' : ' Mitglieder')
+        : ' · ohne Mitglieder');
+    }
+    if (s.art === 'mitarbeiter') return leute.length ? leute[0].name : 'Mitarbeiter nicht mehr vorhanden';
+    if (!leute.length) return '';
+    if (leute.length <= 2) return leute.map(function (m) { return m.name; }).join(', ');
+    return leute[0].name + ' und ' + (leute.length - 1) + ' weitere';
+  }
+
+  /* Was für eine Spalte ist das? - als lesbares Wort */
+  function spaltenArtText(s) {
+    if (!s) return '';
+    if (s.art === 'gruppe') return 'Gruppe';
+    if (s.art === 'mitarbeiter') return 'Mitarbeiter';
+    var K2 = kat();
+    var t = K2 && K2.SCHLIESSUNG_TYPEN ? K2.SCHLIESSUNG_TYPEN.filter(function (x) { return x.id === s.typ; })[0] : null;
+    return t ? t.label : 'Schließung';
+  }
+
+  /* Bezeichnung der Spalten aus Gruppen- und Mitarbeiternamen nachführen.
+   * Verwaiste Verweise (Gruppe oder Mitarbeiter gelöscht) behalten ihren
+   * letzten Namen. */
+  function spaltenAngleichen(projekt) {
+    (projekt.schliessungen || []).forEach(function (s) {
+      if (!s) return;
+      if (s.art === 'gruppe') {
+        var g = gruppeVon(projekt, s.gruppeId);
+        if (g && g.name) s.bezeichnung = g.name;
+      } else if (s.art === 'mitarbeiter') {
+        var m = mitarbeiterVon(projekt, s.mitarbeiterId);
+        if (m && m.name) s.bezeichnung = m.name;
+      }
+    });
+    return projekt;
+  }
+
+  function spaltenSortiert(projekt) {
+    return (projekt.schliessungen || []).slice().sort(function (a, b) {
+      return ((a.sort || 0) - (b.sort || 0)) ||
+             String(a.kuerzel || '').localeCompare(String(b.kuerzel || ''), 'de', { numeric: true });
+    });
+  }
+
+  /* Welche Spalten berechtigen einen Mitarbeiter? */
+  function spaltenVonMitarbeiter(projekt, mitarbeiterId) {
+    return spaltenSortiert(projekt).filter(function (s) {
+      return spaltenMitglieder(projekt, s).some(function (m) { return m.id === mitarbeiterId; });
+    });
+  }
+
+  /* Mitarbeiter, die über mehr als eine Spalte berechtigt sind - etwa
+   * einzeln und zusätzlich über ihre Gruppe. Das ist erlaubt, aber ein
+   * Hinweis wert; Medien gibt es trotzdem nur einmal je Mitarbeiter. */
+  function doppelteMitarbeiter(projekt) {
+    var aus = [];
+    (projekt.mitarbeiter || []).forEach(function (m) {
+      var spalten = spaltenVonMitarbeiter(projekt, m.id);
+      if (spalten.length > 1) aus.push({ mitarbeiter: m, spalten: spalten });
+    });
+    return aus;
+  }
+
+  /* Mitarbeiter, die in keiner Spalte stehen - sie bekommen (noch) kein Medium */
+  function mitarbeiterOhneSpalte(projekt) {
+    return (projekt.mitarbeiter || []).filter(function (m) {
+      return spaltenVonMitarbeiter(projekt, m.id).length === 0;
+    });
+  }
+
+  /* Spalte eines Mitarbeiters bzw. einer Gruppe anlegen, falls es sie
+   * noch nicht gibt. Gibt die Spalte zurück. */
+  function spalteFuer(projekt, art, id) {
+    var da = (projekt.schliessungen || []).filter(function (s) {
+      return s.art === art && (art === 'gruppe' ? s.gruppeId === id : s.mitarbeiterId === id);
+    })[0];
+    if (da) return da;
+    var sort = (projekt.schliessungen || []).reduce(function (max, s) { return Math.max(max, (s.sort || 0) + 1); }, 0);
+    var name = art === 'gruppe' ? (gruppeVon(projekt, id) || {}).name : (mitarbeiterVon(projekt, id) || {}).name;
+    var s = neueSchliessung(art === 'gruppe'
+      ? { art: 'gruppe', gruppeId: id, sort: sort, kuerzel: kuerzelAus(name), bezeichnung: name || '' }
+      : { art: 'mitarbeiter', mitarbeiterId: id, sort: sort, kuerzel: kuerzelAus(name), bezeichnung: name || '' });
+    projekt.schliessungen.push(s);
+    spaltenAngleichen(projekt);
+    return s;
+  }
+
+  /* Mitarbeiter löschen: aus allen Trägerlisten nehmen, seine Spalte
+   * mitsamt Berechtigungen entfernen. */
+  function mitarbeiterLoeschen(projekt, id) {
+    projekt.mitarbeiter = (projekt.mitarbeiter || []).filter(function (m) { return m.id !== id; });
+    projekt.schliessungen = (projekt.schliessungen || []).filter(function (s) {
+      return !(s.art === 'mitarbeiter' && s.mitarbeiterId === id);
+    });
+    projekt.schliessungen.forEach(function (s) {
+      if (Array.isArray(s.traeger)) s.traeger = s.traeger.filter(function (x) { return x !== id; });
+    });
+    matrixAufraeumen(projekt);
+  }
+
+  /* Gruppe löschen: aus allen Mitarbeitern nehmen, ihre Spalte entfernen. */
+  function gruppeLoeschen(projekt, id) {
+    projekt.gruppen = (projekt.gruppen || []).filter(function (g) { return g.id !== id; });
+    (projekt.mitarbeiter || []).forEach(function (m) {
+      m.gruppen = (m.gruppen || []).filter(function (x) { return x !== id; });
+    });
+    projekt.schliessungen = (projekt.schliessungen || []).filter(function (s) {
+      return !(s.art === 'gruppe' && s.gruppeId === id);
+    });
+    matrixAufraeumen(projekt);
+  }
+
+  /* Prüfwert über alles, was der Kunde freigibt: Spalten, Berechtigungen,
+   * Mitarbeiter und Gruppen. Ändert sich danach etwas, weicht der Wert
+   * vom bei der Freigabe gemerkten ab. */
+  function freigabeStand(projekt) {
+    spaltenAngleichen(projekt);
+    var teile = [];
+    spaltenSortiert(projekt).forEach(function (s) {
+      teile.push([s.art, s.kuerzel || '', s.bezeichnung || '', (s.traeger || []).slice().sort().join('+')].join('|'));
+    });
+    Object.keys(projekt.matrix || {}).sort().forEach(function (k) { teile.push(k + '=' + projekt.matrix[k]); });
+    (projekt.mitarbeiter || []).slice().sort(function (a, b) { return String(a.id).localeCompare(String(b.id)); })
+      .forEach(function (m) {
+        teile.push(['M', m.name || '', (m.gruppen || []).slice().sort().join('+'),
+          medienBereinigen(m.medien).map(function (x) { return x.typ + 'x' + x.anzahl; }).join('+')].join('|'));
+      });
+    (projekt.gruppen || []).slice().sort(function (a, b) { return String(a.id).localeCompare(String(b.id)); })
+      .forEach(function (g) { teile.push('G|' + (g.name || '')); });
+    var text = teile.join('\n'), h = 5381;
+    for (var i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) >>> 0;
+    return h.toString(36) + '-' + text.length.toString(36);
+  }
+
+  /* Hat sich der Plan seit der verbindlichen Freigabe geändert? */
+  function seitFreigabeGeaendert(projekt) {
+    if (!projekt || !projekt.freigabe || !projekt.freigabe.stand) return false;
+    return freigabeStand(projekt) !== projekt.freigabe.stand;
   }
 
   /* Welche Identmedien kommen in diesem Projekt überhaupt in Frage?
@@ -385,9 +610,14 @@
     return null;
   }
 
+  /* Ohne Elternteil heißt: parentId null - oder leer. Die Zusammenführung
+   * des Abgleichs schreibt null als leeren Text; mit einem strengen
+   * Vergleich fände der Baum danach keine Wurzel mehr, und die Gliederung
+   * wäre unsichtbar, obwohl sie vollständig da ist. */
   function kinderVon(projekt, parentId) {
-    return projekt.standorte.filter(function (k) { return k.parentId === (parentId || null); })
-      .sort(function (a, b) { return (a.sort - b.sort) || a.name.localeCompare(b.name, 'de'); });
+    var eltern = parentId || null;
+    return (projekt.standorte || []).filter(function (k) { return k && (k.parentId || null) === eltern; })
+      .sort(function (a, b) { return (a.sort - b.sort) || String(a.name || '').localeCompare(String(b.name || ''), 'de'); });
   }
 
   /* Ein Knoten und alle seine Unterknoten - als Kennungsliste. */
@@ -450,6 +680,109 @@
     return ordnung;
   }
 
+  /* --- Verwaiste Bereiche -------------------------------------------------
+   * Türen, deren Bereich es in der Gliederung nicht mehr gibt. Beim Löschen
+   * über die Oberfläche werden Türen abgehängt (strukturId = null); ein
+   * solcher Verweis bleibt nur zurück, wenn die Gliederung auf anderem Weg
+   * verschwunden ist - etwa durch einen Abgleich, der sie als gelöscht
+   * ansah. Die Türen sind dann vollständig, nur ihr Bereich fehlt. */
+  function verwaisteBereiche(projekt) {
+    var gruppen = [], index = {};
+    (projekt.tueren || []).forEach(function (t) {
+      if (!t || !t.strukturId || findeStruktur(projekt, t.strukturId)) return;
+      if (!index[t.strukturId]) {
+        index[t.strukturId] = { id: t.strukturId, tueren: [] };
+        gruppen.push(index[t.strukturId]);
+      }
+      index[t.strukturId].tueren.push(t);
+    });
+    return gruppen;
+  }
+
+  var WIEDERHERGESTELLT = ' (wiederhergestellt)';
+
+  /* Ein Platzhalter aus „Bereiche wiederherstellen“ - oder ein Eintrag,
+   * der unter einem solchen hängt (ein wiederhergestellter Bereich kann
+   * schon umbenannt sein; sein Platz unter dem Platzhalter verrät ihn). */
+  function istWiederhergestellt(projekt, k) {
+    var guard = 0;
+    while (k && guard++ < 20) {
+      if (String(k.name || '').indexOf(WIEDERHERGESTELLT) !== -1) return true;
+      k = k.parentId ? findeStruktur(projekt, k.parentId) : null;
+    }
+    return false;
+  }
+
+  /* Die fehlenden Bereiche unter denselben Kennungen neu anlegen: Dann
+   * hängen die Türen wieder daran, ohne dass eine Tür angefasst wird.
+   * Standort und Gebäude darüber sind nicht mehr bekannt; sie entstehen
+   * als „wiederhergestellt“ - zum Umbenennen. Gibt die neuen Einträge
+   * zurück. */
+  function bereicheWiederherstellen(projekt) {
+    var verwaist = verwaisteBereiche(projekt);
+    if (!verwaist.length) return [];
+    if (!Array.isArray(projekt.standorte)) projekt.standorte = [];
+    var standort = neuerStrukturknoten('standort', (projekt.objekt || projekt.kunde || 'Standort') + WIEDERHERGESTELLT, null);
+    standort.sort = kinderVon(projekt, null).length;
+    var gebaeude = neuerStrukturknoten('gebaeude', 'Gebäude' + WIEDERHERGESTELLT, standort.id);
+    projekt.standorte.push(standort, gebaeude);
+    var neu = [standort, gebaeude];
+    verwaist.forEach(function (v, i) {
+      /* Nennen alle Türen dieselbe Etage, ist das der beste Name */
+      var etagen = v.tueren.map(function (t) { return String(t.etage || '').trim(); });
+      var gleich = etagen[0] && etagen.every(function (e) { return e === etagen[0]; });
+      var k = neuerStrukturknoten('bereich', gleich ? etagen[0] : ('Bereich ' + (i + 1) + WIEDERHERGESTELLT), gebaeude.id);
+      k.id = v.id;          /* dieselbe Kennung - darum finden die Türen ihn wieder */
+      k.sort = i;
+      projekt.standorte.push(k);
+      neu.push(k);
+    });
+    return neu;
+  }
+
+  /* Gliederung aus einer anderen Fassung desselben Aufmaßes übernehmen -
+   * etwa aus einer Sicherung von vor dem Verlust. Es kommen nur Einträge
+   * hinzu, die hier fehlen (nach Kennung); „wiederhergestellte“
+   * Platzhalter bekommen Name und Platz aus der Quelle zurück. Vorhandene
+   * Einträge und alle Türen bleiben unangetastet. Gibt die Zahl der
+   * übernommenen Einträge zurück. */
+  function gliederungUebernehmen(ziel, quelle) {
+    if (!Array.isArray(ziel.standorte)) ziel.standorte = [];
+    var hier = {};
+    ziel.standorte.forEach(function (k) { if (k && k.id) hier[k.id] = k; });
+    var anzahl = 0;
+    ((quelle && quelle.standorte) || []).forEach(function (k) {
+      if (!k || !k.id) return;
+      var sauber = {
+        id: k.id, ebene: k.ebene || 'standort', name: String(k.name || ''),
+        parentId: k.parentId || null, bemerkung: String(k.bemerkung || ''),
+        sort: typeof k.sort === 'number' ? k.sort : 0
+      };
+      var da = hier[k.id];
+      if (!da) { ziel.standorte.push(sauber); hier[k.id] = sauber; anzahl++; return; }
+      if (istWiederhergestellt(ziel, da)) {
+        da.name = sauber.name; da.ebene = sauber.ebene; da.parentId = sauber.parentId; da.sort = sauber.sort;
+        anzahl++;
+      }
+    });
+    /* Ein Eintrag, dessen Elternteil nirgends steht, wird zum Standort -
+       sonst wäre er unsichtbar. */
+    ziel.standorte.forEach(function (k) {
+      if (k.parentId && !hier[k.parentId]) { k.parentId = null; k.ebene = 'standort'; }
+    });
+    /* Leere Platzhalter von „Bereiche wiederherstellen“ räumen sich weg */
+    var weg = true;
+    while (weg) {
+      weg = false;
+      ziel.standorte.slice().forEach(function (k) {
+        if (String(k.name || '').indexOf(WIEDERHERGESTELLT) === -1) return;
+        if (kinderVon(ziel, k.id).length || tuerenUnter(ziel, k.id).length) return;
+        ziel.standorte.splice(ziel.standorte.indexOf(k), 1); weg = true;
+      });
+    }
+    return anzahl;
+  }
+
   /* --- Türen gruppiert nach Struktur (für Listen & PDF) ------------------- */
   function tuerenGruppiert(projekt) {
     var gruppen = [], index = {};
@@ -459,7 +792,7 @@
       if (!index[key]) {
         index[key] = {
           key: key,
-          titel: t.strukturId ? strukturPfadText(projekt, t.strukturId) : 'Ohne Zuordnung',
+          titel: t.strukturId ? (strukturPfadText(projekt, t.strukturId) || 'Bereich nicht mehr vorhanden') : 'Ohne Zuordnung',
           tueren: []
         };
         gruppen.push(index[key]);
@@ -483,98 +816,46 @@
   }
 
   /* =========================================================================
-   * Blanko-Schließplan aus der Gebäudestruktur
+   * Blanko-Schließplan
    * ======================================================================
-   * Legt die übliche Hierarchie an: ein Generalhauptschlüssel über alles,
-   * je Gebäude ein Hauptschlüssel, je Bereich ein Gruppenschlüssel und auf
-   * Wunsch je Tür eine Einzelschließung. Die Berechtigungen werden gleich
-   * mitgesetzt, sodass ein vollständiger Plan zum Überarbeiten entsteht.
+   * Voreingestellt gibt es nur den Generalhauptschlüssel - alle weiteren
+   * Spalten benennt der Anwender selbst: seine Gruppen und Mitarbeiter.
+   * Der Blanko-Plan legt den GHS an (berechtigt an allen Türen) und auf
+   * Wunsch je Gruppe und je Mitarbeiter ohne eigene Spalte eine leere
+   * Spalte, damit nur noch die Berechtigungen anzutippen sind.
    *
-   * optionen: { ghs, proGebaeude, proBereich, proTuer, vorhandeneErsetzen }
+   * optionen: { ghs, proGruppe, proMitarbeiter }
    */
   function blankoSchliessplan(projekt, optionen) {
     optionen = optionen || {};
-    var neueSchliessungen = [];
-    var neueMatrix = optionen.vorhandeneErsetzen ? {} : null;
-    var sortZaehler = 0;
-
-    function anlegen(vorgabe, tuerIds) {
+    var angelegt = 0, berechtigungen = 0;
+    var sortZaehler = (projekt.schliessungen || []).reduce(function (max, s) { return Math.max(max, (s.sort || 0) + 1); }, 0);
+    function anlegen(vorgabe) {
       var s = neueSchliessung(vorgabe);
       s.sort = sortZaehler++;
-      neueSchliessungen.push(s);
-      s.__tueren = tuerIds;
+      projekt.schliessungen.push(s);
+      angelegt++;
       return s;
     }
-
-    /* Türen je Strukturknoten einschließlich aller Unterknoten */
-    function tuerIdsUnter(knotenId) {
-      return tuerenUnter(projekt, knotenId).map(function (t) { return t.id; });
+    if (optionen.ghs !== false && !projekt.schliessungen.some(function (s) { return s.typ === 'ghs'; })) {
+      var ghs = anlegen({ kuerzel: 'GHS', bezeichnung: 'Generalhauptschlüssel', typ: 'ghs',
+                          medien: [{ typ: '', anzahl: 2 }] });
+      projekt.tueren.forEach(function (t) { setBerechtigung(projekt, t.id, ghs.id, 'ja'); berechtigungen++; });
     }
-
-    var alleTuerIds = projekt.tueren.map(function (t) { return t.id; });
-
-    if (optionen.ghs !== false && alleTuerIds.length) {
-      anlegen({ kuerzel: 'GHS', bezeichnung: 'Generalhauptschlüssel', typ: 'ghs',
-                anzahlMedien: 2 }, alleTuerIds);
-    }
-
-    /* Je Gebäude ein Hauptschlüssel; gibt es keine Gebäudeebene, greift die
-       oberste vorhandene Ebene. */
-    if (optionen.proGebaeude !== false) {
-      var gebaeude = projekt.standorte.filter(function (k) { return k.ebene === 'gebaeude'; });
-      if (!gebaeude.length) gebaeude = kinderVon(projekt, null);
-      gebaeude.forEach(function (g) {
-        var ids = tuerIdsUnter(g.id);
-        if (!ids.length) return;
-        anlegen({ kuerzel: 'HS-' + kuerzelAus(g.name), bezeichnung: 'Hauptschlüssel ' + g.name,
-                  typ: 'hs', anzahlMedien: 2 }, ids);
+    if (optionen.proGruppe) {
+      (projekt.gruppen || []).forEach(function (g) {
+        if (projekt.schliessungen.some(function (s) { return s.art === 'gruppe' && s.gruppeId === g.id; })) return;
+        anlegen({ art: 'gruppe', gruppeId: g.id, bezeichnung: g.name, kuerzel: kuerzelAus(g.name) });
       });
     }
-
-    /* Je Bereich bzw. Etage ein Gruppenschlüssel */
-    if (optionen.proBereich) {
-      projekt.standorte.filter(function (k) { return k.ebene === 'bereich'; }).forEach(function (b) {
-        var ids = tuerIdsUnter(b.id);
-        if (!ids.length) return;
-        /* Ein Gruppenschlüssel gehört einer Gruppe - der Bereichsname ist
-         * der naheliegende Gruppenname. Die Mitglieder trägt der Anwender
-         * nach; erfunden wird niemand. */
-        anlegen({ kuerzel: 'GS-' + kuerzelAus(b.name), bezeichnung: 'Gruppe ' + b.name,
-                  typ: 'gs', traegerArt: 'gruppe', gruppenName: b.name,
-                  anzahlMedien: 1, medienVonHand: true }, ids);
+    if (optionen.proMitarbeiter) {
+      (projekt.mitarbeiter || []).forEach(function (m) {
+        if (projekt.schliessungen.some(function (s) { return s.art === 'mitarbeiter' && s.mitarbeiterId === m.id; })) return;
+        anlegen({ art: 'mitarbeiter', mitarbeiterId: m.id, bezeichnung: m.name, kuerzel: kuerzelAus(m.name) });
       });
     }
-
-    /* Je Tür eine Einzelschließung */
-    if (optionen.proTuer) {
-      tuerenGruppiert(projekt).forEach(function (gruppe) {
-        gruppe.tueren.forEach(function (t) {
-          var bez = t.nummer || t.bezeichnung || 'Tür';
-          anlegen({ kuerzel: 'EZ-' + (t.nummer || kuerzelAus(t.bezeichnung)),
-                    bezeichnung: 'Einzelschließung ' + bez, typ: 'ez',
-                    anzahlMedien: 1 }, [t.id]);
-        });
-      });
-    }
-
-    /* Übernehmen */
-    if (optionen.vorhandeneErsetzen) {
-      projekt.schliessungen = [];
-      projekt.matrix = {};
-    } else {
-      var versatz = projekt.schliessungen.length;
-      neueSchliessungen.forEach(function (s) { s.sort += versatz; });
-    }
-    neueSchliessungen.forEach(function (s) {
-      var tuerIds = s.__tueren; delete s.__tueren;
-      projekt.schliessungen.push(s);
-      tuerIds.forEach(function (tid) { setBerechtigung(projekt, tid, s.id, 'ja'); });
-    });
-
-    return {
-      angelegt: neueSchliessungen.length,
-      berechtigungen: Object.keys(projekt.matrix).length
-    };
+    spaltenAngleichen(projekt);
+    return { angelegt: angelegt, berechtigungen: berechtigungen };
   }
 
   /* Aus einem Namen ein kurzes, lesbares Kürzel bilden. */
@@ -589,26 +870,21 @@
     return kurz.slice(0, 5) || 'X';
   }
 
-  /* Wie viele Schließungen würde ein Blanko-Plan anlegen? */
+  /* Wie viele Spalten würde ein Blanko-Plan anlegen? */
   function blankoVorschau(projekt, optionen) {
     optionen = optionen || {};
     var n = 0;
-    if (optionen.ghs !== false && projekt.tueren.length) n++;
-    if (optionen.proGebaeude !== false) {
-      var g = projekt.standorte.filter(function (k) { return k.ebene === 'gebaeude'; });
-      if (!g.length) g = kinderVon(projekt, null);
-      n += g.filter(function (k) {
-        return projekt.tueren.some(function (t) { return t.strukturId === k.id; }) ||
-               projekt.standorte.some(function (u) { return u.parentId === k.id; });
+    if (optionen.ghs !== false && !projekt.schliessungen.some(function (s) { return s.typ === 'ghs'; })) n++;
+    if (optionen.proGruppe) {
+      n += (projekt.gruppen || []).filter(function (g) {
+        return !projekt.schliessungen.some(function (s) { return s.art === 'gruppe' && s.gruppeId === g.id; });
       }).length;
     }
-    if (optionen.proBereich) {
-      n += projekt.standorte.filter(function (k) {
-        return k.ebene === 'bereich' &&
-               projekt.tueren.some(function (t) { return t.strukturId === k.id; });
+    if (optionen.proMitarbeiter) {
+      n += (projekt.mitarbeiter || []).filter(function (m) {
+        return !projekt.schliessungen.some(function (s) { return s.art === 'mitarbeiter' && s.mitarbeiterId === m.id; });
       }).length;
     }
-    if (optionen.proTuer) n += projekt.tueren.length;
     return n;
   }
 
@@ -727,7 +1003,8 @@
           var innen = String(t.masseInnen || '').trim();
           var gesamt = '';
           if (/^\d+([.,]\d+)?$/.test(aussen) && /^\d+([.,]\d+)?$/.test(innen)) {
-            gesamt = String(parseFloat(aussen.replace(',', '.')) + parseFloat(innen.replace(',', '.')));
+            /* Auf Zehntel gerundet wie im Formular - sonst stünde „75.30000000000001“ in der Liste */
+            gesamt = String(Math.round((parseFloat(aussen.replace(',', '.')) + parseFloat(innen.replace(',', '.'))) * 10) / 10);
           }
           addPos(b, {
             gruppe: 'Zylinder',
@@ -821,28 +1098,48 @@
     var GRUPPEN_REIHENFOLGE = ['Zylinder', 'Beschlag', 'Schloss', 'Zutrittsleser',
                               'Systemkomponente', 'Sonstiges'];
 
-    /* --- Identmedien aus dem Schließplan --- */
-    var medien = [];
-    projekt.schliessungen.forEach(function (s) {
-      var n = medienAnzahl(s);
-      if (n <= 0) return;
-      var personen = (s.personen || []).filter(function (x) { return x && String(x.name || '').trim(); });
+    /* --- Identmedien aus dem Schließplan ---
+     * Je Mitarbeiter genau einmal - auch wenn er einzeln UND über seine
+     * Gruppe im Plan steht. Dazu die Schließungen ohne benannte Träger
+     * (etwa zwei Generalhauptschlüssel im Tresor) mit ihrer eigenen Liste. */
+    var medien = [], nachTyp = {};
+    function typZaehlen(liste) {
+      liste.forEach(function (x) { nachTyp[x.typ] = (nachTyp[x.typ] || 0) + x.anzahl; });
+    }
+    spaltenAngleichen(projekt);
+    (projekt.mitarbeiter || []).forEach(function (m) {
+      var spalten = spaltenVonMitarbeiter(projekt, m.id);
+      if (!spalten.length) return;
+      var liste = medienBereinigen(m.medien);
+      if (!liste.length) liste = [{ typ: '', anzahl: 1 }];
+      typZaehlen(liste);
       medien.push({
-        kuerzel: s.kuerzel || s.bezeichnung,
-        bezeichnung: s.bezeichnung,
-        typ: s.typ,
-        medienTyp: s.medienTyp || '',
-        traegerArt: s.traegerArt || '',
-        gruppenName: s.gruppenName || '',
-        /* Wer das Medium trägt - für die Ausgabe und die Quittierung */
-        person: (K && K.traegerText) ? K.traegerText(s) : (s.person || s.abteilung || ''),
-        personen: personen.map(function (x) {
-          var pn = parseInt(x.anzahlMedien, 10);
-          return { name: x.name, funktion: x.funktion || '', menge: (!pn || pn < 1) ? 1 : pn };
-        }),
-        menge: n
+        art: 'mitarbeiter',
+        name: m.name || '(ohne Namen)',
+        funktion: m.funktion || '',
+        gruppen: (m.gruppen || []).map(function (id) { var g = gruppeVon(projekt, id); return g ? g.name : ''; }).filter(Boolean),
+        spalten: spalten.map(function (s) { return s.kuerzel || s.bezeichnung; }),
+        medien: liste,
+        medienTyp: liste.map(function (x) { return x.typ; }).filter(Boolean).join(', '),
+        menge: liste.reduce(function (sum, x) { return sum + x.anzahl; }, 0)
       });
     });
+    spaltenSortiert(projekt).forEach(function (s) {
+      if (spaltenMitglieder(projekt, s).length) return;
+      var liste = medienBereinigen(s.medien);
+      if (!liste.length) return;
+      typZaehlen(liste);
+      medien.push({
+        art: 'schliessung',
+        name: ((s.kuerzel ? s.kuerzel + ' ' : '') + (s.bezeichnung || '')).trim(),
+        funktion: '', gruppen: [], spalten: [s.kuerzel || s.bezeichnung],
+        medien: liste,
+        medienTyp: liste.map(function (x) { return x.typ; }).filter(Boolean).join(', '),
+        menge: liste.reduce(function (sum, x) { return sum + x.anzahl; }, 0)
+      });
+    });
+    var medienNachTyp = Object.keys(nachTyp).map(function (typ) { return { typ: typ, anzahl: nachTyp[typ] }; })
+      .sort(function (a, b) { return (a.typ || '~').localeCompare(b.typ || '~', 'de'); });
 
     /* Stehen im selben System zwei Positionen mit gleicher Bezeichnung und
      * gleichem Maß, unterscheiden sie sich allein durch die Ausführung. Damit
@@ -952,6 +1249,7 @@
         .reduce(function (s2, a) { return s2 + a.summe; }, 0),
       summeTuertechnik: gliederung.filter(function (a) { return a.bereich === 'tuertechnik'; })
         .reduce(function (s2, a) { return s2 + a.summe; }, 0),
+      medienNachTyp: medienNachTyp,
       gesamtMedien: medien.reduce(function (sum, m) { return sum + m.menge; }, 0)
     };
   }
@@ -970,6 +1268,8 @@
       s.proTechnologie[tech] = (s.proTechnologie[tech] || 0) + 1;
     });
     s.schliessungen = projekt.schliessungen.length;
+    s.mitarbeiter = (projekt.mitarbeiter || []).length;
+    s.gruppen = (projekt.gruppen || []).length;
     s.berechtigungen = Object.keys(projekt.matrix).length;
     return s;
   }
@@ -1041,7 +1341,6 @@
       if (t.zylinderBauform === 'Knaufzylinder') {
         verlangen('zylinderKnaufseite', 'Knaufseite', 'zylinder');
       }
-      verlangen('zutrittsseite', 'Von welcher Seite wird geöffnet?', 'zutritt');
     }
 
     /* --- Beschlag --- */
@@ -1156,55 +1455,60 @@
       if (t.nacharbeit && !t.nacharbeitText) {
         probleme.push({ schwere: 'info', tuerId: t.id, text: bez + ': Nacharbeit markiert, aber nicht beschrieben' });
       }
-      var istFlucht = (t.tueranforderungen || []).indexOf('Flucht- und Rettungsweg') !== -1;
-      if (istFlucht && t.brauchtSchloss && t.schlossFunktion && !/Panik/.test(t.schlossFunktion)) {
-        probleme.push({ schwere: 'warn', tuerId: t.id,
-          text: bez + ': Flucht- und Rettungsweg gewählt, das Schloss hat aber keine Panikfunktion' });
-      }
-      if (istFlucht && !t.brauchtSchloss) {
-        probleme.push({ schwere: 'warn', tuerId: t.id,
-          text: bez + ': Flucht- und Rettungsweg gewählt, aber kein Schloss erfasst' });
-      }
-      if ((t.zylinderAusfuehrung || []).indexOf('Anti-Panik') !== -1 && !istFlucht) {
-        probleme.push({ schwere: 'info', tuerId: t.id,
-          text: bez + ': Zylinder mit Anti-Panik, Tür ist aber nicht als Flucht- und Rettungsweg gekennzeichnet' });
-      }
     });
 
     var kuerzel = {};
+    spaltenAngleichen(projekt);
     projekt.schliessungen.forEach(function (s) {
-      var sbez = s.kuerzel || s.bezeichnung || 'Schließung';
+      var sbez = s.kuerzel || s.bezeichnung || 'Spalte';
       if (!s.kuerzel && !s.bezeichnung) {
-        probleme.push({ schwere: 'warn', text: 'Schließung ohne Kürzel und Bezeichnung' });
+        probleme.push({ schwere: 'warn', text: 'Spalte im Schließplan ohne Kürzel und Bezeichnung' });
       }
       if (s.kuerzel) {
         if (kuerzel[s.kuerzel]) probleme.push({ schwere: 'warn', text: 'Kürzel "' + s.kuerzel + '" ist doppelt vergeben' });
         kuerzel[s.kuerzel] = true;
       }
-      if (s.traegerArt === 'gruppe' && !String(s.gruppenName || '').trim()) {
-        probleme.push({ schwere: 'warn', text: sbez + ': als Gruppe gekennzeichnet, aber ohne Gruppennamen' });
-      }
-      var benannt = (s.personen || []).filter(function (x) { return x && String(x.name || '').trim(); });
-      if (s.traegerArt === 'gruppe' && !benannt.length) {
-        probleme.push({ schwere: 'info', text: sbez + ': Gruppe ohne hinterlegte Mitglieder' });
-      }
-      if (s.traegerArt === 'einzel' && !benannt.length) {
-        probleme.push({ schwere: 'info', text: sbez + ': keine Person benannt' });
-      }
-      if (!s.traegerArt && medienAnzahl(s) > 0) {
-        probleme.push({ schwere: 'info', text: sbez + ': noch nicht festgelegt, ob Einzelperson oder Gruppe' });
-      }
-      /* Zwei Personen mit demselben Namen in einer Gruppe sind fast immer
-       * ein Versehen beim Abtippen. */
-      var namen = {};
-      benannt.forEach(function (x) {
-        var n = String(x.name).trim().toLowerCase();
-        if (namen[n]) {
-          probleme.push({ schwere: 'info', text: sbez + ': "' + x.name + '" steht zweimal in der Liste' });
+      if (s.art === 'gruppe') {
+        if (!gruppeVon(projekt, s.gruppeId)) {
+          probleme.push({ schwere: 'warn', text: sbez + ': die Gruppe dieser Spalte gibt es nicht mehr' });
+        } else if (!gruppenMitglieder(projekt, s.gruppeId).length) {
+          probleme.push({ schwere: 'info', text: sbez + ': Gruppe ohne Mitglieder' });
         }
-        namen[n] = true;
-      });
+      } else if (s.art === 'mitarbeiter') {
+        if (!mitarbeiterVon(projekt, s.mitarbeiterId)) {
+          probleme.push({ schwere: 'warn', text: sbez + ': den Mitarbeiter dieser Spalte gibt es nicht mehr' });
+        }
+      } else if (!(s.traeger || []).length && !medienBereinigen(s.medien).length) {
+        probleme.push({ schwere: 'info', text: sbez + ': noch nicht festgelegt, wer diesen Schlüssel bekommt (Träger oder Anzahl)' });
+      }
+      if (s.art === 'gruppe' && !gruppenMitglieder(projekt, s.gruppeId).length && medienBereinigen(s.medien).length) {
+        /* Gruppe ohne Mitglieder, aber mit Anzahl: in Ordnung, nur ein Hinweis */
+      }
     });
+    var namen = {};
+    (projekt.mitarbeiter || []).forEach(function (m) {
+      var n = String(m.name || '').trim();
+      if (!n) { probleme.push({ schwere: 'warn', text: 'Mitarbeiter ohne Namen' }); return; }
+      if (namen[n.toLowerCase()]) {
+        probleme.push({ schwere: 'info', text: '"' + n + '" steht zweimal in der Mitarbeiterliste' });
+      }
+      namen[n.toLowerCase()] = true;
+    });
+    var offeneArt = (projekt.mitarbeiter || []).filter(function (m) {
+      return spaltenVonMitarbeiter(projekt, m.id).length && medienBereinigen(m.medien).some(function (x) { return !x.typ; })
+        || (spaltenVonMitarbeiter(projekt, m.id).length && !medienBereinigen(m.medien).length);
+    }).length;
+    if (offeneArt) {
+      probleme.push({ schwere: 'info', text: offeneArt + (offeneArt === 1 ? ' Mitarbeiter ohne' : ' Mitarbeiter ohne') + ' Art des Mediums (Transponder, Karte, Schlüssel …)' });
+    }
+    doppelteMitarbeiter(projekt).forEach(function (d) {
+      probleme.push({ schwere: 'info', text: (d.mitarbeiter.name || 'Mitarbeiter') + ' ist über mehrere Spalten berechtigt: ' +
+        d.spalten.map(function (s) { return s.kuerzel || s.bezeichnung; }).join(', ') + ' (Medien werden nur einmal gezählt)' });
+    });
+    var ohneSpalte = mitarbeiterOhneSpalte(projekt).length;
+    if (ohneSpalte) {
+      probleme.push({ schwere: 'info', text: ohneSpalte + (ohneSpalte === 1 ? ' Mitarbeiter steht' : ' Mitarbeiter stehen') + ' in keiner Spalte des Plans' });
+    }
 
     if (projekt.tueren.length && projekt.schliessungen.length) {
       projekt.tueren.forEach(function (t) {
@@ -1335,32 +1639,27 @@
     if (/rollfalle/i.test(text) && !ziel.schlossFallenart) ziel.schlossFallenart = 'Rollfalle';
   }
 
-  /* Die alte gemischte Liste auf ihre drei Bedeutungen verteilen */
+  /* Aus der alten gemischten Liste bleiben nur die Zylinderfunktionen.
+   * Zutrittsseite und bauliche Anforderungen werden seit 1.2 nicht mehr
+   * erfasst - sie fallen bei der Überführung weg. */
   function zutrittsartenVerteilen(alteListe, ziel) {
     if (!Array.isArray(alteListe) || !alteListe.length) return;
-    if (!Array.isArray(ziel.tueranforderungen)) ziel.tueranforderungen = [];
     if (!Array.isArray(ziel.zylinderAusfuehrung)) ziel.zylinderAusfuehrung = [];
-
-    function anforderung(w) { if (ziel.tueranforderungen.indexOf(w) === -1) ziel.tueranforderungen.push(w); }
     function ausfuehrung(w) { if (ziel.zylinderAusfuehrung.indexOf(w) === -1) ziel.zylinderAusfuehrung.push(w); }
-
     alteListe.forEach(function (eintrag) {
       var t = String(eintrag);
-      if (/^einseitig/i.test(t))                      ziel.zutrittsseite = ziel.zutrittsseite || 'nur außen';
-      else if (/^beidseitig/i.test(t))                ziel.zutrittsseite = ziel.zutrittsseite || 'innen und außen';
-      else if (/dauerentriegelt|tagesfreischaltung/i.test(t)) ziel.zutrittsseite = ziel.zutrittsseite || 'Durchgangsfunktion / dauerentriegelt';
-      else if (/freidreh/i.test(t))                   ausfuehrung('Freidreh');
+      if (/freidreh/i.test(t))                        ausfuehrung('Freidreh');
       else if (/comfort|komfort/i.test(t))            ausfuehrung('Comfort');
-      else if (/not-?\s*und\s*gefahren/i.test(t))     ausfuehrung('Not- und Gefahrenfunktion');
-      else if (/flucht|rettungsweg|panik/i.test(t))   anforderung('Flucht- und Rettungsweg');
-      else if (/brand-?\s*und\s*rauch/i.test(t))      { anforderung('Brandschutz'); anforderung('Rauchschutz'); }
-      else if (/brandschutz/i.test(t))                anforderung('Brandschutz');
-      else if (/rauchschutz/i.test(t))                anforderung('Rauchschutz');
-      else if (/einbruchhemmend|\bRC\b/i.test(t))     anforderung('einbruchhemmend (RC)');
-      else if (/vds/i.test(t))                        anforderung('VdS-Anforderung');
-      else if (/zeitgesteuert/i.test(t))              anforderung('Zeitsteuerung vorgesehen');
-      /* "Nur mechanische Verriegelung" steckt bereits im gewählten System */
+      else if (/not-?\s*und\s*gefahren|\bBSZ\b/i.test(t)) ausfuehrung('BSZ (beidseitig schließbar)');
     });
+  }
+
+  /* Umbenannte Zylinderoptionen aus früheren Fassungen */
+  function zylinderOptionenUeberfuehren(t) {
+    if (!t || !Array.isArray(t.zylinderAusfuehrung)) return;
+    t.zylinderAusfuehrung = t.zylinderAusfuehrung.map(function (x) {
+      return /^not-?\s*und\s*gefahrenfunktion$/i.test(String(x)) ? 'BSZ (beidseitig schließbar)' : x;
+    }).filter(function (x, i, arr) { return arr.indexOf(x) === i; });
   }
 
   /* Eine Tür aus einer älteren Fassung überführen. */
@@ -1499,6 +1798,9 @@
    */
   function schliessungUeberfuehren(s) {
     if (!s || typeof s !== 'object') return s;
+    /* Eine Spalte im Format seit 1.2 (art, traeger, medien) hat nichts
+       mehr zu überführen - und darf keine alten Felder bekommen. */
+    if (s.art === 'gruppe' || s.art === 'mitarbeiter' || Array.isArray(s.traeger) || Array.isArray(s.medien)) return s;
 
     if (s.typ === 'person') { s.traegerArt = s.traegerArt || 'einzel'; s.typ = ''; }
     if (s.typ === 'gruppe') {
@@ -1525,6 +1827,131 @@
     return s;
   }
 
+  /* =========================================================================
+   * Überführung des Schließplans aus einer früheren Fassung
+   * ======================================================================
+   * Bis 1.1 trug jede Schließung ihre eigene Personenliste (Einzelpersonen
+   * oder eine Gruppe mit Mitgliedern) und eine Medienart. Seit 1.2 gibt es
+   * je Aufmaß EINE Mitarbeiterliste und EINE Gruppenliste; die Spalten
+   * verweisen darauf. Aus den alten Angaben entstehen:
+   *   - je Gruppenschließung eine Gruppe; ihre Mitglieder werden Mitarbeiter
+   *     in dieser Gruppe, die Spalte wird zur Gruppenspalte
+   *   - je Einzelperson ein Mitarbeiter; die Spalte bleibt eine Schließung
+   *     und führt ihn als Träger (Kürzel und Bezeichnung bleiben erhalten)
+   *   - die Medienart der Schließung wird den Personen zugeschrieben
+   * Gleiche Namen werden zu einem Mitarbeiter. Mehrfach anwendbar: Ohne die
+   * alten Felder passiert nichts.
+   */
+  function schliessplanUeberfuehren(projekt) {
+    if (!projekt || !Array.isArray(projekt.schliessungen)) return projekt;
+    if (!Array.isArray(projekt.mitarbeiter)) projekt.mitarbeiter = [];
+    if (!Array.isArray(projekt.gruppen)) projekt.gruppen = [];
+    var nachName = {};
+    projekt.mitarbeiter.forEach(function (m) { if (m && m.name) nachName[String(m.name).trim().toLowerCase()] = m; });
+
+    function mitarbeiterAus(person, medienTyp, anzahlVorgabe) {
+      var name = String(person.name || '').trim();
+      if (!name) return null;
+      var m = nachName[name.toLowerCase()];
+      var n = parseInt(person.anzahlMedien, 10); if (!n || n < 1) n = 1;
+      /* Stand an der Schließung eine von Hand gezählte Gesamtzahl für genau
+         eine Person, dann ist das ihre Zahl. */
+      if (anzahlVorgabe > n) n = anzahlVorgabe;
+      if (!m) {
+        m = neuerMitarbeiter({ id: person.id && /^ma-/.test(person.id) ? person.id : uid('ma'),
+          name: name, funktion: String(person.funktion || '').trim(),
+          medien: [{ typ: medienTyp || '', anzahl: n }] });
+        projekt.mitarbeiter.push(m);
+        nachName[name.toLowerCase()] = m;
+      } else if (!m.funktion && person.funktion) {
+        m.funktion = String(person.funktion).trim();
+      }
+      return m;
+    }
+
+    projekt.schliessungen.forEach(function (s) {
+      if (!s || typeof s !== 'object') return;
+      var alt = s.traegerArt !== undefined || s.personen !== undefined || s.gruppenName !== undefined ||
+                s.anzahlMedien !== undefined || s.medienTyp !== undefined;
+      if (!alt) return;
+      var personen = (Array.isArray(s.personen) ? s.personen : []).filter(function (x) { return x && String(x.name || '').trim(); });
+      var medienTyp = String(s.medienTyp || '').trim();
+      var gesamt = parseInt(s.anzahlMedien, 10);
+      var einzelVorgabe = (personen.length === 1 && gesamt > 0) ? gesamt : 0;
+      if (!s.art) s.art = 'schliessung';
+      if (!Array.isArray(s.traeger)) s.traeger = [];
+      if (!Array.isArray(s.medien)) s.medien = [];
+
+      if (s.traegerArt === 'gruppe') {
+        var gname = String(s.gruppenName || s.abteilung || s.bezeichnung || s.kuerzel || 'Gruppe').trim();
+        var g = projekt.gruppen.filter(function (x) { return x && String(x.name).trim().toLowerCase() === gname.toLowerCase(); })[0];
+        if (!g) { g = neueGruppe({ name: gname }); projekt.gruppen.push(g); }
+        personen.forEach(function (x) {
+          var m = mitarbeiterAus(x, medienTyp, einzelVorgabe);
+          if (m && m.gruppen.indexOf(g.id) === -1) m.gruppen.push(g.id);
+        });
+        s.art = 'gruppe'; s.gruppeId = g.id; s.mitarbeiterId = ''; s.traeger = [];
+        /* Eine von Hand eingetragene Gesamtzahl ohne Mitglieder (etwa die
+           Reinigungsfirma mit 5 Medien) bleibt als eigene Liste erhalten. */
+        if (!personen.length) {
+          var n = parseInt(s.anzahlMedien, 10);
+          s.medien = n > 0 ? [{ typ: medienTyp, anzahl: n }] : [];
+        } else {
+          s.medien = [];
+        }
+        s.typ = '';
+      } else {
+        s.art = 'schliessung';
+        s.traeger = personen.map(function (x) { var m = mitarbeiterAus(x, medienTyp, einzelVorgabe); return m ? m.id : null; })
+          .filter(Boolean).filter(function (id, i, arr) { return arr.indexOf(id) === i; });
+        if (!s.traeger.length) {
+          var n2 = parseInt(s.anzahlMedien, 10);
+          s.medien = n2 > 0 ? [{ typ: medienTyp, anzahl: n2 }] : [];
+        } else {
+          s.medien = [];
+        }
+      }
+      ['traegerArt', 'gruppenName', 'personen', 'anzahlMedien', 'medienTyp', 'medienVonHand', 'person', 'abteilung']
+        .forEach(function (k) { delete s[k]; });
+    });
+    spaltenAngleichen(projekt);
+    return projekt;
+  }
+
+  /* Bilddaten, wie das Werkzeug sie selbst erzeugt: ein data:-Verweis
+     auf JPEG, PNG oder WebP in Base64. Geprüft werden Kopf und der Anfang
+     des Inhalts - das reicht, um Fremdes (Text, HTML, SVG) fernzuhalten,
+     ohne ein mehrere Megabyte großes Bild zeichenweise zu lesen. */
+  function bilddatenGueltig(dataUrl) {
+    if (typeof dataUrl !== 'string') return false;
+    var treffer = /^data:image\/(jpeg|jpg|png|webp);base64,/i.exec(dataUrl);
+    if (!treffer) return false;
+    return /^[A-Za-z0-9+\/=]*$/.test(dataUrl.slice(treffer[0].length, treffer[0].length + 4096));
+  }
+
+  /* Die Gliederung muss ein Baum sein: Ein Eintrag, dessen Elternteil es
+     nicht gibt, wäre unsichtbar; ein Kreis (A unter B, B unter A) ließe
+     das Zeichnen des Baums nicht mehr enden. Beides kann nur von außen
+     kommen (Import, Abgleich) - und wird hier aufgelöst: Der Eintrag wird
+     ein Standort. */
+  function gliederungEntwirren(projekt) {
+    var liste = projekt.standorte || [];
+    var nachId = {};
+    liste.forEach(function (k) { nachId[k.id] = k; });
+    liste.forEach(function (k) {
+      if (k.parentId && !nachId[k.parentId]) { k.parentId = null; k.ebene = 'standort'; }
+    });
+    liste.forEach(function (k) {
+      var gesehen = {}, lauf = k;
+      while (lauf && lauf.parentId) {
+        if (gesehen[lauf.id] || lauf.parentId === lauf.id) { lauf.parentId = null; lauf.ebene = 'standort'; break; }
+        gesehen[lauf.id] = true;
+        lauf = nachId[lauf.parentId];
+      }
+    });
+    return projekt;
+  }
+
   function migriere(projekt) {
     var vorlage = neuesProjekt();
     var out = {};
@@ -1535,6 +1962,7 @@
     out.standorte = Array.isArray(out.standorte) ? out.standorte : [];
     out.tueren = Array.isArray(out.tueren) ? out.tueren : [];
     out.schliessungen = Array.isArray(out.schliessungen) ? out.schliessungen : [];
+    out.freigabenLokal = Array.isArray(out.freigabenLokal) ? out.freigabenLokal : [];
     out.matrix = (out.matrix && typeof out.matrix === 'object') ? out.matrix : {};
 
     anlageAusTuerenErschliessen(out);   /* Anlage aus Alttüren erschließen */
@@ -1543,13 +1971,24 @@
     var warSchonBekannt = !!(projekt && projekt.schemaVersion);
     out.tueren = out.tueren.map(function (t) {
       tuerUeberfuehren(t);          /* ältere Fassungen zuerst überführen */
+      zylinderOptionenUeberfuehren(t);
       var neu = {};
       Object.keys(tuerVorlage).forEach(function (k) {
         neu[k] = (t && t[k] !== undefined) ? t[k] : tuerVorlage[k];
       });
       neu.id = t && t.id ? t.id : uid('tur');
-      ['zylinderAusfuehrung', 'tueranforderungen', 'komponenten', 'fotos'].forEach(function (k) {
+      ['zylinderAusfuehrung', 'beschlagOptionen', 'komponenten', 'fotos'].forEach(function (k) {
         if (!Array.isArray(neu[k])) neu[k] = [];
+      });
+      /* Ein Foto ist ein Eintrag mit Kennung und Bilddaten als JPEG, PNG
+         oder WebP - so legt das Werkzeug sie an. Alles andere (eine
+         Import-Datei oder ein Abgleich können beliebiges mitbringen) wird
+         nicht als Bild geführt: die Bilddaten fallen weg, der Eintrag
+         bleibt und holt sich das Bild beim Abgleich erneut. */
+      neu.fotos = neu.fotos.filter(function (f) { return f && typeof f === 'object'; }).map(function (f) {
+        if (f.dataUrl !== undefined && f.dataUrl !== '' && !bilddatenGueltig(f.dataUrl)) f.dataUrl = '';
+        if (f.id !== undefined && typeof f.id !== 'string') f.id = String(f.id);
+        return f;
       });
       /* Ein bereits vergebener Status wird nie von der neuen
        * Vollständigkeitsprüfung überschrieben. */
@@ -1557,30 +1996,50 @@
       return neu;
     });
 
+    /* Schließplan: erst die alten Felder auf den Stand von 1.1 bringen,
+       dann Personen und Gruppen in die Listen des Aufmaßes überführen,
+       zuletzt jede Spalte auf die Vorlage zurechtstutzen. */
+    out.schliessungen = out.schliessungen.filter(function (s) { return s && typeof s === 'object'; })
+      .map(function (s) { return schliessungUeberfuehren(s); });
+    out.mitarbeiter = Array.isArray(out.mitarbeiter) ? out.mitarbeiter : [];
+    out.gruppen = Array.isArray(out.gruppen) ? out.gruppen : [];
+    schliessplanUeberfuehren(out);
     var schlVorlage = neueSchliessung();
     out.schliessungen = out.schliessungen.map(function (s) {
-      schliessungUeberfuehren(s);
       var neu = {};
       Object.keys(schlVorlage).forEach(function (k) {
         neu[k] = (s && s[k] !== undefined) ? s[k] : schlVorlage[k];
       });
       neu.id = s && s.id ? s.id : uid('sch');
-      if (!Array.isArray(neu.personen)) neu.personen = [];
-      neu.personen = neu.personen.filter(function (x) { return x && typeof x === 'object'; })
-        .map(function (x) { return neuePerson(x); });
+      if (neu.art !== 'gruppe' && neu.art !== 'mitarbeiter') neu.art = 'schliessung';
+      if (!Array.isArray(neu.traeger)) neu.traeger = [];
+      neu.medien = medienBereinigen(neu.medien);
       return neu;
     });
+    out.mitarbeiter = out.mitarbeiter.filter(function (m) { return m && typeof m === 'object'; })
+      .map(function (m) { var neu = neuerMitarbeiter(m); neu.id = m.id || neu.id; return neu; });
+    out.gruppen = out.gruppen.filter(function (g) { return g && typeof g === 'object'; })
+      .map(function (g) { return neueGruppe({ id: g.id || uid('grp'), name: String(g.name || '') }); });
+    /* Verweise auf gelöschte Gruppen und Mitarbeiter aufräumen */
+    var gruppenIds = {}, maIds = {};
+    out.gruppen.forEach(function (g) { gruppenIds[g.id] = true; });
+    out.mitarbeiter.forEach(function (m) { maIds[m.id] = true; });
+    out.mitarbeiter.forEach(function (m) { m.gruppen = m.gruppen.filter(function (id) { return gruppenIds[id]; }); });
+    out.schliessungen.forEach(function (s) { s.traeger = s.traeger.filter(function (id) { return maIds[id]; }); });
+    if (out.freigabe && typeof out.freigabe !== 'object') out.freigabe = null;
+    spaltenAngleichen(out);
 
     out.standorte = out.standorte.filter(function (k) { return k && k.id; }).map(function (k) {
       return {
-        id: k.id,
+        id: String(k.id),
         ebene: k.ebene || 'standort',
-        name: k.name || '',
+        name: String(k.name || ''),
         parentId: k.parentId || null,
-        bemerkung: k.bemerkung || '',
+        bemerkung: String(k.bemerkung || ''),
         sort: typeof k.sort === 'number' ? k.sort : 0
       };
     });
+    gliederungEntwirren(out);
 
     matrixAufraeumen(out);
     return out;
@@ -1596,9 +2055,28 @@
     naechsteLaufendeNummer: naechsteLaufendeNummer,
     neueSchliessung: neueSchliessung,
     neuePerson: neuePerson,
+    neuerMitarbeiter: neuerMitarbeiter,
+    neueGruppe: neueGruppe,
+    medienBereinigen: medienBereinigen,
+    mitarbeiterMedienAnzahl: mitarbeiterMedienAnzahl,
+    mitarbeiterVon: mitarbeiterVon,
+    gruppeVon: gruppeVon,
+    gruppenMitglieder: gruppenMitglieder,
+    spaltenMitglieder: spaltenMitglieder,
+    spaltenSortiert: spaltenSortiert,
+    spaltenVonMitarbeiter: spaltenVonMitarbeiter,
+    spaltenAngleichen: spaltenAngleichen,
+    spaltenArtText: spaltenArtText,
+    spalteFuer: spalteFuer,
+    mitarbeiterLoeschen: mitarbeiterLoeschen,
+    gruppeLoeschen: gruppeLoeschen,
+    doppelteMitarbeiter: doppelteMitarbeiter,
+    mitarbeiterOhneSpalte: mitarbeiterOhneSpalte,
     medienAnzahl: medienAnzahl,
+    traegerText: traegerText,
+    freigabeStand: freigabeStand,
+    seitFreigabeGeaendert: seitFreigabeGeaendert,
     identmedienAuswahl: identmedienAuswahl,
-    medienAngleichen: medienAngleichen,
     pflichtfelder: pflichtfelder,
     pflichtListe: pflichtListe,
     pflichtSchluessel: pflichtSchluessel,
@@ -1619,6 +2097,11 @@
     findeStruktur: findeStruktur,
     strukturPfadText: strukturPfadText,
     kinderVon: kinderVon,
+    verwaisteBereiche: verwaisteBereiche,
+    bereicheWiederherstellen: bereicheWiederherstellen,
+    gliederungUebernehmen: gliederungUebernehmen,
+    gliederungEntwirren: gliederungEntwirren,
+    bilddatenGueltig: bilddatenGueltig,
     loescheStruktur: loescheStruktur,
     strukturReihenfolge: strukturReihenfolge,
     tuerenGruppiert: tuerenGruppiert,
@@ -1630,6 +2113,8 @@
     pruefeProjekt: pruefeProjekt,
     tuerUeberfuehren: tuerUeberfuehren,
     schliessungUeberfuehren: schliessungUeberfuehren,
+    schliessplanUeberfuehren: schliessplanUeberfuehren,
+    zylinderOptionenUeberfuehren: zylinderOptionenUeberfuehren,
     anlageAusTuerenErschliessen: anlageAusTuerenErschliessen,
     migriere: migriere
   };

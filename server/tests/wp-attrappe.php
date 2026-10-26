@@ -102,6 +102,9 @@ function add_action() {} function add_filter() {} function register_rest_route()
 function register_setting() {} function add_options_page() {} function add_settings_error() {}
 function current_user_can() { return true; } function wp_nonce_field() {}
 function check_admin_referer() { return true; } function settings_fields() {}
+function admin_url($p = '') { return 'http://attrappe.test/wp-admin/' . $p; }
+function wp_nonce_url($url, $aktion = '') { return $url . '&_wpnonce=attrappe'; }
+function esc_url($u) { return htmlspecialchars((string) $u, ENT_QUOTES, 'UTF-8'); }
 function submit_button() {}
 /* Ausgehende Anfragen: Ein Prüflauf kann eine Antwort unterschieben
    ($GLOBALS['wp_remote_attrappe']); der Mini-Server ruft eine Attrappe von
@@ -109,6 +112,18 @@ function submit_button() {}
 $GLOBALS['wp_remote_attrappe'] = null;
 $GLOBALS['wp_remote_letzte'] = null;
 function wp_remote_get($url, $args = array()) {
+    $args['method'] = 'GET';
+    return wp_remote_attrappe_anfrage($url, $args);
+}
+function wp_remote_post($url, $args = array()) {
+    $args['method'] = 'POST';
+    return wp_remote_attrappe_anfrage($url, $args);
+}
+function wp_remote_request($url, $args = array()) {
+    if (empty($args['method'])) { $args['method'] = 'GET'; }
+    return wp_remote_attrappe_anfrage($url, $args);
+}
+function wp_remote_attrappe_anfrage($url, $args) {
     $GLOBALS['wp_remote_letzte'] = array('url' => $url, 'args' => $args);
     if (is_callable($GLOBALS['wp_remote_attrappe'])) { return call_user_func($GLOBALS['wp_remote_attrappe'], $url, $args); }
     if (!preg_match('#^http://127\.0\.0\.1(:[0-9]+)?/#', $url)) { return new WP_Error('offline', 'kein Netz im Test'); }
@@ -118,6 +133,10 @@ function wp_remote_get($url, $args = array()) {
     curl_setopt_array($c, array(CURLOPT_RETURNTRANSFER => true, CURLOPT_HTTPHEADER => $kopf,
         CURLOPT_TIMEOUT => isset($args['timeout']) ? (int) $args['timeout'] : 10, CURLOPT_FOLLOWLOCATION => false,
         CURLOPT_USERAGENT => isset($args['user-agent']) ? $args['user-agent'] : 'WordPress-Attrappe'));
+    if ($args['method'] === 'POST') {
+        curl_setopt($c, CURLOPT_POST, true);
+        curl_setopt($c, CURLOPT_POSTFIELDS, isset($args['body']) ? (is_array($args['body']) ? http_build_query($args['body']) : (string) $args['body']) : '');
+    }
     $body = curl_exec($c);
     if ($body === false) { $f = curl_error($c); curl_close($c); return new WP_Error('http', $f); }
     $code = (int) curl_getinfo($c, CURLINFO_RESPONSE_CODE);
@@ -208,6 +227,8 @@ class WPDB_Attrappe {
             antwort TEXT, antwort_nr INTEGER DEFAULT 0, antwort_am TEXT, antwort_name TEXT DEFAULT '',
             antwort_anmerkung TEXT, antwort_anzahl INTEGER DEFAULT 0, antwort_listen INTEGER DEFAULT 0,
             uebernommen_nr INTEGER DEFAULT 0, uebernommen_am TEXT, uebernommen_von TEXT DEFAULT '',
+            rechte TEXT DEFAULT '', vorgelegt_am TEXT, freigabe_am TEXT, freigabe_name TEXT DEFAULT '',
+            freigabe_funktion TEXT DEFAULT '', freigabe_art TEXT DEFAULT '',
             geaendert_am TEXT)");
     }
 
@@ -285,6 +306,7 @@ require_once __DIR__ . '/../aufmass-sync/inc/fotos.php';
 require_once __DIR__ . '/../aufmass-sync/inc/freigaben.php';
 require_once __DIR__ . '/../aufmass-sync/inc/verschluesselung.php';
 require_once __DIR__ . '/../aufmass-sync/inc/pipedrive.php';
+require_once __DIR__ . '/../aufmass-sync/inc/diktat.php';
 
 /* Im reinen Prüflauf gibt es keine Kopfzeilen; im Mini-Server schon. */
 Aufmass_Anmeldung::$cookie_schreiben = (php_sapi_name() !== 'cli');

@@ -334,17 +334,6 @@
     return doc;
   }
 
-  function zutrittKurz(t) {
-    var teile = [];
-    if (t.zutrittsseite) teile.push(t.zutrittsseite);
-    (t.tueranforderungen || []).forEach(function (a) {
-      teile.push(String(a).replace('Flucht- und Rettungsweg', 'Flucht/Panik')
-                          .replace('einbruchhemmend (RC)', 'RC')
-                          .replace('VdS-Anforderung', 'VdS'));
-    });
-    return teile.join(', ');
-  }
-
   function zylinderMass(t) {
     if (!t.masseAussen && !t.masseInnen) return '';
     return (t.masseAussen || '–') + ' / ' + (t.masseInnen || '–');
@@ -377,10 +366,9 @@
           if (t.dornmass) d.push('DM ' + t.dornmass);
           if (t.entfernung) d.push('E ' + t.entfernung);
           return sch + (d.length ? ('\n' + d.join(' / ')) : ''); } },
-      { titel: 'Zutritt / Anforderungen', breite: 0.125, render: zutrittKurz },
       { titel: 'DIN',            breite: 0.045, align: 'center', render: function (t) {
           return txt(t.dinRichtung).replace('DIN ', ''); } },
-      { titel: 'Bemerkung',      breite: 0.086, render: function (t) {
+      { titel: 'Bemerkung',      breite: 0.211, render: function (t) {
           var n = [];
           if (t.notiz) n.push(t.notiz);
           if (t.nacharbeit) n.push('! ' + (t.nacharbeitText || 'Nacharbeit'));
@@ -444,10 +432,9 @@
       ['Zylinder', K.zylinderText(t) || (t.brauchtZylinder ? '' : 'kein Zylinder')],
       ['Zylinderlänge außen/innen', zylinderMass(t) ? zylinderMass(t) + ' mm' : ''],
       ['Beschlag / Drücker', K.beschlagText(t) || (t.brauchtBeschlag ? '' : 'kein Beschlag')],
+      ['Beschlag-Optionen', K.beschlagOptionenText(t)],
       ['Schloss', K.schlossText(t)],
       ['Wandleser', t.brauchtWandleser ? 'ja' : ''],
-      ['Zutrittsseite', t.zutrittsseite],
-      ['Bauliche Anforderungen', (t.tueranforderungen || []).join(', '), true],
       ['Systemkomponenten', (t.komponenten || []).join(', '), true],
       ['DIN-Richtung', t.dinRichtung],
       ['Öffnungsrichtung', t.oeffnungsrichtung],
@@ -680,7 +667,9 @@
     kopfUndFussSetzen(doc, projekt, einstellungen, 'Kreuzschließplan / Zutrittsmatrix');
     doc.neueSeite();
     projektKopfBlock(doc, projekt, einstellungen);
+    freigabeVermerk(doc, projekt);
 
+    if (M.spaltenAngleichen) M.spaltenAngleichen(projekt);
     var schliessungen = projekt.schliessungen.slice().sort(function (a, b2) {
       return (a.sort - b2.sort) || String(a.kuerzel).localeCompare(String(b2.kuerzel), 'de', { numeric: true });
     });
@@ -715,7 +704,7 @@
       matrixBlock(doc, projekt, gruppen, block, tuerSpalte, spaltenBreite, einstellungen);
     });
 
-    legende(doc, schliessungen);
+    legende(doc, projekt, schliessungen);
     return doc;
   }
 
@@ -747,7 +736,7 @@
         var text = doc.kuerzen(kopfTexte[i] || '–', kopfHoehe - medienZeile - 4, 7, true);
         doc.textRotiert(text, cx + spaltenBreite / 2 + 2.4, y + kopfHoehe - medienZeile - 2,
                         { size: 7, bold: true });
-        var anz = M.medienAnzahl ? M.medienAnzahl(s) : parseInt(s.anzahlMedien, 10);
+        var anz = M.medienAnzahl(projekt, s);
         if (anz > 0) {
           doc.text(String(anz), cx + spaltenBreite / 2, y + kopfHoehe - medienZeile + 0.1,
                    { size: 5.6, align: 'center', color: FARBE.grau });
@@ -822,7 +811,68 @@
     doc.y = sy + zeilenHoehe + 4;
   }
 
-  function legende(doc, schliessungen) {
+  /* Freigabe-Vermerk des Kunden unter dem Projektkopf. Ist der Plan seit
+   * der Freigabe verändert worden, steht das ausdrücklich dabei - sonst
+   * würde ein veralteter Vermerk eine Verbindlichkeit vortäuschen. */
+  function freigabeVermerk(doc, projekt) {
+    var f = projekt && projekt.freigabe;
+    if (!f || !f.am) return;
+    var x = doc.rand.links, b = doc.inhaltsBreite();
+    var geaendert = M.seitFreigabeGeaendert ? M.seitFreigabeGeaendert(projekt) : false;
+    var wer = [f.name, f.funktion].filter(Boolean).join(', ');
+    var text = 'Schließplan vom Kunden verbindlich freigegeben am ' + datumDe(f.am) +
+               (wer ? ' durch ' + wer : '') +
+               (f.art === 'nachtraeglich' ? ' (nachträgliche Freigabe)' : '') + '.';
+    if (geaendert) text += '  Achtung: Der Plan wurde nach der Freigabe geändert - der Vermerk gilt für den freigegebenen Stand.';
+    doc.platzPruefen(10);
+    doc.rechteck(x, doc.y, b, 7, { fill: geaendert ? '#fff3e0' : '#e8f5e9',
+                                   stroke: geaendert ? FARBE.warn : '#81c784', width: 0.3 });
+    doc.textBlock(text, x + 3, doc.y + 1.6, b - 6, { size: 7.6, bold: true,
+                  color: geaendert ? FARBE.warn : '#2e7d32', maxLines: 2 });
+    doc.y += 10;
+  }
+
+  /* „2× Transponder, 1× Smartphone“ - was hinter einer Spalte an Medien
+   * steht, nach Art zusammengefasst. */
+  function medienArtenText(projekt, s) {
+    var leute = M.spaltenMitglieder(projekt, s);
+    var nachTyp = {}, reihenfolge = [];
+    function zaehlen(liste) {
+      liste.forEach(function (m) {
+        var typ = m.typ || '';
+        if (!(typ in nachTyp)) { nachTyp[typ] = 0; reihenfolge.push(typ); }
+        nachTyp[typ] += m.anzahl;
+      });
+    }
+    if (leute.length) {
+      leute.forEach(function (m) {
+        var liste = M.medienBereinigen(m.medien);
+        zaehlen(liste.length ? liste : [{ typ: '', anzahl: 1 }]);
+      });
+    } else {
+      zaehlen(M.medienBereinigen(s.medien));
+    }
+    return reihenfolge.map(function (typ) {
+      return nachTyp[typ] + '× ' + (typ || 'Art offen');
+    }).join(', ');
+  }
+
+  function mitgliederText(projekt, s) {
+    var leute = M.spaltenMitglieder(projekt, s);
+    var namen = leute.map(function (m) {
+      var n = M.mitarbeiterMedienAnzahl(m);
+      return (m.name || '(ohne Namen)') + (m.funktion ? (' (' + m.funktion + ')') : '') +
+             (n > 1 ? (' ' + n + '×') : '');
+    }).join(', ');
+    if (s.art === 'gruppe') {
+      var g = M.gruppeVon(projekt, s.gruppeId);
+      return 'Gruppe ' + (g ? g.name : '–') + (namen ? ': ' + namen : ' – keine Mitglieder hinterlegt');
+    }
+    if (s.art === 'mitarbeiter') return namen || '– Mitarbeiter nicht mehr vorhanden –';
+    return namen || (s.bemerkung ? s.bemerkung : '–');
+  }
+
+  function legende(doc, projekt, schliessungen) {
     var x = doc.rand.links, b = doc.inhaltsBreite();
     doc.platzPruefen(30);
     doc.y += 3;
@@ -837,37 +887,59 @@
     });
     doc.y += 7;
 
-    doc.text('Schließungen im Detail', x, doc.y, { size: 9, bold: true, color: FARBE.akzent });
+    doc.text('Spalten im Detail', x, doc.y, { size: 9, bold: true, color: FARBE.akzent });
     doc.y += 5;
-    /* Die Personen stehen namentlich mit ihrer Anzahl: Daraus ergibt sich
-     * die Medienzahl, und bei der Ausgabe der Schlüssel ist ablesbar, wer
-     * welches Medium erhält. */
+    /* Hinter jeder Spalte stehen die Mitarbeiter namentlich mit ihrer
+     * Medienzahl: Daraus ergibt sich die Stückzahl, und bei der Ausgabe
+     * der Schlüssel ist ablesbar, wer welches Medium erhält. */
     var spalten = [
-      { titel: 'Kürzel', breite: b * 0.08, key: 'kuerzel', bold: true },
-      { titel: 'Bezeichnung', breite: b * 0.20, key: 'bezeichnung' },
-      { titel: 'Rang im Plan', breite: b * 0.15, render: function (s) {
-          var t = K.SCHLIESSUNG_TYPEN.filter(function (x2) { return x2.id === s.typ; })[0];
-          return t ? t.label : txt(s.typ); } },
-      { titel: 'Träger', breite: b * 0.09, render: function (s) {
-          var a = K.TRAEGER_ART.filter(function (x2) { return x2.id === s.traegerArt; })[0];
-          return a ? a.label : ''; } },
-      { titel: 'Person(en) / Gruppe', breite: b * 0.33, maxLines: 6, render: function (s) {
-          var personen = (s.personen || []).filter(function (x2) { return x2 && x2.name; });
-          var liste2 = personen.map(function (x2) {
-            var n = parseInt(x2.anzahlMedien, 10); if (!n || n < 1) n = 1;
-            return x2.name + (x2.funktion ? (' (' + x2.funktion + ')') : '') + (n > 1 ? (' ' + n + '×') : '');
-          }).join(', ');
-          if (s.traegerArt === 'gruppe') {
-            return 'Gruppe ' + (s.gruppenName || '–') +
-              (liste2 ? (': ' + liste2) : ' – keine Mitglieder hinterlegt');
-          }
-          return liste2 || txt(s.person || s.abteilung);
-        } },
+      { titel: 'Kürzel', breite: b * 0.07, key: 'kuerzel', bold: true },
+      { titel: 'Bezeichnung', breite: b * 0.17, key: 'bezeichnung' },
+      { titel: 'Art', breite: b * 0.11, render: function (s) { return M.spaltenArtText(s); } },
+      { titel: 'Träger / Mitglieder', breite: b * 0.37, maxLines: 8, render: function (s) {
+          return mitgliederText(projekt, s); } },
       { titel: 'Medien', breite: b * 0.06, align: 'center', render: function (s) {
-          return String(M.medienAnzahl ? M.medienAnzahl(s) : (s.anzahlMedien || 0)); } },
-      { titel: 'Art', breite: b * 0.09, size: 7, key: 'medienTyp' }
+          return String(M.medienAnzahl(projekt, s)); } },
+      { titel: 'Art der Medien', breite: b * 0.22, size: 7, maxLines: 4, render: function (s) {
+          return medienArtenText(projekt, s) || '–'; } }
     ];
     tabelle(doc, spalten, schliessungen.slice(), { size: 7.4 });
+
+    /* Gruppen mit ihren Mitgliedern - damit der Leser weiß, wer hinter
+     * einer Gruppenspalte steht, auch wenn er nur das PDF hat. */
+    var gruppen = (projekt.gruppen || []).slice();
+    if (gruppen.length) {
+      doc.y += 4;
+      doc.platzPruefen(20);
+      doc.text('Gruppen und Mitglieder', x, doc.y, { size: 9, bold: true, color: FARBE.akzent });
+      doc.y += 5;
+      var gSpalten = [
+        { titel: 'Gruppe', breite: b * 0.20, key: 'name', bold: true },
+        { titel: 'Mitglieder', breite: b * 0.62, maxLines: 10, render: function (g) {
+            var leute = M.gruppenMitglieder(projekt, g.id);
+            if (!leute.length) return '– keine Mitglieder hinterlegt –';
+            return leute.map(function (m) {
+              return (m.name || '(ohne Namen)') + (m.funktion ? (' (' + m.funktion + ')') : '');
+            }).join(', '); } },
+        { titel: 'Personen', breite: b * 0.08, align: 'center', render: function (g) {
+            return String(M.gruppenMitglieder(projekt, g.id).length); } },
+        { titel: 'Medien', breite: b * 0.10, align: 'center', render: function (g) {
+            return String(M.gruppenMitglieder(projekt, g.id).reduce(function (sum, m) {
+              return sum + M.mitarbeiterMedienAnzahl(m); }, 0)); } }
+      ];
+      tabelle(doc, gSpalten, gruppen, { size: 7.4 });
+    }
+
+    var doppelt = M.doppelteMitarbeiter ? M.doppelteMitarbeiter(projekt) : [];
+    if (doppelt.length) {
+      doc.y += 3;
+      doc.platzPruefen(10);
+      doc.textBlock('Hinweis: ' + doppelt.map(function (d) {
+        return d.mitarbeiter.name + ' (' + d.spalten.map(function (s) { return s.kuerzel || s.bezeichnung; }).join(', ') + ')';
+      }).join('; ') + ' stehen einzeln und über eine Gruppe im Plan. In der Materialliste werden ihre Medien nur einmal gezählt.',
+        x, doc.y, b, { size: 7, color: FARBE.grau, maxLines: 4 });
+      doc.y += 8;
+    }
   }
 
   /* =========================================================================
@@ -1053,40 +1125,37 @@
       doc.text('Identmedien / Schlüssel aus dem Schließplan', doc.rand.links, doc.y,
                { size: 10, bold: true, color: FARBE.akzent });
       doc.y += 6;
+      /* Je Mitarbeiter genau eine Zeile - auch wenn er einzeln und über
+       * seine Gruppe im Plan steht. Dazu die Schließungen ohne benannte
+       * Träger (etwa Generalhauptschlüssel im Tresor). */
       var medienSpalten = spaltenBauen([
-        { titel: 'Kürzel', w: 9, key: 'kuerzel', bold: true },
-        { titel: 'Bezeichnung', w: 20, key: 'bezeichnung' },
-        { titel: 'Rang im Plan', w: 15, size: 7, render: function (m) {
-            var t = K.SCHLIESSUNG_TYPEN.filter(function (x2) { return x2.id === m.typ; })[0];
-            return t ? t.label : txt(m.typ); } },
-        { titel: 'Träger', w: 10, size: 7, render: function (m) {
-            var a = K.TRAEGER_ART.filter(function (x2) { return x2.id === m.traegerArt; })[0];
-            return a ? a.label : ''; } },
-        /* Namentlich, mit eigener Anzahl - daraus entsteht die Summe */
-        { titel: 'Person(en) / Gruppe', w: 28, size: 7, maxLines: 6, render: function (m) {
-            if (m.traegerArt === 'gruppe') {
-              var kopf = m.gruppenName ? ('Gruppe ' + m.gruppenName) : 'Gruppe';
-              if (!m.personen.length) return kopf + ' (keine Mitglieder hinterlegt)';
-              return kopf + ': ' + m.personen.map(function (x) {
-                return x.name + (x.funktion ? (' (' + x.funktion + ')') : '') +
-                       (x.menge > 1 ? (' ' + x.menge + '×') : '');
-              }).join(', ');
-            }
-            if (!m.personen.length) return txt(m.person);
-            return m.personen.map(function (x) {
-              return x.name + (x.funktion ? (' (' + x.funktion + ')') : '') +
-                     (x.menge > 1 ? (' ' + x.menge + '×') : '');
-            }).join(', ');
-          } },
-        { titel: 'Art des Mediums', w: 14, size: 7,
-          render: function (m) { return txt(m.medienTyp) || '– offen –'; } },
+        { titel: 'Mitarbeiter / Schließung', w: 20, bold: true, render: function (m) {
+            return txt(m.name) + (m.art === 'schliessung' ? '\n(ohne benannten Träger)' : ''); } },
+        { titel: 'Funktion', w: 11, size: 7, key: 'funktion' },
+        { titel: 'Gruppen', w: 13, size: 7, maxLines: 4, render: function (m) {
+            return (m.gruppen || []).join(', '); } },
+        { titel: 'Spalten im Plan', w: 14, size: 7, maxLines: 4, render: function (m) {
+            return (m.spalten || []).join(', '); } },
+        { titel: 'Art des Mediums', w: 18, size: 7, maxLines: 4, render: function (m) {
+            return (m.medien || []).map(function (x) {
+              return x.anzahl + '× ' + (x.typ || '– offen –'); }).join('\n'); } },
         { titel: 'Anzahl', w: 7, align: 'right', bold: true,
           render: function (m) { return String(m.menge) + ' Stk'; } },
-        { titel: 'Art.-Nr.', w: 11, render: function () { return ''; } },
-        { titel: 'Preis', w: 8, align: 'right', render: function () { return ''; } }
+        { titel: 'Art.-Nr.', w: 10, render: function () { return ''; } },
+        { titel: 'Preis', w: 7, align: 'right', render: function () { return ''; } }
       ]);
       tabelle(doc, medienSpalten, liste.medien.slice(), { size: 8 });
       doc.y += 2;
+      /* Summen je Medienart - so bestellt man: n Transponder, m Schlüssel */
+      (liste.medienNachTyp || []).forEach(function (z) {
+        doc.platzPruefen(7);
+        doc.rechteck(doc.rand.links, doc.y, b, 6, { fill: FARBE.zebraBg, stroke: FARBE.linieHell });
+        doc.text((z.typ || 'Art des Mediums offen'), doc.rand.links + 2, doc.y + 1.3,
+                 { size: 7.8, bold: true, color: z.typ ? FARBE.grau : FARBE.warn });
+        doc.text(String(z.anzahl) + ' Stück', doc.rand.links + b - 2, doc.y + 1.3,
+                 { size: 7.8, bold: true, align: 'right', color: FARBE.grau });
+        doc.y += 6;
+      });
       doc.platzPruefen(10);
       doc.rechteck(doc.rand.links, doc.y, b, 7, { fill: FARBE.kopfBg, stroke: FARBE.linie, width: 0.3 });
       doc.text('Summe Identmedien', doc.rand.links + 2, doc.y + 1.6, { size: 8.5, bold: true });

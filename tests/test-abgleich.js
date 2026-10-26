@@ -30,7 +30,7 @@ function ausweis(sub, name) {
   const inhalt = b64(JSON.stringify({
     iss: 'https://accounts.google.com', aud: CLIENT, sub: sub,
     email: sub + '@' + DOMAENE, email_verified: true, hd: DOMAENE, name: name,
-    iat: Math.floor(Date.now() / 1000) - 10, exp: Math.floor(Date.now() / 1000) + 3600
+    iat: Math.floor(Date.now() / 1000) - 10, exp: Math.floor(Date.now() / 1000) + 3600, nonce: Math.random().toString(36).slice(2)
   }));
   const sig = crypto.sign('RSA-SHA256', Buffer.from(kopf + '.' + inhalt), privateKey);
   return kopf + '.' + inhalt + '.' + sig.toString('base64url');

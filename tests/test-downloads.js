@@ -50,7 +50,7 @@ function pruefe(b, t, i) { if (b) { ok++; console.log('  OK   ' + t); } else { f
     const st = window.Model.neuerStrukturknoten('standort', 'Standort'); p.standorte.push(st);
     p.tueren.push(window.Model.neueTuer({ nummer: 'T1', bezeichnung: 'Tür', strukturId: st.id,
       systemId: 'evva-4ks', zylinderArt: 'Doppelzylinder', masseAussen: '30', masseInnen: '35' }));
-    const s = window.Model.neueSchliessung({ kuerzel: 'GHS', bezeichnung: 'General', anzahlMedien: 2 });
+    const s = window.Model.neueSchliessung({ kuerzel: 'GHS', bezeichnung: 'General', typ: 'ghs', medien: [{ typ: '', anzahl: 2 }] });
     p.schliessungen.push(s);
     window.Model.setBerechtigung(p, p.tueren[0].id, s.id, 'ja');
     await window.Store.projektSpeichern(p);

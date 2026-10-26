@@ -221,7 +221,10 @@
   function zusammenfassung(a) {
     var n = a.antwortAnzahl || 0, m = a.antwortListen || 0;
     var teile = [n + (n === 1 ? ' Berechtigung' : ' Berechtigungen')];
-    if (m) { teile.push(m + (m === 1 ? ' Inhaberliste' : ' Inhaberlisten')); }
+    if (m) { teile.push(m + (m === 1 ? ' Liste bzw. neue Spalte' : ' Listen bzw. neue Spalten')); }
+    if (a.freigabe && a.freigabe.name) {
+      teile.push(a.freigabe.art === 'nachtraeglich' ? 'verbindliche Freigabe des vorgelegten Plans' : 'mit verbindlicher Freigabe');
+    }
     return teile.join(', ');
   }
 
@@ -234,20 +237,31 @@
 
   function berichtZeichnen(ziel, b) {
     A.leeren(ziel);
-    var zellen = b.aenderungen.filter(function (x) { return !x.personen; });
-    var listen = b.aenderungen.filter(function (x) { return x.personen; });
-    if (!zellen.length && !listen.length) {
+    var zellen = b.aenderungen.filter(function (x) { return x.tuer !== undefined && !x.spalte; });
+    var leute = b.aenderungen.filter(function (x) { return x.mitarbeiter; });
+    var gruppen = b.aenderungen.filter(function (x) { return x.gruppe; });
+    var spalten = b.aenderungen.filter(function (x) { return x.spalte; });
+    var freigabe = b.aenderungen.filter(function (x) { return x.freigabe; })[0];
+    var ueb = (b.uebersprungen || 0) + (b.listenUebersprungen || 0);
+    if (!zellen.length && !leute.length && !gruppen.length && !spalten.length && !freigabe) {
       ziel.appendChild(el('div', { class: 'meldung warn' }, el('div', { text:
         'Diese Rückmeldung enthält keine Änderungen gegenüber dem aktuellen Stand des Aufmaßes'
-        + (b.uebersprungen || b.personenUebersprungen ? ' – ' + ((b.uebersprungen || 0) + (b.personenUebersprungen || 0))
-          + ' Einträge betreffen Türen oder Schließungen, die es nicht mehr gibt.' : '.') })));
+        + (ueb ? ' – ' + ueb + ' Einträge betreffen Türen, Spalten oder Rechte, die es nicht (mehr) gibt.' : '.') })));
       return;
+    }
+    if (freigabe) {
+      ziel.appendChild(el('div', { class: 'meldung ok' }, el('div', {}, [
+        el('b', { text: 'Verbindliche Freigabe durch ' + [freigabe.name, freigabe.funktion].filter(Boolean).join(', ') }),
+        el('div', { style: { marginTop: '3px', fontSize: '13px' }, text: freigabe.art === 'nachtraeglich'
+          ? 'Der Kunde hat den vorgelegten Plan freigegeben. Mit „Übernehmen“ wird die Freigabe im Aufmaß vermerkt; der Link ist für den Kunden danach gesperrt.'
+          : 'Der Kunde hat seine Rückmeldung mit einer verbindlichen Freigabe gesendet. Mit „Übernehmen“ gelten die Änderungen unten als freigegebener Stand; der Link ist für den Kunden danach gesperrt.' })
+      ])));
     }
     if (zellen.length) {
       ziel.appendChild(el('h3', { text: zellen.length + (zellen.length === 1 ? ' Berechtigung' : ' Berechtigungen') }));
       var tabelle = el('table');
       tabelle.appendChild(el('thead', {}, el('tr', {}, [
-        el('th', { text: 'Tür' }), el('th', { text: 'Schließung' }), el('th', { text: 'Bisher' }), el('th', { text: 'Neu' })
+        el('th', { text: 'Tür' }), el('th', { text: 'Spalte' }), el('th', { text: 'Bisher' }), el('th', { text: 'Neu' })
       ])));
       var koerper = el('tbody');
       zellen.forEach(function (x) {
@@ -259,20 +273,40 @@
       tabelle.appendChild(koerper);
       ziel.appendChild(tabelle);
     }
-    if (listen.length) {
-      ziel.appendChild(el('h3', { text: listen.length + (listen.length === 1 ? ' Inhaberliste' : ' Inhaberlisten') }));
-      listen.forEach(function (x) {
+    function artText(x) { return x.art === 'neu' ? 'neu' : (x.art === 'entfernt' ? 'entfernt' : 'geändert'); }
+    if (gruppen.length) {
+      ziel.appendChild(el('h3', { text: gruppen.length + (gruppen.length === 1 ? ' Gruppe' : ' Gruppen') }));
+      gruppen.forEach(function (x) {
         ziel.appendChild(el('div', { class: 'liste' }, [
-          el('b', { text: x.schliessung || '–' }),
-          el('span', { class: 'zart', text: '  ' + x.vorher + ' → ' + x.nachher + (x.nachher === 1 ? ' Person' : ' Personen') }),
-          el('div', { class: 'namen', text: (x.namen || []).join(', ') || 'niemand' })
+          el('b', { text: x.name || '–' }),
+          el('span', { class: 'zart', text: '  ' + artText(x) + (x.vorher ? ' (vorher „' + x.vorher + '“)' : '') })
         ]));
       });
     }
-    if (b.uebersprungen || b.personenUebersprungen) {
+    if (leute.length) {
+      ziel.appendChild(el('h3', { text: leute.length + ' Mitarbeiter' }));
+      leute.forEach(function (x) {
+        ziel.appendChild(el('div', { class: 'liste' }, [
+          el('b', { text: x.name || '–' }),
+          el('span', { class: 'zart', text: '  ' + artText(x) }),
+          x.art !== 'entfernt' ? el('div', { class: 'namen', text:
+            'Gruppen: ' + ((x.gruppen || []).join(', ') || '–') + '  ·  Medien: ' + (x.medien || '1× (Art offen)') }) : null
+        ]));
+      });
+    }
+    if (spalten.length) {
+      ziel.appendChild(el('h3', { text: spalten.length + (spalten.length === 1 ? ' neue Spalte' : ' neue Spalten') }));
+      spalten.forEach(function (x) {
+        ziel.appendChild(el('div', { class: 'liste' }, [
+          el('b', { text: (x.art === 'gruppe' ? 'Gruppe ' : 'Mitarbeiter ') + (x.name || '–') }),
+          el('span', { class: 'zart', text: '  ' + x.zellen + (x.zellen === 1 ? ' Berechtigung' : ' Berechtigungen')
+            + (x.vorhanden ? ' (Spalte gab es schon - Berechtigungen werden ergänzt)' : '') })
+        ]));
+      });
+    }
+    if (ueb) {
       ziel.appendChild(el('p', { class: 'hinweis', text:
-        ((b.uebersprungen || 0) + (b.personenUebersprungen || 0)) + ' Einträge betreffen Türen oder Schließungen, '
-        + 'die es im Aufmaß nicht mehr gibt - sie werden übersprungen.' }));
+        ueb + ' Einträge betreffen Türen, Spalten oder Rechte, die es nicht (mehr) gibt - sie werden übersprungen.' }));
     }
   }
 
@@ -326,9 +360,7 @@
           if (laeuft) { return false; }
           laeuft = true;
           Abgleich.antwortUebernehmen(eintrag.code).then(function (b) {
-            var text = b.uebernommen + (b.uebernommen === 1 ? ' Berechtigung' : ' Berechtigungen') + ' übernommen';
-            if (b.personenListen) { text += ', ' + b.personenListen + (b.personenListen === 1 ? ' Inhaberliste' : ' Inhaberlisten') + ' aktualisiert'; }
-            fertig(schliessen, text + '.');
+            fertig(schliessen, global.Freigabe.berichtText(b) + '.');
           }).catch(function (f) {
             laeuft = false;
             A.toast(fehlerText(f, 'Die Übernahme ist gescheitert.'), 'fehler');
@@ -354,7 +386,7 @@
     liste.forEach(function (a) {
       kasten.appendChild(el('div', { class: 'zeile-verteilt', style: { width: '100%', gap: '10px' } }, [
         el('div', { class: 'fuellen' }, [
-          el('b', { text: 'Rückmeldung des Kunden liegt vor' }),
+          el('b', { text: (a.freigabe && a.freigabe.name) ? 'Verbindliche Freigabe des Kunden liegt vor' : 'Rückmeldung des Kunden liegt vor' }),
           el('div', { style: { fontSize: '13px', marginTop: '2px' },
             text: 'von ' + (a.antwortName || 'dem Kunden') + ' am ' + datum(a.antwortAm) + '  ·  ' + zusammenfassung(a) })
         ]),

@@ -16,13 +16,15 @@ const ZIEL = path.join(WURZEL, 'dist', 'aufmasstool');
 
 /* Genau die Dateien, die die Seiten auch anfordern. */
 const DATEIEN = [
+  /* Die Schutzkopfzeilen für Apache gehören mit in den Ordner. */
+  '.htaccess',
   'index.html', 'freigabe.html', 'manifest.webmanifest', 'sw.js',
   'icon.svg', 'icon-180.png', 'icon-192.png', 'icon-512.png',
   'css/app.css',
   'js/catalog.js', 'js/model.js', 'js/pdf.js', 'js/reports.js', 'js/store.js',
-  'js/verlauf.js', 'js/freigabe.js', 'js/pipedrive.js',
+  'js/verlauf.js', 'js/freigabe.js', 'js/pipedrive.js', 'js/diktat.js',
   'js/zusammenfuehren.js', 'js/abgleich.js',
-  'js/app.js', 'js/views-projekt.js', 'js/views-tueren.js', 'js/views-plan.js',
+  'js/app.js', 'js/views-projekt.js', 'js/views-tueren.js', 'js/views-personen.js', 'js/views-plan.js',
   'js/abgleich-ui.js', 'js/main.js', 'js/aktualisierung.js'
 ];
 
