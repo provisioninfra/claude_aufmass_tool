@@ -373,10 +373,13 @@ class Aufmass_Rest {
         $darf = Aufmass_Projekte::darf_aendern($projekt_id, $benutzer);
         if (is_wp_error($darf)) { return $darf; }
 
+        /* Nur der Typ selbst zählt - ein Browser oder Proxy hängt gern
+           „; charset=…“ an, das ist kein anderes Format. */
+        $typ = strtolower(trim((string) strtok((string) ($anfrage->get_header('content-type') ?: 'image/jpeg'), ';')));
         $e = Aufmass_Fotos::speichern(
             self::pfad($anfrage, 'id'), $projekt_id, (string) $anfrage->get_param('tuer'),
             $anfrage->get_body(),
-            (string) ($anfrage->get_header('content-type') ?: 'image/jpeg'),
+            $typ,
             $benutzer);
         return is_wp_error($e) ? $e : self::antwort($e);
     }

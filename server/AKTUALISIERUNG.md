@@ -2,8 +2,39 @@
 
 Diese Anleitung gilt, wenn das Werkzeug **schon läuft**: Plugin
 „Aufmaß-Abgleich“ in WordPress, Ordner `aufmasstool` auf dem Webspace,
-Geräte angemeldet. Sie bringt beides auf den Stand **1.3.1** – Plugin
+Geräte angemeldet. Sie bringt beides auf den Stand **1.3.2** – Plugin
 und Werkzeug tragen dieselbe Fassungsnummer.
+
+**Was 1.3.2 bringt** (gegenüber 1.3.1) – Ergebnis einer Sicherheits- und
+Grafikdurchsicht
+
+- **Gleichzeitiges Speichern:** Speicherten zwei Geräte im selben
+  Augenblick mit derselben Basis, überschrieb der Zweite den Ersten still.
+  Jetzt prüft der Server Version und Schreiben in einem Schritt; der
+  Zweite bekommt den Konflikt samt Serverstand und führt zusammen wie
+  gewohnt.
+- **Schutzkopfzeilen für den Werkzeug-Ordner:** Im Ordner `aufmasstool`
+  liegt jetzt eine `.htaccess` (Apache): keine Einbettung in fremde
+  Seiten, keine Typ-Rätselei des Browsers, keine Verweisadresse nach
+  außen, Kamera und Mikrofon nur für die eigene Seite, Seiten und Skripte
+  nie lange im Browser-Cache. Alle Anweisungen sind in IfModule-Blöcke
+  gefasst; fehlt ein Modul, passiert nichts. Antwortet der Ordner nach dem
+  Einspielen mit „500“, erlaubt der Hoster keine Kopfzeilen per
+  `.htaccess` – dann die Datei löschen, alles Übrige läuft ohne sie.
+- **Fremde Daten im Werkzeug:** Fotos aus einer Import-Datei oder vom
+  Abgleich zählen nur als Bild, wenn es JPEG, PNG oder WebP ist; eine
+  Gliederung mit Kreisen oder verwaisten Einträgen wird beim Öffnen
+  entwirrt (statt den Baum zum Stillstand zu bringen); der Baum zeichnet
+  höchstens zwölf Ebenen; Import-Dateien über 64 MB werden abgewiesen,
+  bevor sie gelesen werden. Namen bleiben überall Text, nie HTML – das
+  wurde in Werkzeug, Kundenseite, PDF und E-Mail erneut geprüft.
+- **Kleinigkeiten:** Fotos mit Zusatz im Inhaltstyp („; charset=…“) werden
+  angenommen; Name und Adresse eines Zugangs werden beim Anmelden auf die
+  Spaltenlänge gekürzt; Meldungen stehen oben, solange ein Dialog offen
+  ist, statt auf dessen Knöpfen.
+- Wer schon 1.3.1 einsetzt: Plugin ersetzen (Schritt 2, die Versionsprüfung
+  beim Speichern steckt dort) und Ordner `aufmasstool` tauschen
+  (Schritt 3), Cache leeren.
 
 **Was 1.3.1 bringt** (gegenüber 1.3.0)
 
@@ -113,9 +144,8 @@ Vorlage, Freigabe) – das erledigt WordPress beim ersten Aufruf von selbst
 4. Das Plugin bleibt dabei aktiv. Beim ersten Aufruf danach ergänzt es die
    Tabelle und übernimmt die Umschreibregel für den Kurzlink.
 
-**Prüfen:** *Plugins* öffnen – bei „Aufmaß-Abgleich“ muss **1.3.1**
-stehen (1.3.0, falls das Plugin beim Schritt auf 1.3.1 bewusst
-belassen wurde). Unter *Einstellungen → Aufmaß-Abgleich* muss neben der
+**Prüfen:** *Plugins* öffnen – bei „Aufmaß-Abgleich“ muss **1.3.2**
+stehen. Unter *Einstellungen → Aufmaß-Abgleich* muss neben der
 Organisationsdomäne die neuen Zeilen **„Neue Zugänge“** und **„Herkunft
 der Aufrufe“** erscheinen, weiter unten der Abschnitt **„Tür einsprechen
 (OpenAI)“**. Fehlen sie, läuft noch die alte Fassung.
@@ -185,7 +215,7 @@ vorbei – und meldet sich dann:
   starten**. Der speichert und schließt zuerst; es geht nichts verloren.
 
 Unter *Einstellungen → Über dieses Werkzeug* steht, welche Fassung auf
-dem Gerät läuft (jetzt **1.3.1**), und ein Knopf **Auf neue Fassung
+dem Gerät läuft (jetzt **1.3.2**), und ein Knopf **Auf neue Fassung
 prüfen** stößt die Prüfung sofort an. Ein Gerät, das gerade ohne Netz
 ist, arbeitet mit der alten Fassung weiter, bis es wieder online war –
 auch das ist in Ordnung, die Aufmaße gleichen sich wie gewohnt ab.
@@ -248,10 +278,10 @@ zu ändern: Das übernimmt die Umschreibregel des Plugins auf jeden Fall.
 
 1. `https://www.provision-infra.de/aufmasstool/` öffnen. Die Anmeldeseite
    mit dem Google-Knopf muss erscheinen; ganz unten steht die
-   Werkzeug-Fassung 1.3.1. Anmelden. Oben rechts steht danach
+   Werkzeug-Fassung 1.3.2. Anmelden. Oben rechts steht danach
    **„Abgeglichen“**, und unter *Einstellungen → Über dieses Werkzeug*
    stehen die Fassung des Werkzeugs und die des Server-Plugins (beide
-   1.3.1).
+   1.3.2).
 2. Ein bestehendes Aufmaß öffnen → **Schließplan**. Unter der Matrix
    stehen jetzt **Mitarbeiter und Gruppen**: Die früheren Personen je
    Schließung sind zur Mitarbeiterliste geworden, benannte Gruppen zu

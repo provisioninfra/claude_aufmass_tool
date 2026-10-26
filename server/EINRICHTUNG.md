@@ -157,14 +157,21 @@ unzip ~/aufmasstool.zip       # legt den Ordner aufmasstool an
 ├── wp-content/
 ├── wp-config.php
 └── aufmasstool/                      ← neu
+    ├── .htaccess                     (Schutzkopfzeilen für Apache, siehe unten)
     ├── index.html
     ├── freigabe.html
     ├── sw.js
     ├── manifest.webmanifest
     ├── icon.svg, icon-180.png, icon-192.png, icon-512.png
     ├── css/app.css
-    └── js/…                          (18 Dateien)
+    └── js/…                          (19 Dateien)
 ```
+
+Die `.htaccess` ist eine Punktdatei – manche FTP-Programme blenden sie
+aus. Fehlt sie, läuft das Werkzeug trotzdem; es fehlen dann nur die
+Schutzkopfzeilen aus dem Abschnitt „Sicherheit“. Antwortet der Ordner
+nach dem Hochladen mit „500 Internal Server Error“, erlaubt der Hoster
+keine Kopfzeilen per `.htaccess`: Dann die Datei löschen.
 
 Typische Fehler: Der Ordner heißt anders (`aufmasstool (1)`,
 `Aufmasstool` – Groß-/Kleinschreibung zählt); nur der Inhalt wurde
@@ -595,6 +602,22 @@ hinterlegen (Schritt 6), der Server übernimmt die Abfrage.
 - **E-Mails** sind reiner Text; was der Kunde eingegeben hat, ist darin
   als ungeprüft gekennzeichnet und gekürzt. Der Betreff kann keine
   Kopfzeilen einschleusen.
+- **Gleichzeitiges Speichern** zweier Geräte mit derselben Basis: Der
+  Server prüft die Version und schreibt in einem Schritt. Der Zweite
+  überschreibt nichts, er bekommt den Konflikt samt Serverstand und führt
+  zusammen.
+- **Der Werkzeug-Ordner** bringt eine `.htaccess` mit (Apache): keine
+  Einbettung in fremde Seiten (X-Frame-Options), keine Typ-Rätselei des
+  Browsers (nosniff), keine Verweisadresse nach außen, Kamera und
+  Mikrofon nur für die eigene Seite, Seiten und Skripte nie lange im
+  Browser-Cache. Fotos werden auf dem Server am Dateianfang geprüft (nur
+  JPEG, PNG, WebP – kein SVG, kein HTML) und ohne Rätselei ausgeliefert.
+- **Fremde Daten im Werkzeug** (Import-Datei, Abgleich, Kundenantwort):
+  Namen bleiben überall Text, nie HTML – im Werkzeug, auf der
+  Kundenseite, im PDF und in der E-Mail. Bilddaten zählen nur als Bild,
+  wenn es JPEG, PNG oder WebP ist; eine Gliederung mit Kreisen oder
+  verwaisten Einträgen wird beim Öffnen entwirrt; Import-Dateien über
+  64 MB werden abgewiesen, bevor sie gelesen werden.
 - **Die Seiten selbst** tragen eine Content-Security-Policy: Skripte nur
   aus dem eigenen Ordner (eingebettete über Prüfwert) und für die
   Anmeldung von Google, Verbindungen nur zur eigenen Website, zu Google

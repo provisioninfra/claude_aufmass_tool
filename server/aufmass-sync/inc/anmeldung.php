@@ -83,8 +83,8 @@ class Aufmass_Anmeldung {
             /* Das Profilbild von Google wird nicht abgelegt: Das Werkzeug
                zeigt es nirgends, also wird es auch nicht gespeichert. */
             $wpdb->update($tab, array(
-                'email' => $a['email'],
-                'name' => isset($a['name']) ? $a['name'] : $vorhanden['name'],
+                'email' => mb_substr((string) $a['email'], 0, 190),
+                'name' => isset($a['name']) ? mb_substr((string) $a['name'], 0, 190) : $vorhanden['name'],
                 'bild' => '',
                 'letzte_anmeldung' => $jetzt
             ), array('id' => $a['sub']));

@@ -32,6 +32,7 @@ const reihen = [
   ['Freigabe über Server', 'test-freigabe-server.js'],
   ['Tür einsprechen',  'test-diktat.js'],
   ['Angriffsproben',   'test-angriffe.js'],
+  ['Härtung',          'test-haertung.js'],
   ['Gleichlauf PHP↔JS','test-gleichlauf.js'],
   ['Offline-Betrieb', 'test-offline-pwa.js'],
   ['Aktualisierung',  'test-aktualisierung.js'],

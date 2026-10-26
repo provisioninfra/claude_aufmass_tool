@@ -496,6 +496,14 @@
       onchange: function (e) {
         var datei = e.target.files && e.target.files[0];
         if (!datei) return;
+        /* Eine Aufmaß-Datei mit Fotos ist einige Megabyte groß - nicht
+           hunderte. Eine Riesendatei liefe sonst erst durch den ganzen
+           Speicher, bevor sie als unlesbar gemeldet würde. */
+        if (datei.size > Store.IMPORT_MAX) {
+          A.toast('Die Datei ist zu groß für einen Import (über ' + Math.round(Store.IMPORT_MAX / 1048576) + ' MB).', 'fehler');
+          e.target.value = '';
+          return;
+        }
         var leser = new FileReader();
         leser.onerror = function () { A.toast('Die Datei konnte nicht gelesen werden.', 'fehler'); };
         leser.onload = function () {
@@ -973,8 +981,9 @@
     return M.tuerenUnter(Zustand.projekt, knotenId).length;
   }
 
-  function knotenZeichnen(knoten, neuZeichnen) {
+  function knotenZeichnen(knoten, neuZeichnen, tiefe) {
     var p = Zustand.projekt;
+    tiefe = tiefe || 0;
     var kinder = M.kinderVon(p, knoten.id);
     var konfig = EBENEN[knoten.ebene] || EBENEN.bereich;
     var anzahl = tuerenImKnoten(knoten.id);
@@ -1042,9 +1051,11 @@
       ])
     ]);
 
-    if (kinder.length) {
+    /* Tiefer als zwölf Ebenen gliedert niemand - eine solche Tiefe kann
+       nur ein Kreis in fremden Daten sein, und der wird nicht gezeichnet. */
+    if (kinder.length && tiefe < 12) {
       var unterliste = el('ul');
-      kinder.forEach(function (k) { unterliste.appendChild(knotenZeichnen(k, neuZeichnen)); });
+      kinder.forEach(function (k) { unterliste.appendChild(knotenZeichnen(k, neuZeichnen, tiefe + 1)); });
       eintrag.appendChild(unterliste);
     }
     return eintrag;

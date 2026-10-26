@@ -232,8 +232,11 @@ if (preg_match('#^/fotos/([A-Za-z0-9_-]{1,64})$#', $rest, $t)) {
         $f = Aufmass_Fotos::holen($id);
         if (!$f) { raus(array('code' => 'unbekannt', 'message' => 'Foto nicht gefunden.'), 404); }
         http_response_code(200);
+        /* Dieselben Kopfzeilen wie Aufmass_Rest::foto_holen im Plugin */
         header('Content-Type: ' . $f['mime']);
         header('Content-Length: ' . $f['groesse']);
+        header('X-Content-Type-Options: nosniff');
+        header('Content-Disposition: inline');
         readfile($f['pfad']);
         exit;
     }

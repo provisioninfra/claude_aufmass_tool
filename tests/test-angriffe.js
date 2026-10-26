@@ -205,6 +205,57 @@ async function ruf(weg, opt) {
     p(um.status === 302 && um.headers.get('location') === BASIS + '/freigabe.html#' + code, 'der Kurzlink leitet nur auf die eigene Seite um', um.headers.get('location'));
     p((await fetch(BASIS + '/f/..%2f..%2fetc', { redirect: 'manual' })).status === 404, 'ein Umweg im Kurzlink führt nirgendwohin');
 
+    console.log('\n== Zweimal derselbe Stand: der Zweite bekommt den Konflikt ==');
+    /* Zwei Geräte, dieselbe Basis. Der Server prüft Version und Schreiben
+       in einem Schritt - der Zweite überschreibt nichts, er bekommt 409
+       samt Serverstand und führt dann zusammen. */
+    const standA = await ruf('/projekte/prj-a', { kopf: echt });
+    const vA = standA.d.version;
+    const p1 = await ruf('/projekte/prj-a', { methode: 'PUT', kopf: echt, json: { daten: Object.assign({}, projekt, { bemerkung: 'Gerät 1' }), basisVersion: vA } });
+    const p2 = await ruf('/projekte/prj-a', { methode: 'PUT', kopf: echt, json: { daten: Object.assign({}, projekt, { bemerkung: 'Gerät 2' }), basisVersion: vA } });
+    p(p1.status === 200 && p1.d.version === vA + 1, 'der erste Stand wird angenommen', String(p1.status) + ' v' + (p1.d && p1.d.version));
+    p(p2.status === 409 && p2.d.data && p2.d.data.server && p2.d.data.server.version === vA + 1,
+      'der zweite mit derselben Basis bekommt 409 - und den Serverstand zum Zusammenführen', String(p2.status) + ' ' + JSON.stringify(p2.d && p2.d.data && p2.d.data.server && p2.d.data.server.version));
+    const danach = await ruf('/projekte/prj-a', { kopf: echt });
+    p(danach.d.daten.bemerkung === 'Gerät 1', 'der erste Stand ist nicht überschrieben', danach.d.daten.bemerkung);
+    const vB = danach.d.version;
+
+    console.log('\n== Fotos: nur echte Bilder, nur mit Anmeldung ==');
+    const JPEG = Buffer.concat([Buffer.from([0xFF, 0xD8, 0xFF, 0xE0]), Buffer.alloc(200, 7), Buffer.from([0xFF, 0xD9])]);
+    const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]), Buffer.alloc(100, 1)]);
+    const SVG = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><script>alert(1)</script></svg>');
+    const fotoPut = (id, body, typ, kopf) => ruf('/fotos/' + id + '?projekt=prj-a&tuer=t1', { methode: 'PUT', kopf: Object.assign({ 'Content-Type': typ }, kopf || echt), koerper: body });
+    p((await fotoPut('foto-svg', SVG, 'image/svg+xml')).status === 415, 'SVG wird abgewiesen (415) - es könnte Skript enthalten');
+    p((await fotoPut('foto-svg2', SVG, 'image/jpeg')).status === 415, 'SVG als JPEG ausgegeben: der Inhalt wird gelesen, nicht die Behauptung (415)');
+    p((await fotoPut('foto-png', PNG, 'image/jpeg')).status === 415, 'PNG-Bytes als JPEG gemeldet: 415');
+    const fotoOk = await fotoPut('foto-ok', JPEG, 'image/jpeg; charset=binary');
+    p(fotoOk.status === 200 && fotoOk.d.id === 'foto-ok', 'ein echtes JPEG wird angenommen - auch mit „; charset=…“ im Typ', String(fotoOk.status) + ' ' + JSON.stringify(fotoOk.d));
+    p((await fotoPut('foto-html', Buffer.from('<html><script>alert(1)</script></html>'), 'image/jpeg')).status === 415, 'HTML als Bild: 415');
+    p((await ruf('/fotos/foto-ok')).status === 401, 'ein Foto ohne Anmeldung: 401');
+    const fotoGet = await ruf('/fotos/foto-ok', { kopf: echt });
+    p(fotoGet.status === 200 && /^image\/jpeg/.test(fotoGet.kopf.get('content-type') || '') && (fotoGet.kopf.get('x-content-type-options') || '') === 'nosniff',
+      'mit Anmeldung kommt es als image/jpeg mit nosniff', (fotoGet.kopf.get('content-type') || '') + ' / ' + (fotoGet.kopf.get('x-content-type-options') || ''));
+    p((await fotoPut('..%2f..%2fetc%2fpasswd', JPEG, 'image/jpeg')).status === 404, 'eine Kennung mit Umweg trifft keine Route (404)');
+    p((await ruf('/fotos/foto-ok?projekt=prj-a', { methode: 'PUT', kopf: { Cookie: echt.Cookie, 'Content-Type': 'image/jpeg' }, koerper: JPEG })).status === 400,
+      'ein Foto-Upload ohne das Kopffeld des Werkzeugs: 400');
+
+    console.log('\n== Untergeschobene und übergroße Anfragen ==');
+    p((await ruf('/projekte/prj-a', { methode: 'PUT', kopf: { Cookie: echt.Cookie }, json: { daten: projekt, basisVersion: vB } })).status === 400,
+      'Speichern mit Cookie, aber ohne das Kopffeld: 400 (so sähe eine fremde Seite aus)');
+    p((await ruf('/projekte/prj-a', { methode: 'DELETE', kopf: { Cookie: echt.Cookie } })).status === 400, 'Löschen ohne Kopffeld: 400');
+    const riesig = Object.assign({}, projekt, { bemerkung: 'x'.repeat(9 * 1024 * 1024) });
+    p((await ruf('/projekte/prj-a', { methode: 'PUT', kopf: echt, json: { daten: riesig, basisVersion: vB } })).status === 413, 'ein 9-MB-Aufmaß: 413');
+    const protoDaten = JSON.parse('{"id":"prj-a","kunde":"Müller","tueren":[{"id":"t1","__proto__":{"polluted":1}}],"schliessungen":[],"standorte":[],"matrix":{"__proto__":{"x":1},"constructor":{"prototype":{"y":1}}},"__proto__":{"polluted":2}}');
+    const proto = await ruf('/projekte/prj-a', { methode: 'PUT', kopf: echt, json: { daten: protoDaten, basisVersion: vB } });
+    p(proto.status === 200, 'Schlüssel wie __proto__ und constructor stören den Server nicht', String(proto.status));
+    p(({}).polluted === undefined && ({}).x === undefined, 'und vergiften hier nichts');
+    const tiefJson = '{"daten":' + '['.repeat(600) + ']'.repeat(600) + ',"basisVersion":' + (vB + 1) + '}';
+    const tiefA = await ruf('/projekte/prj-a', { methode: 'PUT', kopf: Object.assign({ 'Content-Type': 'application/json' }, echt), koerper: tiefJson });
+    p(tiefA.status === 400 || tiefA.status === 409, '600-fach verschachteltes JSON: sauber abgewiesen, kein 500', String(tiefA.status));
+    p((await ruf('/pipedrive/v2/deals/../../wp-admin', { kopf: echt })).status === 404, 'die Pipedrive-Weiterleitung kennt keinen Umweg (404)');
+    p((await ruf('/pipedrive/v1/users/me', { kopf: echt })).status === 503, 'ohne eingerichtetes Pipedrive: 503, keine Weiterleitung');
+    p((await ruf('/benutzer')).status === 401 && (await ruf('/projekte')).status === 401, 'Benutzer- und Projektliste nur mit Anmeldung');
+
     console.log('\n== Zurückgezogen heißt zu ==');
     p((await ruf('/freigaben/' + code + '/zurueckziehen', { methode: 'POST', kopf: echt, json: {} })).status === 200, 'Vorbereitung: zurückgezogen');
     p((await ruf('/freigaben/' + code)).status === 410, 'danach: 410 für den Kunden');

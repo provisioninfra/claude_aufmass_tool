@@ -5,7 +5,7 @@
  * Die Fassung hier muss mit FASSUNG in js/app.js übereinstimmen (der
  * Prüflauf achtet darauf). Jede neue Fassung bekommt damit eine neue
  * Ablage, und alle Geräte holen beim nächsten Start den neuen Stand. */
-var FASSUNG = '1.3.1';
+var FASSUNG = '1.3.2';
 var CACHE = 'aufmass-tool-' + FASSUNG;
 var DATEIEN = [
   './', './index.html', './freigabe.html', './css/app.css', './manifest.webmanifest',

@@ -1918,6 +1918,40 @@
     return projekt;
   }
 
+  /* Bilddaten, wie das Werkzeug sie selbst erzeugt: ein data:-Verweis
+     auf JPEG, PNG oder WebP in Base64. Geprüft werden Kopf und der Anfang
+     des Inhalts - das reicht, um Fremdes (Text, HTML, SVG) fernzuhalten,
+     ohne ein mehrere Megabyte großes Bild zeichenweise zu lesen. */
+  function bilddatenGueltig(dataUrl) {
+    if (typeof dataUrl !== 'string') return false;
+    var treffer = /^data:image\/(jpeg|jpg|png|webp);base64,/i.exec(dataUrl);
+    if (!treffer) return false;
+    return /^[A-Za-z0-9+\/=]*$/.test(dataUrl.slice(treffer[0].length, treffer[0].length + 4096));
+  }
+
+  /* Die Gliederung muss ein Baum sein: Ein Eintrag, dessen Elternteil es
+     nicht gibt, wäre unsichtbar; ein Kreis (A unter B, B unter A) ließe
+     das Zeichnen des Baums nicht mehr enden. Beides kann nur von außen
+     kommen (Import, Abgleich) - und wird hier aufgelöst: Der Eintrag wird
+     ein Standort. */
+  function gliederungEntwirren(projekt) {
+    var liste = projekt.standorte || [];
+    var nachId = {};
+    liste.forEach(function (k) { nachId[k.id] = k; });
+    liste.forEach(function (k) {
+      if (k.parentId && !nachId[k.parentId]) { k.parentId = null; k.ebene = 'standort'; }
+    });
+    liste.forEach(function (k) {
+      var gesehen = {}, lauf = k;
+      while (lauf && lauf.parentId) {
+        if (gesehen[lauf.id] || lauf.parentId === lauf.id) { lauf.parentId = null; lauf.ebene = 'standort'; break; }
+        gesehen[lauf.id] = true;
+        lauf = nachId[lauf.parentId];
+      }
+    });
+    return projekt;
+  }
+
   function migriere(projekt) {
     var vorlage = neuesProjekt();
     var out = {};
@@ -1945,6 +1979,16 @@
       neu.id = t && t.id ? t.id : uid('tur');
       ['zylinderAusfuehrung', 'beschlagOptionen', 'komponenten', 'fotos'].forEach(function (k) {
         if (!Array.isArray(neu[k])) neu[k] = [];
+      });
+      /* Ein Foto ist ein Eintrag mit Kennung und Bilddaten als JPEG, PNG
+         oder WebP - so legt das Werkzeug sie an. Alles andere (eine
+         Import-Datei oder ein Abgleich können beliebiges mitbringen) wird
+         nicht als Bild geführt: die Bilddaten fallen weg, der Eintrag
+         bleibt und holt sich das Bild beim Abgleich erneut. */
+      neu.fotos = neu.fotos.filter(function (f) { return f && typeof f === 'object'; }).map(function (f) {
+        if (f.dataUrl !== undefined && f.dataUrl !== '' && !bilddatenGueltig(f.dataUrl)) f.dataUrl = '';
+        if (f.id !== undefined && typeof f.id !== 'string') f.id = String(f.id);
+        return f;
       });
       /* Ein bereits vergebener Status wird nie von der neuen
        * Vollständigkeitsprüfung überschrieben. */
@@ -1987,14 +2031,15 @@
 
     out.standorte = out.standorte.filter(function (k) { return k && k.id; }).map(function (k) {
       return {
-        id: k.id,
+        id: String(k.id),
         ebene: k.ebene || 'standort',
-        name: k.name || '',
+        name: String(k.name || ''),
         parentId: k.parentId || null,
-        bemerkung: k.bemerkung || '',
+        bemerkung: String(k.bemerkung || ''),
         sort: typeof k.sort === 'number' ? k.sort : 0
       };
     });
+    gliederungEntwirren(out);
 
     matrixAufraeumen(out);
     return out;
@@ -2055,6 +2100,8 @@
     verwaisteBereiche: verwaisteBereiche,
     bereicheWiederherstellen: bereicheWiederherstellen,
     gliederungUebernehmen: gliederungUebernehmen,
+    gliederungEntwirren: gliederungEntwirren,
+    bilddatenGueltig: bilddatenGueltig,
     loescheStruktur: loescheStruktur,
     strukturReihenfolge: strukturReihenfolge,
     tuerenGruppiert: tuerenGruppiert,

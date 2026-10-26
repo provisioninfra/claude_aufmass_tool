@@ -709,6 +709,12 @@ main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom
 }
 .toast.fehler { background: var(--rot); color: var(--auf-farbe); }
 .toast.ok { background: var(--gruen); color: var(--auf-farbe); }
+/* Ist ein Dialog offen, stehen die Meldungen oben: Unten lägen sie auf
+   den Knöpfen der Fußzeile, und „Übernehmen“ wäre drei Sekunden lang
+   verdeckt. (Browser ohne :has() zeigen sie weiter unten - kein Schaden.) */
+html:has(.dialog-hinter) #toast-bereich {
+  bottom: auto; top: calc(14px + env(safe-area-inset-top));
+}
 @keyframes einblenden { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
 /* --- Kennzahlen ---------------------------------------------------------- */

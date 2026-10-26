@@ -731,6 +731,13 @@ Die Testreihen prüfen:
 | `test-ueberall.js` | Einzeldatei per Doppelklick, von einer Website und als Einbettung — je mit Datenerhalt nach dem Neuladen |
 | `test-offline-pwa.js` | Laden über http, Netz trennen, Neustart ohne Verbindung, Erfassen und PDF-Erzeugung im Offline-Zustand |
 | `test-downloads.js` | zweiter Ausgabeweg: Übergabe an eine bereitgestellte Speicherfunktion, Ablehnung durch den Betrachter, Größenfehler |
+| `test-personen.js` | Mitarbeiter und Gruppen nacheinander anlegen (Anlegen / Anlegen & neuer …), Zuordnung in beide Richtungen, Spalten und Medienzahlen, Löschen, Träger einer Schließung |
+| `test-gliederung.js` | Strukturbaum nach einer Zusammenführung, verwaiste Bereiche erkennen und wiederherstellen, Gliederung aus einer Sicherung übernehmen - ohne eine Tür anzufassen |
+| `test-verschieben.js` | Spalten im Schließplan per langem Druck verschieben, mit echten Zeigerereignissen |
+| `test-diktat.js` | Tür einsprechen gegen einen echten PHP-Server mit OpenAI-Attrappe: Vorschlag, Berichtigung, Übernahme, Serie mit „neue Tür“, Fehlerpfade |
+| `test-abgleich.js` / `test-abgleich-offen.js` | zwei Geräte, ein Aufmaß, echter Serverteil: Zusammenführen, Konflikte, ohne Netz, Fotos - und der Fall, dass eine fremde Änderung eintrifft, während hier getippt wird |
+| `test-angriffe.js` | Angriffsproben gegen die Schnittstelle: gefälschte Ausweise, Cookies, Kurzlink-Raten, Drosseln, Fotos mit falschem Inhalt, fehlendes Kopffeld, Riesen- und Tief-JSON, Bauplan-Schlüssel, gleichzeitiges Speichern |
+| `test-haertung.js` | fremde Daten im Werkzeug: Import mit Skript-Namen, Kreisen in der Gliederung, falschen Bilddaten und Bauplan-Schlüsseln; PDF mit bösen Texten; Kundenseite; Riesendatei; Meldungen über Dialogen; Schutzdatei des Ordners |
 
 Die Browser-Tests laufen gegen Chromium über Playwright.
 

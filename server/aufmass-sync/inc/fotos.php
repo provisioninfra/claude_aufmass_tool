@@ -56,6 +56,9 @@ class Aufmass_Fotos {
     public static function speichern($id, $projekt_id, $tuer_id, $bytes, $mime, $benutzer) {
         global $wpdb;
 
+        /* Nur der Typ selbst zählt: Ein Browser oder Proxy hängt gern
+           „; charset=…“ an - das ist kein anderes Format. */
+        $mime = strtolower(trim((string) strtok((string) $mime, ';')));
         if (!isset(self::ERLAUBT[$mime])) {
             return new WP_Error('falsches_format',
                 'Nur JPEG, PNG oder WebP. Empfangen: ' . $mime, array('status' => 415));

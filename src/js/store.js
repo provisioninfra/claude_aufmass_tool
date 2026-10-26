@@ -298,6 +298,9 @@
   }
 
   /* Liest eine exportierte Datei und gibt ein migriertes Projekt zurück. */
+  /* Größte Datei, die der Import überhaupt liest (Fotos eingerechnet). */
+  var IMPORT_MAX = 64 * 1024 * 1024;
+
   function importParsen(text) {
     var daten;
     try { daten = JSON.parse(text); }
@@ -469,6 +472,7 @@
   }
 
   global.Store = {
+    IMPORT_MAX: IMPORT_MAX,
     oeffnen: oeffnen,
     alleProjekte: alleProjekte,
     projektLaden: projektLaden,
