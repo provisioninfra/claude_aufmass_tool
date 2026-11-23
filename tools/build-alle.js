@@ -31,6 +31,10 @@ lauf('build.js');
 lauf('build-online.js');
 lauf('build-artifact.js');
 
+/* 3b: Die Anbindung für Claude Code und eigene Programme - als eigenes ZIP und
+       in der Webserver-Fassung, damit das Werkzeug sie zum Herunterladen anbietet. */
+lauf('build-anbindung.js');
+
 /* 4: docs/ ist eine vollständige Spiegelung von src/ plus der Einzeldatei.
       Vollständig heißt vollständig - ein fehlender Service Worker fiele
       sonst nur dadurch auf, dass der Offline-Betrieb still ausbleibt. */

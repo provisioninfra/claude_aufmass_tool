@@ -399,6 +399,43 @@ Einsatz geschehen.
 
 ---
 
+## Schritt 9 — Claude Code und eigene Programme anbinden (optional)
+
+Programme müssen sich nicht im Browser anmelden. Jede angemeldete Person
+kann sich im Werkzeug unter *Einstellungen → Zugang für Programme und
+Claude Code* einen **Zugangsschlüssel** erzeugen: einen Namen vergeben
+(z. B. „Claude Code am Arbeitsplatz“), *nur lesen* oder *lesen und
+schreiben* wählen, Gültigkeit festlegen. Der Schlüssel (`aufm_…`) wird
+genau einmal angezeigt; er ist wie ein Passwort zu behandeln und lässt
+sich an derselben Stelle jederzeit widerrufen. Er gilt im Namen der
+Person – wer ein Aufmaß nicht ändern darf, darf es auch mit Schlüssel
+nicht.
+
+Für **Claude Code** steht an derselben Stelle das Paket
+*Anbindung herunterladen (ZIP)*. Entpacken (z. B. nach
+`~/aufmass-anbindung`), Node.js 18 oder neuer vorausgesetzt, dann den
+Befehl ausführen, den das Werkzeug beim Erzeugen des Schlüssels anzeigt:
+
+```
+claude mcp add aufmass \
+  --env AUFMASS_URL=https://www.provision-infra.de \
+  --env AUFMASS_SCHLUESSEL=aufm_… \
+  -- node ~/aufmass-anbindung/aufmass-mcp.js
+```
+
+Danach versteht Claude Code Fragen wie „Welche Aufmaße gibt es?“, „Welche
+Pflichtangaben fehlen im Aufmaß Ibsen?“ oder „Lege im Erdgeschoss eine Tür
+Haupteingang mit Doppelzylinder 35/35 an“ und erzeugt auf Wunsch die
+PDF-Berichte. Änderungen laufen über dieselbe Zusammenführung wie zwischen
+zwei Geräten. Im selben Paket liegen eine Kommandozeile und eine
+Bibliothek für eigene Skripte; die Schnittstelle ist in `server/API.md`
+beschrieben.
+
+In WordPress unter *Einstellungen → Aufmaß-Abgleich* zeigt die Zugangsliste
+je Person die Zahl ihrer Schlüssel; **„alle widerrufen“** nimmt einer
+Person sämtliche Schlüssel auf einmal. Beim Sperren oder Löschen eines
+Zugangs erlöschen seine Schlüssel von selbst.
+
 ## Was danach gilt
 
 **Alle sehen alles, ändern darf nur, wer zuständig ist.**
@@ -666,7 +703,13 @@ baut: `npm run build` erzeugt alle Fassungen auf einmal.
   der Server mit `409` und legt seine Fassung bei. Das Gerät führt dann
   über einen Drei-Wege-Vergleich zusammen.
 - Tabellen: `wp_aufmass_benutzer`, `_projekte`, `_zustaendig`, `_fotos`,
-  `_sitzungen`, `_freigaben`.
+  `_sitzungen`, `_freigaben`, `_schluessel`.
+- Zugangsschlüssel für Programme: `Authorization: Bearer aufm_…` (oder
+  `X-Aufmass-Schluessel`), nur Prüfwert (SHA-256) in der Datenbank,
+  Rechte `lesen`/`schreiben`, Ablauf, höchstens 20 je Person, Drossel
+  30 Fehlversuche je Herkunft in zehn Minuten. Schlüssel werden nur in
+  Browsersitzungen verwaltet (`/schluessel`). Beschreibung aller
+  Endpunkte und des MCP-Servers für Claude Code: `server/API.md`.
 - Kundenfreigabe: `POST /freigaben` (Zuständige) legt die Freigabe ab;
   `GET /freigaben/<code>` und `POST /freigaben/<code>/antwort` sind
   öffentlich – der Code ist der Ausweis (31^10 Möglichkeiten, Drosselung

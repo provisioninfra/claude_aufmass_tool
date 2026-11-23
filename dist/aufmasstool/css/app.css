@@ -219,6 +219,25 @@ header.kopf {
   display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; background: var(--flaeche);
 }
 .freigabe-eintrag .code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13.5px; word-break: break-all; }
+
+/* Zugangsschlüssel für Programme: Befehle zum Kopieren, Schlüsselliste */
+.befehl-kasten { margin: 6px 0 0; padding: 9px 11px; background: var(--flaeche-2); border: 1px solid var(--rand); border-radius: 8px;
+  font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; line-height: 1.45; white-space: pre-wrap; word-break: break-all; color: var(--text); }
+.schluessel-tabelle { width: 100%; margin-top: 8px; font-size: 13.5px; }
+.schluessel-tabelle th { text-align: left; font-weight: 600; color: var(--text-schwach); padding: 4px 6px; }
+.schluessel-tabelle td { padding: 6px; border-top: 1px solid var(--rand); vertical-align: middle; }
+.schluessel-tabelle tr.abgelaufen td { color: var(--text-zart); }
+.schluessel-tabelle td.aktion { text-align: right; }
+@media (max-width: 640px) {
+  /* Auf dem Telefon je Schlüssel ein Block statt einer breiten Zeile - sonst fiele der Widerrufen-Knopf aus dem Bild. */
+  .schluessel-tabelle thead { display: none; }
+  .schluessel-tabelle tr { display: block; padding: 8px 0 10px; border-top: 1px solid var(--rand); }
+  .schluessel-tabelle td { display: block; border: 0; padding: 2px 0; }
+  .schluessel-tabelle td[data-label]::before { content: attr(data-label) ": "; color: var(--text-zart); }
+  .schluessel-tabelle td.aktion { text-align: left; padding-top: 8px; }
+}
+.knopfleiste a.knopf { display: inline-flex; align-items: center; text-decoration: none; }
+.knopf.klein { padding: 8px 13px; font-size: 14px; min-height: var(--tap); }
 .freigabe-eintrag .stand { flex: 1 1 220px; font-size: 13px; color: var(--text-schwach); }
 .freigabe-eintrag.wartet { border-color: var(--hausfarbe); box-shadow: inset 0 0 0 1px var(--hausfarbe); }
 .antworten-liste .eintrag {

@@ -75,6 +75,7 @@ class Aufmass_Projekte {
         if (!$z) { return null; }
         $daten = json_decode($z['daten'], true);
         if (!is_array($daten)) { $daten = array(); }
+        $daten = self::objekte_wahren($daten);
         $namen = self::namen_sammeln();
         return array(
             'id' => $z['id'],
@@ -106,7 +107,7 @@ class Aufmass_Projekte {
         }
         /* Fotos gehören nicht in die Projektdaten - sie haben einen eigenen
            Weg. Hier wird das durchgesetzt, nicht nur erwartet. */
-        $daten = self::fotos_entladen($daten);
+        $daten = self::objekte_wahren(self::fotos_entladen($daten));
         $json = wp_json_encode($daten);
         if ($json === false) {
             return new WP_Error('daten_unlesbar', 'Die Projektdaten ließen sich nicht verarbeiten.', array('status' => 400));
@@ -348,6 +349,24 @@ class Aufmass_Projekte {
     /* ---------------------------------------------------------------- */
 
     /** Entfernt die Bilddaten, behält aber jeden Fotoeintrag. */
+    /**
+     * PHP kennt beim Lesen von JSON keinen Unterschied zwischen einem leeren
+     * Objekt {} und einer leeren Liste []. Die Matrix des Schließplans ist ein
+     * Objekt ("tuerId|schliessungId" => Wert); käme sie als [] zurück, trüge
+     * das Werkzeug neue Kreuze in eine Liste ein und verlöre sie beim nächsten
+     * Speichern. Deshalb werden die Objektfelder hier als Objekte gewahrt.
+     */
+    public static function objekte_wahren($daten) {
+        if (!is_array($daten)) { return $daten; }
+        if (!isset($daten['matrix']) || !is_array($daten['matrix']) || empty($daten['matrix'])) {
+            $daten['matrix'] = (isset($daten['matrix']) && is_object($daten['matrix'])) ? $daten['matrix'] : new stdClass();
+        }
+        foreach (array('freigabe', 'pipedrive') as $feld) {
+            if (isset($daten[$feld]) && is_array($daten[$feld]) && empty($daten[$feld])) { $daten[$feld] = null; }
+        }
+        return $daten;
+    }
+
     public static function fotos_entladen($daten) {
         if (empty($daten['tueren']) || !is_array($daten['tueren'])) { return $daten; }
         foreach ($daten['tueren'] as $i => $tuer) {

@@ -34,6 +34,7 @@ class Aufmass_Datenbank {
         $fotos = self::tabelle('fotos');
         $sitzungen = self::tabelle('sitzungen');
         $freigaben = self::tabelle('freigaben');
+        $schluessel = self::tabelle('schluessel');
 
         /* Wer sich anmelden darf. Die Kennung ist Googles unveränderliche
            Benutzerkennung (sub), nicht die Adresse: Eine Adresse kann
@@ -147,6 +148,22 @@ class Aufmass_Datenbank {
   KEY projekt_id (projekt_id),
   KEY status (status),
   KEY geaendert_am (geaendert_am)
+) $sortierung;");
+
+        /* Zugangsschlüssel für Programme (siehe schluessel.php): nur der
+           Abdruck des Geheimnisses, dazu Grenze, Ablauf und letzte Nutzung. */
+        dbDelta("CREATE TABLE $schluessel (
+  id varchar(32) NOT NULL,
+  benutzer_id varchar(64) NOT NULL,
+  name varchar(120) NOT NULL DEFAULT '',
+  pruefwert varchar(128) NOT NULL DEFAULT '',
+  rechte varchar(20) NOT NULL DEFAULT 'lesen',
+  aktiv tinyint(1) NOT NULL DEFAULT 1,
+  erstellt_am datetime(6) DEFAULT NULL,
+  gueltig_bis datetime(6) DEFAULT NULL,
+  zuletzt_am datetime(6) DEFAULT NULL,
+  PRIMARY KEY  (id),
+  KEY benutzer_id (benutzer_id)
 ) $sortierung;");
     }
 

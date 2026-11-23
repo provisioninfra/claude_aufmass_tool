@@ -53,6 +53,7 @@
            ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
   }
   function dateiName(projekt, suffix) {
+    projekt = projekt || {};
     var basis = (projekt.kunde || projekt.name || 'Aufmass').replace(/[^\wäöüÄÖÜß \-]/g, '').trim();
     var objekt = (projekt.objekt || '').replace(/[^\wäöüÄÖÜß \-]/g, '').trim();
     var teile = [basis];

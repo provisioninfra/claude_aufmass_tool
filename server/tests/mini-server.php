@@ -31,15 +31,38 @@ function fehler($e) {
     if (count($d)) { $antwort['data'] = $d; }
     raus($antwort, $status);
 }
-/* Jede schreibende Anfrage braucht das eigene Kopffeld - wie im Plugin. */
+/* Jede schreibende Anfrage braucht das eigene Kopffeld - wie im Plugin.
+   Kommt sie über einen Zugangsschlüssel, zählt statt des Kopffelds die
+   Grenze des Schlüssels (lesen / schreiben). */
 function kopffeldPruefen() {
+    if (Aufmass_Anmeldung::aktueller_benutzer() && Aufmass_Anmeldung::ueber_schluessel()) {
+        if (!Aufmass_Anmeldung::schreiben_erlaubt()) {
+            raus(array('code' => 'nur_lesen', 'message' => 'Dieser Zugangsschlüssel darf nur lesen.'), 403);
+        }
+        return;
+    }
     if (empty($_SERVER['HTTP_X_AUFMASS_ABGLEICH'])) {
         raus(array('code' => 'kopffeld_fehlt', 'message' => 'Diese Anfrage kam nicht vom Aufmaß-Werkzeug.'), 400);
     }
 }
 function benutzerOderRaus() {
     $b = Aufmass_Anmeldung::aktueller_benutzer();
-    if (!$b) { raus(array('code' => 'nicht_angemeldet', 'message' => 'Bitte anmelden.'), 401); }
+    if (!$b) {
+        $e = Aufmass_Anmeldung::verlangt();   /* nennt bei einem falschen Schlüssel den Grund */
+        if (is_wp_error($e)) { fehler($e); }
+        raus(array('code' => 'nicht_angemeldet', 'message' => 'Bitte anmelden.'), 401);
+    }
+    return $b;
+}
+/* Nur eine Browsersitzung: zum Verwalten der Schlüssel. */
+function sitzungOderRaus() {
+    if (empty($_SERVER['HTTP_X_AUFMASS_ABGLEICH'])) {
+        raus(array('code' => 'kopffeld_fehlt', 'message' => 'Diese Anfrage kam nicht vom Aufmaß-Werkzeug.'), 400);
+    }
+    $b = benutzerOderRaus();
+    if (Aufmass_Anmeldung::ueber_schluessel()) {
+        raus(array('code' => 'nur_sitzung', 'message' => 'Zugangsschlüssel werden nur in einer angemeldeten Browsersitzung verwaltet.'), 403);
+    }
     return $b;
 }
 
@@ -84,7 +107,7 @@ if ($rest === '/start' && $art === 'GET') {
         $aus['pipedrive'] = Aufmass_Pipedrive::eingerichtet();
         $aus['pipedriveHost'] = $aus['pipedrive'] ? Aufmass_Pipedrive::host_anzeige() : '';
         $aus['diktat'] = Aufmass_Diktat::eingerichtet();
-        $aus['version'] = '1.3.0-test';
+        $aus['version'] = '1.4.0-test';
     }
     raus($aus);
 }
@@ -104,7 +127,28 @@ if ($rest === '/abmelden' && $art === 'POST') {
     kopffeldPruefen(); Aufmass_Anmeldung::abmelden(); raus(array('ok' => true));
 }
 if ($rest === '/ich' && $art === 'GET') {
-    raus(array('benutzer' => benutzerOderRaus(), 'marke' => Aufmass_Datenbank::marke()));
+    $b = benutzerOderRaus();
+    raus(array('benutzer' => $b, 'marke' => Aufmass_Datenbank::marke(),
+        'zugang' => Aufmass_Anmeldung::ueber_schluessel() ? 'schluessel' : 'sitzung',
+        'schluessel' => Aufmass_Anmeldung::schluessel_beschreibung(), 'version' => '1.4.0-test'));
+}
+/* --- Zugangsschlüssel --- */
+if ($rest === '/schluessel' && $art === 'GET') {
+    $b = sitzungOderRaus();
+    raus(array('schluessel' => Aufmass_Schluessel::liste($b['id'])));
+}
+if ($rest === '/schluessel' && $art === 'POST') {
+    $b = sitzungOderRaus();
+    $e = Aufmass_Schluessel::erzeugen($b, isset($json['name']) ? $json['name'] : '',
+        isset($json['rechte']) ? $json['rechte'] : '', isset($json['tage']) ? (int) $json['tage'] : 0);
+    if (is_wp_error($e)) { fehler($e); }
+    raus($e);
+}
+if (preg_match('#^/schluessel/([0-9a-f]{16})$#', $rest, $t) && $art === 'DELETE') {
+    $b = sitzungOderRaus();
+    $e = Aufmass_Schluessel::widerrufen($t[1], $b);
+    if (is_wp_error($e)) { fehler($e); }
+    raus($e);
 }
 if ($rest === '/benutzer' && $art === 'GET') {
     benutzerOderRaus();

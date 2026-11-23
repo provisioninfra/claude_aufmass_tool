@@ -120,7 +120,8 @@ const gespeichert = JSON.parse(fs.readFileSync(OPT, 'utf8'));
     const seite = await ctx.newPage();
     const konsole = [], anfragen = [];
     seite.on('pageerror', e => { if (!istUmgebungsGeraeusch(e.message, e.stack)) konsole.push('PAGEERROR: ' + e.message); });
-    seite.on('console', m => { if (m.type() !== 'error') return; const wo = m.location() ? m.location().url : ''; if (!istUmgebungsGeraeusch(m.text(), wo)) konsole.push(m.text()); });
+    /* „Failed to load resource … 409“ ist die Konfliktantwort des Abgleichs, kein Skriptfehler - wie bei den anderen Seiten übergehen */
+    seite.on('console', m => { if (m.type() !== 'error') return; const wo = m.location() ? m.location().url : ''; if (/Failed to load resource/.test(m.text())) return; if (!istUmgebungsGeraeusch(m.text(), wo)) konsole.push(m.text()); });
     seite.on('request', r => anfragen.push({ url: r.url(), kopf: r.headers() }));
 
     await seite.goto(BASIS + '/index.html', { waitUntil: 'load' });

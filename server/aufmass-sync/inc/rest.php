@@ -104,6 +104,18 @@ class Aufmass_Rest {
             'methods' => 'POST', 'callback' => array(__CLASS__, 'freigabe_aktion'),
             'permission_callback' => array(__CLASS__, 'angemeldet_schreibend')
         ));
+        /* Zugangsschlüssel für Programme: nur in einer Browsersitzung zu
+           verwalten, nie über einen Schlüssel selbst. */
+        register_rest_route(self::RAUM, '/schluessel', array(
+            array('methods' => 'GET', 'callback' => array(__CLASS__, 'schluessel_liste'),
+                  'permission_callback' => array(__CLASS__, 'angemeldet_sitzung')),
+            array('methods' => 'POST', 'callback' => array(__CLASS__, 'schluessel_erzeugen'),
+                  'permission_callback' => array(__CLASS__, 'angemeldet_sitzung'))
+        ));
+        register_rest_route(self::RAUM, '/schluessel/(?P<id>[0-9a-f]{16})', array(
+            'methods' => 'DELETE', 'callback' => array(__CLASS__, 'schluessel_widerrufen'),
+            'permission_callback' => array(__CLASS__, 'angemeldet_sitzung')
+        ));
         register_rest_route(self::RAUM, '/fotos/(?P<id>[A-Za-z0-9_-]{1,64})', array(
             array('methods' => 'GET', 'callback' => array(__CLASS__, 'foto_holen'),
                   'permission_callback' => array(__CLASS__, 'angemeldet')),
@@ -129,9 +141,31 @@ class Aufmass_Rest {
     }
 
     public static function angemeldet_schreibend($anfrage) {
+        $b = self::angemeldet();
+        if (is_wp_error($b)) { return $b; }
+        if (Aufmass_Anmeldung::ueber_schluessel()) {
+            /* Ein Schlüssel ist kein Cookie: Kein fremder Browser kann ihn
+               ungefragt mitschicken, das Kopffeld ist entbehrlich. Dafür
+               zählt seine eigene Grenze. */
+            if (!Aufmass_Anmeldung::schreiben_erlaubt()) {
+                return new WP_Error('nur_lesen', 'Dieser Zugangsschlüssel darf nur lesen.', array('status' => 403));
+            }
+            return true;
+        }
+        return self::schreibschutz($anfrage);
+    }
+
+    /** Nur eine Browsersitzung - für das Verwalten der Zugangsschlüssel. */
+    public static function angemeldet_sitzung($anfrage) {
         $schutz = self::schreibschutz($anfrage);
         if (is_wp_error($schutz)) { return $schutz; }
-        return self::angemeldet();
+        $b = self::angemeldet();
+        if (is_wp_error($b)) { return $b; }
+        if (Aufmass_Anmeldung::ueber_schluessel()) {
+            return new WP_Error('nur_sitzung',
+                'Zugangsschlüssel werden nur in einer angemeldeten Browsersitzung verwaltet.', array('status' => 403));
+        }
+        return true;
     }
 
     /* ---------------------------------------------------------------- */
@@ -203,8 +237,30 @@ class Aufmass_Rest {
     public static function ich() {
         return self::antwort(array(
             'benutzer' => Aufmass_Anmeldung::aktueller_benutzer(),
-            'marke' => Aufmass_Datenbank::marke()
+            'marke' => Aufmass_Datenbank::marke(),
+            /* Womit die Anfrage ausgewiesen ist - ein Programm prüft so,
+               ob sein Schlüssel gilt und was er darf. */
+            'zugang' => Aufmass_Anmeldung::ueber_schluessel() ? 'schluessel' : 'sitzung',
+            'schluessel' => Aufmass_Anmeldung::schluessel_beschreibung(),
+            'version' => AUFMASS_VERSION
         ));
+    }
+
+    /* --- Zugangsschlüssel ------------------------------------------- */
+    public static function schluessel_liste() {
+        $b = Aufmass_Anmeldung::aktueller_benutzer();
+        return self::antwort(array('schluessel' => Aufmass_Schluessel::liste($b['id'])));
+    }
+
+    public static function schluessel_erzeugen($anfrage) {
+        $e = Aufmass_Schluessel::erzeugen(Aufmass_Anmeldung::aktueller_benutzer(),
+            (string) $anfrage->get_param('name'), (string) $anfrage->get_param('rechte'), (int) $anfrage->get_param('tage'));
+        return is_wp_error($e) ? $e : self::antwort($e);
+    }
+
+    public static function schluessel_widerrufen($anfrage) {
+        $e = Aufmass_Schluessel::widerrufen(self::pfad($anfrage, 'id'), Aufmass_Anmeldung::aktueller_benutzer());
+        return is_wp_error($e) ? $e : self::antwort($e);
     }
 
     public static function benutzer() {

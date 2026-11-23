@@ -33,7 +33,7 @@ delete_option('aufmass_pipedrive_host');
 delete_transient('aufmass_google_schluessel');
 
 if (defined('AUFMASS_DATEN_LOESCHEN') && AUFMASS_DATEN_LOESCHEN === true) {
-    foreach (array('sitzungen', 'zustaendig', 'fotos', 'freigaben', 'projekte', 'benutzer') as $t) {
+    foreach (array('sitzungen', 'schluessel', 'zustaendig', 'fotos', 'freigaben', 'projekte', 'benutzer') as $t) {
         $wpdb->query('DROP TABLE IF EXISTS ' . $wpdb->prefix . 'aufmass_' . $t);
     }
     delete_option('aufmass_geheimnis');

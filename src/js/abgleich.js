@@ -815,6 +815,21 @@
       .then(function (d) { return (d && d.freigaben) || []; });
   }
 
+  /* --- Zugangsschlüssel für Programme und Claude Code -------------------
+   * Nur in einer angemeldeten Browsersitzung; der Server gibt das Geheimnis
+   * genau einmal heraus, danach steht nur noch der Eintrag in der Liste. */
+  function schluesselListe() {
+    return anfrage('/schluessel').then(function (d) { return (d && d.schluessel) || []; });
+  }
+
+  function schluesselErzeugen(name, rechte, tage) {
+    return anfrage('/schluessel', { methode: 'POST', json: { name: name || '', rechte: rechte || 'lesen', tage: tage || 0 } });
+  }
+
+  function schluesselWiderrufen(id) {
+    return anfrage('/schluessel/' + encodeURIComponent(id), { methode: 'DELETE' });
+  }
+
   function freigabeZurueckziehen(code) {
     return anfrage('/freigaben/' + encodeURIComponent(code) + '/zurueckziehen', { methode: 'POST', json: {} })
       .then(function (d) { return d && d.freigabe; });
@@ -963,12 +978,16 @@
     freigabenListe: freigabenListe,
     freigabeZurueckziehen: freigabeZurueckziehen,
     freigabeVorlegen: freigabeVorlegen,
+    schluesselListe: schluesselListe,
+    schluesselErzeugen: schluesselErzeugen,
+    schluesselWiderrufen: schluesselWiderrufen,
     antwortenFuer: antwortenFuer,
     antwortVorschau: antwortVorschau,
     antwortUebernehmen: antwortUebernehmen,
     antwortVerwerfen: antwortVerwerfen,
     diktat: diktat,
     zustand: function () { return zustand; },
+    basis: function () { return basisUrl; },
     /* für Tests */
     _intern: { ohneBilddaten: ohneBilddaten, fotoListe: fotoListe,
                inPlatzUebernehmen: inPlatzUebernehmen,

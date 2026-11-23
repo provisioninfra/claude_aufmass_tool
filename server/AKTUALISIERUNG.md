@@ -2,8 +2,41 @@
 
 Diese Anleitung gilt, wenn das Werkzeug **schon läuft**: Plugin
 „Aufmaß-Abgleich“ in WordPress, Ordner `aufmasstool` auf dem Webspace,
-Geräte angemeldet. Sie bringt beides auf den Stand **1.3.2** – Plugin
+Geräte angemeldet. Sie bringt beides auf den Stand **1.4.0** – Plugin
 und Werkzeug tragen dieselbe Fassungsnummer.
+
+**Was 1.4.0 bringt** (gegenüber 1.3.2) – Schnittstelle für Programme und
+Claude Code
+
+- **Zugangsschlüssel:** Unter *Einstellungen → Zugang für Programme und
+  Claude Code* erzeugt jede angemeldete Person Schlüssel (`aufm_…`), mit
+  denen Programme ohne Browser-Anmeldung mit der gemeinsamen Ablage
+  arbeiten. Ein Schlüssel darf nur lesen oder lesen und schreiben, hat ein
+  Ablaufdatum (Vorgabe ein Jahr, höchstens zwei) und lässt sich jederzeit
+  widerrufen. Er gilt im Namen der Person: Zuständigkeiten bleiben
+  maßgeblich. Der Server speichert nur einen Prüfwert, nie den Schlüssel.
+- **Anbindung für Claude Code:** Das Paket `aufmass-anbindung.zip` (im
+  Werkzeug an derselben Stelle zum Herunterladen) enthält einen MCP-Server.
+  Nach einem Befehl im Terminal (`claude mcp add …`, der fertige Befehl
+  steht beim Erzeugen des Schlüssels) kann Claude Code Aufmaße lesen,
+  anlegen und ändern, Türen und Gliederung pflegen, Kreuze im Schließplan
+  setzen und PDF-Berichte erzeugen – mit denselben Prüfungen und derselben
+  Zusammenführung wie das Werkzeug. Dazu eine Kommandozeile und eine
+  Bibliothek für eigene Skripte; Beschreibung in `server/API.md`.
+- **Verwaltung:** Die Zugangsliste des Plugins zeigt je Person die Zahl
+  ihrer Schlüssel und kann alle Schlüssel einer Person widerrufen. Nach 30
+  falschen Schlüsseln aus einer Herkunft sperrt der Server zehn Minuten.
+- **Behoben – Kreuze konnten nach dem Abgleich verloren gehen:** Ein
+  Aufmaß ohne Kreuze kam vom Server mit einer leeren Liste statt einem
+  leeren Schließplan zurück (eine Eigenheit von PHP). Trug man danach
+  Kreuze ein, zeigte das Gerät sie, beim nächsten Abgleich fehlten sie auf
+  dem Server und auf anderen Geräten. Jetzt wahren Server und Werkzeug die
+  Form; schon eingetragene Kreuze werden beim Öffnen gerettet.
+- **Behoben:** Wurde ein Aufmaß geschlossen, während eine PDF gerade
+  erzeugt wurde, blieb ein Fehler statt einer Meldung.
+- Wer schon 1.3.2 einsetzt: Plugin ersetzen (Schritt 2, es legt die
+  Tabelle für die Schlüssel an) und Ordner `aufmasstool` tauschen
+  (Schritt 3), Cache leeren. Schlüssel brauchen nichts weiter.
 
 **Was 1.3.2 bringt** (gegenüber 1.3.1) – Ergebnis einer Sicherheits- und
 Grafikdurchsicht
@@ -144,8 +177,8 @@ Vorlage, Freigabe) – das erledigt WordPress beim ersten Aufruf von selbst
 4. Das Plugin bleibt dabei aktiv. Beim ersten Aufruf danach ergänzt es die
    Tabelle und übernimmt die Umschreibregel für den Kurzlink.
 
-**Prüfen:** *Plugins* öffnen – bei „Aufmaß-Abgleich“ muss **1.3.2**
-stehen. Unter *Einstellungen → Aufmaß-Abgleich* muss neben der
+**Prüfen:** *Plugins* öffnen – bei „Aufmaß-Abgleich“ muss **1.4.0**
+stehen. In der Zugangsliste gibt es jetzt die Spalte **„Schlüssel“**. Unter *Einstellungen → Aufmaß-Abgleich* muss neben der
 Organisationsdomäne die neuen Zeilen **„Neue Zugänge“** und **„Herkunft
 der Aufrufe“** erscheinen, weiter unten der Abschnitt **„Tür einsprechen
 (OpenAI)“**. Fehlen sie, läuft noch die alte Fassung.
@@ -215,7 +248,7 @@ vorbei – und meldet sich dann:
   starten**. Der speichert und schließt zuerst; es geht nichts verloren.
 
 Unter *Einstellungen → Über dieses Werkzeug* steht, welche Fassung auf
-dem Gerät läuft (jetzt **1.3.2**), und ein Knopf **Auf neue Fassung
+dem Gerät läuft (jetzt **1.4.0**), und ein Knopf **Auf neue Fassung
 prüfen** stößt die Prüfung sofort an. Ein Gerät, das gerade ohne Netz
 ist, arbeitet mit der alten Fassung weiter, bis es wieder online war –
 auch das ist in Ordnung, die Aufmaße gleichen sich wie gewohnt ab.
@@ -278,10 +311,12 @@ zu ändern: Das übernimmt die Umschreibregel des Plugins auf jeden Fall.
 
 1. `https://www.provision-infra.de/aufmasstool/` öffnen. Die Anmeldeseite
    mit dem Google-Knopf muss erscheinen; ganz unten steht die
-   Werkzeug-Fassung 1.3.2. Anmelden. Oben rechts steht danach
+   Werkzeug-Fassung 1.4.0. Anmelden. Oben rechts steht danach
    **„Abgeglichen“**, und unter *Einstellungen → Über dieses Werkzeug*
    stehen die Fassung des Werkzeugs und die des Server-Plugins (beide
-   1.3.2).
+   1.4.0). Darüber steht die neue Karte **„Zugang für Programme und
+   Claude Code“**; ein Probeschlüssel lässt sich dort erzeugen und gleich
+   wieder widerrufen.
 2. Ein bestehendes Aufmaß öffnen → **Schließplan**. Unter der Matrix
    stehen jetzt **Mitarbeiter und Gruppen**: Die früheren Personen je
    Schließung sind zur Mitarbeiterliste geworden, benannte Gruppen zu

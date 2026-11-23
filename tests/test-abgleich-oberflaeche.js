@@ -294,6 +294,38 @@ fs.writeFileSync(OPT, JSON.stringify({
     const baum = await seite.$$eval('.knoten .name', n => n.map(x => x.textContent));
     p(baum.join(' > ') === 'Standort Ibsen > Haus 1 > Erdgeschoss', 'der Reiter „Struktur“ zeigt die Gliederung', baum.join(' > ') || '(leer)');
 
+    console.log('\n== Zugang für Programme und Claude Code (Einstellungen) ==');
+    await seite.evaluate(() => window.App.wechseln('einstellungen'));
+    await seite.waitForSelector('#karte-schluessel', { timeout: 8000 });
+    await seite.waitForTimeout(700);
+    const karteText = await seite.textContent('#karte-schluessel');
+    p(/Noch kein Schlüssel vorhanden/.test(karteText), 'die Karte zeigt zunächst keine Schlüssel', karteText.slice(0, 160));
+    p(/Anbindung herunterladen/.test(karteText), 'und bietet das Paket zum Herunterladen an');
+    await seite.click('#karte-schluessel button:has-text("+ Neuen Schlüssel erzeugen")');
+    await seite.waitForSelector('.dialog input[type=text]');
+    await seite.fill('.dialog input[type=text]', 'Prüf-Schlüssel');
+    await seite.selectOption('.dialog select >> nth=0', 'schreiben');
+    await seite.selectOption('.dialog select >> nth=1', '90');
+    await seite.click('.dialog button:has-text("Erzeugen")');
+    await seite.waitForSelector('.dialog .kurzlink-feld', { timeout: 8000 });
+    const geheim = await seite.inputValue('.dialog .kurzlink-feld');
+    p(/^aufm_[0-9a-f]{16}_[A-Za-z0-9_-]{40,64}$/.test(geheim), 'der neue Schlüssel wird einmal angezeigt', geheim.slice(0, 30));
+    const dialogText = await seite.textContent('.dialog');
+    p(/claude mcp add aufmass/.test(dialogText) && dialogText.includes(geheim) && /Authorization: Bearer/.test(dialogText), 'mit fertigem Befehl für Claude Code und curl-Beispiel');
+    p(/nur jetzt angezeigt/.test(dialogText) && /lesen und schreiben/.test(dialogText), 'mit Hinweis auf die einmalige Anzeige und die Rechte');
+    const probe = await (await fetch(BASIS + '/wp-json/aufmass/v1/ich', { headers: { Authorization: 'Bearer ' + geheim } })).json();
+    p(probe.zugang === 'schluessel' && probe.benutzer && probe.benutzer.name === 'U. Prüfer' && probe.schluessel.rechte === 'schreiben', 'der Schlüssel funktioniert sofort gegen die Schnittstelle', JSON.stringify(probe).slice(0, 200));
+    await seite.click('.dialog button:has-text("Fertig")');
+    await seite.waitForTimeout(900);
+    const listeText = await seite.textContent('#karte-schluessel');
+    p(/Prüf-Schlüssel/.test(listeText) && /lesen und schreiben/.test(listeText) && /noch nie|\d\d\.\d\d\./.test(listeText) && !listeText.includes(geheim), 'die Liste zeigt den Eintrag, aber nicht das Geheimnis', listeText.slice(0, 200));
+    await seite.click('#karte-schluessel button:has-text("Widerrufen")');
+    await seite.waitForSelector('.dialog button:has-text("Widerrufen")');
+    await seite.click('.dialog button:has-text("Widerrufen")');
+    await seite.waitForTimeout(900);
+    p(/Noch kein Schlüssel vorhanden/.test(await seite.textContent('#karte-schluessel')), 'nach dem Widerrufen ist die Liste leer');
+    p((await fetch(BASIS + '/wp-json/aufmass/v1/ich', { headers: { Authorization: 'Bearer ' + geheim } })).status === 401, 'und der Schlüssel ist sofort tot (401)');
+
     p(konsole.length === 0, 'keine JavaScript-Fehler in der Oberfläche', konsole.join(' | '));
     p(serverFehler === '', 'keine Fehler auf dem Server', serverFehler.slice(0, 300));
   } catch (e) {

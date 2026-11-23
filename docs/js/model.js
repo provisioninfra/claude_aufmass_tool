@@ -562,6 +562,18 @@
   /* --- Matrix-Zugriff ----------------------------------------------------- */
   function matrixKey(tuerId, schliessungId) { return tuerId + '|' + schliessungId; }
 
+  /* Die Matrix ist ein Objekt mit Schlüsseln „tuerId|schliessungId“. Nach dem
+   * Weg über den Server (PHP) kommt ein leeres Objekt als leere Liste zurück;
+   * in eine Liste eingetragene Berechtigungen gingen beim nächsten Speichern
+   * als JSON verloren. Deshalb wird hier immer ein echtes Objekt daraus. */
+  function objektAusArray(wert) {
+    if (!wert || typeof wert !== 'object') return {};
+    if (!Array.isArray(wert)) return wert;
+    var aus = {};
+    Object.keys(wert).forEach(function (k) { if (!/^\d+$/.test(k) && wert[k] !== undefined) aus[k] = wert[k]; });
+    return aus;
+  }
+
   function getBerechtigung(projekt, tuerId, schliessungId) {
     return projekt.matrix[matrixKey(tuerId, schliessungId)] || 'nein';
   }
@@ -1963,7 +1975,7 @@
     out.tueren = Array.isArray(out.tueren) ? out.tueren : [];
     out.schliessungen = Array.isArray(out.schliessungen) ? out.schliessungen : [];
     out.freigabenLokal = Array.isArray(out.freigabenLokal) ? out.freigabenLokal : [];
-    out.matrix = (out.matrix && typeof out.matrix === 'object') ? out.matrix : {};
+    out.matrix = objektAusArray(out.matrix);
 
     anlageAusTuerenErschliessen(out);   /* Anlage aus Alttüren erschließen */
 
@@ -2027,6 +2039,9 @@
     out.mitarbeiter.forEach(function (m) { m.gruppen = m.gruppen.filter(function (id) { return gruppenIds[id]; }); });
     out.schliessungen.forEach(function (s) { s.traeger = s.traeger.filter(function (id) { return maIds[id]; }); });
     if (out.freigabe && typeof out.freigabe !== 'object') out.freigabe = null;
+    /* Ein leeres Objekt kommt aus PHP als leere Liste zurück - das ist dann keine Freigabe und keine Anbindung. */
+    if (Array.isArray(out.freigabe)) out.freigabe = out.freigabe.length ? out.freigabe[0] : null;
+    if (Array.isArray(out.pipedrive)) out.pipedrive = null;
     spaltenAngleichen(out);
 
     out.standorte = out.standorte.filter(function (k) { return k && k.id; }).map(function (k) {
@@ -2088,6 +2103,7 @@
     istTuerElektronisch: istTuerElektronisch,
     anlageVollstaendig: anlageVollstaendig,
     matrixKey: matrixKey,
+    objektAusArray: objektAusArray,
     getBerechtigung: getBerechtigung,
     setBerechtigung: setBerechtigung,
     matrixAufraeumen: matrixAufraeumen,

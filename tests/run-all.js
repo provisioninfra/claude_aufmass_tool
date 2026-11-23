@@ -33,6 +33,7 @@ const reihen = [
   ['Tür einsprechen',  'test-diktat.js'],
   ['Angriffsproben',   'test-angriffe.js'],
   ['Härtung',          'test-haertung.js'],
+  ['API & Claude Code','test-api.js'],
   ['Gleichlauf PHP↔JS','test-gleichlauf.js'],
   ['Offline-Betrieb', 'test-offline-pwa.js'],
   ['Aktualisierung',  'test-aktualisierung.js'],
@@ -46,7 +47,8 @@ const phpReihen = [
   ['Server-Logik (PHP)',   '../server/tests/test-server.php'],
   ['Pipedrive-Server (PHP)', '../server/tests/test-pipedrive.php'],
   ['Freigaben-Server (PHP)', '../server/tests/test-freigaben.php'],
-  ['Diktat-Server (PHP)', '../server/tests/test-diktat.php']
+  ['Diktat-Server (PHP)', '../server/tests/test-diktat.php'],
+  ['Zugangsschlüssel (PHP)', '../server/tests/test-schluessel.php']
 ];
 let phpDa = true;
 try { execFileSync('php', ['--version'], { stdio: 'ignore' }); } catch (e) { phpDa = false; }

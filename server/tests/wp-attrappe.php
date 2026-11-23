@@ -230,6 +230,10 @@ class WPDB_Attrappe {
             rechte TEXT DEFAULT '', vorgelegt_am TEXT, freigabe_am TEXT, freigabe_name TEXT DEFAULT '',
             freigabe_funktion TEXT DEFAULT '', freigabe_art TEXT DEFAULT '',
             geaendert_am TEXT)");
+        $this->pdo->exec("CREATE TABLE wp_aufmass_schluessel (
+            id TEXT PRIMARY KEY, benutzer_id TEXT NOT NULL, name TEXT DEFAULT '', pruefwert TEXT DEFAULT '',
+            rechte TEXT DEFAULT 'lesen', aktiv INTEGER DEFAULT 1,
+            erstellt_am TEXT, gueltig_bis TEXT, zuletzt_am TEXT)");
     }
 
     public function get_charset_collate() { return ''; }
@@ -300,6 +304,7 @@ $GLOBALS['wpdb'] = new WPDB_Attrappe();
 require_once __DIR__ . '/../aufmass-sync/inc/datenbank.php';
 require_once __DIR__ . '/../aufmass-sync/inc/drossel.php';
 require_once __DIR__ . '/../aufmass-sync/inc/jwt.php';
+require_once __DIR__ . '/../aufmass-sync/inc/schluessel.php';
 require_once __DIR__ . '/../aufmass-sync/inc/anmeldung.php';
 require_once __DIR__ . '/../aufmass-sync/inc/projekte.php';
 require_once __DIR__ . '/../aufmass-sync/inc/fotos.php';

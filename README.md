@@ -53,6 +53,12 @@ Es gibt es in zwei Fassungen:
   nimmt auf, der Server lässt bei OpenAI erkennen und den Feldern zuordnen,
   das Formular zeigt je Feld einen Vorschlag. Übernommen wird nur, was
   bestätigt ist
+* **Schnittstelle für Programme und Claude Code** (mit gemeinsamer Ablage) –
+  ein persönlicher Zugangsschlüssel aus den Einstellungen ersetzt die
+  Browser-Anmeldung. Der mitgelieferte MCP-Server lässt Claude Code Aufmaße
+  lesen, anlegen und ändern, Türen und Gliederung pflegen, Kreuze setzen und
+  PDF-Berichte erzeugen; dazu Kommandozeile und Bibliothek für eigene Skripte
+  (siehe `server/API.md`)
 
 In der Einzeldatei verbleiben alle Daten auf dem jeweiligen Gerät; es findet
 keinerlei Datenübertragung statt. In der gemeinsamen Fassung werden die
@@ -692,9 +698,33 @@ src/
   sw.js                   Offline-Bereitstellung
 tools/build.js            Erzeugt die eigenständige Einzeldatei
 tools/build-artifact.js   Erzeugt die Fassung für die gehostete Veröffentlichung
+tools/build-anbindung.js  Erzeugt das Paket für Claude Code und eigene Programme
+tools/mcp/                MCP-Server, Kommandozeile und Bibliothek (Zugangsschlüssel statt Anmeldung)
+server/aufmass-sync/      WordPress-Plugin der gemeinsamen Ablage (Schnittstelle: server/API.md)
 tests/                    Testreihen (siehe unten)
 dist/aufmass-tool.html    Eigenständige Fassung (aus `npm run build`)
+dist/aufmass-anbindung.zip  Anbindung für Claude Code (liegt auch im Ordner für den Webserver)
 ```
+
+### Schnittstelle und Claude Code
+
+Die gemeinsame Ablage ist eine REST-Schnittstelle (`/wp-json/aufmass/v1/`).
+Programme weisen sich mit einem **Zugangsschlüssel** aus, den jede angemeldete
+Person im Werkzeug unter *Einstellungen → Zugang für Programme und Claude Code*
+erzeugt – nur lesen oder lesen und schreiben, mit Ablaufdatum, jederzeit
+widerrufbar, im Namen der Person. Für Claude Code genügt ein Befehl:
+
+```
+claude mcp add aufmass --env AUFMASS_URL=https://www.provision-infra.de \
+  --env AUFMASS_SCHLUESSEL=aufm_… -- node ~/aufmass-anbindung/aufmass-mcp.js
+```
+
+Der MCP-Server (`tools/mcp/aufmass-mcp.js`, ohne Abhängigkeiten) bietet 17
+Werkzeuge: Aufmaße auflisten, lesen und anlegen, Stammdaten, Gliederung, Türen
+(mit Prüfung der Felder gegen den Katalog), Schließplan und Berechtigungen,
+PDF-Berichte, Katalog. Jede Änderung speichert mit der gelesenen Version und
+führt bei 409 dreiseitig zusammen – wie zwischen zwei Geräten. Einzelheiten:
+`server/API.md`.
 
 ### Warum ein eigener PDF-Writer?
 
@@ -737,6 +767,7 @@ Die Testreihen prüfen:
 | `test-diktat.js` | Tür einsprechen gegen einen echten PHP-Server mit OpenAI-Attrappe: Vorschlag, Berichtigung, Übernahme, Serie mit „neue Tür“, Fehlerpfade |
 | `test-abgleich.js` / `test-abgleich-offen.js` | zwei Geräte, ein Aufmaß, echter Serverteil: Zusammenführen, Konflikte, ohne Netz, Fotos - und der Fall, dass eine fremde Änderung eintrifft, während hier getippt wird |
 | `test-angriffe.js` | Angriffsproben gegen die Schnittstelle: gefälschte Ausweise, Cookies, Kurzlink-Raten, Drosseln, Fotos mit falschem Inhalt, fehlendes Kopffeld, Riesen- und Tief-JSON, Bauplan-Schlüssel, gleichzeitiges Speichern |
+| `test-api.js` | Schnittstelle für Programme gegen den echten PHP-Code: Zugangsschlüssel erzeugen, Rechte lesen/schreiben, Widerrufen, Bibliothek mit Zusammenführung bei 409, MCP-Server als Kindprozess (alle Werkzeuge, Fehlerpfade, Leseschlüssel), Kommandozeile, Drossel |
 | `test-haertung.js` | fremde Daten im Werkzeug: Import mit Skript-Namen, Kreisen in der Gliederung, falschen Bilddaten und Bauplan-Schlüsseln; PDF mit bösen Texten; Kundenseite; Riesendatei; Meldungen über Dialogen; Schutzdatei des Ordners |
 
 Die Browser-Tests laufen gegen Chromium über Playwright.

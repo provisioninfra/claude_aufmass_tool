@@ -223,6 +223,12 @@ class Aufmass_Einstellungen {
             }
             $benutzer = $wpdb->get_results("SELECT * FROM $bt ORDER BY name", ARRAY_A) ?: array();
         }
+        /* Alle Zugangsschlüssel einer Person widerrufen (Programme, Claude Code). */
+        if (isset($_POST['aufmass_schluessel_widerrufen']) && check_admin_referer('aufmass_schluessel_widerrufen')) {
+            $id = sanitize_text_field(wp_unslash($_POST['aufmass_schluessel_widerrufen']));
+            $n = Aufmass_Schluessel::alle_widerrufen($id);
+            echo '<div class="notice notice-success"><p>' . (int) $n . ' Zugangsschlüssel widerrufen. Programme dieser Person müssen einen neuen Schlüssel bekommen.</p></div>';
+        }
         /* Verbindung zu OpenAI prüfen: holt nur die Modellliste - kostenlos. */
         if (isset($_GET['aufmass_diktat_pruefen']) && check_admin_referer('aufmass_diktat_pruefen')) {
             $e = Aufmass_Diktat::verbindung_pruefen();
@@ -462,7 +468,7 @@ class Aufmass_Einstellungen {
             <p>Noch niemand angemeldet. Die <em>erste</em> Anmeldung erhält automatisch die Verwaltung.</p>
           <?php else : ?>
           <table class="widefat striped">
-            <thead><tr><th>Name</th><th>Adresse</th><th>Rolle</th><th>Zuletzt</th><th>Zugang</th></tr></thead>
+            <thead><tr><th>Name</th><th>Adresse</th><th>Rolle</th><th>Zuletzt</th><th>Schlüssel</th><th>Zugang</th></tr></thead>
             <tbody>
             <?php foreach ($benutzer as $b) : ?>
               <tr>
@@ -470,6 +476,16 @@ class Aufmass_Einstellungen {
                 <td><code><?php echo esc_html($b['email']); ?></code></td>
                 <td><?php echo $b['rolle'] === 'verwaltung' ? 'Verwaltung' : 'Mitarbeit'; ?></td>
                 <td><?php echo $b['letzte_anmeldung'] ? esc_html(mysql2date('d.m.Y H:i', $b['letzte_anmeldung'])) : '–'; ?></td>
+                <td>
+                  <?php $sn = Aufmass_Schluessel::anzahl($b['id']); echo (int) $sn; ?>
+                  <?php if ($sn > 0) : ?>
+                  <form method="post" style="margin:0 0 0 .5em;display:inline">
+                    <?php wp_nonce_field('aufmass_schluessel_widerrufen'); ?>
+                    <input type="hidden" name="aufmass_schluessel_widerrufen" value="<?php echo esc_attr($b['id']); ?>">
+                    <button class="button button-small">alle widerrufen</button>
+                  </form>
+                  <?php endif; ?>
+                </td>
                 <td>
                   <form method="post" style="margin:0;display:inline">
                     <?php wp_nonce_field('aufmass_benutzer'); ?>
@@ -494,8 +510,10 @@ class Aufmass_Einstellungen {
             <?php endforeach; ?>
             </tbody>
           </table>
-          <p class="description">Sperren meldet sofort alle Geräte dieser Person ab. Löschen entfernt danach
-             Name, Adresse, Sitzungen und Zuständigkeiten dieser Person – die Aufmaße bleiben erhalten.</p>
+          <p class="description">Sperren meldet sofort alle Geräte dieser Person ab und widerruft ihre Zugangsschlüssel.
+             Löschen entfernt danach Name, Adresse, Sitzungen und Zuständigkeiten dieser Person – die Aufmaße
+             bleiben erhalten. <strong>Schlüssel</strong> sind Zugänge für Programme (etwa Claude Code), die eine
+             Person im Werkzeug unter <em>Einstellungen</em> erzeugt; sie laufen ab und lassen sich dort oder hier widerrufen.</p>
           <?php endif; ?>
 
           <h2>Aufbewahrung</h2>

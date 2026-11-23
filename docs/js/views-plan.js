@@ -1412,13 +1412,18 @@
   }
 
   function pdfErzeugen(bauen, suffix) {
+    /* Der Stand beim Klick zählt - nicht erst der nach der Wartezeit:
+       Wird das Aufmaß in der Zwischenzeit geschlossen, gäbe es sonst kein
+       Projekt mehr für den Dateinamen. */
+    var projekt = Zustand.projekt;
+    if (!projekt) { A.toast('Kein Aufmaß geöffnet.', 'fehler'); return; }
     A.toast('PDF wird erzeugt …');
     /* Kurz warten, damit die Meldung erscheint, bevor der Aufbau blockiert */
     setTimeout(function () {
       var doc, name;
       try {
         doc = bauen();
-        name = Reports.dateiName(Zustand.projekt, suffix);
+        name = Reports.dateiName(projekt, suffix);
       } catch (fehler) {
         console.error(fehler);
         A.toast('PDF-Erzeugung fehlgeschlagen: ' + fehler.message, 'fehler');
@@ -1832,6 +1837,10 @@
       listenPflege('eigeneBeschlagarten', 'Beschlag-Bauformen', e, merken),
       listenPflege('eigeneSchlossarten', 'Schloss-Bauformen', e, merken)
     ]));
+
+    /* --- Zugang für Programme und Claude Code (nur angemeldet) --- */
+    var schluesselKarte = global.AbgleichUI && global.AbgleichUI.schluesselKarte ? global.AbgleichUI.schluesselKarte() : null;
+    if (schluesselKarte) seite.appendChild(schluesselKarte);
 
     /* --- Über --- */
     var Ab = global.Abgleich ? global.Abgleich.zustand() : null;

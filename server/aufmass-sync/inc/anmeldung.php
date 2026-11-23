@@ -23,6 +23,10 @@ class Aufmass_Anmeldung {
 
     private static $benutzer = null;
     private static $geprueft = false;
+    /** Die Zeile des Zugangsschlüssels, wenn die Anfrage darüber kam. */
+    private static $schluessel = null;
+    /** Ein mitgeschickter, aber ungültiger Schlüssel - der Fehler dazu. */
+    private static $schluessel_fehler = null;
     /** Nur für Prüfläufe ohne Browser: dort gibt es keine Kopfzeilen. */
     public static $cookie_schreiben = true;
 
@@ -199,6 +203,8 @@ class Aufmass_Anmeldung {
     /** Alle Sitzungen eines Benutzers beenden (z. B. Gerät verloren). */
     public static function alle_beenden($benutzer_id) {
         global $wpdb;
+        /* Eine Sperre gilt auch für Programme: ihre Schlüssel verfallen mit. */
+        if (class_exists('Aufmass_Schluessel')) { Aufmass_Schluessel::alle_widerrufen($benutzer_id); }
         return (int) $wpdb->delete(Aufmass_Datenbank::tabelle('sitzungen'),
             array('benutzer_id' => $benutzer_id));
     }
@@ -217,6 +223,19 @@ class Aufmass_Anmeldung {
         if (self::$geprueft) { return self::$benutzer; }
         self::$geprueft = true;
         self::$benutzer = null;
+        self::$schluessel = null;
+        self::$schluessel_fehler = null;
+
+        /* Ein Zugangsschlüssel (Programme, Claude Code) geht vor dem Cookie:
+           Wer ihn mitschickt, will damit ausgewiesen werden. */
+        $token = class_exists('Aufmass_Schluessel') ? Aufmass_Schluessel::aus_anfrage() : '';
+        if ($token !== '') {
+            $e = Aufmass_Schluessel::pruefen($token);
+            if (is_wp_error($e)) { self::$schluessel_fehler = $e; return null; }
+            self::$schluessel = $e['schluessel'];
+            self::$benutzer = $e['benutzer'];
+            return self::$benutzer;
+        }
 
         $wert = self::cookie_lesen();
         if (!$wert) { return null; }
@@ -261,6 +280,10 @@ class Aufmass_Anmeldung {
     public static function verlangt() {
         $b = self::aktueller_benutzer();
         if (!$b) {
+            /* Ein falscher Schlüssel bekommt seine eigene Antwort (401 mit
+               Grund, oder 429 bei Hämmern) - nicht die Aufforderung, sich
+               mit Google anzumelden. */
+            if (self::$schluessel_fehler) { return self::$schluessel_fehler; }
             return new WP_Error('nicht_angemeldet',
                 'Bitte mit dem Google-Konto der Organisation anmelden.',
                 array('status' => 401));
@@ -271,6 +294,34 @@ class Aufmass_Anmeldung {
     public static function ist_verwaltung() {
         $b = self::aktueller_benutzer();
         return $b && $b['rolle'] === 'verwaltung';
+    }
+
+    /** Kam diese Anfrage über einen Zugangsschlüssel statt über das Cookie? */
+    public static function ueber_schluessel() {
+        self::aktueller_benutzer();
+        return self::$schluessel !== null;
+    }
+
+    /** Darf diese Anfrage ändern? Ein Cookie darf alles, was die Person darf;
+     *  ein Schlüssel nur, wenn er „schreiben“ trägt. */
+    public static function schreiben_erlaubt() {
+        self::aktueller_benutzer();
+        if (self::$schluessel === null) { return true; }
+        return (string) self::$schluessel['rechte'] === 'schreiben';
+    }
+
+    /** Der benutzte Schlüssel, beschrieben - oder null. */
+    public static function schluessel_beschreibung() {
+        self::aktueller_benutzer();
+        return self::$schluessel === null ? null : Aufmass_Schluessel::beschreiben(self::$schluessel);
+    }
+
+    /** Nur für Prüfläufe: die Zwischenspeicher dieser Anfrage vergessen. */
+    public static function zuruecksetzen() {
+        self::$geprueft = false;
+        self::$benutzer = null;
+        self::$schluessel = null;
+        self::$schluessel_fehler = null;
     }
 
     /* ---------------------------------------------------------------- */
