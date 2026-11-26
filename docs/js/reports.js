@@ -969,7 +969,7 @@
       doc.text('Für den Europlan wird mindestens eine Tür benötigt.', doc.rand.links, doc.y, { size: 10, color: FARBE.grau });
       return doc;
     }
-    var systemName = K.systemLabel ? (K.systemLabel(projekt.systemMechanik) || projekt.systemMechanik || '') : '';
+    var systemName = projekt.systemMechanik ? ((K.systemLabel && K.systemLabel(projekt.systemMechanik)) || projekt.systemMechanik) : '';
     var kopfText = ['Anlage: ' + (projekt.anlagenNr || '–'), 'System: ' + (systemName || '–'), 'Oberfläche: ' + (projekt.oberflaeche || '–'),
                     'Datum: ' + (projekt.aufmassDatum ? datumDe(projekt.aufmassDatum) : '–'), 'Objekt: ' + (projekt.objekt || '–')].join('    ');
     doc.text(kopfText, doc.rand.links, doc.y, { size: 7.5, color: FARBE.grau });

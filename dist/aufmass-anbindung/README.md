@@ -50,9 +50,9 @@ Danach kennt Claude Code das Werkzeug `aufmass` mit diesen Fähigkeiten:
 | `gliederung_lesen` / `gliederung_anlegen` | Standorte, Gebäude, Bereiche |
 | `tueren_auflisten` / `tuer_lesen` | Türen suchen und lesen |
 | `tuer_anlegen` / `tuer_aendern` / `tuer_loeschen` | Türen pflegen, mit Prüfung der Felder und Auswahlwerte |
-| `schliessplan_lesen` | Kreuzschließplan als Tabelle |
+| `schliessplan_lesen` | Kreuzschließplan als Tabelle, mit `darstellung: "euro"` der Europlan (Zyl.Nr., ESL, X/I/Z/M/O) |
 | `spalte_anlegen` | Gruppe, Mitarbeiter oder Schließung im Plan |
-| `berechtigung_setzen` | Kreuz setzen: ja, zeit, temp, sperr, nein |
+| `berechtigung_setzen` | Kreuz setzen: ja, zeit, temp, sperr, plan (vorgeplant), nein - gleichschließende Türen werden mitgesetzt |
 | `bericht_erzeugen` | PDF: Türliste, Schließplan, Materialliste, Prüfprotokoll |
 | `katalog_lesen` | Alle Felder mit Bedeutung und Auswahlwerten |
 

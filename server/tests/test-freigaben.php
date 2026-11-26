@@ -374,6 +374,18 @@ $meine = array_values(array_filter($l, function ($x) use ($code) { return $x['co
 pruefe(count($meine) === 1 && $meine[0]['status'] === 'freigegeben' && $meine[0]['antwortNr'] === 1, 'mit dem aktuellen Zustand');
 pruefe(!isset($meine[0]['daten']), 'aber ohne die ganzen Plandaten');
 pruefe(count(Aufmass_Freigaben::liste('prj-x')) === 0, 'ein fremdes Aufmaß hat keine');
+/* Was der Kunde geantwortet hat, sehen nur die, die es übernehmen dürften */
+$lf = Aufmass_Freigaben::liste('prj-f', $fremd);
+$lfm = array_values(array_filter($lf, function ($x) use ($code) { return $x['code'] === $code; }));
+pruefe(count($lf) === 7 && count($lfm) === 1 && $lfm[0]['status'] === 'freigegeben', 'wer nicht zuständig ist, sieht den Stand jeder Freigabe');
+pruefe($lfm[0]['antwort'] === null && $lfm[0]['antwortName'] === '' && $lfm[0]['antwortAnmerkung'] === '' && !empty($lfm[0]['nurStatus']),
+    'aber nicht, was der Kunde geantwortet hat (Plan, Name, Anmerkung)', json_encode(array($lfm[0]['antwortName'], $lfm[0]['antwort'] === null)));
+$lw = Aufmass_Freigaben::liste('prj-f', $weber);
+$lwm = array_values(array_filter($lw, function ($x) use ($code) { return $x['code'] === $code; }));
+pruefe(count($lwm) === 1 && is_array($lwm[0]['antwort']) && !isset($lwm[0]['nurStatus']), 'der Zuständige sieht die Antwort', fehlertext($lwm[0]));
+$lc = Aufmass_Freigaben::liste('prj-f', $chefin);
+$lcm = array_values(array_filter($lc, function ($x) use ($code) { return $x['code'] === $code; }));
+pruefe(count($lcm) === 1 && is_array($lcm[0]['antwort']), 'die Verwaltung ebenfalls');
 
 echo "\n== Zurückziehen ==\n";
 $e = Aufmass_Freigaben::zurueckziehen($f0['code'], $fremd);

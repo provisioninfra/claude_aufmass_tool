@@ -759,13 +759,21 @@ class Aufmass_Freigaben {
     /* ---------------------------------------------------------------- */
 
     /** Alle Freigaben eines Aufmaßes, neueste zuerst. */
-    public static function liste($projekt_id) {
+    public static function liste($projekt_id, $benutzer = null) {
         global $wpdb;
         $tab = self::tabelle();
         $zeilen = $wpdb->get_results($wpdb->prepare(
             "SELECT * FROM $tab WHERE projekt_id = %s ORDER BY erstellt_am DESC LIMIT 50", (string) $projekt_id), ARRAY_A);
+        /* Was der Kunde geantwortet hat (Namen seiner Leute, Anmerkungen, der
+           Plan), sehen nur die, die es auch übernehmen dürften - Zuständige und
+           Verwaltung. Alle anderen sehen den Stand der Freigabe, nicht den Inhalt. */
+        $mit_antwort = $benutzer === null ? true : Aufmass_Projekte::darf_pruefen((string) $projekt_id, $benutzer);
         $aus = array();
-        foreach (($zeilen ?: array()) as $z) { $aus[] = self::beschreiben($z, true); }
+        foreach (($zeilen ?: array()) as $z) {
+            $b = self::beschreiben($z, $mit_antwort);
+            if (!$mit_antwort) { $b['antwortName'] = ''; $b['antwortAnmerkung'] = ''; $b['antwort'] = null; $b['nurStatus'] = true; }
+            $aus[] = $b;
+        }
         return $aus;
     }
 

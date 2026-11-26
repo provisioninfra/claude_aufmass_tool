@@ -56,6 +56,7 @@
   var marke = '';
   var basisUrl = '';
   var uhr = null, sendeUhr = null;
+  var fehlerZeit = 0;             /* Zeitpunkt des letzten gescheiterten Laufs - danach nur alle TAKT_FEHLER erneut */
   var beiAenderung = null;
   var amLaufen = false;
 
@@ -230,10 +231,12 @@
       .then(function () {
         zustand.erreichbar = true;
         zustand.letzterFehler = '';
+        fehlerZeit = 0;
         zustand.letzterAbgleich = new Date().toISOString();
       })
       .catch(function (f) {
         zustand.erreichbar = (f && f.status) ? true : false;
+        fehlerZeit = Date.now();
         zustand.letzterFehler = (f && f.message) || 'Der Abgleich ist gescheitert.';
         if (f && f.status === 401) { zustand.angemeldet = false; zustand.benutzer = null; zustand.antworten = []; }
       })
@@ -251,11 +254,19 @@
       pipedriveMerken(d);
       diktatMerken(d);
       antwortenMerken(d);
-      var reihe = Promise.resolve();
+      var reihe = Promise.resolve(), gescheitert = null;
       (d.projekte || []).forEach(function (eintrag) {
-        reihe = reihe.then(function () { return eintragVerarbeiten(eintrag); });
+        reihe = reihe.then(function () {
+          return Promise.resolve().then(function () { return eintragVerarbeiten(eintrag); })
+            .catch(function (f) { gescheitert = f; });
+        });
       });
-      return reihe.then(function () { marke = d.marke || marke; });
+      return reihe.then(function () {
+        /* Die Marke rückt nur vor, wenn alles durch ist - ein gescheiterter
+           Eintrag kommt beim nächsten Takt wieder, die anderen sind schon da. */
+        if (gescheitert) { throw gescheitert; }
+        marke = d.marke || marke;
+      });
     });
   }
 
@@ -283,7 +294,21 @@
              Grabstein ist keine Arbeit - der ist damit erledigt.) */
           if (satz && satz.schmutzig && !satz.geloescht) { return; }
           return (hier ? Store.projektLoeschen(eintrag.id) : Promise.resolve())
-            .then(function () { return Store.abgleichLoeschen(eintrag.id); });
+            .then(function () { return Store.abgleichLoeschen(eintrag.id); })
+            .then(function () {
+              /* Ist das Aufmaß hier gerade geöffnet, würde die nächste Eingabe es
+                 als neues Aufmaß wiederbeleben. Deshalb schließen und Bescheid sagen. */
+              var Kern = global.AppKern;
+              if (Kern && Kern.Zustand && Kern.Zustand.projekt && Kern.Zustand.projekt.id === eintrag.id) {
+                var name = Kern.Zustand.projekt.kunde || Kern.Zustand.projekt.name || 'Das Aufmaß';
+                Kern.Zustand.projekt = null;
+                Kern.Zustand.ungesichert = false;
+                Kern.Zustand.ansicht = 'projekte';
+                if (global.Verlauf && global.Verlauf.beenden) { try { global.Verlauf.beenden(); } catch (e) {} }
+                if (global.App && global.App.zeichnen) { try { global.App.zeichnen(); } catch (e2) {} }
+                if (Kern.toast) Kern.toast(name + ' wurde auf einem anderen Gerät gelöscht und hier geschlossen.', 'fehler');
+              }
+            });
         }
         /* Hier gelöscht, drüben noch nicht angekommen: nicht wiederbeleben */
         if (satz && satz.geloescht) { return; }
@@ -316,11 +341,20 @@
              Die Zusammenführung arbeitet dagegen mit dem Speicherstand und
              bringt das Ergebnis in einem Zug hinein. */
           if (!ungesendet && !offenesProjekt(eintrag.id)) {
-            /* Hier liegt nichts Ungesendetes: Serverstand übernehmen */
+            /* Hier liegt nichts Ungesendetes: Serverstand übernehmen. Die Bilder,
+               die hier schon liegen, kommen mit - sonst wären bis zum Nachladen
+               alle Fotos leer und jedes würde erneut geholt. */
+            bilddatenUebernehmen(voll.daten, hier);
             return Store.projektSpeichern(voll.daten, { vomAbgleich: true }).then(function () {
               return satzSchreiben(eintrag.id, voll.version, voll.daten, false);
-            }).then(function () { return fotosHolen(eintrag.id, voll.daten); })
-              .then(function () { return offenesMitziehen(eintrag.id); });
+            }).then(function () {
+              /* Wurde das Aufmaß in der Zwischenzeit geöffnet (die Entscheidung oben
+                 fiel vor dem Schreiben), hat der Speicher womöglich den alten Stand
+                 samt neuer Eingabe: dann zusammenführen statt überspringen. */
+              var jetztOffen = offenesProjekt(eintrag.id);
+              if (jetztOffen) { return zusammenfuehren(JSON.parse(JSON.stringify(jetztOffen)), satz || { basis: null, version: 0 }, voll); }
+              return fotosHolen(eintrag.id, voll.daten).then(function () { return offenesMitziehen(eintrag.id); });
+            });
           }
           /* Beide Seiten haben gearbeitet: gegen den frischesten eigenen Stand */
           var offen = offenesProjekt(eintrag.id);
@@ -355,7 +389,8 @@
     e.ergebnis.id = hier.id;
     /* Gab es hier gar keine eigene Arbeit (nur ein geöffnetes Aufmaß), ist
        das Ergebnis der Serverstand - dann gibt es nichts zu senden. */
-    var eigeneArbeit = JSON.stringify(hier) !== JSON.stringify(satz.basis || {});
+    var meinText = vergleichsText(hier);
+    var eigeneArbeit = meinText !== vergleichsText(satz.basis || {}) && meinText !== vergleichsText(voll.daten);
     /* Zuerst der Speicher - sofort, auch mitten in einer Eingabe. Was im
        Aufmaß steht, war in der Kopie und steckt im Ergebnis; was gerade
        erst getippt wird und noch nicht im Aufmaß steht (eine Tür im
@@ -369,6 +404,28 @@
     return Store.projektSpeichern(e.ergebnis, { vomAbgleich: true }).then(function () {
       return satzSchreiben(hier.id, voll.version, voll.daten, eigeneArbeit);
     }).then(function () { return fotosHolen(hier.id, voll.daten); });
+  }
+
+  /* Zwei Stände inhaltlich vergleichen: ohne Bilddaten (die Basis trägt nie
+     welche), ohne den Zeitstempel des Speicherns und nach derselben
+     Überführung - sonst sähe jedes Foto und jedes nachgetragene Vorgabefeld
+     wie eigene Arbeit aus, und zwei Geräte mit demselben offenen Aufmaß
+     schöben sich den Stand endlos hin und her. */
+  function vergleichsText(p) {
+    var kopie;
+    try { kopie = ohneBilddaten(global.Model.migriere(JSON.parse(JSON.stringify(p || {})))); }
+    catch (e) { kopie = ohneBilddaten(JSON.parse(JSON.stringify(p || {}))); }
+    delete kopie.geaendert;
+    delete kopie.schemaVersion;
+    return JSON.stringify(kopie);
+  }
+  /* Bilddaten aus einem vorhandenen Stand in einen Serverstand übernehmen (nach Fotokennung). */
+  function bilddatenUebernehmen(ziel, quelle) {
+    if (!ziel || !quelle) { return ziel; }
+    var bilder = {};
+    fotoListe(quelle).forEach(function (x) { if (x.foto.dataUrl) { bilder[x.foto.id] = x.foto.dataUrl; } });
+    fotosEintragen(ziel, bilder);
+    return ziel;
   }
 
   function konfliktMerken(hier, e, voll, basis) {
@@ -397,6 +454,7 @@
 
     var fertig;
     var offen = offenesProjekt(projektId);
+    var vorbereitet;
     if (offen) {
       /* Seit der Rückfrage wurde womöglich weitergearbeitet. Deshalb noch
          einmal gegen den Speicher von jetzt zusammenführen, die
@@ -408,11 +466,18 @@
       fertig = Z.anwenden(e.ergebnis, e.konflikte, wahl || {});
       fertig.id = projektId;
       speicherUebernehmen(offen, fertig, true);
+      vorbereitet = Promise.resolve();
     } else {
-      fertig = Z.anwenden(satz.ergebnis, satz.konflikte, wahl || {});
-      fertig.id = projektId;
+      /* Nicht geöffnet: Die Datenbank hat den Stand von jetzt - auch Eingaben
+         zwischen der letzten Rückfrage und dem Schließen. Dagegen auflösen,
+         nicht gegen das Ergebnis des letzten Takts. */
+      vorbereitet = Store.projektLaden(projektId).then(function (ausDb) {
+        var e2 = Z.projekte(satz.basis || {}, ausDb || satz.ergebnis, satz.serverDaten);
+        fertig = Z.anwenden(e2.ergebnis, e2.konflikte, wahl || {});
+        fertig.id = projektId;
+      });
     }
-    return Store.projektSpeichern(fertig, { vomAbgleich: true })
+    return vorbereitet.then(function () { return Store.projektSpeichern(fertig, { vomAbgleich: true }); })
       .then(function () {
         /* Als Basis gilt jetzt der Serverstand: Darauf baut das Senden auf. */
         return satzSchreiben(projektId, satz.serverVersion, satz.serverDaten, true);
@@ -462,8 +527,10 @@
 
   /* Den Serverstand eines Aufmaßes wiederherstellen (samt Fotos). */
   function zurueckholen(id) {
-    return anfrage('/projekte/' + encodeURIComponent(id)).then(function (voll) {
+    return Promise.all([anfrage('/projekte/' + encodeURIComponent(id)), Store.projektLaden(id)]).then(function (beides) {
+      var voll = beides[0];
       if (!voll || !voll.daten || voll.geloescht) { return; }
+      bilddatenUebernehmen(voll.daten, beides[1]);
       return Store.projektSpeichern(voll.daten, { vomAbgleich: true })
         .then(function () { return satzSchreiben(id, voll.version, voll.daten, false); })
         .then(function () { return fotosHolen(id, voll.daten); });
@@ -472,8 +539,8 @@
 
   function einesSenden(satz) {
     /* Für dieses Projekt steht eine Frage offen: erst klären lassen. */
-    var offen = zustand.konflikte.some(function (x) { return x.projektId === satz.id; });
-    if (offen) { return Promise.resolve(); }
+    var fraglich = zustand.konflikte.some(function (x) { return x.projektId === satz.id; });
+    if (fraglich) { return Promise.resolve(); }
 
     /* Für ein geöffnetes Aufmaß zählt der Speicher, nicht die Datenbank:
        Dort steht die neueste Eingabe, gesichert oder noch nicht. */
@@ -706,7 +773,11 @@
     return Store.abgleichSchreiben({
       id: id,
       version: version || 0,
-      basis: basis ? JSON.parse(JSON.stringify(basis)) : null,
+      /* Die Basis trägt nie Bilddaten: Sie dient nur dem Vergleich, und
+         mit Fotos wüchse sie auf viele Megabyte je Aufmaß. Wer hier einen
+         Stand mit frisch übernommenen Bildern hereinreicht, bekommt ihn
+         deshalb abgespeckt abgelegt. */
+      basis: basis ? ohneBilddaten(basis) : null,
       schmutzig: !!schmutzig,
       fehler: fehler || '',
       zuletzt: new Date().toISOString()
@@ -943,7 +1014,9 @@
     uhr = setInterval(function () {
       if (!zustand.angemeldet) { return; }
       var ruht = global.document && global.document.hidden;
-      if (ruht && Math.random() > 0.25) { return; }   /* im Hintergrund seltener */
+      if (ruht && Math.random() > TAKT_NORMAL / TAKT_RUHE) { return; }   /* im Hintergrund seltener (im Mittel alle TAKT_RUHE) */
+      /* Nach einem Fehler (Server nicht erreichbar, 5xx) nicht hämmern: erst nach TAKT_FEHLER wieder */
+      if (fehlerZeit && Date.now() - fehlerZeit < TAKT_FEHLER) { return; }
       jetzt();
     }, TAKT_NORMAL);
     if (global.addEventListener && !empfaengerAngemeldet) {

@@ -144,9 +144,12 @@ function knotenFinden(p, arg) {
   throw new Error('Den Bereich „' + arg + '“ gibt es nicht. gliederung_lesen zeigt alle Einträge mit ihren ids.');
 }
 function spalteFinden(p, arg) {
-  const s = p.schliessungen.find(x => x.id === arg) || p.schliessungen.filter(x => String(x.kuerzel || '').toLowerCase() === String(arg).toLowerCase())[0];
-  if (!s) throw new Error('Die Spalte „' + arg + '“ gibt es nicht. schliessplan_lesen zeigt alle Spalten mit Kürzel und id.');
-  return s;
+  const direkt = p.schliessungen.find(x => x.id === arg);
+  if (direkt) return direkt;
+  const treffer = p.schliessungen.filter(x => String(x.kuerzel || '').toLowerCase() === String(arg).toLowerCase());
+  if (treffer.length > 1) throw new Error('Das Kürzel „' + arg + '“ gibt es ' + treffer.length + ' Mal - bitte die id angeben: ' + treffer.map(x => x.id + ' (' + (x.bezeichnung || '') + ')').join('; '));
+  if (!treffer.length) throw new Error('Die Spalte „' + arg + '“ gibt es nicht. schliessplan_lesen zeigt alle Spalten mit Kürzel und id.');
+  return treffer[0];
 }
 
 /* Türfelder prüfen und eintragen; liefert Hinweise. */
@@ -329,8 +332,10 @@ const WERKZEUGE = [
         const t = M.neueTuer({ nummer: M.naechsteLaufendeNummer(p), status: 'aufgemessen' });
         const felder = Object.assign({}, a.felder || {});
         if (a.bereich) felder.bereich = a.bereich;
-        const hinweise = tuerFelderEintragen(p, t, felder);
         p.tueren.push(t);
+        let hinweise;
+        try { hinweise = tuerFelderEintragen(p, t, felder); }
+        catch (e) { p.tueren = p.tueren.filter(x => x.id !== t.id); M.matrixAufraeumen(p); throw e; }
         return { t, hinweise };
       });
       const { t, hinweise } = e.ergebnis;
@@ -390,16 +395,16 @@ const WERKZEUGE = [
           const name = String(a.name || '').trim(); if (!name) throw new Error('Eine Gruppe braucht einen Namen.');
           if (p.gruppen.some(g => String(g.name).toLowerCase() === name.toLowerCase())) throw new Error('Eine Gruppe „' + name + '“ gibt es schon.');
           const g = M.neueGruppe({ name }); p.gruppen.push(g);
-          const s = M.spalteFuer(p, 'gruppe', g.id); if (!s.kuerzel) s.kuerzel = a.kuerzel || M.kuerzelAus(name);
+          const s = M.spalteFuer(p, 'gruppe', g.id); s.kuerzel = M.kuerzelEindeutig(p, a.kuerzel || s.kuerzel || M.kuerzelAus(name), s.id);
           M.spaltenAngleichen(p); return s;
         }
         if (a.art === 'mitarbeiter') {
           const name = String(a.name || '').trim(); if (!name) throw new Error('Ein Mitarbeiter braucht einen Namen.');
           const m = M.neuerMitarbeiter({ name, funktion: String(a.funktion || '') }); p.mitarbeiter.push(m);
-          const s = M.spalteFuer(p, 'mitarbeiter', m.id); if (!s.kuerzel) s.kuerzel = a.kuerzel || M.kuerzelAus(name);
+          const s = M.spalteFuer(p, 'mitarbeiter', m.id); s.kuerzel = M.kuerzelEindeutig(p, a.kuerzel || s.kuerzel || M.kuerzelAus(name), s.id);
           M.spaltenAngleichen(p); return s;
         }
-        const s = M.neueSchliessung({ kuerzel: String(a.kuerzel || a.bezeichnung || 'S').slice(0, 12), bezeichnung: String(a.bezeichnung || a.name || ''), typ: a.typ || '' });
+        const s = M.neueSchliessung({ kuerzel: M.kuerzelEindeutig(p, String(a.kuerzel || a.bezeichnung || 'S').slice(0, 12)), bezeichnung: String(a.bezeichnung || a.name || ''), typ: a.typ || '' });
         s.sort = p.schliessungen.length; p.schliessungen.push(s); return s;
       });
       return 'Spalte angelegt: ' + e.ergebnis.kuerzel + ' = ' + (e.ergebnis.bezeichnung || '') + ' (id ' + e.ergebnis.id + ', Version ' + e.version + ').';
@@ -410,7 +415,7 @@ const WERKZEUGE = [
     beschreibung: 'Erzeugt einen PDF-Bericht und schreibt ihn als Datei: art tuerliste (modus kompakt|detail, mitFotos), schliessplan, materialliste oder pruefprotokoll. pfad: Datei oder Ordner (Vorgabe: Arbeitsordner). firma/firmaZusatz für den Kopf.',
     schema: O({ projektId: PROJEKT, art: S('tuerliste, schliessplan, materialliste, pruefprotokoll', { enum: ['tuerliste', 'schliessplan', 'materialliste', 'pruefprotokoll'] }),
       modus: S('kompakt oder detail (Türliste)', { enum: ['kompakt', 'detail'] }), mitFotos: { type: 'boolean', description: 'Fotos einbetten (Türliste detail)' },
-      pfad: S('Zieldatei oder Zielordner'), firma: S('Firmenname für den Kopf'), firmaZusatz: S('Zusatzzeile') }, ['projektId', 'art']),
+      pfad: S('Zieldatei oder Zielordner (~ erlaubt)'), ueberschreiben: { type: 'boolean', description: 'vorhandene Datei ersetzen' }, firma: S('Firmenname für den Kopf'), firmaZusatz: S('Zusatzzeile') }, ['projektId', 'art']),
     ausfuehren: async (a) => {
       require(path.join(C.LIB, 'pdf.js'));
       const Reports = require(path.join(C.LIB, 'reports.js'));
@@ -421,9 +426,17 @@ const WERKZEUGE = [
         : (a.art === 'schliessplan' ? Reports.schliessplan(p, eins) : (a.art === 'materialliste' ? Reports.materialliste(p, eins) : Reports.pruefprotokoll(p, eins)));
       const bytes = Buffer.from(doc.build());
       const name = Reports.dateiName(p, { tuerliste: 'Tuerliste', schliessplan: 'Schliessplan', materialliste: 'Materialliste', pruefprotokoll: 'Pruefprotokoll' }[a.art]);
-      let ziel = a.pfad ? path.resolve(String(a.pfad)) : path.resolve(process.env.AUFMASS_AUSGABE || process.cwd());
-      if (fs.existsSync(ziel) && fs.statSync(ziel).isDirectory()) ziel = path.join(ziel, name);
-      else if (!/\.pdf$/i.test(ziel)) { fs.mkdirSync(ziel, { recursive: true }); ziel = path.join(ziel, name); }
+      const heim = process.env.HOME || process.env.USERPROFILE || '';
+      let ziel = a.pfad ? String(a.pfad).trim() : '';
+      if (ziel === '~' || ziel.startsWith('~/') || ziel.startsWith('~\\')) ziel = path.join(heim, ziel.slice(1));
+      ziel = ziel ? path.resolve(ziel) : path.resolve(process.env.AUFMASS_AUSGABE || process.cwd());
+      if (fs.existsSync(ziel)) {
+        const st = fs.statSync(ziel);
+        if (st.isDirectory()) ziel = path.join(ziel, name);
+        else if (!/\.pdf$/i.test(ziel)) throw new Error('„' + ziel + '“ ist eine vorhandene Datei, aber keine PDF - bitte einen Ordner oder einen Dateinamen mit .pdf angeben.');
+        else if (a.ueberschreiben !== true) throw new Error('„' + ziel + '“ gibt es schon. Zum Ersetzen ueberschreiben: true angeben.');
+      } else if (!/\.pdf$/i.test(ziel)) { fs.mkdirSync(ziel, { recursive: true }); ziel = path.join(ziel, name); }
+      if (fs.existsSync(ziel) && a.ueberschreiben !== true) throw new Error('„' + ziel + '“ gibt es schon. Zum Ersetzen ueberschreiben: true angeben.');
       fs.mkdirSync(path.dirname(ziel), { recursive: true });
       fs.writeFileSync(ziel, bytes);
       return 'Bericht geschrieben: ' + ziel + ' (' + doc.seitenAnzahl() + ' Seiten, ' + Math.round(bytes.length / 1024) + ' KB).';
@@ -456,6 +469,25 @@ const WERKZEUGE = [
   }
 ];
 
+/* Pflichtfelder und Aufzählungen des Schemas prüfen - Claude hält sich daran,
+   ein Tippfehler wie wert: "yes" soll aber nicht still in der Matrix landen. */
+function schemaPruefen(schema, args) {
+  const maengel = [];
+  if (!schema || typeof args !== 'object' || args === null || Array.isArray(args)) return ['Die Argumente müssen ein Objekt sein.'];
+  (schema.required || []).forEach(k => { if (args[k] === undefined || args[k] === null || args[k] === '') maengel.push('„' + k + '“ fehlt.'); });
+  Object.keys(args).forEach(k => {
+    const e = schema.properties && schema.properties[k];
+    if (!e) { if (schema.additionalProperties === false) maengel.push('Unbekanntes Argument „' + k + '“.'); return; }
+    const v = args[k];
+    if (v === undefined || v === null || v === '') return;
+    if (e.enum && e.enum.indexOf(v) === -1) maengel.push('„' + k + '“ muss einer von ' + e.enum.filter(x => x !== '').join(', ') + ' sein (nicht „' + v + '“).');
+    if (e.type === 'string' && typeof v !== 'string') maengel.push('„' + k + '“ muss Text sein.');
+    if (e.type === 'boolean' && typeof v !== 'boolean') maengel.push('„' + k + '“ muss true oder false sein.');
+    if (e.type === 'object' && (typeof v !== 'object' || Array.isArray(v))) maengel.push('„' + k + '“ muss ein Objekt sein.');
+  });
+  return maengel;
+}
+
 /* --- JSON-RPC über stdin/stdout ---------------------------------------- */
 function senden(obj) { process.stdout.write(JSON.stringify(obj) + '\n'); }
 function antwort(id, result) { senden({ jsonrpc: '2.0', id, result }); }
@@ -469,7 +501,7 @@ async function verarbeiten(zeile) {
   const { id, method } = n; const params = n.params || {};
   if (method === 'initialize') {
     const gewuenscht = params.protocolVersion;
-    return antwort(id, { protocolVersion: PROTOKOLLE.indexOf(gewuenscht) !== -1 ? gewuenscht : PROTOKOLLE[0],
+    return antwort(id, { protocolVersion: PROTOKOLLE.indexOf(gewuenscht) !== -1 ? gewuenscht : PROTOKOLLE[PROTOKOLLE.length - 1],
       capabilities: { tools: { listChanged: false } },
       serverInfo: { name: 'aufmass', version: C.FASSUNG },
       instructions: 'Aufmaß-Werkzeug für Schließanlagen: Aufmaße, Gliederung, Türen, Schließplan und PDF-Berichte der gemeinsamen Ablage. Mit zugang_pruefen beginnen, dann projekte_auflisten. Änderungen speichern sofort auf dem Server; bei gleichzeitigen Änderungen anderer wird zusammengeführt.' });
@@ -481,6 +513,8 @@ async function verarbeiten(zeile) {
     const w = WERKZEUGE.find(x => x.name === params.name);
     if (!w) return fehlerAntwort(id, -32602, 'Unbekanntes Werkzeug: ' + params.name);
     try {
+      const maengel = schemaPruefen(w.schema, params.arguments || {});
+      if (maengel.length) throw new Error(maengel.join(' '));
       const text = await w.ausfuehren(params.arguments || {});
       return antwort(id, { content: [{ type: 'text', text: String(text) }] });
     } catch (e) {

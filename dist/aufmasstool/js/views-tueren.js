@@ -84,8 +84,9 @@
   }
 
   /* Auswahlliste aller Strukturknoten mit eingerücktem Pfad */
-  function strukturOptionen() {
-    var p = Zustand.projekt, out = [];
+  function strukturOptionen(projekt) {
+    var p = projekt || Zustand.projekt, out = [];
+    if (!p) return out;   /* Aufmaß inzwischen geschlossen: keine Bereiche, kein Absturz */
     function lauf(parentId, tiefe) {
       if (tiefe > 8) return;
       M.kinderVon(p, parentId).forEach(function (k) {
@@ -1112,7 +1113,13 @@
       /* Immer in das Projekt schreiben, das JETZT geöffnet ist - nicht in
        * die beim Öffnen gefangene Fassung (die kann ein „Zurück“ oder der
        * Abgleich inzwischen ersetzt haben). */
-      var ziel = Zustand.projekt && Zustand.projekt.id === p.id ? Zustand.projekt : p;
+      if (!Zustand.projekt || Zustand.projekt.id !== p.id) {
+        /* Das Aufmaß ist inzwischen geschlossen oder gewechselt: In eine gefangene
+           Kopie zu schreiben, ginge still verloren. Lieber sagen, was los ist. */
+        A.toast('Das Aufmaß ist inzwischen geschlossen. Bitte erneut öffnen und die Tür dann speichern.', 'fehler');
+        return false;
+      }
+      var ziel = Zustand.projekt;
       if (istNeu) {
         ziel.tueren.push(t);
       } else {

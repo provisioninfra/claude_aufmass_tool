@@ -2452,9 +2452,38 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     /* Gehört die Basis zur Schließung dieser Tür, entstünde ein Kreis */
     var eigene = schliessungsTueren(projekt, t);
     for (var i = 0; i < eigene.length; i++) { if (eigene[i].id === basis.id) return false; }
+    /* Was die angehängte Schließung bisher durfte, darf die gemeinsame
+       Schließung danach auch: Die Berechtigungen werden vereinigt, damit
+       kein Eigenschlüssel und keine Spalte still ihre Kreuze verliert. */
+    (projekt.schliessungen || []).forEach(function (s) {
+      var bei = getBerechtigung(projekt, t.id, s.id), dort = getBerechtigung(projekt, basis.id, s.id);
+      if (bei !== 'nein' && dort === 'nein') setBerechtigung(projekt, basis.id, s.id, bei);
+    });
     t.gleichschliessendMit = basis.id;
     gleichschliessungAngleichen(projekt);
     return true;
+  }
+  /* Welche Zylindernummer bekäme die Tür, hinge sie an dieser Basis? -
+     dieselbe Regel wie zylinderNummer (Reihenfolge der Türen im Aufmaß). */
+  function zylinderNummerVorschau(projekt, tuer, basisId) {
+    var basis = basisTuer(projekt, basisId);
+    if (!basis) return '';
+    var nummer = String(basis.nummer || '').trim() || '?';
+    var mitlaeufer = schliessungsTueren(projekt, basis).slice(1).filter(function (x) { return x.id !== tuer.id; });
+    var reihen = (projekt.tueren || []).filter(function (x) { return x.id === tuer.id || mitlaeufer.some(function (m) { return m.id === x.id; }); });
+    var index = 0;
+    for (var i = 0; i < reihen.length; i++) { if (reihen[i].id === tuer.id) { index = i + 1; break; } }
+    return nummer + '.' + (index || reihen.length);
+  }
+  /* Ein Kürzel, das es im Plan noch nicht gibt: sonst mit a, b, c … */
+  function kuerzelEindeutig(projekt, wunsch, ausnahmeId) {
+    var basis = String(wunsch || 'S').trim().slice(0, 12) || 'S';
+    var vergeben = {};
+    (projekt.schliessungen || []).forEach(function (s) { if (s && s.id !== ausnahmeId && s.kuerzel) vergeben[String(s.kuerzel).toLowerCase()] = true; });
+    if (!vergeben[basis.toLowerCase()]) return basis;
+    var zusatz = 'abcdefghijklmnopqrstuvwxyz';
+    for (var i = 0; i < zusatz.length; i++) { var k = basis + zusatz[i]; if (!vergeben[k.toLowerCase()]) return k; }
+    return basis + Math.floor(Math.random() * 9000 + 1000);
   }
   /* Verweise prüfen, Kreise lösen und die Kreuze jeder Schließung von der
    * Haupttür auf alle Mitläufer übertragen. */
@@ -2520,9 +2549,9 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
 
   /* Entfernt Matrixeinträge, deren Tür oder Schließung gelöscht wurde. */
   function matrixAufraeumen(projekt) {
-    var tIds = {}, sIds = {}, i;
-    for (i = 0; i < projekt.tueren.length; i++) tIds[projekt.tueren[i].id] = true;
-    for (i = 0; i < projekt.schliessungen.length; i++) sIds[projekt.schliessungen[i].id] = true;
+    var tIds = Object.create(null), sIds = Object.create(null), i;
+    for (i = 0; i < projekt.tueren.length; i++) { if (projekt.tueren[i] && projekt.tueren[i].id) tIds[projekt.tueren[i].id] = true; }
+    for (i = 0; i < projekt.schliessungen.length; i++) { if (projekt.schliessungen[i] && projekt.schliessungen[i].id) sIds[projekt.schliessungen[i].id] = true; }
     var entfernt = 0;
     Object.keys(projekt.matrix).forEach(function (key) {
       var teile = key.split('|');
@@ -2561,7 +2590,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
    * wäre unsichtbar, obwohl sie vollständig da ist. */
   function kinderVon(projekt, parentId) {
     var eltern = parentId || null;
-    return (projekt.standorte || []).filter(function (k) { return k && (k.parentId || null) === eltern; })
+    return ((projekt && projekt.standorte) || []).filter(function (k) { return k && (k.parentId || null) === eltern; })
       .sort(function (a, b) { return (a.sort - b.sort) || String(a.name || '').localeCompare(String(b.name || ''), 'de'); });
   }
 
@@ -2613,7 +2642,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
    * Damit erscheint "Erdgeschoss" vor "1. Obergeschoss", sofern der Anwender
    * die Knoten in dieser Reihenfolge angelegt bzw. sortiert hat. */
   function strukturReihenfolge(projekt) {
-    var ordnung = {}, zaehler = 0;
+    var ordnung = Object.create(null), zaehler = 0;
     function lauf(parentId, tiefe) {
       if (tiefe > 10) return;
       kinderVon(projekt, parentId).forEach(function (k) {
@@ -2730,7 +2759,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
 
   /* --- Türen gruppiert nach Struktur (für Listen & PDF) ------------------- */
   function tuerenGruppiert(projekt) {
-    var gruppen = [], index = {};
+    var gruppen = [], index = Object.create(null);
     var ordnung = strukturReihenfolge(projekt);
     projekt.tueren.forEach(function (t) {
       var key = t.strukturId || '__ohne__';
@@ -3113,7 +3142,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       positionen.sort(function (a, c) {
         var ga = GRUPPEN_REIHENFOLGE.indexOf(a.gruppe), gc = GRUPPEN_REIHENFOLGE.indexOf(c.gruppe);
         if (ga !== gc) return ga - gc;
-        return a.bezeichnung.localeCompare(c.bezeichnung, 'de') ||
+        return String(a.bezeichnung || '').localeCompare(String(c.bezeichnung || ''), 'de') ||
                String(a.mass).localeCompare(String(c.mass), 'de', { numeric: true });
       });
       return {
@@ -3678,6 +3707,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
 
     var haeufigkeit = { mechanisch: {}, elektronisch: {} };
     projekt.tueren.forEach(function (t) {
+      if (!t || typeof t !== 'object') return;
       var sid = t.systemId;
       if (!sid) return;
       var typ = K.systemTechnologie(sid);
@@ -3897,6 +3927,79 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     return projekt;
   }
 
+  /* Werte eines Objekts an die Typen seiner Vorlage angleichen: Textfelder
+   * werden Text (Gebilde werden leer), Ja/Nein-Felder werden Ja/Nein, Zahlen
+   * bleiben Zahlen (sonst der Vorgabewert). So bringt keine Import-Datei und
+   * kein Abgleich Werte ins Aufmaß, mit denen Listen, Sortierungen oder PDFs
+   * nicht rechnen. */
+  var TEXT_MAX = 20000;
+  function typenAngleichen(ziel, vorlage, ausnahmen) {
+    Object.keys(vorlage).forEach(function (k) {
+      if (ausnahmen.indexOf(k) !== -1) return;
+      var soll = vorlage[k], ist = ziel[k];
+      if (typeof soll === 'string') {
+        if (typeof ist !== 'string') ziel[k] = (ist === null || ist === undefined || typeof ist === 'object' || typeof ist === 'function' || (typeof ist === 'number' && !isFinite(ist))) ? '' : String(ist);
+        if (ziel[k].length > TEXT_MAX) ziel[k] = ziel[k].slice(0, TEXT_MAX);
+      } else if (typeof soll === 'boolean') {
+        ziel[k] = ist === true || ist === 'true' || ist === 1;
+      } else if (typeof soll === 'number') {
+        var n = typeof ist === 'number' ? ist : parseFloat(ist);
+        ziel[k] = isFinite(n) ? n : soll;
+      }
+    });
+    return ziel;
+  }
+  /* Nur bekannte Berechtigungswerte bleiben in der Matrix; „nein“ ist kein Eintrag. */
+  function matrixWerteBereinigen(projekt) {
+    var K2 = kat();
+    var erlaubt = {};
+    ((K2 && K2.BERECHTIGUNG) || []).forEach(function (b) { if (b.id !== 'nein') erlaubt[b.id] = true; });
+    Object.keys(projekt.matrix).forEach(function (key) {
+      if (!erlaubt[projekt.matrix[key]]) delete projekt.matrix[key];
+    });
+    return projekt;
+  }
+
+  /* Kennungen sind Nachschlageschlüssel in Objekten. Eine Kennung, die wie
+   * ein Name des Objekt-Bauplans lautet („constructor“, „__proto__“ …), träfe
+   * dort auf eine Funktion statt auf nichts - Listen und Pläne brächen ab.
+   * Das Werkzeug erzeugt nie solche Kennungen; eine Import-Datei könnte sie
+   * mitbringen. Sie werden ersetzt, mitsamt allen Verweisen. */
+  var VERBOTENE_KENNUNG = Object.create(null);
+  Object.getOwnPropertyNames(Object.prototype).concat(['__proto__']).forEach(function (n) { VERBOTENE_KENNUNG[n] = true; });
+  function kennungSicher(id) {
+    return typeof id === 'string' && id.length > 0 && id.length <= 128 && !VERBOTENE_KENNUNG[id];
+  }
+  function kennungenBereinigen(out) {
+    var ersatz = Object.create(null), zahl = 0;
+    function pruefen(objekt, prefix) {
+      if (!objekt || typeof objekt !== 'object') return;
+      if (kennungSicher(objekt.id)) return;
+      var alt = typeof objekt.id === 'string' ? objekt.id : '';
+      objekt.id = uid(prefix);
+      if (alt) ersatz[alt] = objekt.id;
+      zahl++;
+    }
+    out.tueren.forEach(function (t) { pruefen(t, 'tur'); (t.fotos || []).forEach(function (f) { pruefen(f, 'foto'); }); });
+    out.schliessungen.forEach(function (s) { pruefen(s, 'sch'); });
+    out.mitarbeiter.forEach(function (m) { pruefen(m, 'ma'); });
+    out.gruppen.forEach(function (g) { pruefen(g, 'grp'); });
+    out.standorte.forEach(function (k) { pruefen(k, 'str'); });
+    if (!zahl) return out;
+    function neu(id) { return (typeof id === 'string' && ersatz[id]) ? ersatz[id] : id; }
+    out.tueren.forEach(function (t) { t.gleichschliessendMit = neu(t.gleichschliessendMit); t.strukturId = neu(t.strukturId); });
+    out.standorte.forEach(function (k) { k.parentId = neu(k.parentId); });
+    out.mitarbeiter.forEach(function (m) { m.gruppen = (m.gruppen || []).map(neu); });
+    out.schliessungen.forEach(function (s) { s.gruppeId = neu(s.gruppeId); s.mitarbeiterId = neu(s.mitarbeiterId); s.traeger = (s.traeger || []).map(neu); });
+    var matrix = {};
+    Object.keys(out.matrix).forEach(function (key) {
+      var teile = key.split('|');
+      matrix[neu(teile[0]) + '|' + neu(teile[1])] = out.matrix[key];
+    });
+    out.matrix = matrix;
+    return out;
+  }
+
   function migriere(projekt) {
     var vorlage = neuesProjekt();
     var out = {};
@@ -3904,8 +4007,10 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       out[k] = (projekt && projekt[k] !== undefined) ? projekt[k] : vorlage[k];
     });
     out.schemaVersion = SCHEMA_VERSION;
+    typenAngleichen(out, vorlage, ['id', 'schemaVersion', 'pipedrive', 'freigabenLokal', 'mitarbeiter', 'gruppen', 'freigabe', 'standorte', 'tueren', 'schliessungen', 'matrix']);
     out.standorte = Array.isArray(out.standorte) ? out.standorte : [];
     out.tueren = Array.isArray(out.tueren) ? out.tueren : [];
+    out.tueren = out.tueren.filter(function (t) { return t && typeof t === 'object' && !Array.isArray(t); });
     out.schliessungen = Array.isArray(out.schliessungen) ? out.schliessungen : [];
     out.freigabenLokal = Array.isArray(out.freigabenLokal) ? out.freigabenLokal : [];
     out.matrix = objektAusArray(out.matrix);
@@ -3921,10 +4026,24 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       Object.keys(tuerVorlage).forEach(function (k) {
         neu[k] = (t && t[k] !== undefined) ? t[k] : tuerVorlage[k];
       });
-      neu.id = t && t.id ? t.id : uid('tur');
+      neu.id = t && typeof t.id === 'string' && t.id ? t.id : uid('tur');
+      typenAngleichen(neu, tuerVorlage, ['id', 'strukturId', 'fotos', 'zylinderAusfuehrung', 'beschlagOptionen', 'komponenten']);
+      if (neu.strukturId !== null && typeof neu.strukturId !== 'string') neu.strukturId = null;
       ['zylinderAusfuehrung', 'beschlagOptionen', 'komponenten', 'fotos'].forEach(function (k) {
         if (!Array.isArray(neu[k])) neu[k] = [];
       });
+      ['zylinderAusfuehrung', 'beschlagOptionen'].forEach(function (k) {
+        neu[k] = neu[k].filter(function (x) { return typeof x === 'string'; }).map(function (x) { return x.slice(0, 200); });
+      });
+      neu.komponenten = neu.komponenten.filter(function (x) { return x && typeof x === 'object' && !Array.isArray(x); }).map(function (x) {
+        var k2 = {};
+        Object.keys(x).forEach(function (key) { if (!VERBOTENE_KENNUNG[key]) k2[key] = (typeof x[key] === 'string') ? x[key].slice(0, 500) : ((typeof x[key] === 'number' && isFinite(x[key])) || typeof x[key] === 'boolean' ? x[key] : ''); });
+        return k2;
+      });
+      if (typeof neu.gleichschliessendMit !== 'string') neu.gleichschliessendMit = '';
+      if (typeof neu.produktcode !== 'string') neu.produktcode = (typeof neu.produktcode === 'number' && isFinite(neu.produktcode)) ? String(neu.produktcode) : '';
+      if (neu.produktcode.length > 60) neu.produktcode = neu.produktcode.slice(0, 60);
+      neu.eigenschluesselVorgeplant = neu.eigenschluesselVorgeplant === true;
       /* Ein Foto ist ein Eintrag mit Kennung und Bilddaten als JPEG, PNG
          oder WebP - so legt das Werkzeug sie an. Alles andere (eine
          Import-Datei oder ein Abgleich können beliebiges mitbringen) wird
@@ -3955,18 +4074,19 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       Object.keys(schlVorlage).forEach(function (k) {
         neu[k] = (s && s[k] !== undefined) ? s[k] : schlVorlage[k];
       });
-      neu.id = s && s.id ? s.id : uid('sch');
+      neu.id = s && typeof s.id === 'string' && s.id ? s.id : uid('sch');
+      typenAngleichen(neu, schlVorlage, ['id', 'traeger', 'medien']);
       if (neu.art !== 'gruppe' && neu.art !== 'mitarbeiter') neu.art = 'schliessung';
       if (!Array.isArray(neu.traeger)) neu.traeger = [];
       neu.medien = medienBereinigen(neu.medien);
       return neu;
     });
     out.mitarbeiter = out.mitarbeiter.filter(function (m) { return m && typeof m === 'object'; })
-      .map(function (m) { var neu = neuerMitarbeiter(m); neu.id = m.id || neu.id; return neu; });
+      .map(function (m) { var neu = neuerMitarbeiter(m); neu.id = (typeof m.id === 'string' && m.id) ? m.id : neu.id; return neu; });
     out.gruppen = out.gruppen.filter(function (g) { return g && typeof g === 'object'; })
-      .map(function (g) { return neueGruppe({ id: g.id || uid('grp'), name: String(g.name || '') }); });
+      .map(function (g) { return neueGruppe({ id: (typeof g.id === 'string' && g.id) ? g.id : uid('grp'), name: String(g.name || '') }); });
     /* Verweise auf gelöschte Gruppen und Mitarbeiter aufräumen */
-    var gruppenIds = {}, maIds = {};
+    var gruppenIds = Object.create(null), maIds = Object.create(null);
     out.gruppen.forEach(function (g) { gruppenIds[g.id] = true; });
     out.mitarbeiter.forEach(function (m) { maIds[m.id] = true; });
     out.mitarbeiter.forEach(function (m) { m.gruppen = m.gruppen.filter(function (id) { return gruppenIds[id]; }); });
@@ -3975,6 +4095,20 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     /* Ein leeres Objekt kommt aus PHP als leere Liste zurück - das ist dann keine Freigabe und keine Anbindung. */
     if (Array.isArray(out.freigabe)) out.freigabe = out.freigabe.length ? out.freigabe[0] : null;
     if (Array.isArray(out.pipedrive)) out.pipedrive = null;
+    /* Die Pipedrive-Verknüpfung kommt aus dem Werkzeug - oder aus einer Import-Datei.
+       Nur Text und Zahlen, und der Link nur als https-Adresse eines Pipedrive-Rechners. */
+    if (out.pipedrive && typeof out.pipedrive === 'object') {
+      var pd = out.pipedrive, sauber = {};
+      ['dealId', 'orgId', 'personId', 'pipelineId'].forEach(function (k) {
+        var w = pd[k]; sauber[k] = (typeof w === 'number' && isFinite(w)) ? w : (typeof w === 'string' && /^[0-9]{1,12}$/.test(w) ? parseInt(w, 10) : null);
+      });
+      sauber.dealTitel = typeof pd.dealTitel === 'string' ? pd.dealTitel.slice(0, 300) : '';
+      sauber.host = (typeof pd.host === 'string' && /^[a-z0-9-]+(\.[a-z0-9-]+)*\.pipedrive\.com$/i.test(pd.host)) ? pd.host.toLowerCase() : '';
+      sauber.dealLink = (sauber.host && sauber.dealId) ? ('https://' + sauber.host + '/deal/' + sauber.dealId) : '';
+      sauber.uebernommen = typeof pd.uebernommen === 'string' ? pd.uebernommen.slice(0, 40) : '';
+      out.pipedrive = sauber.dealId ? sauber : null;
+    } else if (out.pipedrive) { out.pipedrive = null; }
+    if (typeof out.oberflaeche !== 'string') out.oberflaeche = String(out.oberflaeche || '');
     spaltenAngleichen(out);
 
     out.standorte = out.standorte.filter(function (k) { return k && k.id; }).map(function (k) {
@@ -3989,7 +4123,9 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     });
     gliederungEntwirren(out);
 
+    kennungenBereinigen(out);
     matrixAufraeumen(out);
+    matrixWerteBereinigen(out);
     gleichschliessungAngleichen(out);
     return out;
   }
@@ -4037,6 +4173,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     istTuerElektronisch: istTuerElektronisch,
     anlageVollstaendig: anlageVollstaendig,
     matrixKey: matrixKey,
+    kennungSicher: kennungSicher,
     objektAusArray: objektAusArray,
     getBerechtigung: getBerechtigung,
     setBerechtigung: setBerechtigung,
@@ -4047,6 +4184,8 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     istMitlaeufer: istMitlaeufer,
     zylinderNummer: zylinderNummer,
     gleichschliessendSetzen: gleichschliessendSetzen,
+    zylinderNummerVorschau: zylinderNummerVorschau,
+    kuerzelEindeutig: kuerzelEindeutig,
     gleichschliessungAngleichen: gleichschliessungAngleichen,
     berechtigungSetzenVerbund: berechtigungSetzenVerbund,
     istBerechtigt: istBerechtigt,
@@ -4128,7 +4267,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     M.spaltenAngleichen(p);
     var spalten = M.spaltenSortiert(p);
     var tueren = (p.tueren || []).filter(Boolean);
-    var basisVon = {}, basen = [], basisIds = {};
+    var basisVon = Object.create(null), basen = [], basisIds = Object.create(null);
     tueren.forEach(function (t) {
       var b = M.basisTuer(p, t) || t;
       basisVon[t.id] = b;
@@ -4137,11 +4276,11 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     function wert(b, s) { return M.getBerechtigung(p, b.id, s.id); }
 
     var gruppenSpalten = spalten.filter(istGruppe);
-    var inhaber = {};        /* basisId -> [{ m, spalte, gruppen }] - faltbare Inhaber (I in der Gruppenspalte) */
-    var eigentuemer = {};    /* basisId -> [{ m, spalte, gruppen }] - alle Mitarbeiter, deren Spalte genau diese Schließung sperrt */
-    var heimVon = {};        /* Spaltenkennung eines Mitarbeiters -> seine Schließung (Haupttür) */
-    var gefaltet = {};       /* Spaltenkennung -> true, wenn die Spalte im Europlan nicht erscheint */
-    var ezJeBasis = {};      /* basisId -> [EZ-Schließungen] */
+    var inhaber = Object.create(null);        /* basisId -> [{ m, spalte, gruppen }] - faltbare Inhaber (I in der Gruppenspalte) */
+    var eigentuemer = Object.create(null);    /* basisId -> [{ m, spalte, gruppen }] - alle Mitarbeiter, deren Spalte genau diese Schließung sperrt */
+    var heimVon = Object.create(null);        /* Spaltenkennung eines Mitarbeiters -> seine Schließung (Haupttür) */
+    var gefaltet = Object.create(null);       /* Spaltenkennung -> true, wenn die Spalte im Europlan nicht erscheint */
+    var ezJeBasis = Object.create(null);      /* basisId -> [EZ-Schließungen] */
     var hinweise = [];
 
     spalten.forEach(function (s) {
@@ -4151,6 +4290,13 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
         var berechtigt = basen.filter(function (b) { return M.istBerechtigt(wert(b, s)); });
         var sonst = basen.filter(function (b) { var w = wert(b, s); return w === 'plan' || w === 'sperr'; });
         var gruppen = gruppenSpalten.filter(function (g) { return (m.gruppen || []).indexOf(g.gruppeId) !== -1; });
+        if (!berechtigt.length && !sonst.length) {
+          hinweise.push('Die Spalte „' + (m.name || s.kuerzel) + '“ hat keine einzige Berechtigung - sie steht leer im Plan.');
+        } else if (berechtigt.length === 1 && sonst.length) {
+          hinweise.push('„' + (m.name || s.kuerzel) + '“ hat neben seiner Tür noch vorgeplante oder gesperrte Felder - sein Schlüssel steht als eigene Spalte im Plan.');
+        } else if (berechtigt.length > 1 && gruppen.length) {
+          hinweise.push('„' + (m.name || s.kuerzel) + '“ sperrt mehr als eine Schließung - sein Schlüssel steht als eigene Spalte im Plan, nicht als I in der Gruppe.');
+        }
         if (berechtigt.length === 1 && !sonst.length) {
           var b = berechtigt[0];
           heimVon[s.id] = b;
@@ -4188,7 +4334,9 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
   /* Menge einer Gruppenspalte: die Medien der Mitglieder ohne eigene Spalte -
    * sie bekommen reine Gruppenschlüssel (sperren nur Z und M der Gruppe). */
   function gruppenMenge(p, g) {
-    return M.gruppenMitglieder(p, g.gruppeId).filter(function (m) { return !eigeneSpalte(p, m); })
+    var mitglieder = M.gruppenMitglieder(p, g.gruppeId);
+    if (!mitglieder.length) return M.medienBereinigen(g.medien).reduce(function (sum, x) { return sum + x.anzahl; }, 0);
+    return mitglieder.filter(function (m) { return !eigeneSpalte(p, m); })
       .reduce(function (sum, m) { return sum + M.mitarbeiterMedienAnzahl(m); }, 0);
   }
 
@@ -4219,7 +4367,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
         var basis = a.basisVon[t.id] || t;
         var mitlaeufer = basis.id !== t.id;
         var inh = a.inhaber[basis.id] || [];
-        var zellen = {};
+        var zellen = Object.create(null);
         spalten.forEach(function (sp) {
           var w = M.getBerechtigung(p, t.id, sp.id), z = '';
           if (sp.art === 'gruppe') {
@@ -4251,7 +4399,10 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     var a = analyse(p);
     var spalten = [];
     a.spalten.forEach(function (s) {
-      if (s.art === 'schliessung' && !a.gefaltet[s.id]) {
+      var direkt = (s.art === 'schliessung' && !a.gefaltet[s.id])
+        || (s.art === 'gruppe' && !M.gruppenMitglieder(p, s.gruppeId).length)          /* Gruppe ohne Mitglieder: ein Gruppenschlüssel */
+        || (s.art === 'mitarbeiter' && !M.mitarbeiterVon(p, s.mitarbeiterId));          /* Mitarbeiter gelöscht, Spalte bewusst behalten */
+      if (direkt) {
         spalten.push({ id: s.id, spalte: s, art: 'schluessel', schlNr: s.kuerzel || '', funktion: s.bezeichnung || '',
                        menge: M.medienAnzahl(p, s), zelle: function (t) { return M.getBerechtigung(p, t.id, s.id); } });
       }
@@ -4282,7 +4433,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     M.tuerenGruppiert(p).forEach(function (g) {
       g.tueren.forEach(function (t) {
         var basis = a.basisVon[t.id] || t, mitlaeufer = basis.id !== t.id;
-        var zellen = {};
+        var zellen = Object.create(null);
         spalten.forEach(function (sp) {
           var w = sp.zelle(t);
           zellen[sp.id] = M.istBerechtigt(w) ? 'X' : (w === 'plan' ? 'O' : '');
@@ -4334,12 +4485,12 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     if (zeichen === 'O') { M.berechtigungSetzenVerbund(p, t.id, s.id, 'plan'); return { ok: true }; }
     if (zeichen === 'I') {
       if (basis.id !== t.id) return { ok: false, text: 'Der Eigenschlüssel wird an der Haupttür ' + (basis.nummer || '') + ' geführt.' };
+      if (!inh.length && !optionen.inhaber) return { ok: false, braucht: 'inhaber' };
       M.berechtigungSetzenVerbund(p, t.id, s.id, 'nein');
       if (inh.length) {
         inh.forEach(function (i) { if ((i.m.gruppen || []).indexOf(s.gruppeId) === -1) i.m.gruppen.push(s.gruppeId); });
         return { ok: true };
       }
-      if (!optionen.inhaber) return { ok: false, braucht: 'inhaber' };
       inhaberAnlegen(p, t, s.gruppeId, optionen.inhaber);
       return { ok: true };
     }
@@ -4365,7 +4516,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     });
     p.mitarbeiter.push(m);
     var s = M.spalteFuer(p, 'mitarbeiter', m.id);
-    s.kuerzel = String(basis.nummer || '').trim() || s.kuerzel;
+    s.kuerzel = M.kuerzelEindeutig(p, String(basis.nummer || '').trim() || s.kuerzel, s.id);
     M.berechtigungSetzenVerbund(p, basis.id, s.id, 'ja');
     return m;
   }
@@ -4381,7 +4532,11 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     var a = analyse(p);
     var inh = a.eigentuemer[basis.id] || [], ez = a.ezJeBasis[basis.id] || [];
     var n = anzahl === null || anzahl === undefined || anzahl === '' ? null : parseInt(anzahl, 10);
-    if (n !== null && (!isFinite(n) || n < 0)) n = 0;
+    if (n !== null && !isFinite(n)) return { ok: false, text: 'Die Stückzahl muss eine Zahl sein.' };
+    if (n !== null) n = Math.max(0, Math.min(999, n));
+    if (inh.length + ez.length > 1 && !optionen.mitarbeiterId) {
+      return { ok: false, text: 'Mehrere Schlüsselquellen an dieser Tür (' + inh.map(function (i) { return i.m.name; }).concat(ez.map(function (s) { return s.kuerzel; })).join(', ') + ') - bitte die Stückzahl beim jeweiligen Mitarbeiter oder bei der Schließung ändern.' };
+    }
     var typ = String(optionen.typ || (ez[0] && ez[0].medien[0] && ez[0].medien[0].typ) || '');
     basis.eigenschluesselVorgeplant = false;
     if (inh.length) {
@@ -4389,7 +4544,10 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       if (n === null) { return { ok: false, text: 'Der Eigenschlüssel gehört ' + ziel.m.name + ' - Inhaber in der Mitarbeiterliste entfernen.' }; }
       if (n === 0) { return { ok: false, text: 'Mit Inhaber ist mindestens ein Schlüssel nötig.' }; }
       var da = M.medienBereinigen(ziel.m.medien);
-      ziel.m.medien = [{ typ: da[0] ? da[0].typ : typ, anzahl: n }];
+      /* Weitere Medienarten bleiben erhalten; der erste Eintrag trägt den Rest */
+      var andere = da.slice(1), summeAndere = andere.reduce(function (sum, x) { return sum + x.anzahl; }, 0);
+      while (andere.length && summeAndere >= n) { var weg = andere.pop(); summeAndere -= weg.anzahl; }
+      ziel.m.medien = [{ typ: da[0] ? da[0].typ : typ, anzahl: Math.max(1, n - summeAndere) }].concat(andere);
       return { ok: true };
     }
     if (n === null || n === 0) {
@@ -4427,7 +4585,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
   /* --- EVVA-Bestellformular: Zellen des Blattes „Plan“ ---------------------
    * Zeile 1 Funktion, 2 Menge, 3 Schl.Nr (ab Spalte H); Zeile 4 Kopf der
    * Zylindertabelle; ab Zeile 5 die Zylinder. Genau das Layout der Vorlage. */
-  var SPALTEN_MAX = 96;      /* H bis CX */
+  var SPALTEN_MAX = 95;      /* H bis CX */
   function spaltenName(n) { var s = ''; while (n > 0) { var r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); } return s; }
   function mehrzeilig() { return Array.prototype.slice.call(arguments).filter(function (x) { return x !== undefined && x !== null && String(x).trim() !== ''; }).join('\n'); }
 
@@ -4437,8 +4595,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     var spalten = plan.spalten.slice(0, SPALTEN_MAX);
     var warnungen = plan.hinweise.slice();
     if (plan.spalten.length > SPALTEN_MAX) warnungen.push('Das Formular fasst ' + SPALTEN_MAX + ' Schlüsselspalten; ' + (plan.spalten.length - SPALTEN_MAX) + ' weitere wurden nicht übernommen.');
-    if (plan.zeilen.length > 500) warnungen.push('Das Formular fasst 500 Zylinderzeilen; ' + (plan.zeilen.length - 500) + ' weitere wurden nicht übernommen.');
-    var systemName = K && K.systemLabel ? (K.systemLabel(p.systemMechanik) || p.systemMechanik || '') : (p.systemMechanik || '');
+    var systemName = p.systemMechanik ? ((K && K.systemLabel && K.systemLabel(p.systemMechanik)) || p.systemMechanik) : '';
     var besteller = mehrzeilig(einstellungen.firma, einstellungen.firmaZusatz, einstellungen.strasse, [einstellungen.plz, einstellungen.ort].filter(Boolean).join(' '));
     var besitzer = mehrzeilig(p.kunde, p.ansprechpartner, p.strasse, [p.plz, p.ort].filter(Boolean).join(' '));
     var datum = p.aufmassDatum ? String(p.aufmassDatum).split('-').reverse().join('.') : '';
@@ -4448,7 +4605,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     z.D2 = { v: 'Anlage: ', s: 'fett' }; z.F2 = { v: String(p.anlagenNr || '') }; z.G2 = { v: 'Menge', s: 'fett' };
     z.B3 = { v: 'Besitzer', s: 'fett' }; z.C3 = { v: besitzer, s: 'umbruch' };
     z.D3 = { v: 'System:\nOberfläche:\nDatum:\nObjekt:', s: 'umbruch' };
-    z.F3 = { v: mehrzeilig(systemName, p.oberflaeche, datum, p.objekt), s: 'umbruch' };
+    z.F3 = { v: [systemName, p.oberflaeche, datum, p.objekt].map(function (x) { return x === null || x === undefined ? '' : String(x); }).join('\n'), s: 'umbruch' };
     z.G3 = { v: 'Schl.Nr', s: 'fett' };
     ['ZP', 'Tür.Nr.', 'Raumbezeichnung', 'Stk.', 'ESL', 'Type (Produktcode)', 'Zyl.Nr.'].forEach(function (k, i) {
       z[spaltenName(i + 1) + '4'] = { v: k, s: 'kopf' };
@@ -4459,29 +4616,43 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       if (sp.menge > 0) z[c + '2'] = { v: sp.menge };
       z[c + '3'] = { v: String(sp.schlNr || '').slice(0, 10) };
     });
-    plan.zeilen.slice(0, 500).forEach(function (zeile, i) {
+    var ohneZylinder = plan.zeilen.filter(function (zeile) { return zeile.tuer.brauchtZylinder === false; });
+    if (ohneZylinder.length) warnungen.push(ohneZylinder.length + (ohneZylinder.length === 1 ? ' Tür ohne Zylinderbedarf wurde' : ' Türen ohne Zylinderbedarf wurden') + ' nicht als Bestellzeile übernommen (' + ohneZylinder.slice(0, 5).map(function (zeile) { return zeile.tuer.nummer || zeile.tuer.bezeichnung; }).join(', ') + (ohneZylinder.length > 5 ? ', …' : '') + ').');
+    var zeilen = plan.zeilen.filter(function (zeile) { return zeile.tuer.brauchtZylinder !== false; });
+    var gekuerzt = [];
+    function kuerzen(text, max, was, tuer) { text = String(text || ''); if (text.length <= max) return text; gekuerzt.push(was + ' „' + text + '“ (' + (tuer.nummer || tuer.bezeichnung) + ')'); return text.slice(0, max); }
+    function zylKuerzen(zylNr, tuer) {
+      zylNr = String(zylNr || ''); if (zylNr.length <= 10) return zylNr;
+      var m = /^(.*?)(\.\d+)$/.exec(zylNr);
+      var kurz = m ? m[1].slice(0, Math.max(1, 10 - m[2].length)) + m[2] : zylNr.slice(0, 10);
+      gekuerzt.push('Zyl.Nr. „' + zylNr + '“ → „' + kurz + '“ (' + (tuer.nummer || tuer.bezeichnung) + ')');
+      return kurz;
+    }
+    zeilen.slice(0, 500).forEach(function (zeile, i) {
       var r = 5 + i;
       z['A' + r] = { v: i + 1 };
-      z['B' + r] = { v: String(zeile.tuer.nummer || '').slice(0, 10) };
-      z['C' + r] = { v: String(zeile.tuer.bezeichnung || '').slice(0, 20) };
+      z['B' + r] = { v: kuerzen(zeile.tuer.nummer, 10, 'Tür.Nr.', zeile.tuer) };
+      z['C' + r] = { v: kuerzen(zeile.tuer.bezeichnung, 20, 'Raumbezeichnung', zeile.tuer) };
       z['D' + r] = { v: zeile.stk };
       if (zeile.esl !== null && zeile.esl !== undefined) z['E' + r] = { v: zeile.esl };
       if (zeile.produktcode) z['F' + r] = { v: zeile.produktcode };
-      z['G' + r] = { v: String(zeile.zylNr || '').slice(0, 10) };
+      z['G' + r] = { v: zylKuerzen(zeile.zylNr, zeile.tuer) };
       spalten.forEach(function (sp, j) {
         var zeichen = zeile.zellen[sp.id];
         if (zeichen) z[spaltenName(8 + j) + r] = { v: zeichen, s: 'mitte' };
       });
     });
-    for (var leer = plan.zeilen.length; leer < 500; leer++) z['A' + (5 + leer)] = { v: leer + 1 };
-    return { zellen: z, warnungen: warnungen, anzahlSpalten: spalten.length, anzahlZeilen: plan.zeilen.length, plan: plan };
+    for (var leer = zeilen.length; leer < 500; leer++) z['A' + (5 + leer)] = { v: leer + 1 };
+    if (zeilen.length > 500) warnungen.push('Das Formular fasst 500 Zylinderzeilen; ' + (zeilen.length - 500) + ' weitere wurden nicht übernommen.');
+    if (gekuerzt.length) warnungen.push('Auf die Längen des Formulars gekürzt: ' + gekuerzt.slice(0, 6).join('; ') + (gekuerzt.length > 6 ? '; …' : '') + '.');
+    return { zellen: z, warnungen: warnungen, anzahlSpalten: spalten.length, anzahlZeilen: Math.min(zeilen.length, 500), plan: plan };
   }
 
   /* Vollständige Arbeitsmappe im EVVA-Layout (für xlsx.js) */
   function evvaMappe(p, einstellungen, art) {
     var blatt = evvaBlatt(p, einstellungen, art);
     var breiten = { A: 3.5, B: 8.1, C: 18.7, D: 4.0, E: 6.7, F: 16.7, G: 8.9, CY: 11.6 };
-    for (var i = 8; i <= 8 + SPALTEN_MAX - 1; i++) breiten[spaltenName(i)] = 2.1;
+    for (var i = 8; i < 8 + SPALTEN_MAX; i++) breiten[spaltenName(i)] = 2.1;
     var vorlagen = {
       A1: { v: 'Mustereinträge', s: 'fett' }, B1: { v: 'System\nDatum\nObjekt', s: 'fettUmbruch' }, C1: { v: 'Anlage', s: 'fett' }, D1: { v: 'Besteller', s: 'fett' }, E1: { v: 'Besitzer', s: 'fett' },
       B2: { v: '4KS\nNI\n1.2.2017\nHauptbahnhof', s: 'muster' }, C2: { v: '171MU', s: 'muster' }, D2: { v: 'Firma MusterMax\nMax Mustermann\n3100 St.Pölten', s: 'muster' }, E2: { v: 'Wohnhaus\nEVVA GmbH\n1120 Wien\nWienerbergstraße 59-65', s: 'muster' },
@@ -4499,7 +4670,8 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
             { bereich: 'D5:D504', typ: 'whole', op: 'greaterThanOrEqual', f1: '0', fehler: 'Bestellmenge für Zylinder angeben!' },
             { bereich: 'E5:E504', typ: 'whole', op: 'greaterThanOrEqual', f1: '0', hinweis: 'Wenn "0" Stück ESL bestellt werden, wird die Sperrfunktion für den Eigenschlüssel im Zylinder vorgesehen.\n\nWenn dieses Feld leer gelassen wird gibt es für diesen Zylinder keinen Eigenschlüssel. Nur Zahlenwerte erlaubt!' },
             { bereich: 'B5:B504', typ: 'textLength', op: 'lessThanOrEqual', f1: 'maxTNr', fehler: 'Hier sind nur 10 Zeichen möglich' },
-            { bereich: 'C5:C504', typ: 'textLength', op: 'lessThanOrEqual', f1: 'maxRaum', fehler: 'Hier sind nur 20 Zeichen möglich!' }
+            { bereich: 'C5:C504', typ: 'textLength', op: 'lessThanOrEqual', f1: 'maxRaum', fehler: 'Hier sind nur 20 Zeichen möglich!' },
+            { bereich: 'G5:G504', typ: 'textLength', op: 'lessThanOrEqual', f1: 'maxZylNr', fehler: 'Maximal 10 Zeichen!' }
           ] },
         { name: 'Vorlagen', zellen: vorlagen, breiten: { A: 3.3, B: 69.3, D: 34.5, E: 34.4, F: 11.4 }, hoehen: { 1: 39.6, 2: 52.8, 6: 37.5, 7: 37.5, 10: 22.5 },
           verbund: ['A1:A2', 'A6:A7', 'A10:A11'], versteckt: true }
@@ -4624,6 +4796,8 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
       .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
   }
+  /* In Attributen würde ein Zeilenumbruch zum Leerzeichen normalisiert */
+  function xa(text) { return x(text).replace(/\n/g, '&#10;').replace(/\r/g, ''); }
   var FORMATE = ['standard', 'fett', 'kopf', 'umbruch', 'fettUmbruch', 'mitte', 'muster'];
   function formatIndex(name) { var i = FORMATE.indexOf(name || 'standard'); return i < 0 ? 0 : i; }
   function spaltenIndex(ref) {
@@ -4690,7 +4864,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       aus.push('<dataValidations count="' + blatt.validierungen.length + '">');
       blatt.validierungen.forEach(function (v) {
         aus.push('<dataValidation type="' + x(v.typ) + '"' + (v.op ? ' operator="' + x(v.op) + '"' : '') + ' allowBlank="1" showInputMessage="1" showErrorMessage="1"' +
-          (v.hinweis ? ' prompt="' + x(v.hinweis) + '"' : '') + (v.fehler ? ' error="' + x(v.fehler) + '"' : '') + ' sqref="' + x(v.bereich) + '">' +
+          (v.hinweis ? ' prompt="' + xa(v.hinweis) + '"' : '') + (v.fehler ? ' error="' + xa(v.fehler) + '"' : '') + ' sqref="' + x(v.bereich) + '">' +
           (v.f1 !== undefined ? '<formula1>' + x(v.f1) + '</formula1>' : '') + (v.f2 !== undefined ? '<formula2>' + x(v.f2) + '</formula2>' : '') + '</dataValidation>');
       });
       aus.push('</dataValidations>');
@@ -6395,7 +6569,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       doc.text('Für den Europlan wird mindestens eine Tür benötigt.', doc.rand.links, doc.y, { size: 10, color: FARBE.grau });
       return doc;
     }
-    var systemName = K.systemLabel ? (K.systemLabel(projekt.systemMechanik) || projekt.systemMechanik || '') : '';
+    var systemName = projekt.systemMechanik ? ((K.systemLabel && K.systemLabel(projekt.systemMechanik)) || projekt.systemMechanik) : '';
     var kopfText = ['Anlage: ' + (projekt.anlagenNr || '–'), 'System: ' + (systemName || '–'), 'Oberfläche: ' + (projekt.oberflaeche || '–'),
                     'Datum: ' + (projekt.aufmassDatum ? datumDe(projekt.aufmassDatum) : '–'), 'Objekt: ' + (projekt.objekt || '–')].join('    ');
     doc.text(kopfText, doc.rand.links, doc.y, { size: 7.5, color: FARBE.grau });
@@ -6867,6 +7041,11 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
   function oeffnen() {
     return new Promise(function (resolve) {
       if (db) return resolve(db);
+      /* Einmal Rückfall, immer Rückfall - und zwar sofort: Sonst öffnete jeder
+         weitere Aufruf die Datenbank erneut, und gelänge das nun, käme nie
+         eine Antwort (siehe onsuccess). Beim Start laufen zwei Aufrufe
+         parallel; der zweite hing dann für immer. */
+      if (nutztFallback) return resolve(null);
       if (!global.indexedDB) { nutztFallback = true; return resolve(null); }
       var anfrage;
       try { anfrage = global.indexedDB.open(DB_NAME, DB_VERSION); }
@@ -6890,8 +7069,14 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
            Speicher und verschwänden aus der Liste, sobald die Datenbank
            doch noch antwortet. Die Entscheidung wird nie nachträglich
            gekippt. */
-        if (nutztFallback) { try { e.target.result.close(); } catch (e2) {} return; }
-        db = e.target.result; resolve(db);
+        if (nutztFallback) { try { e.target.result.close(); } catch (e2) {} return resolve(null); }
+        db = e.target.result;
+        /* Schließt der Browser die Verbindung (Hintergrund, Speicherdruck) oder
+           will ein anderer Tab eine neuere Fassung, wird beim nächsten Zugriff
+           neu geöffnet, statt dauerhaft „connection is closing“ zu werfen. */
+        db.onclose = function () { db = null; };
+        db.onversionchange = function () { try { db.close(); } catch (e3) {} db = null; };
+        resolve(db);
       };
       anfrage.onerror = function () {
         /* Bei privatem Modus in Safari kann IndexedDB blockiert sein. */
@@ -7102,7 +7287,8 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
   function einstellungenSpeichern(werte) {
     return oeffnen().then(function (d) {
       if (!d) {
-        global.localStorage.setItem(LS_PRAEFIX + 'einstellungen', JSON.stringify(werte));
+        try { global.localStorage.setItem(LS_PRAEFIX + 'einstellungen', JSON.stringify(werte)); }
+        catch (e) { return Promise.reject(new Error('Die Einstellungen ließen sich nicht ablegen (Speicher voll oder gesperrt).')); }
         return werte;
       }
       return alsPromise(tx(STORE_META, 'readwrite').put({ schluessel: 'einstellungen', wert: werte }))
@@ -7922,7 +8108,9 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       throw fehler;
     }
     var rechte = optionen.serverGeprueft ? { m: 1, g: 1, s: 1 } : freigabe.rechte;
-    var maske = freigabe ? freigabe.maske : null;
+    /* Hat der Server die Antwort schon gegen seine Freigabe geprüft, gilt
+       dessen Maske - nicht eine zufällig passende, womöglich engere lokale. */
+    var maske = optionen.serverGeprueft ? null : (freigabe ? freigabe.maske : null);
 
     function tuerVon(id) { return projekt.tueren.filter(function (t) { return t.id === id; })[0]; }
     function spalteVon(id) { return projekt.schliessungen.filter(function (s) { return s.id === id; })[0]; }
@@ -7941,7 +8129,10 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       if (!tuer || !sch) { e.uebersprungen++; return; }
       var vorher = M.getBerechtigung(projekt, tuerId, schliessungId);
       if (vorher === wert) return;
-      M.setBerechtigung(projekt, tuerId, schliessungId, wert);
+      /* Gleichschließende Türen tragen dasselbe Kreuz - sonst setzte die nächste
+         Angleichung die Kundenänderung am Mitläufer still zurück */
+      if (M.berechtigungSetzenVerbund) M.berechtigungSetzenVerbund(projekt, tuerId, schliessungId, wert);
+      else M.setBerechtigung(projekt, tuerId, schliessungId, wert);
       e.uebernommen++;
       e.aenderungen.push({ tuer: tuer.nummer || tuer.bezeichnung, schliessung: sch.kuerzel || sch.bezeichnung,
                            vorher: vorher, nachher: wert });
@@ -9393,7 +9584,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
      Anmeldeseite und in der Abgleich-Übersicht, damit man auf jedem Gerät
      in einer Sekunde sieht, welcher Stand dort läuft. Muss mit FASSUNG in
      sw.js übereinstimmen - der Prüflauf achtet darauf. */
-  var FASSUNG = '1.5.0';
+  var FASSUNG = '1.5.1';
 
   /* =========================================================================
    * DOM-Hilfsmittel
@@ -9591,11 +9782,15 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       statusAnzeigen('gesichert');
       /* Die Meldung an den Abgleich geschieht in Store.projektSpeichern -
          dort laufen alle Speicherwege zusammen. */
+      return true;
     }).catch(function (e) {
       Zustand.speichertGerade = false;
       nochmalSpeichern = false;
       statusAnzeigen('fehler');
       toast(e.message || 'Speichern fehlgeschlagen.', 'fehler');
+      /* Kein Wurf nach außen (viele Aufrufer warten nicht), aber ein klares
+         „nicht gelungen“ - wer schließen oder neu laden will, muss es prüfen. */
+      return false;
     });
     return laufendeSpeicherung;
   }
@@ -9872,7 +10067,14 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
   function projektSchliessen() {
     if (!Zustand.projekt) return Promise.resolve();
     var offen = Zustand.ungesichert;
-    return (offen ? speichern() : Promise.resolve()).then(function () {
+    return (offen ? speichern() : Promise.resolve(true)).then(function (gelungen) {
+      if (gelungen === false) {
+        /* Nicht gespeichert, also nicht schließen: Sonst wären alle Eingaben seit
+           dem letzten gelungenen Speichern weg, und die Oberfläche sagte „geschlossen“. */
+        var f = new Error('Das Aufmaß konnte nicht gespeichert werden und bleibt geöffnet. Bitte Speicherplatz prüfen oder das Projekt exportieren.');
+        f.nichtGespeichert = true;
+        throw f;
+      }
       Zustand.projekt = null;
       Zustand.ungesichert = false;
       Zustand.bereichId = null;
@@ -10007,7 +10209,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
                 var klon = Store.projektKlonen(p);
                 Store.projektSpeichern(klon).then(function () {
                   A.toast('Projekt kopiert.', 'ok'); neuLaden();
-                });
+                }).catch(function (f) { A.toast('Kopieren fehlgeschlagen: ' + ((f && f.message) || 'Speicher nicht erreichbar.'), 'fehler'); });
               } }),
             el('button', { class: 'klein gefahr', text: 'Löschen',
               onclick: function () {
@@ -10026,7 +10228,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
                         try { global.Abgleich.projektGeloescht(p.id); } catch (e2) {}
                       }
                       A.toast('Projekt gelöscht.'); neuLaden();
-                    });
+                    }).catch(function (f) { A.toast('Löschen fehlgeschlagen: ' + ((f && f.message) || 'Speicher nicht erreichbar.'), 'fehler'); });
                   });
               } })
           ])
@@ -10468,7 +10670,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
                 A.projektOeffnenIntern(projekt, 'tueren');
                 A.toast('Projekt importiert: ' + projekt.tueren.length + ' Türen.', 'ok');
                 dlg.schliessen(); neuLaden();
-              });
+              }).catch(function (f) { A.toast('Import fehlgeschlagen: ' + ((f && f.message) || 'Speicher nicht erreichbar.'), 'fehler'); });
             };
             /* Dasselbe Aufmaß liegt schon hier: nur die Gliederung aus der
                Datei ergänzen (Standorte, Gebäude, Bereiche, die hier fehlen -
@@ -10543,7 +10745,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
           'Deal-Nr. ' + p.pipedrive.dealId +
           (p.pipedrive.dealTitel ? ('  ·  ' + p.pipedrive.dealTitel) : '') +
           (p.pipedrive.orgId ? ('  ·  Organisation ' + p.pipedrive.orgId) : '') }),
-        p.pipedrive.dealLink ? el('div', { style: { marginTop: '8px' } },
+        /^https:\/\/[a-z0-9.-]+\.pipedrive\.com\//i.test(p.pipedrive.dealLink || '') ? el('div', { style: { marginTop: '8px' } },
           el('a', { class: 'knopf klein', href: p.pipedrive.dealLink, target: '_blank',
                     rel: 'noopener noreferrer', text: 'Deal in Pipedrive öffnen ↗' })) : null
       ])));
@@ -11109,8 +11311,9 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
   }
 
   /* Auswahlliste aller Strukturknoten mit eingerücktem Pfad */
-  function strukturOptionen() {
-    var p = Zustand.projekt, out = [];
+  function strukturOptionen(projekt) {
+    var p = projekt || Zustand.projekt, out = [];
+    if (!p) return out;   /* Aufmaß inzwischen geschlossen: keine Bereiche, kein Absturz */
     function lauf(parentId, tiefe) {
       if (tiefe > 8) return;
       M.kinderVon(p, parentId).forEach(function (k) {
@@ -12137,7 +12340,13 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       /* Immer in das Projekt schreiben, das JETZT geöffnet ist - nicht in
        * die beim Öffnen gefangene Fassung (die kann ein „Zurück“ oder der
        * Abgleich inzwischen ersetzt haben). */
-      var ziel = Zustand.projekt && Zustand.projekt.id === p.id ? Zustand.projekt : p;
+      if (!Zustand.projekt || Zustand.projekt.id !== p.id) {
+        /* Das Aufmaß ist inzwischen geschlossen oder gewechselt: In eine gefangene
+           Kopie zu schreiben, ginge still verloren. Lieber sagen, was los ist. */
+        A.toast('Das Aufmaß ist inzwischen geschlossen. Bitte erneut öffnen und die Tür dann speichern.', 'fehler');
+        return false;
+      }
+      var ziel = Zustand.projekt;
       if (istNeu) {
         ziel.tueren.push(t);
       } else {
@@ -13118,7 +13327,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     var kandidaten = p.tueren.filter(function (x) { return eigene.indexOf(x.id) === -1 && !M.istMitlaeufer(p, x); });
     var moeglichkeiten = [{ wert: '', text: 'Eigene Schließung (Zyl.Nr. ' + (t.nummer || '?') + ')', untertitel: t.gleichschliessendMit ? 'Verbindung lösen' : 'wie bisher', aktiv: !t.gleichschliessendMit }];
     kandidaten.forEach(function (k) {
-      moeglichkeiten.push({ wert: k.id, text: 'Gleichschließend mit ' + (k.nummer || '?') + ' ' + (k.bezeichnung || ''), untertitel: 'Zyl.Nr. wird ' + (k.nummer || '?') + '.' + (M.schliessungsTueren(p, k).length), aktiv: basis.id === k.id && basis.id !== t.id });
+      moeglichkeiten.push({ wert: k.id, text: 'Gleichschließend mit ' + (k.nummer || '?') + ' ' + (k.bezeichnung || ''), untertitel: 'Zyl.Nr. wird ' + M.zylinderNummerVorschau(p, t, k.id), aktiv: basis.id === k.id && basis.id !== t.id });
     });
     if (!kandidaten.length && !t.gleichschliessendMit) { A.toast('Es gibt keine andere Tür, mit der diese gleichschließend sein könnte.'); return; }
     wahlDialog('Zylindernummer ' + (t.nummer || ''), 'Gleichschließende Türen haben denselben Schlüssel: Ihre Berechtigungen werden automatisch gleich gehalten, die Zyl.Nr. bekommt .1, .2 …', moeglichkeiten, function (wahl) {
@@ -14650,8 +14859,8 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     seite.appendChild(el('p', { class: 'hinweis', text: 'Diese Angaben gelten geräteweit für alle Projekte.' }));
 
     function merken() {
-      Store.einstellungenSpeichern(e);
-      A.statusAnzeigen('gesichert');
+      Store.einstellungenSpeichern(e).then(function () { A.statusAnzeigen('gesichert'); })
+        .catch(function (f) { A.toast((f && f.message) || 'Die Einstellungen ließen sich nicht ablegen.', 'fehler'); });
     }
     function textE(schluessel, beschriftung, platzhalter) {
       var eingabe = el('input', {
@@ -15401,6 +15610,9 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
         zeichnen();
         A.toast(warOffen ? ('Gespeichert und geschlossen: ' + name)
                          : ('Geschlossen: ' + name));
+      }).catch(function (f) {
+        A.toast((f && f.message) || 'Das Aufmaß konnte nicht geschlossen werden.', 'fehler');
+        zeichnen();
       });
       return;
     }

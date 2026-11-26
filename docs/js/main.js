@@ -259,6 +259,9 @@
         zeichnen();
         A.toast(warOffen ? ('Gespeichert und geschlossen: ' + name)
                          : ('Geschlossen: ' + name));
+      }).catch(function (f) {
+        A.toast((f && f.message) || 'Das Aufmaß konnte nicht geschlossen werden.', 'fehler');
+        zeichnen();
       });
       return;
     }

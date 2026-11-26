@@ -112,6 +112,10 @@ const werte = l => (l || []).map(x => (x && typeof x === 'object') ? (x.id !== u
     const liste = await ruf('/schluessel', { kopf: chef });
     p(liste.status === 200 && liste.d.schluessel.length === 4, 'die Liste zeigt die vier Schlüssel', liste.text);
     p(!JSON.stringify(liste.d).includes(schreib.slice(22)) && !/pruefwert|geheim/.test(liste.text), 'die Liste verrät kein Geheimnis');
+    const gebilde = await ruf('/schluessel', { methode: 'POST', kopf: chef, json: { name: { a: 1 }, rechte: ['schreiben'], tage: [5] } });
+    p(gebilde.status === 200 && gebilde.d.eintrag.rechte === 'lesen' && gebilde.d.eintrag.name === 'Zugangsschlüssel', 'Gebilde statt Text in name/rechte/tage: Vorgaben, keine PHP-Warnung', gebilde.text);
+    await ruf('/schluessel/' + gebilde.d.eintrag.id, { methode: 'DELETE', kopf: chef });
+    p((await ruf('/schluessel/' + gebilde.d.eintrag.id.toUpperCase(), { methode: 'DELETE', kopf: chef })).status === 404, 'Kennung in Großbuchstaben: 404 (nur Kleinschreibung ist eine Kennung)');
     p((await ruf('/schluessel', { methode: 'POST', json: {} })).status === 400, 'ohne das Kopffeld des Werkzeugs: 400');
     p((await ruf('/schluessel', { methode: 'POST', kopf: { 'X-Aufmass-Abgleich': '1' }, json: {} })).status === 401, 'ohne Anmeldung kein Schlüssel (401)');
     p((await ruf('/schluessel', { methode: 'POST', kopf: Object.assign({ 'X-Aufmass-Abgleich': '1' }, bearer(schreib)), json: {} })).status === 403, 'ein Schlüssel kann keine Schlüssel erzeugen (403)');

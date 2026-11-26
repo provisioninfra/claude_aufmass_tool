@@ -231,7 +231,7 @@
   function wertText(w) {
     var K = global.Katalog;
     var zeichen = K && K.berechtigungZeichen ? K.berechtigungZeichen(w) : '';
-    var namen = { nein: 'keine Berechtigung', ja: 'berechtigt', zeit: 'zeitlich begrenzt', temp: 'vorübergehend', sperr: 'gesperrt' };
+    var namen = { nein: 'keine Berechtigung', ja: 'berechtigt', zeit: 'zeitlich begrenzt', temp: 'vorübergehend', sperr: 'gesperrt', plan: 'vorgeplant (Reserve)' };
     return (zeichen ? zeichen + '  ' : '') + (namen[w] || w || '–');
   }
 
@@ -460,6 +460,8 @@
             Abgleich.konfliktAufloesen(satz.projektId, wahl).then(function () {
               A.toast('Zusammengeführt.', 'ok');
               if (neuZeichnen) { neuZeichnen(); }
+            }).catch(function (f) {
+              A.toast('Zusammenführen fehlgeschlagen: ' + ((f && f.message) || 'unbekannter Fehler') + '. Die Rückfrage bleibt bestehen.', 'fehler');
             });
           } }
       ]

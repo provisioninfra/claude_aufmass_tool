@@ -85,7 +85,7 @@
                 var klon = Store.projektKlonen(p);
                 Store.projektSpeichern(klon).then(function () {
                   A.toast('Projekt kopiert.', 'ok'); neuLaden();
-                });
+                }).catch(function (f) { A.toast('Kopieren fehlgeschlagen: ' + ((f && f.message) || 'Speicher nicht erreichbar.'), 'fehler'); });
               } }),
             el('button', { class: 'klein gefahr', text: 'Löschen',
               onclick: function () {
@@ -104,7 +104,7 @@
                         try { global.Abgleich.projektGeloescht(p.id); } catch (e2) {}
                       }
                       A.toast('Projekt gelöscht.'); neuLaden();
-                    });
+                    }).catch(function (f) { A.toast('Löschen fehlgeschlagen: ' + ((f && f.message) || 'Speicher nicht erreichbar.'), 'fehler'); });
                   });
               } })
           ])
@@ -546,7 +546,7 @@
                 A.projektOeffnenIntern(projekt, 'tueren');
                 A.toast('Projekt importiert: ' + projekt.tueren.length + ' Türen.', 'ok');
                 dlg.schliessen(); neuLaden();
-              });
+              }).catch(function (f) { A.toast('Import fehlgeschlagen: ' + ((f && f.message) || 'Speicher nicht erreichbar.'), 'fehler'); });
             };
             /* Dasselbe Aufmaß liegt schon hier: nur die Gliederung aus der
                Datei ergänzen (Standorte, Gebäude, Bereiche, die hier fehlen -
@@ -621,7 +621,7 @@
           'Deal-Nr. ' + p.pipedrive.dealId +
           (p.pipedrive.dealTitel ? ('  ·  ' + p.pipedrive.dealTitel) : '') +
           (p.pipedrive.orgId ? ('  ·  Organisation ' + p.pipedrive.orgId) : '') }),
-        p.pipedrive.dealLink ? el('div', { style: { marginTop: '8px' } },
+        /^https:\/\/[a-z0-9.-]+\.pipedrive\.com\//i.test(p.pipedrive.dealLink || '') ? el('div', { style: { marginTop: '8px' } },
           el('a', { class: 'knopf klein', href: p.pipedrive.dealLink, target: '_blank',
                     rel: 'noopener noreferrer', text: 'Deal in Pipedrive öffnen ↗' })) : null
       ])));

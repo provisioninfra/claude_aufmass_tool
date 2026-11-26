@@ -218,7 +218,11 @@ class Aufmass_Datenbank {
         $genau = $zeit + $bruch - self::SPANNE;
         if ($genau < 0) { return '1970-01-01 00:00:00.000000'; }
         $sekunden = (int) floor($genau);
-        return gmdate('Y-m-d H:i:s', $sekunden)
-            . '.' . str_pad((string) (int) round(($genau - $sekunden) * 1000000), 6, '0', STR_PAD_LEFT);
+        /* Abschneiden statt runden - wie in uhr(): 0,9999996 s gerundet gäbe
+           „.1000000“, eine siebenstellige, ungültige Zeitangabe. */
+        $mikro = (int) (($genau - $sekunden) * 1000000);
+        if ($mikro > 999999) { $mikro = 999999; }
+        if ($mikro < 0) { $mikro = 0; }
+        return gmdate('Y-m-d H:i:s', $sekunden) . '.' . sprintf('%06d', $mikro);
     }
 }

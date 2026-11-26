@@ -479,5 +479,42 @@ $m = Aufmass_Datenbank::marke(); $j = Aufmass_Datenbank::jetzt();
 pruefe(abs(strtotime(substr($m, 0, 19)) - strtotime(substr($j, 0, 19))) <= 1, 'marke() und jetzt() zeigen dieselbe Uhr');
 pruefe(preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}$/', $j) === 1, 'jetzt() hat immer sechs Nachkommastellen', $j);
 
+echo "\n== Marke vom Gerät: Bruchteil läuft nie auf sieben Stellen über ==\n";
+$z = Aufmass_Datenbank::marke_zu_zeit('2026-03-01T10:00:09.9999996Z');
+pruefe(preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}$/', $z) === 1, 'sechs Nachkommastellen, auch bei 0,9999996', $z);
+pruefe($z === '2026-03-01 10:00:07.999999', 'Spanne abgezogen, Bruchteil abgeschnitten', $z);
+pruefe(Aufmass_Datenbank::marke_zu_zeit('2026-03-01T10:00:09Z') === '2026-03-01 10:00:07.000000', 'ohne Bruchteil: .000000');
+pruefe(Aufmass_Datenbank::marke_zu_zeit('Unsinn') === '1970-01-01 00:00:00.000000', 'Unlesbares ergibt den Anfang der Zeit');
+
+echo "\n== Zwei Geräte legen gleichzeitig dasselbe Aufmaß an ==\n";
+/* Das zweite Gerät hat beim Lesen noch keine Zeile gesehen, sein Einfügen
+   scheitert aber am Schlüssel: Das muss ein Konflikt mit Serverstand sein,
+   kein stilles „gespeichert“ mit fremden Daten. */
+class WPDB_Blind extends WPDB_Attrappe {
+    public $blind = '';
+    public function get_row($sql, $art = ARRAY_A) {
+        if ($this->blind !== '' && strpos($sql, "id = '" . $this->blind . "'") !== false) { $this->blind = ''; return null; }
+        return parent::get_row($sql, $art);
+    }
+}
+$wpdbAlt = $GLOBALS['wpdb'];
+$GLOBALS['wpdb'] = new WPDB_Blind();
+$geraetA = test_benutzer('u-ga', 'Gerät A');
+$geraetB = test_benutzer('u-gb', 'Gerät B');
+$erst = Aufmass_Projekte::speichern('prj-race', mappe(array('id' => 'prj-race', 'kunde' => 'Erstes Gerät')), 0, $geraetA);
+pruefe(!is_wp_error($erst) && (int) $erst['version'] === 1, 'das erste Gerät legt an', fehlertext($erst));
+$GLOBALS['wpdb']->blind = 'prj-race';
+$zweit = Aufmass_Projekte::speichern('prj-race', mappe(array('id' => 'prj-race', 'kunde' => 'Zweites Gerät')), 0, $geraetB);
+$zweitDaten = is_wp_error($zweit) ? $zweit->get_error_data() : array();
+pruefe(is_wp_error($zweit) && isset($zweitDaten['status']) && $zweitDaten['status'] === 409, 'das zweite bekommt einen Konflikt (409), kein „gespeichert“', fehlertext($zweit));
+$server = is_wp_error($zweit) ? $zweit->get_error_data() : array();
+pruefe(isset($server['server']['daten']['kunde']) && $server['server']['daten']['kunde'] === 'Erstes Gerät' && (int) $server['server']['version'] === 1,
+    'mit dem Serverstand des ersten Geräts zum Zusammenführen', json_encode(isset($server['server']) ? array($server['server']['version'], $server['server']['daten']['kunde']) : $server));
+$nachher = Aufmass_Projekte::laden('prj-race');
+pruefe($nachher['daten']['kunde'] === 'Erstes Gerät' && (int) $nachher['version'] === 1, 'der Serverstand ist unverändert');
+$zust = Aufmass_Projekte::zustaendige_von('prj-race');
+pruefe(count($zust) === 1 && $zust[0]['id'] === 'u-ga', 'zuständig ist nur, wer wirklich angelegt hat', json_encode($zust));
+$GLOBALS['wpdb'] = $wpdbAlt;
+
 echo "\nErgebnis Server: $ok ok, $fehler Fehler\n";
 exit($fehler ? 1 : 0);

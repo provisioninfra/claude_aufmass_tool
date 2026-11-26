@@ -290,7 +290,7 @@ class Aufmass_Rest {
         if ($projekt === '') {
             return new WP_Error('projekt_fehlt', 'Für welches Aufmaß?', array('status' => 400));
         }
-        return self::antwort(array('freigaben' => Aufmass_Freigaben::liste($projekt)));
+        return self::antwort(array('freigaben' => Aufmass_Freigaben::liste($projekt, Aufmass_Anmeldung::aktueller_benutzer())));
     }
 
     public static function freigabe_anlegen($anfrage) {

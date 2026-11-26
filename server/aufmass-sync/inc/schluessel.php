@@ -43,11 +43,12 @@ class Aufmass_Schluessel {
         if (!$benutzer || empty($benutzer['id'])) {
             return new WP_Error('nicht_angemeldet', 'Nicht angemeldet.', array('status' => 401));
         }
+        if (!is_scalar($name)) { $name = ''; }        /* ein Feld, kein Gebilde */
         $name = trim(preg_replace('/\s+/', ' ', preg_replace('/[\x00-\x1F\x7F]/', '', (string) $name)));
         if ($name === '') { $name = 'Zugangsschlüssel'; }
         $name = function_exists('mb_substr') ? mb_substr($name, 0, self::NAME_MAX) : substr($name, 0, self::NAME_MAX);
-        $rechte = in_array((string) $rechte, self::RECHTE, true) ? (string) $rechte : 'lesen';
-        $tage = (int) $tage;
+        $rechte = (is_scalar($rechte) && in_array((string) $rechte, self::RECHTE, true)) ? (string) $rechte : 'lesen';
+        $tage = is_scalar($tage) ? (int) $tage : 0;
         if ($tage <= 0) { $tage = self::TAGE_VORGABE; }
         if ($tage > self::TAGE_MAX) { $tage = self::TAGE_MAX; }
 

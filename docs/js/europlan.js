@@ -42,7 +42,7 @@
     M.spaltenAngleichen(p);
     var spalten = M.spaltenSortiert(p);
     var tueren = (p.tueren || []).filter(Boolean);
-    var basisVon = {}, basen = [], basisIds = {};
+    var basisVon = Object.create(null), basen = [], basisIds = Object.create(null);
     tueren.forEach(function (t) {
       var b = M.basisTuer(p, t) || t;
       basisVon[t.id] = b;
@@ -51,11 +51,11 @@
     function wert(b, s) { return M.getBerechtigung(p, b.id, s.id); }
 
     var gruppenSpalten = spalten.filter(istGruppe);
-    var inhaber = {};        /* basisId -> [{ m, spalte, gruppen }] - faltbare Inhaber (I in der Gruppenspalte) */
-    var eigentuemer = {};    /* basisId -> [{ m, spalte, gruppen }] - alle Mitarbeiter, deren Spalte genau diese Schließung sperrt */
-    var heimVon = {};        /* Spaltenkennung eines Mitarbeiters -> seine Schließung (Haupttür) */
-    var gefaltet = {};       /* Spaltenkennung -> true, wenn die Spalte im Europlan nicht erscheint */
-    var ezJeBasis = {};      /* basisId -> [EZ-Schließungen] */
+    var inhaber = Object.create(null);        /* basisId -> [{ m, spalte, gruppen }] - faltbare Inhaber (I in der Gruppenspalte) */
+    var eigentuemer = Object.create(null);    /* basisId -> [{ m, spalte, gruppen }] - alle Mitarbeiter, deren Spalte genau diese Schließung sperrt */
+    var heimVon = Object.create(null);        /* Spaltenkennung eines Mitarbeiters -> seine Schließung (Haupttür) */
+    var gefaltet = Object.create(null);       /* Spaltenkennung -> true, wenn die Spalte im Europlan nicht erscheint */
+    var ezJeBasis = Object.create(null);      /* basisId -> [EZ-Schließungen] */
     var hinweise = [];
 
     spalten.forEach(function (s) {
@@ -65,6 +65,13 @@
         var berechtigt = basen.filter(function (b) { return M.istBerechtigt(wert(b, s)); });
         var sonst = basen.filter(function (b) { var w = wert(b, s); return w === 'plan' || w === 'sperr'; });
         var gruppen = gruppenSpalten.filter(function (g) { return (m.gruppen || []).indexOf(g.gruppeId) !== -1; });
+        if (!berechtigt.length && !sonst.length) {
+          hinweise.push('Die Spalte „' + (m.name || s.kuerzel) + '“ hat keine einzige Berechtigung - sie steht leer im Plan.');
+        } else if (berechtigt.length === 1 && sonst.length) {
+          hinweise.push('„' + (m.name || s.kuerzel) + '“ hat neben seiner Tür noch vorgeplante oder gesperrte Felder - sein Schlüssel steht als eigene Spalte im Plan.');
+        } else if (berechtigt.length > 1 && gruppen.length) {
+          hinweise.push('„' + (m.name || s.kuerzel) + '“ sperrt mehr als eine Schließung - sein Schlüssel steht als eigene Spalte im Plan, nicht als I in der Gruppe.');
+        }
         if (berechtigt.length === 1 && !sonst.length) {
           var b = berechtigt[0];
           heimVon[s.id] = b;
@@ -102,7 +109,9 @@
   /* Menge einer Gruppenspalte: die Medien der Mitglieder ohne eigene Spalte -
    * sie bekommen reine Gruppenschlüssel (sperren nur Z und M der Gruppe). */
   function gruppenMenge(p, g) {
-    return M.gruppenMitglieder(p, g.gruppeId).filter(function (m) { return !eigeneSpalte(p, m); })
+    var mitglieder = M.gruppenMitglieder(p, g.gruppeId);
+    if (!mitglieder.length) return M.medienBereinigen(g.medien).reduce(function (sum, x) { return sum + x.anzahl; }, 0);
+    return mitglieder.filter(function (m) { return !eigeneSpalte(p, m); })
       .reduce(function (sum, m) { return sum + M.mitarbeiterMedienAnzahl(m); }, 0);
   }
 
@@ -133,7 +142,7 @@
         var basis = a.basisVon[t.id] || t;
         var mitlaeufer = basis.id !== t.id;
         var inh = a.inhaber[basis.id] || [];
-        var zellen = {};
+        var zellen = Object.create(null);
         spalten.forEach(function (sp) {
           var w = M.getBerechtigung(p, t.id, sp.id), z = '';
           if (sp.art === 'gruppe') {
@@ -165,7 +174,10 @@
     var a = analyse(p);
     var spalten = [];
     a.spalten.forEach(function (s) {
-      if (s.art === 'schliessung' && !a.gefaltet[s.id]) {
+      var direkt = (s.art === 'schliessung' && !a.gefaltet[s.id])
+        || (s.art === 'gruppe' && !M.gruppenMitglieder(p, s.gruppeId).length)          /* Gruppe ohne Mitglieder: ein Gruppenschlüssel */
+        || (s.art === 'mitarbeiter' && !M.mitarbeiterVon(p, s.mitarbeiterId));          /* Mitarbeiter gelöscht, Spalte bewusst behalten */
+      if (direkt) {
         spalten.push({ id: s.id, spalte: s, art: 'schluessel', schlNr: s.kuerzel || '', funktion: s.bezeichnung || '',
                        menge: M.medienAnzahl(p, s), zelle: function (t) { return M.getBerechtigung(p, t.id, s.id); } });
       }
@@ -196,7 +208,7 @@
     M.tuerenGruppiert(p).forEach(function (g) {
       g.tueren.forEach(function (t) {
         var basis = a.basisVon[t.id] || t, mitlaeufer = basis.id !== t.id;
-        var zellen = {};
+        var zellen = Object.create(null);
         spalten.forEach(function (sp) {
           var w = sp.zelle(t);
           zellen[sp.id] = M.istBerechtigt(w) ? 'X' : (w === 'plan' ? 'O' : '');
@@ -248,12 +260,12 @@
     if (zeichen === 'O') { M.berechtigungSetzenVerbund(p, t.id, s.id, 'plan'); return { ok: true }; }
     if (zeichen === 'I') {
       if (basis.id !== t.id) return { ok: false, text: 'Der Eigenschlüssel wird an der Haupttür ' + (basis.nummer || '') + ' geführt.' };
+      if (!inh.length && !optionen.inhaber) return { ok: false, braucht: 'inhaber' };
       M.berechtigungSetzenVerbund(p, t.id, s.id, 'nein');
       if (inh.length) {
         inh.forEach(function (i) { if ((i.m.gruppen || []).indexOf(s.gruppeId) === -1) i.m.gruppen.push(s.gruppeId); });
         return { ok: true };
       }
-      if (!optionen.inhaber) return { ok: false, braucht: 'inhaber' };
       inhaberAnlegen(p, t, s.gruppeId, optionen.inhaber);
       return { ok: true };
     }
@@ -279,7 +291,7 @@
     });
     p.mitarbeiter.push(m);
     var s = M.spalteFuer(p, 'mitarbeiter', m.id);
-    s.kuerzel = String(basis.nummer || '').trim() || s.kuerzel;
+    s.kuerzel = M.kuerzelEindeutig(p, String(basis.nummer || '').trim() || s.kuerzel, s.id);
     M.berechtigungSetzenVerbund(p, basis.id, s.id, 'ja');
     return m;
   }
@@ -295,7 +307,11 @@
     var a = analyse(p);
     var inh = a.eigentuemer[basis.id] || [], ez = a.ezJeBasis[basis.id] || [];
     var n = anzahl === null || anzahl === undefined || anzahl === '' ? null : parseInt(anzahl, 10);
-    if (n !== null && (!isFinite(n) || n < 0)) n = 0;
+    if (n !== null && !isFinite(n)) return { ok: false, text: 'Die Stückzahl muss eine Zahl sein.' };
+    if (n !== null) n = Math.max(0, Math.min(999, n));
+    if (inh.length + ez.length > 1 && !optionen.mitarbeiterId) {
+      return { ok: false, text: 'Mehrere Schlüsselquellen an dieser Tür (' + inh.map(function (i) { return i.m.name; }).concat(ez.map(function (s) { return s.kuerzel; })).join(', ') + ') - bitte die Stückzahl beim jeweiligen Mitarbeiter oder bei der Schließung ändern.' };
+    }
     var typ = String(optionen.typ || (ez[0] && ez[0].medien[0] && ez[0].medien[0].typ) || '');
     basis.eigenschluesselVorgeplant = false;
     if (inh.length) {
@@ -303,7 +319,10 @@
       if (n === null) { return { ok: false, text: 'Der Eigenschlüssel gehört ' + ziel.m.name + ' - Inhaber in der Mitarbeiterliste entfernen.' }; }
       if (n === 0) { return { ok: false, text: 'Mit Inhaber ist mindestens ein Schlüssel nötig.' }; }
       var da = M.medienBereinigen(ziel.m.medien);
-      ziel.m.medien = [{ typ: da[0] ? da[0].typ : typ, anzahl: n }];
+      /* Weitere Medienarten bleiben erhalten; der erste Eintrag trägt den Rest */
+      var andere = da.slice(1), summeAndere = andere.reduce(function (sum, x) { return sum + x.anzahl; }, 0);
+      while (andere.length && summeAndere >= n) { var weg = andere.pop(); summeAndere -= weg.anzahl; }
+      ziel.m.medien = [{ typ: da[0] ? da[0].typ : typ, anzahl: Math.max(1, n - summeAndere) }].concat(andere);
       return { ok: true };
     }
     if (n === null || n === 0) {
@@ -341,7 +360,7 @@
   /* --- EVVA-Bestellformular: Zellen des Blattes „Plan“ ---------------------
    * Zeile 1 Funktion, 2 Menge, 3 Schl.Nr (ab Spalte H); Zeile 4 Kopf der
    * Zylindertabelle; ab Zeile 5 die Zylinder. Genau das Layout der Vorlage. */
-  var SPALTEN_MAX = 96;      /* H bis CX */
+  var SPALTEN_MAX = 95;      /* H bis CX */
   function spaltenName(n) { var s = ''; while (n > 0) { var r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); } return s; }
   function mehrzeilig() { return Array.prototype.slice.call(arguments).filter(function (x) { return x !== undefined && x !== null && String(x).trim() !== ''; }).join('\n'); }
 
@@ -351,8 +370,7 @@
     var spalten = plan.spalten.slice(0, SPALTEN_MAX);
     var warnungen = plan.hinweise.slice();
     if (plan.spalten.length > SPALTEN_MAX) warnungen.push('Das Formular fasst ' + SPALTEN_MAX + ' Schlüsselspalten; ' + (plan.spalten.length - SPALTEN_MAX) + ' weitere wurden nicht übernommen.');
-    if (plan.zeilen.length > 500) warnungen.push('Das Formular fasst 500 Zylinderzeilen; ' + (plan.zeilen.length - 500) + ' weitere wurden nicht übernommen.');
-    var systemName = K && K.systemLabel ? (K.systemLabel(p.systemMechanik) || p.systemMechanik || '') : (p.systemMechanik || '');
+    var systemName = p.systemMechanik ? ((K && K.systemLabel && K.systemLabel(p.systemMechanik)) || p.systemMechanik) : '';
     var besteller = mehrzeilig(einstellungen.firma, einstellungen.firmaZusatz, einstellungen.strasse, [einstellungen.plz, einstellungen.ort].filter(Boolean).join(' '));
     var besitzer = mehrzeilig(p.kunde, p.ansprechpartner, p.strasse, [p.plz, p.ort].filter(Boolean).join(' '));
     var datum = p.aufmassDatum ? String(p.aufmassDatum).split('-').reverse().join('.') : '';
@@ -362,7 +380,7 @@
     z.D2 = { v: 'Anlage: ', s: 'fett' }; z.F2 = { v: String(p.anlagenNr || '') }; z.G2 = { v: 'Menge', s: 'fett' };
     z.B3 = { v: 'Besitzer', s: 'fett' }; z.C3 = { v: besitzer, s: 'umbruch' };
     z.D3 = { v: 'System:\nOberfläche:\nDatum:\nObjekt:', s: 'umbruch' };
-    z.F3 = { v: mehrzeilig(systemName, p.oberflaeche, datum, p.objekt), s: 'umbruch' };
+    z.F3 = { v: [systemName, p.oberflaeche, datum, p.objekt].map(function (x) { return x === null || x === undefined ? '' : String(x); }).join('\n'), s: 'umbruch' };
     z.G3 = { v: 'Schl.Nr', s: 'fett' };
     ['ZP', 'Tür.Nr.', 'Raumbezeichnung', 'Stk.', 'ESL', 'Type (Produktcode)', 'Zyl.Nr.'].forEach(function (k, i) {
       z[spaltenName(i + 1) + '4'] = { v: k, s: 'kopf' };
@@ -373,29 +391,43 @@
       if (sp.menge > 0) z[c + '2'] = { v: sp.menge };
       z[c + '3'] = { v: String(sp.schlNr || '').slice(0, 10) };
     });
-    plan.zeilen.slice(0, 500).forEach(function (zeile, i) {
+    var ohneZylinder = plan.zeilen.filter(function (zeile) { return zeile.tuer.brauchtZylinder === false; });
+    if (ohneZylinder.length) warnungen.push(ohneZylinder.length + (ohneZylinder.length === 1 ? ' Tür ohne Zylinderbedarf wurde' : ' Türen ohne Zylinderbedarf wurden') + ' nicht als Bestellzeile übernommen (' + ohneZylinder.slice(0, 5).map(function (zeile) { return zeile.tuer.nummer || zeile.tuer.bezeichnung; }).join(', ') + (ohneZylinder.length > 5 ? ', …' : '') + ').');
+    var zeilen = plan.zeilen.filter(function (zeile) { return zeile.tuer.brauchtZylinder !== false; });
+    var gekuerzt = [];
+    function kuerzen(text, max, was, tuer) { text = String(text || ''); if (text.length <= max) return text; gekuerzt.push(was + ' „' + text + '“ (' + (tuer.nummer || tuer.bezeichnung) + ')'); return text.slice(0, max); }
+    function zylKuerzen(zylNr, tuer) {
+      zylNr = String(zylNr || ''); if (zylNr.length <= 10) return zylNr;
+      var m = /^(.*?)(\.\d+)$/.exec(zylNr);
+      var kurz = m ? m[1].slice(0, Math.max(1, 10 - m[2].length)) + m[2] : zylNr.slice(0, 10);
+      gekuerzt.push('Zyl.Nr. „' + zylNr + '“ → „' + kurz + '“ (' + (tuer.nummer || tuer.bezeichnung) + ')');
+      return kurz;
+    }
+    zeilen.slice(0, 500).forEach(function (zeile, i) {
       var r = 5 + i;
       z['A' + r] = { v: i + 1 };
-      z['B' + r] = { v: String(zeile.tuer.nummer || '').slice(0, 10) };
-      z['C' + r] = { v: String(zeile.tuer.bezeichnung || '').slice(0, 20) };
+      z['B' + r] = { v: kuerzen(zeile.tuer.nummer, 10, 'Tür.Nr.', zeile.tuer) };
+      z['C' + r] = { v: kuerzen(zeile.tuer.bezeichnung, 20, 'Raumbezeichnung', zeile.tuer) };
       z['D' + r] = { v: zeile.stk };
       if (zeile.esl !== null && zeile.esl !== undefined) z['E' + r] = { v: zeile.esl };
       if (zeile.produktcode) z['F' + r] = { v: zeile.produktcode };
-      z['G' + r] = { v: String(zeile.zylNr || '').slice(0, 10) };
+      z['G' + r] = { v: zylKuerzen(zeile.zylNr, zeile.tuer) };
       spalten.forEach(function (sp, j) {
         var zeichen = zeile.zellen[sp.id];
         if (zeichen) z[spaltenName(8 + j) + r] = { v: zeichen, s: 'mitte' };
       });
     });
-    for (var leer = plan.zeilen.length; leer < 500; leer++) z['A' + (5 + leer)] = { v: leer + 1 };
-    return { zellen: z, warnungen: warnungen, anzahlSpalten: spalten.length, anzahlZeilen: plan.zeilen.length, plan: plan };
+    for (var leer = zeilen.length; leer < 500; leer++) z['A' + (5 + leer)] = { v: leer + 1 };
+    if (zeilen.length > 500) warnungen.push('Das Formular fasst 500 Zylinderzeilen; ' + (zeilen.length - 500) + ' weitere wurden nicht übernommen.');
+    if (gekuerzt.length) warnungen.push('Auf die Längen des Formulars gekürzt: ' + gekuerzt.slice(0, 6).join('; ') + (gekuerzt.length > 6 ? '; …' : '') + '.');
+    return { zellen: z, warnungen: warnungen, anzahlSpalten: spalten.length, anzahlZeilen: Math.min(zeilen.length, 500), plan: plan };
   }
 
   /* Vollständige Arbeitsmappe im EVVA-Layout (für xlsx.js) */
   function evvaMappe(p, einstellungen, art) {
     var blatt = evvaBlatt(p, einstellungen, art);
     var breiten = { A: 3.5, B: 8.1, C: 18.7, D: 4.0, E: 6.7, F: 16.7, G: 8.9, CY: 11.6 };
-    for (var i = 8; i <= 8 + SPALTEN_MAX - 1; i++) breiten[spaltenName(i)] = 2.1;
+    for (var i = 8; i < 8 + SPALTEN_MAX; i++) breiten[spaltenName(i)] = 2.1;
     var vorlagen = {
       A1: { v: 'Mustereinträge', s: 'fett' }, B1: { v: 'System\nDatum\nObjekt', s: 'fettUmbruch' }, C1: { v: 'Anlage', s: 'fett' }, D1: { v: 'Besteller', s: 'fett' }, E1: { v: 'Besitzer', s: 'fett' },
       B2: { v: '4KS\nNI\n1.2.2017\nHauptbahnhof', s: 'muster' }, C2: { v: '171MU', s: 'muster' }, D2: { v: 'Firma MusterMax\nMax Mustermann\n3100 St.Pölten', s: 'muster' }, E2: { v: 'Wohnhaus\nEVVA GmbH\n1120 Wien\nWienerbergstraße 59-65', s: 'muster' },
@@ -413,7 +445,8 @@
             { bereich: 'D5:D504', typ: 'whole', op: 'greaterThanOrEqual', f1: '0', fehler: 'Bestellmenge für Zylinder angeben!' },
             { bereich: 'E5:E504', typ: 'whole', op: 'greaterThanOrEqual', f1: '0', hinweis: 'Wenn "0" Stück ESL bestellt werden, wird die Sperrfunktion für den Eigenschlüssel im Zylinder vorgesehen.\n\nWenn dieses Feld leer gelassen wird gibt es für diesen Zylinder keinen Eigenschlüssel. Nur Zahlenwerte erlaubt!' },
             { bereich: 'B5:B504', typ: 'textLength', op: 'lessThanOrEqual', f1: 'maxTNr', fehler: 'Hier sind nur 10 Zeichen möglich' },
-            { bereich: 'C5:C504', typ: 'textLength', op: 'lessThanOrEqual', f1: 'maxRaum', fehler: 'Hier sind nur 20 Zeichen möglich!' }
+            { bereich: 'C5:C504', typ: 'textLength', op: 'lessThanOrEqual', f1: 'maxRaum', fehler: 'Hier sind nur 20 Zeichen möglich!' },
+            { bereich: 'G5:G504', typ: 'textLength', op: 'lessThanOrEqual', f1: 'maxZylNr', fehler: 'Maximal 10 Zeichen!' }
           ] },
         { name: 'Vorlagen', zellen: vorlagen, breiten: { A: 3.3, B: 69.3, D: 34.5, E: 34.4, F: 11.4 }, hoehen: { 1: 39.6, 2: 52.8, 6: 37.5, 7: 37.5, 10: 22.5 },
           verbund: ['A1:A2', 'A6:A7', 'A10:A11'], versteckt: true }

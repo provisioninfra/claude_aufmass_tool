@@ -1485,8 +1485,8 @@
     seite.appendChild(el('p', { class: 'hinweis', text: 'Diese Angaben gelten geräteweit für alle Projekte.' }));
 
     function merken() {
-      Store.einstellungenSpeichern(e);
-      A.statusAnzeigen('gesichert');
+      Store.einstellungenSpeichern(e).then(function () { A.statusAnzeigen('gesichert'); })
+        .catch(function (f) { A.toast((f && f.message) || 'Die Einstellungen ließen sich nicht ablegen.', 'fehler'); });
     }
     function textE(schluessel, beschriftung, platzhalter) {
       var eingabe = el('input', {

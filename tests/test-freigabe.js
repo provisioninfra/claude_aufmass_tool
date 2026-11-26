@@ -31,6 +31,12 @@ function pruefe(b, t, i) { if (b) { ok++; console.log('  OK   ' + t); } else { f
   await page.evaluate(() => window.App.wechseln('plan'));
   await page.waitForSelector('table.matrix');
 
+  // Eine Vorgabe des Planers in einer später freigegebenen Spalte: Reserve (O)
+  await page.evaluate(() => {
+    const p = window.AppKern.Zustand.projekt;
+    window.Model.setBerechtigung(p, p.tueren[2].id, p.schliessungen[5].id, 'plan');
+  });
+
   // --- Freigabe erzeugen ---
   await page.click('button:has-text("Kundenfreigabe")');
   await page.waitForSelector('.dialog');
@@ -96,6 +102,23 @@ function pruefe(b, t, i) { if (b) { ok++; console.log('  OK   ' + t); } else { f
   await freie[2].click(); await kundeSeite.waitForTimeout(150);
   const zaehlerText = await kundeSeite.textContent('#fr-zaehler');
   pruefe(/Änderung/.test(zaehlerText), 'die Änderungen werden gezählt', zaehlerText.trim());
+
+  // --- Vorgabe „vorgeplant“ (O): sichtbar, erklärt, rückholbar ---
+  const legende = await kundeSeite.textContent('.matrix-legende');
+  const legendeZeichen = await kundeSeite.$$eval('.matrix-legende b', bs => bs.map(b => b.textContent));
+  pruefe(/vorgeplant/.test(legende) && legendeZeichen.indexOf('O') !== -1, 'die Legende erklärt das O (vorgeplant)', legendeZeichen.join(',') + ' | ' + legende.trim().slice(0, 80));
+  const reserveZellen = await kundeSeite.$$('td.zelle.frei.gesetzt-plan');
+  pruefe(reserveZellen.length === 1, 'die vorgeplante Zelle liegt in einer freigegebenen Spalte und zeigt O', String(reserveZellen.length));
+  if (reserveZellen.length === 1) {
+    const rz = reserveZellen[0];
+    const vorherZaehler = await kundeSeite.textContent('#fr-zaehler');
+    pruefe((await rz.textContent()) === 'O', 'sie zeigt O');
+    const folge = [];
+    for (let k = 0; k < 4; k++) { await rz.click(); await kundeSeite.waitForTimeout(80); folge.push(await rz.textContent()); }
+    pruefe(folge.join('|') === 'X|Z||O', 'Antippen läuft X, Z, leer und zurück zu O - die Vorgabe geht nicht verloren', folge.join('|'));
+    pruefe(!/geaendert/.test(await rz.getAttribute('class')), 'zurück auf O gilt die Zelle nicht als geändert');
+    pruefe((await kundeSeite.textContent('#fr-zaehler')) === vorherZaehler, 'und der Zähler steht wieder wie zuvor');
+  }
 
   // --- Mitarbeiter und Gruppen: der Kunde darf sie pflegen (Vorgabe des Links) ---
   pruefe(await kundeSeite.$('#fr-listen') !== null, 'unter der Matrix stehen Mitarbeiter und Gruppen');

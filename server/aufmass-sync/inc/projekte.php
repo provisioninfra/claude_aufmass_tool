@@ -124,7 +124,7 @@ class Aufmass_Projekte {
 
         /* --- Neu --- */
         if (!$vorhanden) {
-            $wpdb->insert($tab, array(
+            $eingefuegt = $wpdb->insert($tab, array(
                 'id' => $id,
                 'kunde' => self::kurz(isset($daten['kunde']) ? $daten['kunde'] : '', 255),
                 'objekt' => self::kurz(isset($daten['objekt']) ? $daten['objekt'] : '', 255),
@@ -137,6 +137,20 @@ class Aufmass_Projekte {
                 'geaendert_von' => $benutzer['id'],
                 'geloescht' => 0
             ));
+            if ($eingefuegt === false) {
+                /* Zwischen dem Lesen oben und dem Einfügen hier hat ein zweites
+                   Gerät dasselbe Aufmaß angelegt (gleiche Kennung): Dann ist das
+                   ein Konflikt wie beim Versionsabgleich - mit dem Serverstand,
+                   damit das Gerät zusammenführt statt seinen Stand für gesendet
+                   zu halten. Alles andere ist ein Datenbankfehler. */
+                $server = self::laden($id);
+                if ($server && !is_wp_error($server)) {
+                    return new WP_Error('konflikt',
+                        'Dieses Aufmaß wurde zwischenzeitlich von einer anderen Stelle angelegt.',
+                        array('status' => 409, 'server' => $server));
+                }
+                return new WP_Error('db_fehler', 'Das Aufmaß ließ sich nicht ablegen (Datenbankfehler).', array('status' => 500));
+            }
             /* Wer anlegt, ist zuständig. */
             self::zustaendig_hinzufuegen($id, $benutzer['id']);
             return self::laden($id);

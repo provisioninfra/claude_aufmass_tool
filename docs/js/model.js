@@ -647,9 +647,38 @@
     /* Gehört die Basis zur Schließung dieser Tür, entstünde ein Kreis */
     var eigene = schliessungsTueren(projekt, t);
     for (var i = 0; i < eigene.length; i++) { if (eigene[i].id === basis.id) return false; }
+    /* Was die angehängte Schließung bisher durfte, darf die gemeinsame
+       Schließung danach auch: Die Berechtigungen werden vereinigt, damit
+       kein Eigenschlüssel und keine Spalte still ihre Kreuze verliert. */
+    (projekt.schliessungen || []).forEach(function (s) {
+      var bei = getBerechtigung(projekt, t.id, s.id), dort = getBerechtigung(projekt, basis.id, s.id);
+      if (bei !== 'nein' && dort === 'nein') setBerechtigung(projekt, basis.id, s.id, bei);
+    });
     t.gleichschliessendMit = basis.id;
     gleichschliessungAngleichen(projekt);
     return true;
+  }
+  /* Welche Zylindernummer bekäme die Tür, hinge sie an dieser Basis? -
+     dieselbe Regel wie zylinderNummer (Reihenfolge der Türen im Aufmaß). */
+  function zylinderNummerVorschau(projekt, tuer, basisId) {
+    var basis = basisTuer(projekt, basisId);
+    if (!basis) return '';
+    var nummer = String(basis.nummer || '').trim() || '?';
+    var mitlaeufer = schliessungsTueren(projekt, basis).slice(1).filter(function (x) { return x.id !== tuer.id; });
+    var reihen = (projekt.tueren || []).filter(function (x) { return x.id === tuer.id || mitlaeufer.some(function (m) { return m.id === x.id; }); });
+    var index = 0;
+    for (var i = 0; i < reihen.length; i++) { if (reihen[i].id === tuer.id) { index = i + 1; break; } }
+    return nummer + '.' + (index || reihen.length);
+  }
+  /* Ein Kürzel, das es im Plan noch nicht gibt: sonst mit a, b, c … */
+  function kuerzelEindeutig(projekt, wunsch, ausnahmeId) {
+    var basis = String(wunsch || 'S').trim().slice(0, 12) || 'S';
+    var vergeben = {};
+    (projekt.schliessungen || []).forEach(function (s) { if (s && s.id !== ausnahmeId && s.kuerzel) vergeben[String(s.kuerzel).toLowerCase()] = true; });
+    if (!vergeben[basis.toLowerCase()]) return basis;
+    var zusatz = 'abcdefghijklmnopqrstuvwxyz';
+    for (var i = 0; i < zusatz.length; i++) { var k = basis + zusatz[i]; if (!vergeben[k.toLowerCase()]) return k; }
+    return basis + Math.floor(Math.random() * 9000 + 1000);
   }
   /* Verweise prüfen, Kreise lösen und die Kreuze jeder Schließung von der
    * Haupttür auf alle Mitläufer übertragen. */
@@ -715,9 +744,9 @@
 
   /* Entfernt Matrixeinträge, deren Tür oder Schließung gelöscht wurde. */
   function matrixAufraeumen(projekt) {
-    var tIds = {}, sIds = {}, i;
-    for (i = 0; i < projekt.tueren.length; i++) tIds[projekt.tueren[i].id] = true;
-    for (i = 0; i < projekt.schliessungen.length; i++) sIds[projekt.schliessungen[i].id] = true;
+    var tIds = Object.create(null), sIds = Object.create(null), i;
+    for (i = 0; i < projekt.tueren.length; i++) { if (projekt.tueren[i] && projekt.tueren[i].id) tIds[projekt.tueren[i].id] = true; }
+    for (i = 0; i < projekt.schliessungen.length; i++) { if (projekt.schliessungen[i] && projekt.schliessungen[i].id) sIds[projekt.schliessungen[i].id] = true; }
     var entfernt = 0;
     Object.keys(projekt.matrix).forEach(function (key) {
       var teile = key.split('|');
@@ -756,7 +785,7 @@
    * wäre unsichtbar, obwohl sie vollständig da ist. */
   function kinderVon(projekt, parentId) {
     var eltern = parentId || null;
-    return (projekt.standorte || []).filter(function (k) { return k && (k.parentId || null) === eltern; })
+    return ((projekt && projekt.standorte) || []).filter(function (k) { return k && (k.parentId || null) === eltern; })
       .sort(function (a, b) { return (a.sort - b.sort) || String(a.name || '').localeCompare(String(b.name || ''), 'de'); });
   }
 
@@ -808,7 +837,7 @@
    * Damit erscheint "Erdgeschoss" vor "1. Obergeschoss", sofern der Anwender
    * die Knoten in dieser Reihenfolge angelegt bzw. sortiert hat. */
   function strukturReihenfolge(projekt) {
-    var ordnung = {}, zaehler = 0;
+    var ordnung = Object.create(null), zaehler = 0;
     function lauf(parentId, tiefe) {
       if (tiefe > 10) return;
       kinderVon(projekt, parentId).forEach(function (k) {
@@ -925,7 +954,7 @@
 
   /* --- Türen gruppiert nach Struktur (für Listen & PDF) ------------------- */
   function tuerenGruppiert(projekt) {
-    var gruppen = [], index = {};
+    var gruppen = [], index = Object.create(null);
     var ordnung = strukturReihenfolge(projekt);
     projekt.tueren.forEach(function (t) {
       var key = t.strukturId || '__ohne__';
@@ -1308,7 +1337,7 @@
       positionen.sort(function (a, c) {
         var ga = GRUPPEN_REIHENFOLGE.indexOf(a.gruppe), gc = GRUPPEN_REIHENFOLGE.indexOf(c.gruppe);
         if (ga !== gc) return ga - gc;
-        return a.bezeichnung.localeCompare(c.bezeichnung, 'de') ||
+        return String(a.bezeichnung || '').localeCompare(String(c.bezeichnung || ''), 'de') ||
                String(a.mass).localeCompare(String(c.mass), 'de', { numeric: true });
       });
       return {
@@ -1873,6 +1902,7 @@
 
     var haeufigkeit = { mechanisch: {}, elektronisch: {} };
     projekt.tueren.forEach(function (t) {
+      if (!t || typeof t !== 'object') return;
       var sid = t.systemId;
       if (!sid) return;
       var typ = K.systemTechnologie(sid);
@@ -2092,6 +2122,79 @@
     return projekt;
   }
 
+  /* Werte eines Objekts an die Typen seiner Vorlage angleichen: Textfelder
+   * werden Text (Gebilde werden leer), Ja/Nein-Felder werden Ja/Nein, Zahlen
+   * bleiben Zahlen (sonst der Vorgabewert). So bringt keine Import-Datei und
+   * kein Abgleich Werte ins Aufmaß, mit denen Listen, Sortierungen oder PDFs
+   * nicht rechnen. */
+  var TEXT_MAX = 20000;
+  function typenAngleichen(ziel, vorlage, ausnahmen) {
+    Object.keys(vorlage).forEach(function (k) {
+      if (ausnahmen.indexOf(k) !== -1) return;
+      var soll = vorlage[k], ist = ziel[k];
+      if (typeof soll === 'string') {
+        if (typeof ist !== 'string') ziel[k] = (ist === null || ist === undefined || typeof ist === 'object' || typeof ist === 'function' || (typeof ist === 'number' && !isFinite(ist))) ? '' : String(ist);
+        if (ziel[k].length > TEXT_MAX) ziel[k] = ziel[k].slice(0, TEXT_MAX);
+      } else if (typeof soll === 'boolean') {
+        ziel[k] = ist === true || ist === 'true' || ist === 1;
+      } else if (typeof soll === 'number') {
+        var n = typeof ist === 'number' ? ist : parseFloat(ist);
+        ziel[k] = isFinite(n) ? n : soll;
+      }
+    });
+    return ziel;
+  }
+  /* Nur bekannte Berechtigungswerte bleiben in der Matrix; „nein“ ist kein Eintrag. */
+  function matrixWerteBereinigen(projekt) {
+    var K2 = kat();
+    var erlaubt = {};
+    ((K2 && K2.BERECHTIGUNG) || []).forEach(function (b) { if (b.id !== 'nein') erlaubt[b.id] = true; });
+    Object.keys(projekt.matrix).forEach(function (key) {
+      if (!erlaubt[projekt.matrix[key]]) delete projekt.matrix[key];
+    });
+    return projekt;
+  }
+
+  /* Kennungen sind Nachschlageschlüssel in Objekten. Eine Kennung, die wie
+   * ein Name des Objekt-Bauplans lautet („constructor“, „__proto__“ …), träfe
+   * dort auf eine Funktion statt auf nichts - Listen und Pläne brächen ab.
+   * Das Werkzeug erzeugt nie solche Kennungen; eine Import-Datei könnte sie
+   * mitbringen. Sie werden ersetzt, mitsamt allen Verweisen. */
+  var VERBOTENE_KENNUNG = Object.create(null);
+  Object.getOwnPropertyNames(Object.prototype).concat(['__proto__']).forEach(function (n) { VERBOTENE_KENNUNG[n] = true; });
+  function kennungSicher(id) {
+    return typeof id === 'string' && id.length > 0 && id.length <= 128 && !VERBOTENE_KENNUNG[id];
+  }
+  function kennungenBereinigen(out) {
+    var ersatz = Object.create(null), zahl = 0;
+    function pruefen(objekt, prefix) {
+      if (!objekt || typeof objekt !== 'object') return;
+      if (kennungSicher(objekt.id)) return;
+      var alt = typeof objekt.id === 'string' ? objekt.id : '';
+      objekt.id = uid(prefix);
+      if (alt) ersatz[alt] = objekt.id;
+      zahl++;
+    }
+    out.tueren.forEach(function (t) { pruefen(t, 'tur'); (t.fotos || []).forEach(function (f) { pruefen(f, 'foto'); }); });
+    out.schliessungen.forEach(function (s) { pruefen(s, 'sch'); });
+    out.mitarbeiter.forEach(function (m) { pruefen(m, 'ma'); });
+    out.gruppen.forEach(function (g) { pruefen(g, 'grp'); });
+    out.standorte.forEach(function (k) { pruefen(k, 'str'); });
+    if (!zahl) return out;
+    function neu(id) { return (typeof id === 'string' && ersatz[id]) ? ersatz[id] : id; }
+    out.tueren.forEach(function (t) { t.gleichschliessendMit = neu(t.gleichschliessendMit); t.strukturId = neu(t.strukturId); });
+    out.standorte.forEach(function (k) { k.parentId = neu(k.parentId); });
+    out.mitarbeiter.forEach(function (m) { m.gruppen = (m.gruppen || []).map(neu); });
+    out.schliessungen.forEach(function (s) { s.gruppeId = neu(s.gruppeId); s.mitarbeiterId = neu(s.mitarbeiterId); s.traeger = (s.traeger || []).map(neu); });
+    var matrix = {};
+    Object.keys(out.matrix).forEach(function (key) {
+      var teile = key.split('|');
+      matrix[neu(teile[0]) + '|' + neu(teile[1])] = out.matrix[key];
+    });
+    out.matrix = matrix;
+    return out;
+  }
+
   function migriere(projekt) {
     var vorlage = neuesProjekt();
     var out = {};
@@ -2099,8 +2202,10 @@
       out[k] = (projekt && projekt[k] !== undefined) ? projekt[k] : vorlage[k];
     });
     out.schemaVersion = SCHEMA_VERSION;
+    typenAngleichen(out, vorlage, ['id', 'schemaVersion', 'pipedrive', 'freigabenLokal', 'mitarbeiter', 'gruppen', 'freigabe', 'standorte', 'tueren', 'schliessungen', 'matrix']);
     out.standorte = Array.isArray(out.standorte) ? out.standorte : [];
     out.tueren = Array.isArray(out.tueren) ? out.tueren : [];
+    out.tueren = out.tueren.filter(function (t) { return t && typeof t === 'object' && !Array.isArray(t); });
     out.schliessungen = Array.isArray(out.schliessungen) ? out.schliessungen : [];
     out.freigabenLokal = Array.isArray(out.freigabenLokal) ? out.freigabenLokal : [];
     out.matrix = objektAusArray(out.matrix);
@@ -2116,10 +2221,24 @@
       Object.keys(tuerVorlage).forEach(function (k) {
         neu[k] = (t && t[k] !== undefined) ? t[k] : tuerVorlage[k];
       });
-      neu.id = t && t.id ? t.id : uid('tur');
+      neu.id = t && typeof t.id === 'string' && t.id ? t.id : uid('tur');
+      typenAngleichen(neu, tuerVorlage, ['id', 'strukturId', 'fotos', 'zylinderAusfuehrung', 'beschlagOptionen', 'komponenten']);
+      if (neu.strukturId !== null && typeof neu.strukturId !== 'string') neu.strukturId = null;
       ['zylinderAusfuehrung', 'beschlagOptionen', 'komponenten', 'fotos'].forEach(function (k) {
         if (!Array.isArray(neu[k])) neu[k] = [];
       });
+      ['zylinderAusfuehrung', 'beschlagOptionen'].forEach(function (k) {
+        neu[k] = neu[k].filter(function (x) { return typeof x === 'string'; }).map(function (x) { return x.slice(0, 200); });
+      });
+      neu.komponenten = neu.komponenten.filter(function (x) { return x && typeof x === 'object' && !Array.isArray(x); }).map(function (x) {
+        var k2 = {};
+        Object.keys(x).forEach(function (key) { if (!VERBOTENE_KENNUNG[key]) k2[key] = (typeof x[key] === 'string') ? x[key].slice(0, 500) : ((typeof x[key] === 'number' && isFinite(x[key])) || typeof x[key] === 'boolean' ? x[key] : ''); });
+        return k2;
+      });
+      if (typeof neu.gleichschliessendMit !== 'string') neu.gleichschliessendMit = '';
+      if (typeof neu.produktcode !== 'string') neu.produktcode = (typeof neu.produktcode === 'number' && isFinite(neu.produktcode)) ? String(neu.produktcode) : '';
+      if (neu.produktcode.length > 60) neu.produktcode = neu.produktcode.slice(0, 60);
+      neu.eigenschluesselVorgeplant = neu.eigenschluesselVorgeplant === true;
       /* Ein Foto ist ein Eintrag mit Kennung und Bilddaten als JPEG, PNG
          oder WebP - so legt das Werkzeug sie an. Alles andere (eine
          Import-Datei oder ein Abgleich können beliebiges mitbringen) wird
@@ -2150,18 +2269,19 @@
       Object.keys(schlVorlage).forEach(function (k) {
         neu[k] = (s && s[k] !== undefined) ? s[k] : schlVorlage[k];
       });
-      neu.id = s && s.id ? s.id : uid('sch');
+      neu.id = s && typeof s.id === 'string' && s.id ? s.id : uid('sch');
+      typenAngleichen(neu, schlVorlage, ['id', 'traeger', 'medien']);
       if (neu.art !== 'gruppe' && neu.art !== 'mitarbeiter') neu.art = 'schliessung';
       if (!Array.isArray(neu.traeger)) neu.traeger = [];
       neu.medien = medienBereinigen(neu.medien);
       return neu;
     });
     out.mitarbeiter = out.mitarbeiter.filter(function (m) { return m && typeof m === 'object'; })
-      .map(function (m) { var neu = neuerMitarbeiter(m); neu.id = m.id || neu.id; return neu; });
+      .map(function (m) { var neu = neuerMitarbeiter(m); neu.id = (typeof m.id === 'string' && m.id) ? m.id : neu.id; return neu; });
     out.gruppen = out.gruppen.filter(function (g) { return g && typeof g === 'object'; })
-      .map(function (g) { return neueGruppe({ id: g.id || uid('grp'), name: String(g.name || '') }); });
+      .map(function (g) { return neueGruppe({ id: (typeof g.id === 'string' && g.id) ? g.id : uid('grp'), name: String(g.name || '') }); });
     /* Verweise auf gelöschte Gruppen und Mitarbeiter aufräumen */
-    var gruppenIds = {}, maIds = {};
+    var gruppenIds = Object.create(null), maIds = Object.create(null);
     out.gruppen.forEach(function (g) { gruppenIds[g.id] = true; });
     out.mitarbeiter.forEach(function (m) { maIds[m.id] = true; });
     out.mitarbeiter.forEach(function (m) { m.gruppen = m.gruppen.filter(function (id) { return gruppenIds[id]; }); });
@@ -2170,6 +2290,20 @@
     /* Ein leeres Objekt kommt aus PHP als leere Liste zurück - das ist dann keine Freigabe und keine Anbindung. */
     if (Array.isArray(out.freigabe)) out.freigabe = out.freigabe.length ? out.freigabe[0] : null;
     if (Array.isArray(out.pipedrive)) out.pipedrive = null;
+    /* Die Pipedrive-Verknüpfung kommt aus dem Werkzeug - oder aus einer Import-Datei.
+       Nur Text und Zahlen, und der Link nur als https-Adresse eines Pipedrive-Rechners. */
+    if (out.pipedrive && typeof out.pipedrive === 'object') {
+      var pd = out.pipedrive, sauber = {};
+      ['dealId', 'orgId', 'personId', 'pipelineId'].forEach(function (k) {
+        var w = pd[k]; sauber[k] = (typeof w === 'number' && isFinite(w)) ? w : (typeof w === 'string' && /^[0-9]{1,12}$/.test(w) ? parseInt(w, 10) : null);
+      });
+      sauber.dealTitel = typeof pd.dealTitel === 'string' ? pd.dealTitel.slice(0, 300) : '';
+      sauber.host = (typeof pd.host === 'string' && /^[a-z0-9-]+(\.[a-z0-9-]+)*\.pipedrive\.com$/i.test(pd.host)) ? pd.host.toLowerCase() : '';
+      sauber.dealLink = (sauber.host && sauber.dealId) ? ('https://' + sauber.host + '/deal/' + sauber.dealId) : '';
+      sauber.uebernommen = typeof pd.uebernommen === 'string' ? pd.uebernommen.slice(0, 40) : '';
+      out.pipedrive = sauber.dealId ? sauber : null;
+    } else if (out.pipedrive) { out.pipedrive = null; }
+    if (typeof out.oberflaeche !== 'string') out.oberflaeche = String(out.oberflaeche || '');
     spaltenAngleichen(out);
 
     out.standorte = out.standorte.filter(function (k) { return k && k.id; }).map(function (k) {
@@ -2184,7 +2318,9 @@
     });
     gliederungEntwirren(out);
 
+    kennungenBereinigen(out);
     matrixAufraeumen(out);
+    matrixWerteBereinigen(out);
     gleichschliessungAngleichen(out);
     return out;
   }
@@ -2232,6 +2368,7 @@
     istTuerElektronisch: istTuerElektronisch,
     anlageVollstaendig: anlageVollstaendig,
     matrixKey: matrixKey,
+    kennungSicher: kennungSicher,
     objektAusArray: objektAusArray,
     getBerechtigung: getBerechtigung,
     setBerechtigung: setBerechtigung,
@@ -2242,6 +2379,8 @@
     istMitlaeufer: istMitlaeufer,
     zylinderNummer: zylinderNummer,
     gleichschliessendSetzen: gleichschliessendSetzen,
+    zylinderNummerVorschau: zylinderNummerVorschau,
+    kuerzelEindeutig: kuerzelEindeutig,
     gleichschliessungAngleichen: gleichschliessungAngleichen,
     berechtigungSetzenVerbund: berechtigungSetzenVerbund,
     istBerechtigt: istBerechtigt,

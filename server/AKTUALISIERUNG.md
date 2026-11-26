@@ -2,10 +2,39 @@
 
 Diese Anleitung gilt, wenn das Werkzeug **schon läuft**: Plugin
 „Aufmaß-Abgleich“ in WordPress, Ordner `aufmasstool` auf dem Webspace,
-Geräte angemeldet. Sie bringt beides auf den Stand **1.5.0** – Plugin
+Geräte angemeldet. Sie bringt beides auf den Stand **1.5.1** – Plugin
 und Werkzeug tragen dieselbe Fassungsnummer.
 
-**Was 1.5.0 bringt** (gegenüber 1.4.0) – Europlan und EVVA-Bestellformular
+**Was 1.5.1 bringt** (gegenüber 1.5.0) – Fehlerbereinigung nach einem
+vollständigen technischen Prüfdurchlauf, ohne neue Bedienung
+
+- **Abgleich zwischen Geräten:** Wird ein Aufmaß auf einem Gerät
+  gelöscht, während es auf einem anderen geöffnet ist, schließt es sich
+  dort mit Hinweis, statt beim nächsten Speichern als neues Aufmaß
+  wieder aufzutauchen. Fotos bleiben beim Übernehmen eines Serverstands
+  erhalten. Zwei Geräte mit demselben offenen Aufmaß schieben sich den
+  Stand nicht mehr endlos hin und her. Nach einem Fehler beim Abholen
+  bleibt kein Eintrag mehr aus; bei Rückfragen „gelöscht gegen
+  geändert“ gilt die getroffene Entscheidung wirklich.
+- **Speichern:** Schlägt das Ablegen auf dem Gerät fehl (Speicher voll,
+  gesperrt), bleibt das Aufmaß offen und meldet es, statt still zu
+  schließen oder neu zu laden. Kopieren, Löschen, Importieren und die
+  Einstellungen melden Fehlschläge.
+- **Kundenseite:** Der Wert „vorgeplant“ (O) wird angezeigt und erklärt;
+  ein Antippen läuft X, Z, leer und zurück zu O. Gleichschließende Türen
+  bleiben beim Übernehmen einer Kundenantwort gleich.
+- **Server-Plugin:** Was der Kunde geantwortet hat (Namen, Anmerkung,
+  Plan), sehen nur noch Zuständige und Verwaltung; andere sehen den
+  Stand der Freigabe. Legen zwei Geräte gleichzeitig dasselbe Aufmaß an,
+  bekommt das zweite einen Konflikt statt eines stillen Verlusts.
+- **Sicherheit:** Der Gerätespeicher der Anwendung nimmt keine HTML-
+  Seite (Wartung, Sperre) mehr als Skript an; Projektdaten aus Import
+  oder Abgleich werden strenger geprüft (Feldtypen, Kennungen, Werte,
+  Pipedrive-Verweise); Zugangsschlüssel-Namen werden geprüft. Die
+  Programmanbindung (MCP) legt Türen vollständig oder gar nicht an und
+  lehnt mehrdeutige Spaltenkürzel ab.
+
+**Was 1.5.0 brachte** (gegenüber 1.4.0) – Europlan und EVVA-Bestellformular
 
 - **Zweite Ansicht unter Schließplan:** Ein Umschalter wechselt zwischen
   *Kreuzschließplan* und *Europlan*, der Schreibweise der Hersteller.
@@ -209,7 +238,7 @@ Vorlage, Freigabe) – das erledigt WordPress beim ersten Aufruf von selbst
 4. Das Plugin bleibt dabei aktiv. Beim ersten Aufruf danach ergänzt es die
    Tabelle und übernimmt die Umschreibregel für den Kurzlink.
 
-**Prüfen:** *Plugins* öffnen – bei „Aufmaß-Abgleich“ muss **1.5.0**
+**Prüfen:** *Plugins* öffnen – bei „Aufmaß-Abgleich“ muss **1.5.1**
 stehen. In der Zugangsliste gibt es jetzt die Spalte **„Schlüssel“**. Unter *Einstellungen → Aufmaß-Abgleich* muss neben der
 Organisationsdomäne die neuen Zeilen **„Neue Zugänge“** und **„Herkunft
 der Aufrufe“** erscheinen, weiter unten der Abschnitt **„Tür einsprechen
@@ -280,7 +309,7 @@ vorbei – und meldet sich dann:
   starten**. Der speichert und schließt zuerst; es geht nichts verloren.
 
 Unter *Einstellungen → Über dieses Werkzeug* steht, welche Fassung auf
-dem Gerät läuft (jetzt **1.5.0**), und ein Knopf **Auf neue Fassung
+dem Gerät läuft (jetzt **1.5.1**), und ein Knopf **Auf neue Fassung
 prüfen** stößt die Prüfung sofort an. Ein Gerät, das gerade ohne Netz
 ist, arbeitet mit der alten Fassung weiter, bis es wieder online war –
 auch das ist in Ordnung, die Aufmaße gleichen sich wie gewohnt ab.
@@ -343,10 +372,10 @@ zu ändern: Das übernimmt die Umschreibregel des Plugins auf jeden Fall.
 
 1. `https://www.provision-infra.de/aufmasstool/` öffnen. Die Anmeldeseite
    mit dem Google-Knopf muss erscheinen; ganz unten steht die
-   Werkzeug-Fassung 1.5.0. Anmelden. Oben rechts steht danach
+   Werkzeug-Fassung 1.5.1. Anmelden. Oben rechts steht danach
    **„Abgeglichen“**, und unter *Einstellungen → Über dieses Werkzeug*
    stehen die Fassung des Werkzeugs und die des Server-Plugins (beide
-   1.5.0). Unter *Schließplan* steht oben rechts der Umschalter
+   1.5.1). Unter *Schließplan* steht oben rechts der Umschalter
    **Kreuzschließplan | Europlan**. Darüber steht die neue Karte **„Zugang für Programme und
    Claude Code“**; ein Probeschlüssel lässt sich dort erzeugen und gleich
    wieder widerrufen.

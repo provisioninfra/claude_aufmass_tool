@@ -7,6 +7,29 @@ const { starte, ersteProjektOeffnen } = require('./browser.js');
 let ok = 0, fehler = 0;
 function pruefe(b, t, i) { if (b) { ok++; console.log('  OK   ' + t); } else { fehler++; console.log('  FEHL ' + t + (i ? ' -> ' + i : '')); } }
 
+/* Der Service Worker legt nur ab, was wirklich die angeforderte Datei ist:
+ * Eine Wartungs- oder Sperrseite (HTML mit 200) darf nie als Skript in die
+ * Ablage - sonst startete das Werkzeug auch online nicht mehr. */
+console.log('\n== Ablage: Antwort muss zur Anfrage passen ==');
+{
+  const vm = require('vm');
+  const quelle = require('fs').readFileSync(path.join(__dirname, '..', 'src', 'sw.js'), 'utf8');
+  const kasten = { self: { addEventListener() {}, location: { origin: 'http://x' } }, caches: {}, console };
+  vm.createContext(kasten);
+  vm.runInContext(quelle + '\nthis.inhaltPasst = inhaltPasst;', kasten);
+  const antwort = typ => ({ headers: { get: () => typ } });
+  const anfrage = ziel => ({ destination: ziel });
+  pruefe(kasten.inhaltPasst(antwort('text/html; charset=utf-8'), anfrage('script')) === false, 'HTML für ein Skript wird nicht abgelegt');
+  pruefe(kasten.inhaltPasst(antwort('text/html'), anfrage('style')) === false, 'HTML für ein Stylesheet wird nicht abgelegt');
+  pruefe(kasten.inhaltPasst(antwort('text/html'), anfrage('image')) === false, 'HTML für ein Bild wird nicht abgelegt');
+  pruefe(kasten.inhaltPasst(antwort('text/html'), anfrage('')) === false, 'HTML für eine sonstige Anfrage wird nicht abgelegt');
+  pruefe(kasten.inhaltPasst(antwort('application/javascript'), anfrage('script')) === true, 'ein Skript als JavaScript wird abgelegt');
+  pruefe(kasten.inhaltPasst(antwort(''), anfrage('script')) === true, 'ohne Inhaltstyp (schlichter Server) wird abgelegt');
+  pruefe(kasten.inhaltPasst(antwort('text/html; charset=utf-8'), anfrage('document')) === true, 'HTML für ein Dokument wird abgelegt');
+  pruefe(kasten.inhaltPasst(antwort('application/json'), anfrage('document')) === false, 'JSON für ein Dokument wird nicht abgelegt');
+  pruefe(kasten.inhaltPasst(antwort('image/svg+xml'), anfrage('image')) === true, 'ein Bild als Bild wird abgelegt');
+}
+
 (async () => {
   const server = spawn('npx', ['http-server', path.join(__dirname, '..', 'src'), '-p', '8137', '-c-1', '--silent'],
     { stdio: 'ignore', detached: false });

@@ -438,7 +438,9 @@
       throw fehler;
     }
     var rechte = optionen.serverGeprueft ? { m: 1, g: 1, s: 1 } : freigabe.rechte;
-    var maske = freigabe ? freigabe.maske : null;
+    /* Hat der Server die Antwort schon gegen seine Freigabe geprüft, gilt
+       dessen Maske - nicht eine zufällig passende, womöglich engere lokale. */
+    var maske = optionen.serverGeprueft ? null : (freigabe ? freigabe.maske : null);
 
     function tuerVon(id) { return projekt.tueren.filter(function (t) { return t.id === id; })[0]; }
     function spalteVon(id) { return projekt.schliessungen.filter(function (s) { return s.id === id; })[0]; }
@@ -457,7 +459,10 @@
       if (!tuer || !sch) { e.uebersprungen++; return; }
       var vorher = M.getBerechtigung(projekt, tuerId, schliessungId);
       if (vorher === wert) return;
-      M.setBerechtigung(projekt, tuerId, schliessungId, wert);
+      /* Gleichschließende Türen tragen dasselbe Kreuz - sonst setzte die nächste
+         Angleichung die Kundenänderung am Mitläufer still zurück */
+      if (M.berechtigungSetzenVerbund) M.berechtigungSetzenVerbund(projekt, tuerId, schliessungId, wert);
+      else M.setBerechtigung(projekt, tuerId, schliessungId, wert);
       e.uebernommen++;
       e.aenderungen.push({ tuer: tuer.nummer || tuer.bezeichnung, schliessung: sch.kuerzel || sch.bezeichnung,
                            vorher: vorher, nachher: wert });

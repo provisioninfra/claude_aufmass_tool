@@ -81,6 +81,8 @@
     return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
       .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
   }
+  /* In Attributen würde ein Zeilenumbruch zum Leerzeichen normalisiert */
+  function xa(text) { return x(text).replace(/\n/g, '&#10;').replace(/\r/g, ''); }
   var FORMATE = ['standard', 'fett', 'kopf', 'umbruch', 'fettUmbruch', 'mitte', 'muster'];
   function formatIndex(name) { var i = FORMATE.indexOf(name || 'standard'); return i < 0 ? 0 : i; }
   function spaltenIndex(ref) {
@@ -147,7 +149,7 @@
       aus.push('<dataValidations count="' + blatt.validierungen.length + '">');
       blatt.validierungen.forEach(function (v) {
         aus.push('<dataValidation type="' + x(v.typ) + '"' + (v.op ? ' operator="' + x(v.op) + '"' : '') + ' allowBlank="1" showInputMessage="1" showErrorMessage="1"' +
-          (v.hinweis ? ' prompt="' + x(v.hinweis) + '"' : '') + (v.fehler ? ' error="' + x(v.fehler) + '"' : '') + ' sqref="' + x(v.bereich) + '">' +
+          (v.hinweis ? ' prompt="' + xa(v.hinweis) + '"' : '') + (v.fehler ? ' error="' + xa(v.fehler) + '"' : '') + ' sqref="' + x(v.bereich) + '">' +
           (v.f1 !== undefined ? '<formula1>' + x(v.f1) + '</formula1>' : '') + (v.f2 !== undefined ? '<formula2>' + x(v.f2) + '</formula2>' : '') + '</dataValidation>');
       });
       aus.push('</dataValidations>');

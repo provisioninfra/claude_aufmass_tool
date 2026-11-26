@@ -5,7 +5,7 @@
  * Die Fassung hier muss mit FASSUNG in js/app.js übereinstimmen (der
  * Prüflauf achtet darauf). Jede neue Fassung bekommt damit eine neue
  * Ablage, und alle Geräte holen beim nächsten Start den neuen Stand. */
-var FASSUNG = '1.5.0';
+var FASSUNG = '1.5.1';
 var CACHE = 'aufmass-tool-' + FASSUNG;
 var DATEIEN = [
   './', './index.html', './freigabe.html', './css/app.css', './manifest.webmanifest',
@@ -50,6 +50,19 @@ self.addEventListener('activate', function (e) {
   );
 });
 
+/* Passt die Antwort zu dem, was die Seite angefordert hat? Entscheidend ist
+ * der eine Fall, der das Werkzeug lahmlegt: Für ein Skript, ein Stylesheet
+ * oder ein Bild kommt eine HTML-Seite (Wartung, Sperre, Anmeldung) mit 200.
+ * Die darf nie in die Ablage. Umgekehrt muss ein Dokument HTML sein. Fehlt
+ * der Inhaltstyp (schlicht eingerichteter Server), gilt die Antwort als echt. */
+function inhaltPasst(antwort, anfrage) {
+  var typ = String(antwort.headers.get('content-type') || '').toLowerCase();
+  var ziel = anfrage.destination || '';
+  var html = typ.indexOf('text/html') === 0;
+  if (ziel === 'document' || ziel === 'iframe' || ziel === 'frame') { return typ === '' || html; }
+  return !html;
+}
+
 /* Zuerst der Zwischenspeicher (die Anwendung ändert sich selten),
  * im Hintergrund wird beim Server nachgefragt, ob es Neueres gibt. */
 self.addEventListener('fetch', function (e) {
@@ -67,7 +80,11 @@ self.addEventListener('fetch', function (e) {
          Unverändertes kostet so nur eine kurze Rückfrage, Geändertes
          kommt wirklich an. */
       var netz = fetch(new Request(url.href, { cache: 'no-cache', credentials: 'same-origin' })).then(function (antwort) {
-        if (antwort && antwort.status === 200) {
+        /* Nur ablegen, was wirklich die angeforderte Datei ist: Liefert der
+           Hoster für ein Skript eine Wartungs- oder Sperrseite mit 200, dürfte
+           die nie als Skript in der Ablage landen - das Werkzeug startete
+           sonst auch online nicht mehr, bis jemand die Website-Daten löscht. */
+        if (antwort && antwort.status === 200 && antwort.type === 'basic' && inhaltPasst(antwort, e.request)) {
           var kopie = antwort.clone();
           caches.open(CACHE).then(function (c) { c.put(e.request, kopie); });
         }

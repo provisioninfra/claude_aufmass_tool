@@ -10,7 +10,7 @@
      Anmeldeseite und in der Abgleich-Übersicht, damit man auf jedem Gerät
      in einer Sekunde sieht, welcher Stand dort läuft. Muss mit FASSUNG in
      sw.js übereinstimmen - der Prüflauf achtet darauf. */
-  var FASSUNG = '1.5.0';
+  var FASSUNG = '1.5.1';
 
   /* =========================================================================
    * DOM-Hilfsmittel
@@ -208,11 +208,15 @@
       statusAnzeigen('gesichert');
       /* Die Meldung an den Abgleich geschieht in Store.projektSpeichern -
          dort laufen alle Speicherwege zusammen. */
+      return true;
     }).catch(function (e) {
       Zustand.speichertGerade = false;
       nochmalSpeichern = false;
       statusAnzeigen('fehler');
       toast(e.message || 'Speichern fehlgeschlagen.', 'fehler');
+      /* Kein Wurf nach außen (viele Aufrufer warten nicht), aber ein klares
+         „nicht gelungen“ - wer schließen oder neu laden will, muss es prüfen. */
+      return false;
     });
     return laufendeSpeicherung;
   }
@@ -489,7 +493,14 @@
   function projektSchliessen() {
     if (!Zustand.projekt) return Promise.resolve();
     var offen = Zustand.ungesichert;
-    return (offen ? speichern() : Promise.resolve()).then(function () {
+    return (offen ? speichern() : Promise.resolve(true)).then(function (gelungen) {
+      if (gelungen === false) {
+        /* Nicht gespeichert, also nicht schließen: Sonst wären alle Eingaben seit
+           dem letzten gelungenen Speichern weg, und die Oberfläche sagte „geschlossen“. */
+        var f = new Error('Das Aufmaß konnte nicht gespeichert werden und bleibt geöffnet. Bitte Speicherplatz prüfen oder das Projekt exportieren.');
+        f.nichtGespeichert = true;
+        throw f;
+      }
       Zustand.projekt = null;
       Zustand.ungesichert = false;
       Zustand.bereichId = null;

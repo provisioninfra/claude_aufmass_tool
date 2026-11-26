@@ -306,7 +306,7 @@
     var kandidaten = p.tueren.filter(function (x) { return eigene.indexOf(x.id) === -1 && !M.istMitlaeufer(p, x); });
     var moeglichkeiten = [{ wert: '', text: 'Eigene Schließung (Zyl.Nr. ' + (t.nummer || '?') + ')', untertitel: t.gleichschliessendMit ? 'Verbindung lösen' : 'wie bisher', aktiv: !t.gleichschliessendMit }];
     kandidaten.forEach(function (k) {
-      moeglichkeiten.push({ wert: k.id, text: 'Gleichschließend mit ' + (k.nummer || '?') + ' ' + (k.bezeichnung || ''), untertitel: 'Zyl.Nr. wird ' + (k.nummer || '?') + '.' + (M.schliessungsTueren(p, k).length), aktiv: basis.id === k.id && basis.id !== t.id });
+      moeglichkeiten.push({ wert: k.id, text: 'Gleichschließend mit ' + (k.nummer || '?') + ' ' + (k.bezeichnung || ''), untertitel: 'Zyl.Nr. wird ' + M.zylinderNummerVorschau(p, t, k.id), aktiv: basis.id === k.id && basis.id !== t.id });
     });
     if (!kandidaten.length && !t.gleichschliessendMit) { A.toast('Es gibt keine andere Tür, mit der diese gleichschließend sein könnte.'); return; }
     wahlDialog('Zylindernummer ' + (t.nummer || ''), 'Gleichschließende Türen haben denselben Schlüssel: Ihre Berechtigungen werden automatisch gleich gehalten, die Zyl.Nr. bekommt .1, .2 …', moeglichkeiten, function (wahl) {

@@ -28,6 +28,11 @@
   function oeffnen() {
     return new Promise(function (resolve) {
       if (db) return resolve(db);
+      /* Einmal Rückfall, immer Rückfall - und zwar sofort: Sonst öffnete jeder
+         weitere Aufruf die Datenbank erneut, und gelänge das nun, käme nie
+         eine Antwort (siehe onsuccess). Beim Start laufen zwei Aufrufe
+         parallel; der zweite hing dann für immer. */
+      if (nutztFallback) return resolve(null);
       if (!global.indexedDB) { nutztFallback = true; return resolve(null); }
       var anfrage;
       try { anfrage = global.indexedDB.open(DB_NAME, DB_VERSION); }
@@ -51,8 +56,14 @@
            Speicher und verschwänden aus der Liste, sobald die Datenbank
            doch noch antwortet. Die Entscheidung wird nie nachträglich
            gekippt. */
-        if (nutztFallback) { try { e.target.result.close(); } catch (e2) {} return; }
-        db = e.target.result; resolve(db);
+        if (nutztFallback) { try { e.target.result.close(); } catch (e2) {} return resolve(null); }
+        db = e.target.result;
+        /* Schließt der Browser die Verbindung (Hintergrund, Speicherdruck) oder
+           will ein anderer Tab eine neuere Fassung, wird beim nächsten Zugriff
+           neu geöffnet, statt dauerhaft „connection is closing“ zu werfen. */
+        db.onclose = function () { db = null; };
+        db.onversionchange = function () { try { db.close(); } catch (e3) {} db = null; };
+        resolve(db);
       };
       anfrage.onerror = function () {
         /* Bei privatem Modus in Safari kann IndexedDB blockiert sein. */
@@ -263,7 +274,8 @@
   function einstellungenSpeichern(werte) {
     return oeffnen().then(function (d) {
       if (!d) {
-        global.localStorage.setItem(LS_PRAEFIX + 'einstellungen', JSON.stringify(werte));
+        try { global.localStorage.setItem(LS_PRAEFIX + 'einstellungen', JSON.stringify(werte)); }
+        catch (e) { return Promise.reject(new Error('Die Einstellungen ließen sich nicht ablegen (Speicher voll oder gesperrt).')); }
         return werte;
       }
       return alsPromise(tx(STORE_META, 'readwrite').put({ schluessel: 'einstellungen', wert: werte }))
