@@ -73,6 +73,26 @@ class Aufmass_Freigaben {
     /* ---------------------------------------------------------------- */
     /* Einstellungen                                                     */
     /* ---------------------------------------------------------------- */
+    /**
+     * Wann ein Link erlischt: nach den eingestellten Tagen - aber nie vor
+     * einer erbetenen Frist. Sonst stünde „Rückmeldung bis 30.09.“ im Link,
+     * und der Link wäre am 26.09. schon tot. Eine Woche Luft nach der Frist,
+     * höchstens aber so lange, wie Freigaben überhaupt aufbewahrt werden.
+     * Null heißt: kein Ablauf eingestellt.
+     */
+    private static function ablauf_berechnen($sauber) {
+        $tage = self::tage();
+        if ($tage <= 0) { return null; }
+        $bis = time() + $tage * 86400;
+        $frist = isset($sauber['frist']) ? (string) $sauber['frist'] : '';
+        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $frist, $f) && checkdate((int) $f[2], (int) $f[3], (int) $f[1])) {
+            $frist_bis = gmmktime(23, 59, 59, (int) $f[2], (int) $f[3], (int) $f[1]) + 7 * 86400;
+            $spaetestens = time() + self::AUFBEWAHRUNG_TAGE * 86400;
+            $bis = max($bis, min($frist_bis, $spaetestens));
+        }
+        return gmdate('Y-m-d H:i:s', $bis) . '.000000';
+    }
+
     public static function tage() {
         $t = get_option('aufmass_freigabe_tage', self::TAGE_VORGABE);
         if ($t === '' || $t === false || $t === null) { return self::TAGE_VORGABE; }
@@ -107,6 +127,7 @@ class Aufmass_Freigaben {
     }
 
     public static function code_bereinigen($code) {
+        if (!is_scalar($code)) { return ''; }
         $code = strtolower(trim((string) $code));
         return preg_match('/^[a-z0-9]{6,16}$/', $code) ? $code : '';
     }
@@ -148,8 +169,7 @@ class Aufmass_Freigaben {
             return new WP_Error('kein_code', 'Es ließ sich kein freier Code erzeugen. Bitte erneut versuchen.', array('status' => 500));
         }
         $jetzt = Aufmass_Datenbank::jetzt();
-        $tage = self::tage();
-        $bis = $tage > 0 ? gmdate('Y-m-d H:i:s', time() + $tage * 86400) . '.000000' : null;
+        $bis = self::ablauf_berechnen($sauber);
         $ok = $wpdb->insert($tab, array(
             'code' => $code,
             'projekt_id' => $projekt_id,
@@ -213,11 +233,16 @@ class Aufmass_Freigaben {
         if (is_wp_error($sauber)) { return $sauber; }
         $sauber = self::nur_ansicht($sauber);
         $jetzt = Aufmass_Datenbank::jetzt();
+        /* Mit der Vorlage beginnt ein neuer Abschnitt: Der Link gilt wieder
+           die volle Laufzeit - sonst erlischt er, kurz bevor der Kunde freigibt. */
+        $neu_bis = self::ablauf_berechnen($sauber);
+        $bis = ($z['gueltig_bis'] === null || $neu_bis === null) ? null : max((string) $z['gueltig_bis'], $neu_bis);
         /* Eine frühere (geprüfte) Antwort hat mit dem neuen Stand nichts
            mehr zu tun - der Kunde soll sie nicht wieder vorgesetzt bekommen. */
         $ok = $wpdb->update(self::tabelle(), array(
             'daten' => wp_json_encode($sauber),
             'status' => 'vorgelegt',
+            'gueltig_bis' => $bis,
             'rechte' => '',
             'antwort' => null,
             'vorgelegt_am' => $jetzt,
@@ -278,7 +303,9 @@ class Aufmass_Freigaben {
             if (!is_array($zeile) || !isset($zeile[0]) || self::kennung($zeile[0]) === '') {
                 return new WP_Error('schliessung_unlesbar', 'Eine Spalte in der Freigabe ist nicht lesbar.', array('status' => 400));
             }
-            $art = isset($zeile[4]) ? (string) $zeile[4] : 'schliessung';
+            /* Nur Skalare werden zu Text - ein Array an dieser Stelle wäre unter
+               strenger Fehlerbehandlung ein Absturz statt einer Ablehnung. */
+            $art = isset($zeile[4]) && is_scalar($zeile[4]) ? (string) $zeile[4] : 'schliessung';
             if (!in_array($art, array('schliessung', 'gruppe', 'mitarbeiter'), true)) { $art = 'schliessung'; }
             $s[] = array(
                 self::kennung($zeile[0]),
@@ -306,26 +333,46 @@ class Aufmass_Freigaben {
         if (count($gr) > self::GRUPPEN_MAX || count($ma) > self::MITARBEITER_MAX) {
             return new WP_Error('zu_gross', 'Diese Freigabe enthält zu viele Mitarbeiter oder Gruppen.', array('status' => 413));
         }
+        /* Gleichschließende Türen: nur bekannte Kennungen, je Tür höchstens ein Verbund, mindestens zwei je Verbund */
+        $tIdsBekannt = array();
+        foreach ($t as $zeile) { $tIdsBekannt[$zeile[0]] = true; }
+        $vb = array();
+        $vergeben = array();
+        if (isset($daten['vb']) && is_array($daten['vb'])) {
+            foreach (array_slice($daten['vb'], 0, 2000) as $gruppe) {
+                if (!is_array($gruppe)) { continue; }
+                $ids = array();
+                foreach (array_slice($gruppe, 0, 200) as $x) {
+                    $k = is_scalar($x) ? self::kennung($x) : '';
+                    if ($k !== '' && isset($tIdsBekannt[$k]) && !isset($vergeben[$k]) && !in_array($k, $ids, true)) { $ids[] = $k; }
+                }
+                if (count($ids) >= 2) { foreach ($ids as $k) { $vergeben[$k] = true; } $vb[] = $ids; }
+            }
+        }
         $mt = array();
         foreach ((isset($daten['mt']) && is_array($daten['mt'])) ? $daten['mt'] : array() as $x) {
-            $x = self::einzeilig(self::text($x, 60));
+            $x = self::textzeile($x, 60);
             if ($x !== '' && !in_array($x, $mt, true)) { $mt[] = $x; }
             if (count($mt) >= self::MEDIENARTEN_MAX) { break; }
         }
         $sauber = array(
             'f' => self::FORMAT,
             'pid' => (string) $projekt_id,
-            'kunde' => self::text(isset($daten['kunde']) ? $daten['kunde'] : '', self::TEXT_MAX),
-            'objekt' => self::text(isset($daten['objekt']) ? $daten['objekt'] : '', self::TEXT_MAX),
-            'anlage' => self::text(isset($daten['anlage']) ? $daten['anlage'] : '', 100),
-            'hinweis' => self::text(isset($daten['hinweis']) ? $daten['hinweis'] : '', self::TEXT_MAX),
-            'frist' => self::text(isset($daten['frist']) ? $daten['frist'] : '', 100),
-            'firma' => self::text(isset($daten['firma']) ? $daten['firma'] : '', self::TEXT_MAX),
+            'kunde' => self::textzeile(isset($daten['kunde']) ? $daten['kunde'] : '', self::TEXT_MAX),
+            'objekt' => self::textzeile(isset($daten['objekt']) ? $daten['objekt'] : '', self::TEXT_MAX),
+            'anlage' => self::textzeile(isset($daten['anlage']) ? $daten['anlage'] : '', 100),
+            'hinweis' => self::textzeile(isset($daten['hinweis']) ? $daten['hinweis'] : '', self::TEXT_MAX),
+            'frist' => self::textzeile(isset($daten['frist']) ? $daten['frist'] : '', 100),
+            'firma' => self::textzeile(isset($daten['firma']) ? $daten['firma'] : '', self::TEXT_MAX),
+            'mail' => (isset($daten['mail']) && is_scalar($daten['mail']) && strpos((string) $daten['mail'], '@') !== false) ? self::textzeile($daten['mail'], 200) : '',
+            /* Kennung der Freigabe im Werkzeug (für das Einlesen ohne Server) */
+            'fid' => isset($daten['fid']) && is_scalar($daten['fid']) ? self::kennung($daten['fid']) : '',
             'r' => self::rechte_bereinigen(isset($daten['r']) ? $daten['r'] : null),
             'mt' => $mt,
             'gr' => $gr,
             'ma' => $ma,
             't' => $t,
+            'vb' => $vb,
             's' => $s,
             'm' => $m,
             'e' => $e
@@ -398,7 +445,12 @@ class Aufmass_Freigaben {
             'antwortAnmerkung' => $antwort ? (string) $z['antwort_anmerkung'] : '',
             'vorgelegtAm' => self::iso($z['vorgelegt_am']),
             'freigabe' => $status === 'verworfen' ? null : self::freigabe_beschreiben($z),
-            'gueltigBis' => self::iso($z['gueltig_bis'])
+            'gueltigBis' => self::iso($z['gueltig_bis']),
+            /* Der Kunde erfährt, dass seine Rückmeldung nicht übernommen wurde -
+               sonst fände er den Plan wortlos wieder leer vor. Nur die Zeiten,
+               nicht den Inhalt. */
+            'verworfenAm' => $status === 'verworfen' ? self::iso($z['uebernommen_am']) : '',
+            'verworfenAntwortAm' => $status === 'verworfen' ? self::iso($z['antwort_am']) : ''
         );
     }
 
@@ -440,7 +492,7 @@ class Aufmass_Freigaben {
         $sperre = self::kunde_gesperrt($z);
         if ($sperre) { return $sperre; }
 
-        $name = self::einzeilig(self::text($name, self::NAME_MAX));
+        $name = self::textzeile($name, self::NAME_MAX);
         if ($name === '') {
             self::drossel('abgewiesen', self::DROSSEL_ABGEWIESEN);
             return new WP_Error('name_fehlt', 'Bitte tragen Sie Ihren Namen ein.', array('status' => 400));
@@ -513,12 +565,12 @@ class Aufmass_Freigaben {
             self::drossel('abgewiesen', self::DROSSEL_ABGEWIESEN);
             return new WP_Error('nicht_vorgelegt', 'Dieser Plan liegt nicht zur Freigabe vor.', array('status' => 409));
         }
-        $name = self::einzeilig(self::text($name, self::NAME_MAX));
+        $name = self::textzeile($name, self::NAME_MAX);
         if ($name === '') {
             self::drossel('abgewiesen', self::DROSSEL_ABGEWIESEN);
             return new WP_Error('name_fehlt', 'Bitte tragen Sie Ihren Namen ein.', array('status' => 400));
         }
-        $funktion = self::einzeilig(self::text($funktion, self::NAME_MAX));
+        $funktion = self::textzeile($funktion, self::NAME_MAX);
         $anmerkung = self::text($anmerkung, self::ANMERKUNG_MAX);
         $daten = json_decode($z['daten'], true);
         if (!is_array($daten)) {
@@ -613,7 +665,8 @@ class Aufmass_Freigaben {
         if ($a !== '') {
             foreach (explode(',', $a) as $eintrag) {
                 if ($eintrag === '') { continue; }
-                if (!preg_match('/^([0-9a-z]{1,7}):([0-4])$/', $eintrag, $tr)) { return $unlesbar; }
+                /* 0 bis 5: nein, ja, zeit, temp, sperr, plan - wie ZEICHEN in freigabe.js */
+                if (!preg_match('/^([0-9a-z]{1,7}):([0-5])$/', $eintrag, $tr)) { return $unlesbar; }
                 $index = intval($tr[1], 36);
                 if ($index >= $zellen) {
                     return new WP_Error('unlesbar', 'Die Rückmeldung verweist auf Felder, die es nicht gibt.', array('status' => 400));
@@ -719,7 +772,7 @@ class Aufmass_Freigaben {
             $n = array();
             foreach ($antwort['n'] as $x) {
                 if (!is_array($x) || count($x) < 3) { return $unlesbar; }
-                $art = isset($x[0]) ? (string) $x[0] : '';
+                $art = isset($x[0]) && is_scalar($x[0]) ? (string) $x[0] : '';
                 if ($art !== 'gruppe' && $art !== 'mitarbeiter') { return $unlesbar; }
                 $ref = self::kennung(isset($x[1]) ? $x[1] : '');
                 if ($ref === '') { return $unlesbar; }
@@ -731,7 +784,7 @@ class Aufmass_Freigaben {
                 }
                 $vorhanden[$art . ':' . $ref] = true;
                 $zeilen = self::entpacken(isset($x[2]) && is_string($x[2]) ? $x[2] : '');
-                if (strlen($zeilen) !== count($tIds) || !preg_match('/^[0-4]*$/', $zeilen)) { return $unlesbar; }
+                if (strlen($zeilen) !== count($tIds) || !preg_match('/^[0-5]*$/', $zeilen)) { return $unlesbar; }
                 $n[] = array($art, $ref, self::packen($zeilen));
             }
             if (count($n)) { $sauber['n'] = $n; $listen += count($n); }
@@ -741,12 +794,12 @@ class Aufmass_Freigaben {
         $freigabe = null;
         if (array_key_exists('fr', $antwort) && $antwort['fr'] !== null) {
             if (!is_array($antwort['fr'])) { return $unlesbar; }
-            $name = self::einzeilig(self::text(isset($antwort['fr']['name']) ? $antwort['fr']['name'] : '', self::NAME_MAX));
+            $name = self::textzeile(isset($antwort['fr']['name']) ? $antwort['fr']['name'] : '', self::NAME_MAX);
             if ($name === '') {
                 return new WP_Error('name_fehlt', 'Für die verbindliche Freigabe fehlt der Name.', array('status' => 400));
             }
             $freigabe = array('name' => $name,
-                              'funktion' => self::einzeilig(self::text(isset($antwort['fr']['funktion']) ? $antwort['fr']['funktion'] : '', self::NAME_MAX)),
+                              'funktion' => self::textzeile(isset($antwort['fr']['funktion']) ? $antwort['fr']['funktion'] : '', self::NAME_MAX),
                               'art' => 'mit_antwort');
             $sauber['fr'] = $freigabe;
         }
@@ -961,8 +1014,8 @@ class Aufmass_Freigaben {
         /* Was vom Kunden stammt, wird als solches gekennzeichnet und
            gekürzt: Niemand soll in einer Mail von „uns“ einem Text trauen,
            den ein Fremder geschrieben hat. */
-        $name = self::einzeilig(self::text($z['antwort_name'], self::NAME_MAX));
-        $funktion = self::einzeilig(self::text($z['freigabe_funktion'], self::NAME_MAX));
+        $name = self::textzeile($z['antwort_name'], self::NAME_MAX);
+        $funktion = self::textzeile($z['freigabe_funktion'], self::NAME_MAX);
         $anmerkung = trim(self::text($z['antwort_anmerkung'], 500));
         if (strlen((string) $z['antwort_anmerkung']) > strlen($anmerkung)) { $anmerkung .= ' […]'; }
         /* Der Betreff ist eine Kopfzeile: nie mit Zeilenumbrüchen. */
@@ -1034,15 +1087,27 @@ class Aufmass_Freigaben {
     private static function gesperrt($z) {
         $status = self::status_von($z);
         if ($status === 'zurueckgezogen') {
-            return new WP_Error('zurueckgezogen', 'Dieser Freigabe-Link wurde zurückgezogen.', array('status' => 410));
+            return new WP_Error('zurueckgezogen', 'Dieser Freigabe-Link wurde zurückgezogen.', self::kontakt($z, 410));
         }
         if ($status === 'abgelaufen' || ($status !== 'freigegeben' && self::abgelaufen($z))) {
-            return new WP_Error('abgelaufen', 'Dieser Freigabe-Link ist abgelaufen.', array('status' => 410));
+            return new WP_Error('abgelaufen', 'Dieser Freigabe-Link ist abgelaufen.', self::kontakt($z, 410));
         }
         if (self::projekt_weg($z['projekt_id'])) {
-            return new WP_Error('zurueckgezogen', 'Dieser Freigabe-Link ist nicht mehr gültig.', array('status' => 410));
+            return new WP_Error('zurueckgezogen', 'Dieser Freigabe-Link ist nicht mehr gültig.', self::kontakt($z, 410));
         }
         return null;
+    }
+
+    /* Wen der Kunde fragen kann, wenn der Link nicht mehr gilt: Firma und
+       Adresse aus der Freigabe - keine Plandaten. */
+    private static function kontakt($z, $status) {
+        $d = array('status' => $status);
+        $daten = is_string($z['daten']) && $z['daten'] !== '' ? json_decode($z['daten'], true) : null;
+        if (is_array($daten)) {
+            $d['firma'] = isset($daten['firma']) && is_string($daten['firma']) ? self::text($daten['firma'], self::TEXT_MAX) : '';
+            $d['mail'] = isset($daten['mail']) && is_string($daten['mail']) && strpos($daten['mail'], '@') !== false ? self::textzeile($daten['mail'], 200) : '';
+        }
+        return $d;
     }
 
     private static function projekt_weg($projekt_id) {
@@ -1176,7 +1241,7 @@ class Aufmass_Freigaben {
                 else { $typ = isset($x['typ']) ? $x['typ'] : ''; $anzahl = isset($x['anzahl']) ? $x['anzahl'] : 1; }
             } elseif (is_string($x)) { $typ = $x; }
             else { continue; }
-            $typ = self::einzeilig(self::text($typ, 60));
+            $typ = self::textzeile($typ, 60);
             $n = is_scalar($anzahl) ? (int) $anzahl : 1;
             if ($n < 1) { $n = 1; }
             if ($n > 999) { $n = 999; }
@@ -1203,7 +1268,7 @@ class Aufmass_Freigaben {
                 $id = isset($x['id']) ? $x['id'] : ''; $name = isset($x['name']) ? $x['name'] : '';
                 $gruppen = isset($x['gruppen']) ? $x['gruppen'] : array(); $medien = isset($x['medien']) ? $x['medien'] : array();
             }
-            $name = self::einzeilig(self::text($name, self::NAME_MAX));
+            $name = self::textzeile($name, self::NAME_MAX);
             if ($name === '') { continue; }
             $id = self::kennung($id);
             if ($id !== '' && isset($gesehen[$id])) { continue; }
@@ -1222,7 +1287,7 @@ class Aufmass_Freigaben {
             if (!is_array($x)) { continue; }
             if (array_keys($x) === range(0, count($x) - 1)) { $id = isset($x[0]) ? $x[0] : ''; $name = isset($x[1]) ? $x[1] : ''; }
             else { $id = isset($x['id']) ? $x['id'] : ''; $name = isset($x['name']) ? $x['name'] : ''; }
-            $name = self::einzeilig(self::text($name, self::NAME_MAX));
+            $name = self::textzeile($name, self::NAME_MAX);
             if ($name === '') { continue; }
             $id = self::kennung($id);
             if ($id !== '' && isset($gesehen[$id])) { continue; }
@@ -1271,8 +1336,26 @@ class Aufmass_Freigaben {
         return function_exists('mb_substr') ? mb_substr($t, 0, $max) : substr($t, 0, $max);
     }
 
+    /* Leerraum wie \s in JavaScript: auch geschützte und typografische
+       Leerzeichen (U+00A0, U+2000 ff., U+3000 …) werden zu einem Leerzeichen -
+       sonst hielte der Server „Herr Baumann“ mit geschütztem Leerzeichen für
+       einen anderen Namen als das Werkzeug. Bei kaputtem UTF-8 (u-Modus
+       scheitert) bleibt die ASCII-Fassung. */
     private static function einzeilig($t) {
-        return trim(preg_replace('/\s+/', ' ', (string) $t));
+        $t = (string) $t;
+        $u = preg_replace('/[\s\x{00A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]+/u', ' ', $t);
+        if ($u === null) { $u = preg_replace('/\s+/', ' ', $t); }
+        return trim((string) $u);
+    }
+
+    /* Einzeiliger Text genau wie text() in freigabe.js: Steuerzeichen weg,
+       Leerraum zusammengezogen, dann gekürzt (erst kürzen, dann zusammenziehen
+       ergäbe an der Grenze andere Längen als im Werkzeug). */
+    private static function textzeile($wert, $max) {
+        if (!is_scalar($wert)) { return ''; }
+        $t = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', (string) $wert);
+        $t = self::einzeilig((string) $t);
+        return function_exists('mb_substr') ? mb_substr($t, 0, $max) : substr($t, 0, $max);
     }
 
     private static function datum($zeit) {

@@ -5,7 +5,7 @@
  * Die Fassung hier muss mit FASSUNG in js/app.js übereinstimmen (der
  * Prüflauf achtet darauf). Jede neue Fassung bekommt damit eine neue
  * Ablage, und alle Geräte holen beim nächsten Start den neuen Stand. */
-var FASSUNG = '1.5.2';
+var FASSUNG = '1.5.3';
 var CACHE = 'aufmass-tool-' + FASSUNG;
 var DATEIEN = [
   './', './index.html', './freigabe.html', './css/app.css', './manifest.webmanifest',
@@ -74,12 +74,21 @@ self.addEventListener('fetch', function (e) {
    * für den aktuellen Stand - der Abgleich wäre still wirkungslos.
    * Die Anfragen gehen deshalb unverändert ans Netz. */
   if (url.pathname.indexOf('/wp-json/') !== -1) return;
+  /* Kurzlinks (/f/<code>) leitet der Server auf die Kundenseite um. Liegt das
+     Werkzeug im Wurzelverzeichnis der Website, läge /f/ im Geltungsbereich -
+     und eine bereits gefolgte Umleitung darf der Worker auf eine Navigation
+     nicht antworten (der Browser bricht mit ERR_FAILED ab). Also: Hände weg. */
+  if (/\/f\/[A-Za-z0-9]{6,16}\/?$/.test(url.pathname)) return;
   e.respondWith(
     caches.match(e.request).then(function (treffer) {
       /* no-cache: beim Server rückfragen statt dem Browser-Cache glauben.
          Unverändertes kostet so nur eine kurze Rückfrage, Geändertes
          kommt wirklich an. */
       var netz = fetch(new Request(url.href, { cache: 'no-cache', credentials: 'same-origin' })).then(function (antwort) {
+        /* Eine Navigation, die der Server umgeleitet hat: Der Browser soll der
+           Umleitung selbst folgen - eine schon gefolgte Antwort ist für
+           Navigationen verboten. */
+        if (e.request.mode === 'navigate' && antwort && antwort.redirected) { return Response.redirect(antwort.url, 302); }
         /* Nur ablegen, was wirklich die angeforderte Datei ist: Liefert der
            Hoster für ein Skript eine Wartungs- oder Sperrseite mit 200, dürfte
            die nie als Skript in der Ablage landen - das Werkzeug startete

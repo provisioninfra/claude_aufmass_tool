@@ -24,7 +24,9 @@ function ganz(a, b) { return a + Math.floor(zufall() * (b - a + 1)); }
 
 const NAMEN = ['Frau Dr. Schäfer', 'Herr Özdemir', 'Müller & Söhne', "O'Brien", 'Jean-Luc "Pit" Maré',
   'Zoë Łukasz', 'Иван Петров', '山田 太郎', 'Herr <b>Fett</b>', 'Anna;Berta,Clara', '  mit Rand  ',
-  'Name\twith\ttab', 'x'.repeat(130), 'Emoji 🙂 Name', 'Reinigung GmbH & Co. KG', 'a'];
+  'Name\twith\ttab', 'x'.repeat(130), 'Emoji 🙂 Name', 'Reinigung GmbH & Co. KG', 'a',
+  /* geschützte und typografische Leerzeichen: JavaScript \s und der Server müssen sie gleich behandeln */
+  'Herr\u00a0Baumann', '\u2003Typo\u3000grafisch\u00a0', 'Zwei  Leer   zeichen'];
 const MEDIEN = ['', 'Transponder', 'Karte', 'Schlüssel', 'Smartphone (App)', 'y'.repeat(70)];
 const WERTE = ['nein', 'nein', 'nein', 'nein', 'ja', 'ja', 'zeit', 'temp', 'sperr', 'plan'];
 const HEIKEL = /[\t ]|x{130}|🙂|y{70}/;

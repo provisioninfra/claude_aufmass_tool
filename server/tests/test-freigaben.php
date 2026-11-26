@@ -317,6 +317,7 @@ pruefe(!is_wp_error($v) && $v['status'] === 'verworfen' && $v['freigabe'] === nu
 pruefe(count(Aufmass_Freigaben::offene_fuer($weber)) === 0, 'danach wartet nichts');
 $k = Aufmass_Freigaben::oeffentlich($fb['code']);
 pruefe($k['status'] === 'offen' && $k['antwort'] === null && $k['freigabe'] === null, 'der Kunde sieht die Freigabe wieder als offen, ohne die verworfene Antwort', $k['status']);
+pruefe($k['verworfenAm'] !== '' && $k['verworfenAntwortAm'] !== '' && empty($k['antwortName']), 'er erfährt nur, dass und wann verworfen wurde - nicht den Inhalt', json_encode(array($k['verworfenAm'], $k['verworfenAntwortAm'])));
 $a = Aufmass_Freigaben::antwort_annehmen($fb['code'], antwort(array('a' => '7:1')), 'Herr Zweit', '');
 pruefe(!is_wp_error($a) && $a['antwortNr'] === 3, 'und darf wieder übertragen', fehlertext($a));
 Aufmass_Freigaben::verwerfen($fb['code'], 3, $weber);
@@ -630,6 +631,63 @@ $erk = Aufmass_Drossel::herkunft_erklaert();
 pruefe($erk['kopffelder']['X-Forwarded-For'] === '203.0.113.8<script>' && strlen($erk['kopffelder']['X-Forwarded-For']) < 200,
     'Steuerzeichen fliegen aus der Anzeige des Kopffelds, der Rest wird nur angezeigt - nicht ausgeführt', json_encode($erk['kopffelder']));
 herkunft_mit('10.0.0.1');
+
+echo "\n== Gleichschließende Türen reisen bereinigt mit ==\n";
+$fv = Aufmass_Freigaben::anlegen('prj-f', freigabedaten(array('vb' => array(array('t1', 't3'), array('t2'), array('fremd', 't1'), 'x', array('t2', 't2', 't3')))), '', $weber);
+pruefe(!is_wp_error($fv), 'eine Freigabe mit Verbund lässt sich anlegen', fehlertext($fv));
+$kv = Aufmass_Freigaben::oeffentlich($fv['code']);
+pruefe(!is_wp_error($kv) && json_encode($kv['daten']['vb']) === json_encode(array(array('t1', 't3'))),
+    'nur bekannte Türen, keine Einzelnen, keine zweite Zuordnung derselben Tür', json_encode(is_wp_error($kv) ? null : $kv['daten']['vb']));
+$fo2 = Aufmass_Freigaben::anlegen('prj-f', freigabedaten(), '', $weber);
+$ko2 = Aufmass_Freigaben::oeffentlich($fo2['code']);
+pruefe(isset($ko2['daten']['vb']) && $ko2['daten']['vb'] === array(), 'ohne Angabe ist der Verbund eine leere Liste');
+
+echo "\n== Arrays an Textstellen stürzen nicht ab ==\n";
+$fa = Aufmass_Freigaben::anlegen('prj-f', freigabedaten(array('s' => array(
+    array('s1', 'GHS', 'Generalhauptschlüssel', 'Dr. Schäfer', array('x'), ''),
+    array('s2', array('HM'), 'Hausmeister', 'Mitarbeiter', 'mitarbeiter', 'm1'),
+    array('s3', 'IT', 'EDV', 'Gruppe', 'gruppe', 'g1')))), '', $weber);
+pruefe(!is_wp_error($fa) && $fa['code'] !== '', 'eine Spaltenart als Array wird zu „schliessung“, ein Kürzel als Array zu leer - kein Absturz', fehlertext($fa));
+$ka = Aufmass_Freigaben::oeffentlich($fa['code']);
+pruefe(!is_wp_error($ka) && $ka['daten']['s'][0][4] === 'schliessung' && $ka['daten']['s'][1][1] === '', 'und so steht es dann in der Freigabe', json_encode(is_wp_error($ka) ? null : array($ka['daten']['s'][0][4], $ka['daten']['s'][1][1])));
+$an = Aufmass_Freigaben::antwort_annehmen($fa['code'], array('f' => 2, 'pid' => 'prj-f', 'typ' => 'antwort', 'anzahl' => '3x3',
+    'tIds' => array('t1', 't2', 't3'), 'sIds' => array('s1', 's2', 's3'), 'a' => '', 'n' => array(array(array('gruppe'), 'g1', '000'))), 'Kunde', '');
+pruefe(is_wp_error($an) && status_von($an) === 400, 'eine neue Spalte mit Array als Art wird als unlesbar abgelehnt, nicht mit Absturz', fehlertext($an));
+
+echo "\n== Ein gesperrter Link nennt dem Kunden den Ansprechpartner ==\n";
+$fk = Aufmass_Freigaben::anlegen('prj-f', freigabedaten(array('mail' => 'info@beispiel.example', 'fid' => 'frg-abc-123')), '', $weber);
+$kk = Aufmass_Freigaben::oeffentlich($fk['code']);
+pruefe(!is_wp_error($kk) && $kk['daten']['fid'] === 'frg-abc-123', 'die Kennung der Freigabe im Werkzeug reist mit', json_encode(is_wp_error($kk) ? null : $kk['daten']['fid']));
+global $wpdb;
+$wpdb->update(Aufmass_Datenbank::tabelle('freigaben'), array('gueltig_bis' => gmdate('Y-m-d H:i:s', time() - 3600) . '.000000'), array('code' => $fk['code']));
+$ab = Aufmass_Freigaben::oeffentlich($fk['code']);
+$abd = is_wp_error($ab) ? $ab->get_error_data() : array();
+pruefe(is_wp_error($ab) && status_von($ab) === 410 && $abd['firma'] === 'Provision Infra GmbH' && $abd['mail'] === 'info@beispiel.example',
+    'bei abgelaufenem Link stehen Firma und Adresse in den Fehlerdaten - keine Plandaten', fehlertext($ab) . ' ' . json_encode($abd));
+pruefe(!isset($abd['daten']) && !isset($abd['t']) && !isset($abd['m']), 'und sonst nichts aus der Freigabe');
+
+echo "\n== Der Link erlischt nicht vor der erbetenen Frist ==\n";
+$fristTag = gmdate('Y-m-d', time() + 60 * 86400);
+$ff = Aufmass_Freigaben::anlegen('prj-f', freigabedaten(array('frist' => $fristTag)), '', $weber);
+pruefe(!is_wp_error($ff), 'eine Freigabe mit Frist in 60 Tagen lässt sich anlegen', fehlertext($ff));
+$fristBis = strtotime($ff['gueltigBis']);
+pruefe($fristBis >= strtotime($fristTag . ' 23:59:59 UTC') + 7 * 86400 - 60 && $fristBis <= strtotime($fristTag . ' 23:59:59 UTC') + 7 * 86400 + 60,
+    'der Link gilt bis eine Woche nach der Frist (statt nur 30 Tage)', $ff['gueltigBis']);
+$fn = Aufmass_Freigaben::anlegen('prj-f', freigabedaten(array('frist' => gmdate('Y-m-d', time() + 5 * 86400))), '', $weber);
+$nahBis = strtotime($fn['gueltigBis']);
+pruefe(abs($nahBis - (time() + 30 * 86400)) < 120, 'eine nahe Frist kürzt die Laufzeit nicht', $fn['gueltigBis']);
+$ft = Aufmass_Freigaben::anlegen('prj-f', freigabedaten(array('frist' => '30.11.2099')), '', $weber);
+pruefe(abs(strtotime($ft['gueltigBis']) - (time() + 30 * 86400)) < 120, 'freier Text als Frist ändert nichts an der Laufzeit', $ft['gueltigBis']);
+$fw = Aufmass_Freigaben::anlegen('prj-f', freigabedaten(array('frist' => gmdate('Y-m-d', time() + 400 * 86400))), '', $weber);
+pruefe(abs(strtotime($fw['gueltigBis']) - (time() + 180 * 86400)) < 120, 'eine Frist jenseits der Aufbewahrung wird auf diese begrenzt', $fw['gueltigBis']);
+/* Vorlage: ein fast abgelaufener Link bekommt wieder die volle Laufzeit */
+global $wpdb;
+$wpdb->update(Aufmass_Datenbank::tabelle('freigaben'), array('gueltig_bis' => gmdate('Y-m-d H:i:s', time() + 3600) . '.000000'), array('code' => $fn['code']));
+$vor = Aufmass_Freigaben::vorlegen($fn['code'], freigabedaten(), $weber);
+pruefe(!is_wp_error($vor) && abs(strtotime($vor['gueltigBis']) - (time() + 30 * 86400)) < 120,
+    'die Vorlage zur Freigabe verlängert einen fast abgelaufenen Link auf die volle Laufzeit', fehlertext($vor));
+$vor2 = Aufmass_Freigaben::vorlegen($ff['code'], freigabedaten(), $weber);
+pruefe(!is_wp_error($vor2) && strtotime($vor2['gueltigBis']) === $fristBis, 'ein länger gültiger Link wird durch die Vorlage nicht gekürzt', fehlertext($vor2));
 
 echo "\nErgebnis Freigaben: $ok ok, $fehler Fehler\n";
 exit($fehler ? 1 : 0);

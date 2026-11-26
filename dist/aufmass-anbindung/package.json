@@ -1,6 +1,6 @@
 {
   "name": "aufmass-anbindung",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "private": true,
   "description": "Anbindung des Aufmaß-Werkzeugs für Claude Code (MCP), Kommandozeile und eigene Programme",
   "bin": {

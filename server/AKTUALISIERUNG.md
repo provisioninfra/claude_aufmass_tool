@@ -2,10 +2,67 @@
 
 Diese Anleitung gilt, wenn das Werkzeug **schon läuft**: Plugin
 „Aufmaß-Abgleich“ in WordPress, Ordner `aufmasstool` auf dem Webspace,
-Geräte angemeldet. Sie bringt beides auf den Stand **1.5.2** – Plugin
+Geräte angemeldet. Sie bringt beides auf den Stand **1.5.3** – Plugin
 und Werkzeug tragen dieselbe Fassungsnummer.
 
-**Was 1.5.2 bringt** (gegenüber 1.5.1) – Sichtprüfung und Technik der
+**Was 1.5.3 bringt** (gegenüber 1.5.2) – Kundenfreigabe und Rückmeldung
+von Anfang bis Ende geprüft und geglättet
+
+- **Rückmeldung einlesen - nichts geht verloren, nichts kommt doppelt:**
+  Die Rückmeldung des Kunden enthält jetzt nur noch, was er wirklich
+  geändert hat. Was Sie im Werkzeug zwischen Linkerzeugung und Übernahme
+  an Namen, Gruppen oder Medien geändert haben, bleibt erhalten (vorher
+  setzte die Übernahme die ganze Mitarbeiterliste still auf den Stand des
+  Links zurück). Dieselbe Rückmeldung zweimal eingelesen - als Datei und
+  als Text, auf einem zweiten Gerät oder als Nachbesserung des Kunden über
+  den Server - legt keine Mitarbeiter, Gruppen oder Spalten mehr doppelt
+  an: Das Aufmaß merkt sich, welche Kundeneinträge wozu geworden sind. Der
+  Bericht sagt, wenn eine Rückmeldung schon übernommen war.
+- **Vorschau vor dem Übernehmen:** Beim Einlesen eines Rückschlüssels
+  zeigt der Dialog wie beim Kurzlink vorab, was sich ändern würde
+  (Berechtigungen mit Vorher/Nachher, Mitarbeiter, Gruppen, neue Spalten).
+  Nach dem Übernehmen bleibt der Bericht zum Nachlesen offen. Felder, die
+  nicht übernommen werden (Tür oder Spalte inzwischen gelöscht, nicht
+  freigegeben), stehen mit Tür, Spalte, Wunsch und Grund dabei; gleiche
+  Namen („Herr Baumann“ ein zweites Mal) werden als Dublette benannt.
+- **Rückschlüssel aus E-Mails:** Umbrochene, zitierte („> …“), in Anführungszeichen
+  gesetzte oder als ganzer Mailtext eingefügte Schlüssel werden erkannt;
+  auch Leerzeichen und weiche Umbrüche im Link stören nicht mehr.
+- **Kundenseite:** Eingaben überleben jetzt ein Neuladen, einen Verbindungsabbruch
+  oder ein versehentlich geschlossenes Fenster (Zwischenstand im Browser,
+  wird beim Senden geräumt). „Zurücksetzen“ fragt nach. Gleichschließende
+  Türen sind gekennzeichnet und werden gemeinsam gesetzt. Träger eines
+  Schlüssels lassen sich nicht entfernen (die Karte sagt warum), gleiche
+  Namen werden beim Tippen gemeldet. Die Frist erscheint als Datum (vorher
+  „Invalid Date“). Enter im Namensfeld sendet nicht mehr doppelt. Wurde eine
+  Rückmeldung im Werkzeug verworfen, erfährt der Kunde das beim nächsten
+  Öffnen. Ist der Link beim Senden nicht mehr gültig, lassen sich die
+  Eingaben als Datei sichern; die Fehlerseite nennt Firma und Adresse. Die
+  Rückmeldung per E-Mail hat immer einen Knopf (mit Schlüssel im Text oder
+  mit Hinweis auf die Datei), die Adresse aus dem Firmenkopf steht dabei.
+- **Freigabe-Dialog:** Die Frist ist ein Datumsfeld; der Link gilt dann
+  mindestens bis eine Woche nach der Frist. Neuer Schalter „Gesperrte (–)
+  und befristete (T) Vorgaben nicht freigeben“ (vorgewählt), damit ein Tipp
+  des Kunden nicht aus „–“ ein „X“ macht. Ohne Server gibt es eine
+  E-Mail-Vorlage, eine Datei, die sich per Doppelklick öffnet
+  (Freigabe….html), eine Liste der bisherigen Links mit „Zurückziehen“ und
+  einen ehrlichen Hinweis, dass Mailprogramme lange Links zerlegen. Jeder
+  Link trägt die Kennung seiner Freigabe: Eine Antwort gilt genau für den
+  Link, zu dem sie gehört; zurückgezogene Links werden abgelehnt. Ein
+  Rückschlüssel kann keine verbindliche Freigabe mehr vermerken - die
+  gilt nur über die gemeinsame Ablage.
+- **Lokale Datei:** Läuft das Werkzeug als Datei, führt der lange Link auf
+  die unter Einstellungen → Kundenfreigabe hinterlegte Kundenseite im
+  Internet statt auf eine Datei, die der Kunde nicht hat.
+- **Server:** Kurzlinks funktionieren auch im Browser, in dem das Werkzeug
+  mit Service Worker läuft und im Wurzelverzeichnis liegt. Ein zur
+  Freigabe vorgelegter Link bekommt wieder die volle Laufzeit. Der Server
+  nimmt alle sechs Berechtigungswerte an (auch „vorgeplant“), gibt dem
+  Kunden bei gesperrtem Link den Ansprechpartner mit und reicht
+  gleichschließende Türen und die Kennung der Freigabe bereinigt durch.
+  Arrays an Textstellen führen zur Ablehnung statt zum Abbruch.
+
+**Was 1.5.2 brachte** (gegenüber 1.5.1) – Sichtprüfung und Technik der
 Darstellung auf Telefon, Tablet und Rechner sowie der gedruckten Ausgaben
 
 - **Bedienung auf dem Telefon:** Der schwebende Knopf (+ Neue Tür,
@@ -297,7 +354,7 @@ Vorlage, Freigabe) – das erledigt WordPress beim ersten Aufruf von selbst
 4. Das Plugin bleibt dabei aktiv. Beim ersten Aufruf danach ergänzt es die
    Tabelle und übernimmt die Umschreibregel für den Kurzlink.
 
-**Prüfen:** *Plugins* öffnen – bei „Aufmaß-Abgleich“ muss **1.5.2**
+**Prüfen:** *Plugins* öffnen – bei „Aufmaß-Abgleich“ muss **1.5.3**
 stehen. In der Zugangsliste gibt es jetzt die Spalte **„Schlüssel“**. Unter *Einstellungen → Aufmaß-Abgleich* muss neben der
 Organisationsdomäne die neuen Zeilen **„Neue Zugänge“** und **„Herkunft
 der Aufrufe“** erscheinen, weiter unten der Abschnitt **„Tür einsprechen
@@ -368,7 +425,7 @@ vorbei – und meldet sich dann:
   starten**. Der speichert und schließt zuerst; es geht nichts verloren.
 
 Unter *Einstellungen → Über dieses Werkzeug* steht, welche Fassung auf
-dem Gerät läuft (jetzt **1.5.2**), und ein Knopf **Auf neue Fassung
+dem Gerät läuft (jetzt **1.5.3**), und ein Knopf **Auf neue Fassung
 prüfen** stößt die Prüfung sofort an. Ein Gerät, das gerade ohne Netz
 ist, arbeitet mit der alten Fassung weiter, bis es wieder online war –
 auch das ist in Ordnung, die Aufmaße gleichen sich wie gewohnt ab.
@@ -431,10 +488,10 @@ zu ändern: Das übernimmt die Umschreibregel des Plugins auf jeden Fall.
 
 1. `https://www.provision-infra.de/aufmasstool/` öffnen. Die Anmeldeseite
    mit dem Google-Knopf muss erscheinen; ganz unten steht die
-   Werkzeug-Fassung 1.5.2. Anmelden. Oben rechts steht danach
+   Werkzeug-Fassung 1.5.3. Anmelden. Oben rechts steht danach
    **„Abgeglichen“**, und unter *Einstellungen → Über dieses Werkzeug*
    stehen die Fassung des Werkzeugs und die des Server-Plugins (beide
-   1.5.2). Unter *Schließplan* steht oben rechts der Umschalter
+   1.5.3). Unter *Schließplan* steht oben rechts der Umschalter
    **Kreuzschließplan | Europlan**. Darüber steht die neue Karte **„Zugang für Programme und
    Claude Code“**; ein Probeschlüssel lässt sich dort erzeugen und gleich
    wieder widerrufen.

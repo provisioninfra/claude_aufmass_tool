@@ -7,6 +7,7 @@ const path = require('path'), fs = require('fs'), os = require('os'), crypto = r
 const { spawn } = require('child_process');
 const { starte, ersteProjektOeffnen, istUmgebungsGeraeusch } = require('./browser.js');
 const { baueTestprojekt, einstellungen } = require('./fixture.js');
+require('../src/js/catalog.js'); require('../src/js/freigabe.js');
 
 const W = path.join(__dirname, '..');
 const HAFEN = 8900 + (process.pid % 250);
@@ -139,7 +140,16 @@ function mails() {
     p(/Mitarbeiter eintragen/.test(await kunde.textContent('.meldung.info')) && !/neue Spalte/.test(await kunde.textContent('.meldung.info')),
       'und sagt, was der Kunde außerdem darf - und was nicht');
     const freieZellen = await kunde.$$eval('td.zelle.frei', n => n.length);
-    p(freieZellen === projekt.tueren.length * 2, 'nur die freigegebenen Spalten sind bearbeitbar (' + freieZellen + ')');
+    /* Gesperrte (–) und befristete (T) Vorgaben bleiben in freigegebenen Spalten gesperrt - die Maske sagt, wie viele */
+    const oeffentlich = await (await fetch(BASIS + '/wp-json/aufmass/v1/freigaben/' + code, { headers: { 'X-Aufmass-Abgleich': '1' } })).json();
+    const maskeFrei = global.Freigabe._intern.entpacken(oeffentlich.daten.e).split('').filter(c => c === '1').length;
+    const matrixServer = global.Freigabe._intern.entpacken(oeffentlich.daten.m);
+    const maskeServer = global.Freigabe._intern.entpacken(oeffentlich.daten.e);
+    let geschuetzt = 0;
+    oeffentlich.daten.s.forEach((s, spalte) => { if (spalte !== 5 && spalte !== 10) return;
+      for (let z = 0; z < oeffentlich.daten.t.length; z++) { const i = z * oeffentlich.daten.s.length + spalte; if (maskeServer[i] === '0') geschuetzt += (matrixServer[i] === '3' || matrixServer[i] === '4') ? 1 : 1000; } });
+    p(freieZellen === maskeFrei && freieZellen + geschuetzt === projekt.tueren.length * 2,
+      'nur die freigegebenen Spalten sind bearbeitbar (' + freieZellen + ' Felder, ' + geschuetzt + ' Vorgaben – und T gesperrt)', JSON.stringify({ freieZellen, maskeFrei, geschuetzt }));
     p((await ctxKunde.cookies()).length === 0, 'der Kunde bekommt kein Sitzungscookie');
     p(kundeAnfragen.every(a => !a.kopf.cookie), 'und schickt auch keines');
     p(kundeAnfragen.filter(a => /\/wp-json\//.test(a.url)).every(a => /\/freigaben\/[a-z0-9]+$/.test(a.url)),
@@ -166,6 +176,18 @@ function mails() {
     await warte(120);
     p(/3 Änderungen/.test(await kunde.textContent('#fr-zaehler')) && /Mitarbeiterliste geändert/.test(await kunde.textContent('#fr-zaehler')),
       'drei Felder und die Mitarbeiterliste gelten als geändert', (await kunde.textContent('#fr-zaehler')).trim());
+
+    /* Der Kurzlink im Browser des Werkzeugs: dort läuft der Service Worker. Liegt das
+       Werkzeug im Wurzelverzeichnis (wie hier), liegt /f/ in seinem Geltungsbereich -
+       die Umleitung darf er nicht kaputt machen. */
+    const imWerkzeug = await ctx.newPage();
+    let swFehler = '';
+    try {
+      await imWerkzeug.goto(BASIS + '/f/' + code, { waitUntil: 'load', timeout: 15000 });
+      await imWerkzeug.waitForSelector('table.matrix', { timeout: 10000 });
+    } catch (e) { swFehler = e.message.split('\n')[0]; }
+    p(!swFehler && /freigabe\.html#/.test(imWerkzeug.url()), 'der Kurzlink öffnet sich auch im Browser des Werkzeugs (Service Worker aktiv)', swFehler || imWerkzeug.url());
+    await imWerkzeug.close();
 
     console.log('\n== Kunde: Übertragen ==');
     await kunde.click('#fr-uebertragen');
@@ -301,6 +323,9 @@ function mails() {
        JETZT noch ändern würde - sonst sähe es nach vier neuen aus. */
     p((await seite.$$eval('.antwort-bericht tbody tr', n => n.length)) === 1,
       'der Bericht zur zweiten Rückmeldung zeigt nur die eine neue Abweichung, nicht die drei schon übernommenen');
+    const berichtZwei = await seite.textContent('.antwort-bericht');
+    p(!/Frau Kundenseitig/.test(berichtZwei) || !/neu/.test(berichtZwei.split('Frau Kundenseitig')[1] || ''),
+      'der schon übernommene Mitarbeiter des Kunden erscheint nicht noch einmal als neu', berichtZwei.replace(/\s+/g, ' ').slice(0, 160));
     await seite.click('.dialog .fuss button:has-text("Verwerfen")');
     await seite.waitForSelector('.dialog.klein', { timeout: 5000 });
     await seite.click('.dialog.klein .fuss button:has-text("Verwerfen")');
@@ -314,6 +339,14 @@ function mails() {
     const liste2 = await (await fetch(BASIS + '/wp-json/aufmass/v1/freigaben?projekt=' + projekt.id,
       { headers: { 'X-Aufmass-Abgleich': '1', Cookie: kekse } })).json();
     p(liste2.freigaben[0].status === 'verworfen', 'der Server weiß: verworfen', liste2.freigaben[0].status);
+    /* Der Kunde findet den Plan wieder offen vor - und erfährt, warum */
+    await kunde.reload({ waitUntil: 'load' });
+    await kunde.waitForSelector('table.matrix', { timeout: 10000 });
+    const verworfenHinweis = await kunde.textContent('#fr-verworfen').catch(() => '');
+    p(/nicht übernommen/.test(verworfenHinweis) && /verworfen/.test(verworfenHinweis),
+      'der Kunde sieht, dass seine Rückmeldung nicht übernommen wurde', verworfenHinweis.replace(/\s+/g, ' ').trim().slice(0, 100));
+    p(!(await kunde.$('#fr-stand')), 'die verworfene Rückmeldung selbst wird ihm nicht mehr gezeigt');
+    p((await kunde.$$eval('td.zelle.geaendert', n => n.length)) === 0, 'seine Felder stehen wieder auf dem freigegebenen Stand');
 
     console.log('\n== Zurückziehen ==');
     await seite.waitForSelector('.dialog', { state: 'detached', timeout: 3000 }).catch(() => {});

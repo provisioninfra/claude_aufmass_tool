@@ -10,7 +10,7 @@
      Anmeldeseite und in der Abgleich-Übersicht, damit man auf jedem Gerät
      in einer Sekunde sieht, welcher Stand dort läuft. Muss mit FASSUNG in
      sw.js übereinstimmen - der Prüflauf achtet darauf. */
-  var FASSUNG = '1.5.2';
+  var FASSUNG = '1.5.3';
 
   /* =========================================================================
    * DOM-Hilfsmittel
@@ -424,10 +424,12 @@
       autocapitalize: optionen.autocapitalize || 'sentences',
       spellcheck: 'false',
       oninput: function (e) {
-        eingabeSchrittMerken('Eingabe: ' + String(beschriftung).replace(/<[^>]*>/g, '').trim());
+        /* „flüchtig“: Angaben, die nicht zum Aufmaß gehören (etwa der Hinweis
+           im Freigabe-Dialog) - kein Verlaufsschritt, kein „geändert“. */
+        if (!optionen.fluechtig) eingabeSchrittMerken('Eingabe: ' + String(beschriftung).replace(/<[^>]*>/g, '').trim());
         objekt[schluessel] = e.target.value;
         if (optionen.beiAenderung) optionen.beiAenderung(e.target.value);
-        alsGeaendertMarkieren();
+        if (!optionen.fluechtig) alsGeaendertMarkieren();
       }
     });
     return feld(beschriftung, eingabe, optionen.breit, schluessel);

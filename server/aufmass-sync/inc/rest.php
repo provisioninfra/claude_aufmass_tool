@@ -212,7 +212,7 @@ class Aufmass_Rest {
         $dateien = $anfrage->get_file_params();
         $e = Aufmass_Diktat::verarbeiten(array(
             'ton' => (is_array($dateien) && isset($dateien['ton'])) ? $dateien['ton'] : null,
-            'text' => (string) $anfrage->get_param('text'),
+            'text' => self::text_param($anfrage, 'text'),
             'felder' => $anfrage->get_param('felder'),
             'woerter' => $anfrage->get_param('woerter')
         ), Aufmass_Anmeldung::aktueller_benutzer());
@@ -220,7 +220,7 @@ class Aufmass_Rest {
     }
 
     public static function anmelden($anfrage) {
-        $token = (string) $anfrage->get_param('token');
+        $token = self::text_param($anfrage, 'token');
         if ($token === '') {
             return new WP_Error('kein_ausweis', 'Es wurde kein Google-Ausweis übergeben.', array('status' => 400));
         }
@@ -254,7 +254,7 @@ class Aufmass_Rest {
 
     public static function schluessel_erzeugen($anfrage) {
         $e = Aufmass_Schluessel::erzeugen(Aufmass_Anmeldung::aktueller_benutzer(),
-            (string) $anfrage->get_param('name'), (string) $anfrage->get_param('rechte'), (int) $anfrage->get_param('tage'));
+            self::text_param($anfrage, 'name'), self::text_param($anfrage, 'rechte'), self::zahl_param($anfrage, 'tage'));
         return is_wp_error($e) ? $e : self::antwort($e);
     }
 
@@ -271,7 +271,7 @@ class Aufmass_Rest {
     }
 
     public static function liste($anfrage) {
-        $d = Aufmass_Projekte::liste((string) $anfrage->get_param('seit'));
+        $d = Aufmass_Projekte::liste(self::text_param($anfrage, 'seit'));
         /* Mit jedem Abgleich mitgeben, ob Pipedrive hier eingerichtet ist -
            ein neu hinterlegter Schlüssel wirkt so ohne Neuladen. */
         $d['pipedrive'] = Aufmass_Pipedrive::eingerichtet();
@@ -286,7 +286,7 @@ class Aufmass_Rest {
 
     /* --- Kundenfreigabe ------------------------------------------------ */
     public static function freigaben_liste($anfrage) {
-        $projekt = (string) $anfrage->get_param('projekt');
+        $projekt = self::text_param($anfrage, 'projekt');
         if ($projekt === '') {
             return new WP_Error('projekt_fehlt', 'Für welches Aufmaß?', array('status' => 400));
         }
@@ -295,9 +295,9 @@ class Aufmass_Rest {
 
     public static function freigabe_anlegen($anfrage) {
         $e = Aufmass_Freigaben::anlegen(
-            (string) $anfrage->get_param('projektId'),
+            self::text_param($anfrage, 'projektId'),
             $anfrage->get_param('daten'),
-            (string) $anfrage->get_param('seite'),
+            self::text_param($anfrage, 'seite'),
             Aufmass_Anmeldung::aktueller_benutzer(),
             !empty($anfrage->get_param('vorlegen')));
         return is_wp_error($e) ? $e : self::antwort($e);
@@ -317,9 +317,9 @@ class Aufmass_Rest {
         }
         $e = Aufmass_Freigaben::freigeben(
             self::pfad($anfrage, 'code'),
-            (string) $anfrage->get_param('name'),
-            (string) $anfrage->get_param('funktion'),
-            (string) $anfrage->get_param('anmerkung'));
+            self::text_param($anfrage, 'name'),
+            self::text_param($anfrage, 'funktion'),
+            self::text_param($anfrage, 'anmerkung'));
         return is_wp_error($e) ? $e : self::antwort($e);
     }
 
@@ -337,14 +337,14 @@ class Aufmass_Rest {
         $e = Aufmass_Freigaben::antwort_annehmen(
             self::pfad($anfrage, 'code'),
             $anfrage->get_param('antwort'),
-            (string) $anfrage->get_param('name'),
-            (string) $anfrage->get_param('anmerkung'));
+            self::text_param($anfrage, 'name'),
+            self::text_param($anfrage, 'anmerkung'));
         return is_wp_error($e) ? $e : self::antwort($e);
     }
 
     public static function freigabe_aktion($anfrage) {
         $b = Aufmass_Anmeldung::aktueller_benutzer();
-        $nr = (int) $anfrage->get_param('antwortNr');
+        $nr = self::zahl_param($anfrage, 'antwortNr');
         switch (self::pfad($anfrage, 'aktion')) {
             case 'uebernommen':   $e = Aufmass_Freigaben::uebernommen_markieren(self::pfad($anfrage, 'code'), $nr, $b); break;
             case 'verwerfen':     $e = Aufmass_Freigaben::verwerfen(self::pfad($anfrage, 'code'), $nr, $b); break;
@@ -362,9 +362,22 @@ class Aufmass_Rest {
     private static function pfad($anfrage, $name) {
         if (is_object($anfrage) && method_exists($anfrage, 'get_url_params')) {
             $u = $anfrage->get_url_params();
-            if (is_array($u) && isset($u[$name])) { return (string) $u[$name]; }
+            if (is_array($u) && isset($u[$name])) { return is_scalar($u[$name]) ? (string) $u[$name] : ''; }
         }
-        return isset($anfrage[$name]) ? (string) $anfrage[$name] : '';
+        return isset($anfrage[$name]) && is_scalar($anfrage[$name]) ? (string) $anfrage[$name] : '';
+    }
+
+    /* Parameter aus Körper oder Adresse: nur Skalare werden Text bzw. Zahl.
+       Ein Array an einer Textstelle wäre sonst eine PHP-Warnung („Array to
+       string conversion“) - unter strenger Fehlerbehandlung ein Abbruch
+       statt einer sauberen Ablehnung. */
+    private static function text_param($anfrage, $name) {
+        $w = $anfrage->get_param($name);
+        return is_scalar($w) ? (string) $w : '';
+    }
+    private static function zahl_param($anfrage, $name) {
+        $w = $anfrage->get_param($name);
+        return is_scalar($w) ? (int) $w : 0;
     }
 
     public static function laden($anfrage) {
@@ -421,7 +434,7 @@ class Aufmass_Rest {
 
     public static function foto_ablegen($anfrage) {
         $benutzer = Aufmass_Anmeldung::aktueller_benutzer();
-        $projekt_id = (string) $anfrage->get_param('projekt');
+        $projekt_id = self::text_param($anfrage, 'projekt');
         if ($projekt_id === '') {
             return new WP_Error('kein_projekt', 'Zu welchem Aufmaß gehört das Foto?', array('status' => 400));
         }
@@ -433,7 +446,7 @@ class Aufmass_Rest {
            „; charset=…“ an, das ist kein anderes Format. */
         $typ = strtolower(trim((string) strtok((string) ($anfrage->get_header('content-type') ?: 'image/jpeg'), ';')));
         $e = Aufmass_Fotos::speichern(
-            self::pfad($anfrage, 'id'), $projekt_id, (string) $anfrage->get_param('tuer'),
+            self::pfad($anfrage, 'id'), $projekt_id, self::text_param($anfrage, 'tuer'),
             $anfrage->get_body(),
             $typ,
             $benutzer);

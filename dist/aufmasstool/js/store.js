@@ -222,6 +222,10 @@
     firmaZusatz: '',
     firmaTelefon: '',
     firmaEmail: '',
+    /* Adresse der im Internet erreichbaren Kundenseite (freigabe.html). Nur
+       nötig, wenn das Werkzeug als lokale Datei läuft: Der lange Freigabe-Link
+       führt dann dorthin statt auf eine Datei, die der Kunde nicht hat. */
+    freigabeSeite: '',
     logoDataUrl: '',
     standardBearbeiter: '',
     eigeneSysteme: [],

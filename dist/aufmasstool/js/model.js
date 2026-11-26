@@ -65,6 +65,12 @@
        * Schließungen freigegeben waren. Damit wird eine Rückmeldung beim
        * Einlesen gegen die Freigabe geprüft - wie es der Server tut. */
       freigabenLokal: [],
+      /* Was der Kunde über Freigabe-Links neu angelegt hat: seine vorläufige
+       * Kennung („neu-…“) -> die Kennung im Aufmaß. Damit legt dieselbe
+       * Rückmeldung, zweimal eingelesen oder vom Kunden nachgebessert, nichts
+       * doppelt an. Dazu die Kennzeichen bereits übernommener Rückmeldungen. */
+      kundenKennungen: {},
+      freigabeAntworten: [],
       /* Mitarbeiter und Gruppen des Kunden. Die Spalten des Plans beziehen
        * sich darauf: eine Gruppe (alle Mitglieder), ein einzelner
        * Mitarbeiter oder eine Schließung (Schlüssel) mit benannten Trägern. */
@@ -2216,7 +2222,9 @@
       out[k] = (projekt && projekt[k] !== undefined) ? projekt[k] : vorlage[k];
     });
     out.schemaVersion = SCHEMA_VERSION;
-    typenAngleichen(out, vorlage, ['id', 'schemaVersion', 'pipedrive', 'freigabenLokal', 'mitarbeiter', 'gruppen', 'freigabe', 'standorte', 'tueren', 'schliessungen', 'matrix']);
+    typenAngleichen(out, vorlage, ['id', 'schemaVersion', 'pipedrive', 'freigabenLokal', 'kundenKennungen', 'freigabeAntworten', 'mitarbeiter', 'gruppen', 'freigabe', 'standorte', 'tueren', 'schliessungen', 'matrix']);
+    out.kundenKennungen = (out.kundenKennungen && typeof out.kundenKennungen === 'object' && !Array.isArray(out.kundenKennungen)) ? out.kundenKennungen : {};
+    out.freigabeAntworten = Array.isArray(out.freigabeAntworten) ? out.freigabeAntworten : [];
     out.standorte = Array.isArray(out.standorte) ? out.standorte : [];
     out.tueren = Array.isArray(out.tueren) ? out.tueren : [];
     out.tueren = out.tueren.filter(function (t) { return t && typeof t === 'object' && !Array.isArray(t); });
@@ -2394,6 +2402,7 @@
     istMitlaeufer: istMitlaeufer,
     zylinderNummer: zylinderNummer,
     gleichschliessendSetzen: gleichschliessendSetzen,
+    schliessungsTueren: schliessungsTueren,
     zylinderNummerVorschau: zylinderNummerVorschau,
     kuerzelEindeutig: kuerzelEindeutig,
     gleichschliessungAngleichen: gleichschliessungAngleichen,

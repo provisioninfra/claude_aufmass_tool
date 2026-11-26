@@ -34,6 +34,8 @@
                  unterlisten: [] },
     freigabenLokal: { name: 'Freigabe', bezeichnung: function (f) { return f.erstellt || 'Freigabe'; },
                       unterlisten: [] },
+    freigabeAntworten: { name: 'Rückmeldung', bezeichnung: function (f) { return f.am || 'Rückmeldung'; },
+                         unterlisten: [] },
     mitarbeiter: { name: 'Mitarbeiter', bezeichnung: function (m) { return m.name || 'ohne Namen'; },
                    unterlisten: [] },
     gruppen: { name: 'Gruppe', bezeichnung: function (g) { return g.name || 'ohne Namen'; },
@@ -283,6 +285,17 @@
       }
       if (k === 'matrix') {
         ergebnis[k] = matrix(b[k], m[k], s[k], konflikte, bericht, ergebnis);
+        return;
+      }
+      /* Zuordnungen der Kundenkennungen: beide Seiten vereinigen - ein Streit
+         darüber wäre keinem zu erklären, und jede Zuordnung ist für sich richtig. */
+      if (k === 'kundenKennungen') {
+        var vereinigt = {};
+        [s[k], m[k]].forEach(function (q) {
+          if (!q || typeof q !== 'object' || Array.isArray(q)) { return; }
+          Object.keys(q).forEach(function (kk) { if (schluesselErlaubt(kk) && typeof q[kk] === 'string') { vereinigt[kk] = q[kk]; } });
+        });
+        ergebnis[k] = vereinigt;
         return;
       }
       var e = dreiWege(b[k], m[k], s[k]);

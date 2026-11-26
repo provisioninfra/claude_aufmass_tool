@@ -54,5 +54,7 @@ fs.writeFileSync(path.join(ZIEL, 'index.html'), seite, 'utf8');
 /* Die Kundenseite wird unverändert übernommen: Sie ist eine eigenständige
    Seite mit eigenem Dokumentgerüst. */
 fs.copyFileSync(path.join(QUELLE, 'freigabe.html'), path.join(ZIEL, 'freigabe.html'));
+/* Ihr Symbol für den Browser-Reiter (die Seite verweist darauf) */
+fs.copyFileSync(path.join(QUELLE, 'icon.svg'), path.join(ZIEL, 'icon.svg'));
 console.log('Fassung für die Veröffentlichung: dist/artifact/  (' +
-  (SKRIPTE.length + 2) + ' Dateien)');
+  (SKRIPTE.length + 3) + ' Dateien)');

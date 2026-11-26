@@ -2050,6 +2050,12 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
        * Schließungen freigegeben waren. Damit wird eine Rückmeldung beim
        * Einlesen gegen die Freigabe geprüft - wie es der Server tut. */
       freigabenLokal: [],
+      /* Was der Kunde über Freigabe-Links neu angelegt hat: seine vorläufige
+       * Kennung („neu-…“) -> die Kennung im Aufmaß. Damit legt dieselbe
+       * Rückmeldung, zweimal eingelesen oder vom Kunden nachgebessert, nichts
+       * doppelt an. Dazu die Kennzeichen bereits übernommener Rückmeldungen. */
+      kundenKennungen: {},
+      freigabeAntworten: [],
       /* Mitarbeiter und Gruppen des Kunden. Die Spalten des Plans beziehen
        * sich darauf: eine Gruppe (alle Mitglieder), ein einzelner
        * Mitarbeiter oder eine Schließung (Schlüssel) mit benannten Trägern. */
@@ -4201,7 +4207,9 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
       out[k] = (projekt && projekt[k] !== undefined) ? projekt[k] : vorlage[k];
     });
     out.schemaVersion = SCHEMA_VERSION;
-    typenAngleichen(out, vorlage, ['id', 'schemaVersion', 'pipedrive', 'freigabenLokal', 'mitarbeiter', 'gruppen', 'freigabe', 'standorte', 'tueren', 'schliessungen', 'matrix']);
+    typenAngleichen(out, vorlage, ['id', 'schemaVersion', 'pipedrive', 'freigabenLokal', 'kundenKennungen', 'freigabeAntworten', 'mitarbeiter', 'gruppen', 'freigabe', 'standorte', 'tueren', 'schliessungen', 'matrix']);
+    out.kundenKennungen = (out.kundenKennungen && typeof out.kundenKennungen === 'object' && !Array.isArray(out.kundenKennungen)) ? out.kundenKennungen : {};
+    out.freigabeAntworten = Array.isArray(out.freigabeAntworten) ? out.freigabeAntworten : [];
     out.standorte = Array.isArray(out.standorte) ? out.standorte : [];
     out.tueren = Array.isArray(out.tueren) ? out.tueren : [];
     out.tueren = out.tueren.filter(function (t) { return t && typeof t === 'object' && !Array.isArray(t); });
@@ -4379,6 +4387,7 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
     istMitlaeufer: istMitlaeufer,
     zylinderNummer: zylinderNummer,
     gleichschliessendSetzen: gleichschliessendSetzen,
+    schliessungsTueren: schliessungsTueren,
     zylinderNummerVorschau: zylinderNummerVorschau,
     kuerzelEindeutig: kuerzelEindeutig,
     gleichschliessungAngleichen: gleichschliessungAngleichen,
@@ -7765,6 +7774,10 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
     firmaZusatz: '',
     firmaTelefon: '',
     firmaEmail: '',
+    /* Adresse der im Internet erreichbaren Kundenseite (freigabe.html). Nur
+       nötig, wenn das Werkzeug als lokale Datei läuft: Der lange Freigabe-Link
+       führt dann dorthin statt auf eine Datei, die der Kunde nicht hat. */
+    freigabeSeite: '',
     logoDataUrl: '',
     standardBearbeiter: '',
     eigeneSysteme: [],
@@ -8224,6 +8237,10 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
   var WERTE = ['nein', 'ja', 'zeit', 'temp', 'sperr', 'plan'];
   var ZEICHEN = ['0', '1', '2', '3', '4', '5'];
   var NEU_ID = /^neu-[a-z0-9]{1,12}$/;
+  /* Nachschlagetabellen mit Kennungen als Schlüssel: ohne Prototyp, damit
+     eine Kennung wie „constructor“ oder „__proto__“ (aus einem Import
+     denkbar) nicht Object.prototype trifft. */
+  function tabelle() { return Object.create(null); }
   var ID = /^[A-Za-z0-9_-]{1,64}$/;
 
   function wertZuZeichen(w) {
@@ -8287,7 +8304,11 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
     return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   }
   function ankerZuText(anker) {
-    var b64 = String(anker || '').replace(/-/g, '+').replace(/_/g, '/');
+    /* Mailprogramme brechen lange Links um; dabei geraten Leerzeichen,
+       Zeilenumbrüche oder deren URL-Kodierung in den Anker. Sie zählen sonst
+       bei der Auffüllung mit „=“ mit, und der Schlüssel gilt als unlesbar. */
+    var b64 = String(anker || '').replace(/%(20|0A|0D|09)/gi, '').replace(/\s+/g, '')
+      .replace(/-/g, '+').replace(/_/g, '/');
     while (b64.length % 4) b64 += '=';
     var bytes = (typeof atob === 'function') ? atob(b64)
               : Buffer.from(b64, 'base64').toString('binary');
@@ -8327,7 +8348,7 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
   /* Mitarbeiter in die knappe Form [Kennung, Name, [Gruppen], [[Art, Anzahl]]] */
   function mitarbeiterBereinigen(liste) {
     if (!Array.isArray(liste)) return [];
-    var aus = [], gesehen = {};
+    var aus = [], gesehen = tabelle();
     liste.forEach(function (x) {
       if (!x) return;
       var id, name, gruppen, medien;
@@ -8339,7 +8360,7 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
       id = kennung(id);
       if (id && gesehen[id]) return;
       if (id) gesehen[id] = true;
-      var g = [], gs = {};
+      var g = [], gs = tabelle();
       (Array.isArray(gruppen) ? gruppen : []).forEach(function (gid) {
         gid = kennung(gid);
         if (gid && !gs[gid]) { gs[gid] = true; g.push(gid); }
@@ -8350,7 +8371,7 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
   }
   function gruppenBereinigen(liste) {
     if (!Array.isArray(liste)) return [];
-    var aus = [], gesehen = {};
+    var aus = [], gesehen = tabelle();
     liste.forEach(function (x) {
       if (!x) return;
       var id, name;
@@ -8368,11 +8389,35 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
   }
   function kennungenBereinigen(liste) {
     if (!Array.isArray(liste)) return [];
-    var aus = [], gesehen = {};
+    var aus = [], gesehen = tabelle();
     liste.forEach(function (x) { var k = kennung(x); if (k && !gesehen[k]) { gesehen[k] = true; aus.push(k); } });
     return aus.slice(0, 500);
   }
   function listenGleich(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+  /* Einträge (je [Kennung, …]), die gegenüber der Vorlage neu oder anders sind */
+  function nurGeaenderte(liste, vorlage) {
+    var vorher = tabelle();
+    (vorlage || []).forEach(function (x) { if (x && x[0]) vorher[x[0]] = JSON.stringify(x); });
+    return (liste || []).filter(function (x) { return x && (!x[0] || !vorher[x[0]] || vorher[x[0]] !== JSON.stringify(x)); });
+  }
+  /* Vorlage einer Liste als Nachschlagetabelle Kennung -> Eintrag */
+  function nachKennung(liste) {
+    var aus = tabelle();
+    (liste || []).forEach(function (x) { if (x && x[0]) aus[x[0]] = x; });
+    return aus;
+  }
+  /* Kennzeichen einer Rückmeldung: dieselbe Rückmeldung ergibt dasselbe Kennzeichen */
+  function antwortKennzeichen(antwort) {
+    var s = [antwort.pid, antwort.gesendet, antwort.a, JSON.stringify([antwort.ma || null, antwort.max || null, antwort.gr || null, antwort.grx || null, antwort.n || null, antwort.fr || null])].join('|');
+    var h1 = 5381, h2 = 52711;
+    for (var i = 0; i < s.length; i++) { var c = s.charCodeAt(i); h1 = ((h1 * 33) ^ c) >>> 0; h2 = ((h2 * 31) + c) >>> 0; }
+    return h1.toString(36) + '-' + h2.toString(36) + '-' + s.length.toString(36);
+  }
+  /* Namen vergleichen wie ein Mensch: Groß/Klein und Leerraum zählen nicht */
+  function namenGleich(a, b) {
+    var n = function (x) { return String(x || '').toLowerCase().replace(/\s+/g, ' ').trim(); };
+    return n(a) !== '' && n(a) === n(b);
+  }
   function rechteBereinigen(r) {
     r = (r && typeof r === 'object') ? r : {};
     return { m: r.m ? 1 : 0, g: r.g ? 1 : 0, s: r.s ? 1 : 0 };
@@ -8407,6 +8452,9 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
         matrix += wertZuZeichen(wert);
         var darf = frei.indexOf(s.id) !== -1;
         if (darf && optionen.nurLeereFelder && wert !== 'nein') darf = false;
+        /* Ausdrückliche Vorgaben des Planers (gesperrt, befristet) bleiben auf
+           Wunsch gesperrt - ein Tipp des Kunden machte sonst aus „–“ ein „X“. */
+        if (darf && optionen.vorgabenSchuetzen && (wert === 'sperr' || wert === 'temp')) darf = false;
         maske += darf ? '1' : '0';
       });
     });
@@ -8420,6 +8468,8 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
       hinweis: optionen.hinweis || '',
       frist: optionen.frist || '',
       firma: optionen.firma || '',
+      /* Adresse für die Rückmeldung per E-Mail (nur beim langen Link gebraucht) */
+      mail: /@/.test(String(optionen.mail || '')) ? text(optionen.mail, 200) : '',
       r: rechteBereinigen(optionen.rechte),
       mt: (Array.isArray(optionen.medienArten) ? optionen.medienArten : []).map(function (x) { return text(x, 60); }).filter(Boolean).slice(0, 50),
       gr: (projekt.gruppen || []).map(function (g) { return [g.id, g.name || '']; }),
@@ -8428,6 +8478,10 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
                 M.medienBereinigen(m.medien).map(function (x) { return [x.typ, x.anzahl]; })];
       }),
       t: tueren.map(function (t) { return [t.id, t.nr, t.bez, t.bereich]; }),
+      /* Gleichschließende Türen (Haupttür zuerst): Die Kundenseite hält ihre
+         Felder einer Spalte gleich - sonst stünden Widersprüche im Plan, die
+         beim Übernehmen stillschweigend die zuletzt gelesene Zelle gewinnt. */
+      vb: verbuende(projekt, tueren.map(function (t) { return t.id; })),
       /* Je Spalte: Kennung, Kürzel, Bezeichnung, Trägertext, Art, die
          Kennung der Gruppe bzw. des Mitarbeiters dahinter und bei einer
          Schließung die Kennungen ihrer Träger - damit die Kundenseite
@@ -8440,6 +8494,32 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
       m: packen(matrix),
       e: packen(maske)
     };
+  }
+
+  function verbuende(projekt, tIds) {
+    var M = global.Model;
+    if (!M.schliessungsTueren) return [];
+    var gesehen = tabelle(), aus = [];
+    tIds.forEach(function (id) {
+      if (gesehen[id]) return;
+      var gruppe = M.schliessungsTueren(projekt, id).map(function (t) { return t.id; }).filter(function (x) { return tIds.indexOf(x) !== -1; });
+      gruppe.forEach(function (x) { gesehen[x] = true; });
+      if (gruppe.length >= 2) aus.push(gruppe);
+    });
+    return aus;
+  }
+  /* Nur Kennungen, die es in t gibt; je Tür höchstens ein Verbund. */
+  function verbuendeBereinigen(vb, tIds) {
+    if (!Array.isArray(vb)) return [];
+    var bekannt = tabelle(), vergeben = tabelle(), aus = [];
+    tIds.forEach(function (id) { bekannt[id] = true; });
+    vb.slice(0, 2000).forEach(function (g) {
+      if (!Array.isArray(g)) return;
+      var ids = [];
+      g.slice(0, 200).forEach(function (x) { var k = kennung(x); if (k && bekannt[k] && !vergeben[k] && ids.indexOf(k) === -1) ids.push(k); });
+      if (ids.length >= 2) { ids.forEach(function (k) { vergeben[k] = true; }); aus.push(ids); }
+    });
+    return aus;
   }
 
   function alsAnker(daten) { return textZuAnker(JSON.stringify(daten)); }
@@ -8462,6 +8542,14 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
     daten.mt = Array.isArray(daten.mt) ? daten.mt.map(function (x) { return text(x, 60); }).filter(Boolean) : [];
     daten.gr = gruppenBereinigen(daten.gr);
     daten.ma = mitarbeiterBereinigen(daten.ma);
+    /* Anzeigetexte sind Texte - ein Objekt an dieser Stelle ließ die Kundenseite
+       beim Einhängen in die Seite abstürzen. */
+    function nurText(w, max) { return (typeof w === 'string' || typeof w === 'number') ? text(w, max) : ''; }
+    ['kunde', 'objekt', 'anlage', 'hinweis', 'firma'].forEach(function (k) { daten[k] = nurText(daten[k], 500); });
+    daten.frist = nurText(daten.frist, 100);
+    daten.mail = /@/.test(nurText(daten.mail, 200)) ? nurText(daten.mail, 200) : '';
+    daten.pid = kennung(daten.pid) || String(daten.pid === null || daten.pid === undefined ? '' : daten.pid).slice(0, 64);
+    daten.vb = verbuendeBereinigen(daten.vb, daten.t.map(function (x) { return Array.isArray(x) ? kennung(x[0]) : ''; }));
     return daten;
   }
 
@@ -8500,15 +8588,19 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
       a: a.join(','),
       gesendet: new Date().toISOString()
     };
+    if (daten.fid && kennung(daten.fid)) antwort.fid = kennung(daten.fid);
+    /* Nur, was der Kunde angefasst hat: geänderte und neue Einträge. Die
+       unveränderten bleiben weg - sonst setzte die Übernahme alles, was im
+       Werkzeug inzwischen geändert wurde, still auf den Linkstand zurück. */
     if (aenderungen.ma) {
-      var ma = mitarbeiterBereinigen(aenderungen.ma);
-      if (!listenGleich(ma, mitarbeiterBereinigen(daten.ma))) antwort.ma = ma;
+      var ma = nurGeaenderte(mitarbeiterBereinigen(aenderungen.ma), mitarbeiterBereinigen(daten.ma));
+      if (ma.length) antwort.ma = ma;
     }
     var max = kennungenBereinigen(aenderungen.max);
     if (max.length) antwort.max = max;
     if (aenderungen.gr) {
-      var gr = gruppenBereinigen(aenderungen.gr);
-      if (!listenGleich(gr, gruppenBereinigen(daten.gr))) antwort.gr = gr;
+      var gr = nurGeaenderte(gruppenBereinigen(aenderungen.gr), gruppenBereinigen(daten.gr));
+      if (gr.length) antwort.gr = gr;
     }
     var grx = kennungenBereinigen(aenderungen.grx);
     if (grx.length) antwort.grx = grx;
@@ -8527,14 +8619,45 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
 
   function antwortAusSchluessel(schluessel) {
     var roh = String(schluessel || '').trim();
-    /* Auch eine vollständige Adresse wird angenommen */
-    var raute = roh.indexOf('#');
-    if (raute !== -1) roh = roh.slice(raute + 1);
-    if (roh.indexOf('antwort=') === 0) roh = roh.slice(8);
-    var antwort;
-    try { antwort = JSON.parse(ankerZuText(roh)); }
-    catch (e) { throw new Error('Der Rückschlüssel ist nicht lesbar. Bitte vollständig einfügen.'); }
-    if (!antwort || antwort.typ !== 'antwort') throw new Error('Das ist keine Kundenantwort.');
+    /* Der Schlüssel kommt meist aus einer E-Mail: als vollständige Adresse,
+       vom Mailprogramm umbrochen, mit eingestreuten Leerzeichen - oder der
+       ganze Mailtext wurde eingefügt. Versucht wird der Reihe nach: der Text
+       selbst, der Teil hinter „#“ bzw. „antwort=“, beides ohne Zwischenräume,
+       dann jeder schlüsselartige Block darin (längster zuerst). Angenommen
+       wird nur, was sich als Antwort entpuppt - ein Zufallstreffer ist
+       ausgeschlossen. */
+    var kandidaten = [];
+    function merken(k) { k = String(k || '').trim(); if (k && kandidaten.indexOf(k) === -1) kandidaten.push(k); }
+    function varianten(text) {
+      merken(text);
+      var raute = text.indexOf('#');
+      var hinten = raute !== -1 ? text.slice(raute + 1) : text;
+      if (hinten.indexOf('antwort=') === 0) hinten = hinten.slice(8);
+      merken(hinten);
+      merken(text.replace(/\s+/g, ''));
+      merken(hinten.replace(/\s+/g, ''));
+      /* zitiert („> …“ am Zeilenanfang) und dann umbrochen */
+      merken(text.replace(/^[>|\s]+/gm, '').replace(/\s+/g, ''));
+      /* quoted-printable aus dem Rohtext einer Mail: „=“ am Zeilenende ist ein weicher Umbruch */
+      merken(text.replace(/=\r?\n/g, '').replace(/^[>|\s]+/gm, '').replace(/\s+/g, ''));
+    }
+    varianten(roh);
+    [roh, roh.replace(/\s+/g, '')].forEach(function (quelle) {
+      (quelle.match(/[A-Za-z0-9_-]{40,}/g) || []).sort(function (a, b) { return b.length - a.length; }).forEach(merken);
+    });
+    var antwort = null, lesbar = null;
+    for (var i = 0; i < kandidaten.length && !antwort; i++) {
+      var versuch;
+      try { versuch = JSON.parse(ankerZuText(kandidaten[i])); } catch (e) { continue; }
+      if (versuch && typeof versuch === 'object') {
+        if (versuch.typ === 'antwort') antwort = versuch;
+        else if (!lesbar) lesbar = versuch;
+      }
+    }
+    if (!antwort) {
+      if (lesbar) throw new Error('Das ist keine Kundenantwort.');
+      throw new Error('Der Rückschlüssel ist nicht lesbar. Bitte vollständig einfügen.');
+    }
     if (antwort.f !== FORMAT) throw new Error('Die Antwort stammt aus einer anderen Fassung. Bitte einen neuen Link senden.');
     return antwort;
   }
@@ -8574,11 +8697,17 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
      war, darf der Kunde eintragen. null: keine bekannt. */
   function freigabeFinden(projekt, antwort) {
     var tKey = JSON.stringify(antwort.tIds || []), sKey = JSON.stringify(antwort.sIds || []);
-    var passende = (projekt.freigabenLokal || []).filter(function (f) {
+    var alle = (projekt.freigabenLokal || []).filter(function (f) {
       return f && JSON.stringify(f.tIds || []) === tKey && JSON.stringify(f.sIds || []) === sKey;
     });
+    /* Nennt die Antwort ihren Link, gilt genau der - sonst (ältere Links) die
+       Vereinigung aller passenden. Zurückgezogene Links gelten nicht. */
+    var fid = kennung(antwort.fid);
+    var genau = fid ? alle.filter(function (f) { return f.id === fid; }) : [];
+    if (genau.length && genau.every(function (f) { return f.zurueckgezogen; })) return { zurueckgezogen: genau[0].zurueckgezogen };
+    var passende = (genau.length ? genau : alle).filter(function (f) { return !f.zurueckgezogen; });
     if (!passende.length) return null;
-    var maske = '', rechte = { m: 0, g: 0, s: 0 };
+    var maske = '', rechte = { m: 0, g: 0, s: 0 }, ma = null, gr = null, tNr = null, sKurz = null;
     passende.forEach(function (f) {
       var m = String(f.maske || '');
       for (var i = 0; i < m.length; i++) {
@@ -8588,8 +8717,13 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
       if (r.m) rechte.m = 1;
       if (r.g) rechte.g = 1;
       if (r.s) rechte.s = 1;
+      /* Linkstand der Listen: der jüngste Link, der ihn kennt */
+      if (Array.isArray(f.ma)) ma = f.ma;
+      if (Array.isArray(f.gr)) gr = f.gr;
+      if (Array.isArray(f.tNr)) tNr = f.tNr;
+      if (Array.isArray(f.sKurz)) sKurz = f.sKurz;
     });
-    return { maske: maske, rechte: rechte };
+    return { maske: maske, rechte: rechte, ma: ma, gr: gr, tNr: tNr, sKurz: sKurz };
   }
 
   function freigabeMerken(projekt, daten) {
@@ -8601,11 +8735,27 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
       tIds: daten.t.map(function (t) { return t[0]; }),
       sIds: daten.s.map(function (s) { return s[0]; }),
       maske: entpacken(daten.e),
-      rechte: rechteBereinigen(daten.r)
+      rechte: rechteBereinigen(daten.r),
+      /* Namen für den Bericht, falls Tür oder Spalte später fehlt */
+      tNr: daten.t.map(function (t) { return t[1] || t[2] || ''; }),
+      sKurz: daten.s.map(function (s) { return s[1] || s[2] || ''; }),
+      /* Stand der Listen im Link: Beim Übernehmen wird je Angabe nur das
+         geändert, was der Kunde gegenüber diesem Stand geändert hat. */
+      ma: (daten.ma || []).map(function (m) { return [m[0], m[1], (m[2] || []).slice(), (m[3] || []).map(function (x) { return [x[0], x[1]]; })]; }),
+      gr: (daten.gr || []).map(function (g) { return [g[0], g[1]]; })
     };
+    /* Der Link trägt die Kennung seiner Freigabe; die Antwort bringt sie
+       zurück, und beim Einlesen gilt genau diese Freigabe. */
+    daten.fid = eintrag.id;
     projekt.freigabenLokal.push(eintrag);
-    /* Es bleiben die letzten 50 - mehr Links hat kein Aufmaß in Umlauf */
-    if (projekt.freigabenLokal.length > 50) projekt.freigabenLokal.splice(0, projekt.freigabenLokal.length - 50);
+    /* Es bleiben die letzten 100 - zuerst fliegen zurückgezogene, dann die
+       ältesten. Ein Kunde mit einem gültigen Link soll nicht „keine Freigabe
+       abgelegt“ hören, nur weil später viele Links folgten. */
+    var ueberzaehlig = projekt.freigabenLokal.length - 100;
+    for (var i = 0; i < projekt.freigabenLokal.length && ueberzaehlig > 0;) {
+      if (projekt.freigabenLokal[i] && projekt.freigabenLokal[i].zurueckgezogen) { projekt.freigabenLokal.splice(i, 1); ueberzaehlig--; } else i++;
+    }
+    if (ueberzaehlig > 0) projekt.freigabenLokal.splice(0, ueberzaehlig);
     return eintrag;
   }
 
@@ -8630,6 +8780,13 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
        Rückmeldung abgelehnt. Einzige Ausnahme: Rückmeldungen über den
        Server, die der Server bereits gegen seine Freigabe geprüft hat. */
     var freigabe = freigabeFinden(projekt, antwort);
+    if (freigabe && freigabe.zurueckgezogen && !optionen.serverGeprueft) {
+      var zurueck = new Error('Der Freigabe-Link dieser Rückmeldung wurde am ' + String(freigabe.zurueckgezogen).slice(0, 10) + ' zurückgezogen. ' +
+        'Die Rückmeldung wird nicht übernommen - bei Bedarf einen neuen Link senden.');
+      zurueck.code = 'zurueckgezogen';
+      throw zurueck;
+    }
+    if (freigabe && freigabe.zurueckgezogen) freigabe = null;
     if (!freigabe && !optionen.serverGeprueft) {
       var fehler = new Error('Zu dieser Rückmeldung ist auf diesem Gerät keine Freigabe abgelegt. ' +
         'Der Link stammt aus einer früheren Fassung oder von einem anderen Gerät. ' +
@@ -8641,11 +8798,39 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
     /* Hat der Server die Antwort schon gegen seine Freigabe geprüft, gilt
        dessen Maske - nicht eine zufällig passende, womöglich engere lokale. */
     var maske = optionen.serverGeprueft ? null : (freigabe ? freigabe.maske : null);
+    /* Linkstand der Listen (falls bekannt): je Angabe wird nur übernommen,
+       was der Kunde gegenüber dem Link geändert hat - was im Werkzeug
+       inzwischen anders ist, bleibt. */
+    var vorlageMa = nachKennung(optionen.linkMa || (freigabe && freigabe.ma) || null);
+    var vorlageGr = nachKennung(optionen.linkGr || (freigabe && freigabe.gr) || null);
+    /* Kennungen, die der Kunde vergeben hat, und was im Aufmaß daraus wurde */
+    if (!projekt.kundenKennungen || typeof projekt.kundenKennungen !== 'object' || Array.isArray(projekt.kundenKennungen)) projekt.kundenKennungen = {};
+    var karte = projekt.kundenKennungen;
+    function bekannt(id) { return (id && NEU_ID.test(id) && Object.prototype.hasOwnProperty.call(karte, id) && typeof karte[id] === 'string') ? karte[id] : id; }
+    function merken(neuId, echteId) {
+      if (!neuId || !NEU_ID.test(neuId) || !echteId) return;
+      karte[neuId] = echteId;
+      var schluessel = Object.keys(karte);
+      if (schluessel.length > 2000) schluessel.slice(0, schluessel.length - 2000).forEach(function (k) { delete karte[k]; });
+    }
+    /* Schon einmal übernommen? Dann sagt es der Bericht - angelegt wird ohnehin nichts doppelt. */
+    var kennzeichen = antwortKennzeichen(antwort);
+    if (!Array.isArray(projekt.freigabeAntworten)) projekt.freigabeAntworten = [];
+    var frueher = projekt.freigabeAntworten.filter(function (x) { return x && x.id === kennzeichen; })[0];
+    e.bereitsUebernommen = frueher ? (frueher.am || '') : null;
 
     function tuerVon(id) { return projekt.tueren.filter(function (t) { return t.id === id; })[0]; }
     function spalteVon(id) { return projekt.schliessungen.filter(function (s) { return s.id === id; })[0]; }
 
     /* --- Berechtigungen --- */
+    var tNr = (freigabe && freigabe.tNr) || optionen.tNr || null, sKurz = (freigabe && freigabe.sKurz) || optionen.sKurz || null;
+    function tuerName(zeile) { var t = tuerVon(tIds[zeile]); return t ? (t.nummer || t.bezeichnung) : ((tNr && tNr[zeile]) || tIds[zeile] || '–'); }
+    function spaltenName(spalte) { var s = spalteVon(sIds[spalte]); return s ? (s.kuerzel || s.bezeichnung) : ((sKurz && sKurz[spalte]) || sIds[spalte] || '–'); }
+    function uebersprungen(zeile, spalte, wert, grund) {
+      e.uebersprungen++;
+      e.aenderungen.push({ uebersprungen: true, tuer: tuerName(zeile), schliessung: spaltenName(spalte), nachher: wert, grund: grund });
+    }
+    var verbundWerte = tabelle();   /* Spalte + Haupttür -> zuerst gesetzter Wert */
     (antwort.a ? String(antwort.a).split(',') : []).forEach(function (eintrag) {
       if (!eintrag) return;
       var teile = eintrag.split(':');
@@ -8653,10 +8838,23 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
       var wert = zeichenZuWert(teile[1]);
       var zeile = Math.floor(index / spalten), spalte = index % spalten;
       var tuerId = tIds[zeile], schliessungId = sIds[spalte];
-      if (!tuerId || !schliessungId) { e.uebersprungen++; return; }
-      if (maske && maske[index] !== '1') { e.uebersprungen++; return; }
+      if (!tuerId || !schliessungId) { uebersprungen(zeile, spalte, wert, 'Feld liegt außerhalb des Plans'); return; }
+      if (maske && maske[index] !== '1') { uebersprungen(zeile, spalte, wert, 'Feld war nicht freigegeben'); return; }
       var tuer = tuerVon(tuerId), sch = spalteVon(schliessungId);
-      if (!tuer || !sch) { e.uebersprungen++; return; }
+      if (!tuer || !sch) { uebersprungen(zeile, spalte, wert, !tuer ? 'Tür gibt es im Aufmaß nicht mehr' : 'Spalte gibt es im Aufmaß nicht mehr'); return; }
+      /* Widerspruch bei gleichschließenden Türen (nur bei von Hand gebauten
+         Rückmeldungen möglich - die Kundenseite setzt sie gemeinsam) */
+      if (M.schliessungsTueren) {
+        var basis = M.schliessungsTueren(projekt, tuerId)[0];
+        if (basis) {
+          var schluessel = schliessungId + '|' + basis.id;
+          if (verbundWerte[schluessel] !== undefined && verbundWerte[schluessel] !== wert) {
+            e.aenderungen.push({ hinweis: true, text: 'Widerspruch bei gleichschließenden Türen (' + (basis.nummer || basis.bezeichnung || '') + ' und ' + (tuer.nummer || tuer.bezeichnung || '') +
+              ', Spalte ' + (sch.kuerzel || sch.bezeichnung || '') + '): Die Rückmeldung nennt verschiedene Werte, übernommen wurde der zuletzt genannte.' });
+          }
+          verbundWerte[schluessel] = wert;
+        }
+      }
       var vorher = M.getBerechtigung(projekt, tuerId, schliessungId);
       if (vorher === wert) return;
       /* Gleichschließende Türen tragen dasselbe Kreuz - sonst setzte die nächste
@@ -8664,12 +8862,15 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
       if (M.berechtigungSetzenVerbund) M.berechtigungSetzenVerbund(projekt, tuerId, schliessungId, wert);
       else M.setBerechtigung(projekt, tuerId, schliessungId, wert);
       e.uebernommen++;
+      /* Gleichschließende Türen ziehen mit - der Bericht nennt sie */
+      var partner = M.schliessungsTueren ? M.schliessungsTueren(projekt, tuerId).filter(function (x) { return x.id !== tuerId; })
+        .map(function (x) { return x.nummer || x.bezeichnung || ''; }).filter(Boolean) : [];
       e.aenderungen.push({ tuer: tuer.nummer || tuer.bezeichnung, schliessung: sch.kuerzel || sch.bezeichnung,
-                           vorher: vorher, nachher: wert });
+                           vorher: vorher, nachher: wert, mit: partner });
     });
 
-    var gruppenNeu = {};   /* Kennung des Kunden -> echte Kennung */
-    var maNeu = {};
+    var gruppenNeu = tabelle();   /* Kennung des Kunden -> echte Kennung */
+    var maNeu = tabelle();
 
     /* --- Gruppen --- */
     if (Array.isArray(antwort.gr) || (Array.isArray(antwort.grx) && antwort.grx.length)) {
@@ -8677,8 +8878,13 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
       else {
         gruppenBereinigen(antwort.gr).forEach(function (x) {
           var id = x[0], name = x[1];
-          var da = id && !NEU_ID.test(id) ? M.gruppeVon(projekt, id) : null;
+          var echteId = bekannt(id);
+          var da = echteId && !NEU_ID.test(echteId) ? M.gruppeVon(projekt, echteId) : null;
           if (da) {
+            if (id !== echteId) gruppenNeu[id] = da.id;
+            /* Hat der Kunde den Namen gegenüber dem Link gar nicht geändert, bleibt der im Werkzeug */
+            var vorlage = vorlageGr[id];
+            if (vorlage && vorlage[1] === name) return;
             if (da.name !== name) {
               e.aenderungen.push({ gruppe: true, art: 'geaendert', name: name, vorher: da.name });
               da.name = name; e.gruppenGeaendert++;
@@ -8686,13 +8892,14 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
             return;
           }
           if (id && !NEU_ID.test(id)) return;   /* unbekannte Kennung: nicht erfinden */
+          var dublette = projekt.gruppen.some(function (v) { return namenGleich(v.name, name); });
           var g = M.neueGruppe({ name: name });
           projekt.gruppen.push(g);
-          if (id) gruppenNeu[id] = g.id;
+          if (id) { gruppenNeu[id] = g.id; merken(id, g.id); }
           e.gruppenNeu++;
-          e.aenderungen.push({ gruppe: true, art: 'neu', name: name });
+          e.aenderungen.push({ gruppe: true, art: 'neu', name: name, dublette: dublette });
         });
-        kennungenBereinigen(antwort.grx).forEach(function (id) {
+        kennungenBereinigen(antwort.grx).map(bekannt).forEach(function (id) {
           var g = M.gruppeVon(projekt, id);
           if (!g) return;
           /* Eine Gruppe mit Spalte im Plan bleibt - die Spalte haben wir angelegt */
@@ -8710,31 +8917,57 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
       else {
         mitarbeiterBereinigen(antwort.ma).forEach(function (x) {
           var id = x[0], name = x[1];
-          var gruppen = x[2].map(function (gid) { return gruppenNeu[gid] || gid; })
+          var gruppen = x[2].map(function (gid) { return gruppenNeu[gid] || bekannt(gid); })
             .filter(function (gid) { return !!M.gruppeVon(projekt, gid); });
           var medien = x[3].map(function (md) { return { typ: md[0], anzahl: md[1] }; });
-          var da = id && !NEU_ID.test(id) ? M.mitarbeiterVon(projekt, id) : null;
+          var echteId = bekannt(id);
+          var da = echteId && !NEU_ID.test(echteId) ? M.mitarbeiterVon(projekt, echteId) : null;
           if (da) {
+            if (id !== echteId) maNeu[id] = da.id;
             var vorher = JSON.stringify([da.name, (da.gruppen || []).slice().sort(), M.medienBereinigen(da.medien)]);
-            da.name = name; da.gruppen = gruppen; da.medien = M.medienBereinigen(medien);
+            /* Feldweise: Was der Kunde gegenüber dem Linkstand nicht geändert
+               hat, bleibt, wie es im Werkzeug steht. Ohne bekannten Linkstand
+               gilt der Eintrag des Kunden ganz. */
+            var vorlage = vorlageMa[id];
+            var felder = [];
+            var gruppenVorlage = vorlage ? vorlage[2].map(function (gid) { return gruppenNeu[gid] || bekannt(gid); }).filter(function (gid) { return !!M.gruppeVon(projekt, gid); }) : null;
+            var medienVorlage = vorlage ? M.medienBereinigen(vorlage[3].map(function (md) { return { typ: md[0], anzahl: md[1] }; })) : null;
+            if (!vorlage || vorlage[1] !== name) { if (da.name !== name) { da.name = name; felder.push('Name'); } }
+            if (!vorlage || JSON.stringify(gruppenVorlage.slice().sort()) !== JSON.stringify(gruppen.slice().sort())) {
+              if (JSON.stringify((da.gruppen || []).slice().sort()) !== JSON.stringify(gruppen.slice().sort())) { da.gruppen = gruppen; felder.push('Gruppen'); }
+            }
+            if (!vorlage || JSON.stringify(medienVorlage) !== JSON.stringify(M.medienBereinigen(medien))) {
+              if (JSON.stringify(M.medienBereinigen(da.medien)) !== JSON.stringify(M.medienBereinigen(medien))) { da.medien = M.medienBereinigen(medien); felder.push('Medien'); }
+            }
             var nachher = JSON.stringify([da.name, (da.gruppen || []).slice().sort(), M.medienBereinigen(da.medien)]);
             if (vorher !== nachher) {
               e.mitarbeiterGeaendert++;
-              e.aenderungen.push({ mitarbeiter: true, art: 'geaendert', name: name, gruppen: gruppenNamen(projekt, gruppen), medien: medienText(da.medien) });
+              e.aenderungen.push({ mitarbeiter: true, art: 'geaendert', name: da.name, gruppen: gruppenNamen(projekt, da.gruppen || []), medien: medienText(da.medien), felder: felder });
             }
             return;
           }
           if (id && !NEU_ID.test(id)) return;
+          /* Gleicher Name schon da? Der Kunde legt gern „Herr Baumann“ ein zweites
+             Mal an statt den vorhandenen zu ändern - der Bericht sagt es dazu. */
+          var dublette = projekt.mitarbeiter.some(function (v) { return namenGleich(v.name, name); });
           var m = M.neuerMitarbeiter({ name: name, gruppen: gruppen, medien: medien });
           projekt.mitarbeiter.push(m);
-          if (id) maNeu[id] = m.id;
+          if (id) { maNeu[id] = m.id; merken(id, m.id); }
           e.mitarbeiterNeu++;
-          e.aenderungen.push({ mitarbeiter: true, art: 'neu', name: name, gruppen: gruppenNamen(projekt, gruppen), medien: medienText(m.medien) });
+          e.aenderungen.push({ mitarbeiter: true, art: 'neu', name: name, gruppen: gruppenNamen(projekt, gruppen), medien: medienText(m.medien), dublette: dublette });
         });
-        kennungenBereinigen(antwort.max).forEach(function (id) {
+        kennungenBereinigen(antwort.max).map(bekannt).forEach(function (id) {
           var m = M.mitarbeiterVon(projekt, id);
           if (!m) return;
           if (projekt.schliessungen.some(function (s) { return s.art === 'mitarbeiter' && s.mitarbeiterId === id; })) { e.listenUebersprungen++; return; }
+          /* Träger einer Schließung (Schlüssel) verschwinden nicht über eine Rückmeldung -
+             die Schließung verlöre still ihre Stückzahl. */
+          var traegt = projekt.schliessungen.filter(function (s) { return Array.isArray(s.traeger) && s.traeger.indexOf(id) !== -1; });
+          if (traegt.length) {
+            e.listenUebersprungen++;
+            e.aenderungen.push({ mitarbeiter: true, art: 'behalten', name: m.name, grund: 'Träger von ' + traegt.map(function (s) { return s.kuerzel || s.bezeichnung || 'Schließung'; }).join(', ') });
+            return;
+          }
           M.mitarbeiterLoeschen(projekt, id);
           e.mitarbeiterEntfernt++;
           e.aenderungen.push({ mitarbeiter: true, art: 'entfernt', name: m.name });
@@ -8750,7 +8983,7 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
           if (!Array.isArray(x)) return;
           var art = x[0] === 'gruppe' ? 'gruppe' : 'mitarbeiter';
           var id = kennung(x[1]);
-          id = (art === 'gruppe' ? gruppenNeu[id] : maNeu[id]) || id;
+          id = (art === 'gruppe' ? gruppenNeu[id] : maNeu[id]) || bekannt(id);
           var ziel = art === 'gruppe' ? M.gruppeVon(projekt, id) : M.mitarbeiterVon(projekt, id);
           if (!ziel) { e.listenUebersprungen++; return; }
           var zellen = entpacken(String(x[2] || ''));
@@ -8762,7 +8995,9 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
           for (var i = 0; i < tIds.length && i < zellen.length; i++) {
             var wert = zeichenZuWert(zellen[i]);
             if (wert === 'nein' || !tuerVon(tIds[i])) continue;
-            M.setBerechtigung(projekt, tIds[i], sp.id, wert);
+            /* wie bei den Berechtigungen: gleichschließende Türen ziehen mit */
+            if (M.berechtigungSetzenVerbund) M.berechtigungSetzenVerbund(projekt, tIds[i], sp.id, wert);
+            else M.setBerechtigung(projekt, tIds[i], sp.id, wert);
             gesetzt++;
           }
           if (!vorhanden) e.spaltenNeu++;
@@ -8772,10 +9007,19 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
       }
     }
 
-    /* --- Verbindliche Freigabe --- */
-    if (antwort.fr && text(antwort.fr.name, 120)) {
+    /* --- Verbindliche Freigabe: nur, was der Server geprüft hat --- */
+    if (antwort.fr && text(antwort.fr.name, 120) && !optionen.serverGeprueft) {
+      /* Ein Rückschlüssel ist Text, den jeder schreiben kann. Eine verbindliche
+         Freigabe gilt nur über die gemeinsame Ablage, wo Zeitpunkt und
+         Herkunft festgehalten sind - der Vermerk im Schlüssel wird nicht übernommen. */
+      e.freigabeUebergangen = true;
+      e.aenderungen.push({ hinweis: true, text: 'Der Rückschlüssel enthält den Vermerk einer verbindlichen Freigabe (' + text(antwort.fr.name, 120) + '). ' +
+        'Er wird nicht übernommen: Verbindliche Freigaben gelten nur über die gemeinsame Ablage (Kurzlink).' });
+    }
+    if (antwort.fr && text(antwort.fr.name, 120) && optionen.serverGeprueft) {
+      var gesendet = String(antwort.gesendet || '');
       projekt.freigabe = {
-        am: antwort.gesendet || new Date().toISOString(),
+        am: (/^\d{4}-\d{2}-\d{2}T/.test(gesendet) && !isNaN(Date.parse(gesendet))) ? new Date(gesendet).toISOString() : new Date().toISOString(),
         name: text(antwort.fr.name, 120),
         funktion: text(antwort.fr.funktion, 120),
         art: antwort.fr.art === 'nachtraeglich' ? 'nachtraeglich' : 'mit_antwort',
@@ -8788,6 +9032,11 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
 
     M.spaltenAngleichen(projekt);
     e.listen = (Array.isArray(antwort.ma) ? 1 : 0) + (Array.isArray(antwort.gr) ? 1 : 0) + e.spaltenNeu;
+    /* Diese Rückmeldung ist jetzt bekannt */
+    if (!frueher) {
+      projekt.freigabeAntworten.push({ id: kennzeichen, am: new Date().toISOString() });
+      if (projekt.freigabeAntworten.length > 100) projekt.freigabeAntworten.splice(0, projekt.freigabeAntworten.length - 100);
+    }
     return e;
   }
 
@@ -8816,6 +9065,9 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
     mitarbeiterBereinigen: mitarbeiterBereinigen,
     gruppenBereinigen: gruppenBereinigen,
     kennungenBereinigen: kennungenBereinigen,
+    namenGleich: namenGleich,
+    nurGeaenderte: nurGeaenderte,
+    antwortKennzeichen: antwortKennzeichen,
     listenGleich: listenGleich,
     rechteBereinigen: rechteBereinigen,
     _intern: { packen: packen, entpacken: entpacken, textZuAnker: textZuAnker, ankerZuText: ankerZuText, text: text, kennung: kennung }
@@ -10114,7 +10366,7 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
      Anmeldeseite und in der Abgleich-Übersicht, damit man auf jedem Gerät
      in einer Sekunde sieht, welcher Stand dort läuft. Muss mit FASSUNG in
      sw.js übereinstimmen - der Prüflauf achtet darauf. */
-  var FASSUNG = '1.5.2';
+  var FASSUNG = '1.5.3';
 
   /* =========================================================================
    * DOM-Hilfsmittel
@@ -10528,10 +10780,12 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
       autocapitalize: optionen.autocapitalize || 'sentences',
       spellcheck: 'false',
       oninput: function (e) {
-        eingabeSchrittMerken('Eingabe: ' + String(beschriftung).replace(/<[^>]*>/g, '').trim());
+        /* „flüchtig“: Angaben, die nicht zum Aufmaß gehören (etwa der Hinweis
+           im Freigabe-Dialog) - kein Verlaufsschritt, kein „geändert“. */
+        if (!optionen.fluechtig) eingabeSchrittMerken('Eingabe: ' + String(beschriftung).replace(/<[^>]*>/g, '').trim());
         objekt[schluessel] = e.target.value;
         if (optionen.beiAenderung) optionen.beiAenderung(e.target.value);
-        alsGeaendertMarkieren();
+        if (!optionen.fluechtig) alsGeaendertMarkieren();
       }
     });
     return feld(beschriftung, eingabe, optionen.breit, schluessel);
@@ -14045,6 +14299,10 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
   /* Reihenfolge beim Antippen einer Matrixzelle */
   var ZELL_FOLGE = ['nein', 'ja', 'zeit', 'temp', 'sperr'];
 
+  /* Adresse der Kundenseite aus den Einstellungen: nur eine vollständige
+     https-Adresse auf eine .html-Seite wird für Freigabe-Links verwendet. */
+  function freigabeSeiteGueltig(wert) { return /^https:\/\/[^\s"'<>]+\.html$/i.test(String(wert || '').trim()); }
+
   /* =========================================================================
    * Kreuzschließplan / Zutrittsmatrix
    * ====================================================================== */
@@ -14557,7 +14815,7 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
     var eins = Zustand.einstellungen || {};
     var gewaehlt = {};
     p.schliessungen.forEach(function (s) { gewaehlt[s.id] = false; });
-    var einstellungenFreigabe = { nurLeereFelder: false, hinweis: '', frist: '',
+    var einstellungenFreigabe = { nurLeereFelder: false, vorgabenSchuetzen: true, hinweis: '', frist: '',
                                   mitarbeiter: true, gruppen: true, spalten: false };
     var online = abgleichBereit();
 
@@ -14612,17 +14870,24 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
     auswahlZeichnen();
     vorschauAktualisieren();
 
-    /* Adresse der Freigabeseite neben der Anwendung */
-    var seite = location.href.replace(/[^\/]*(\?.*)?(#.*)?$/, '') + 'freigabe.html';
+    /* Adresse der Freigabeseite neben der Anwendung. Läuft das Werkzeug als
+       lokale Datei, hat der Kunde diese Datei nicht - dann führt der Link auf
+       die in den Einstellungen hinterlegte Kundenseite im Internet. */
+    var eigeneSeite = location.href.replace(/[^\/]*(\?.*)?(#.*)?$/, '') + 'freigabe.html';
+    var hinterlegteSeite = String(eins.freigabeSeite || '').trim();
+    var seiteHinterlegt = location.protocol === 'file:' && freigabeSeiteGueltig(hinterlegteSeite);
+    var seite = seiteHinterlegt ? hinterlegteSeite : eigeneSeite;
 
     function freigabeDaten(nurVorlegen) {
       var ids = nurVorlegen ? [] : Object.keys(gewaehlt).filter(function (k) { return gewaehlt[k]; });
       return global.Freigabe.erstellen(p, {
         freigegebeneSchliessungen: ids,
         nurLeereFelder: einstellungenFreigabe.nurLeereFelder,
+        vorgabenSchuetzen: einstellungenFreigabe.vorgabenSchuetzen,
         hinweis: einstellungenFreigabe.hinweis,
         frist: einstellungenFreigabe.frist,
         firma: eins.firma || '',
+        mail: eins.firmaEmail || '',
         rechte: nurVorlegen ? { m: 0, g: 0, s: 0 }
                             : { m: einstellungenFreigabe.mitarbeiter ? 1 : 0,
                                 g: einstellungenFreigabe.gruppen ? 1 : 0,
@@ -14633,12 +14898,49 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
 
     function linkErzeugen() {
       var daten = freigabeDaten(false);
-      if (abgleichBereit()) { kurzlinkErzeugen(daten, false); return; }
-      /* Ohne Server merkt sich das Projekt selbst, was freigegeben war -
-         damit beim Einlesen der Rückmeldung nur diese Felder gelten. */
+      /* Das Projekt merkt sich, was freigegeben war und wie die Listen im Link
+         standen: Ohne Server gilt beim Einlesen genau diese Freigabe; mit
+         Server kennt die Übernahme so den Linkstand (nur Geändertes zählt),
+         und ein per Datei gesicherter Rückschlüssel lässt sich einlesen. */
       global.Freigabe.freigabeMerken(p, daten);
       A.alsGeaendertMarkieren();
+      if (abgleichBereit()) { kurzlinkErzeugen(daten, false); return; }
       langenLinkZeigen(daten);
+      lokaleListeZeigen();
+    }
+
+    /* --- Ohne Server: die bisherigen Links dieses Aufmaßes ----------------- */
+    function lokaleListeZeigen() {
+      A.leeren(listeBereich);
+      var liste = (p.freigabenLokal || []).slice().reverse().slice(0, 20);
+      if (!liste.length) return;
+      listeBereich.appendChild(el('hr', { class: 'trenner' }));
+      listeBereich.appendChild(el('h3', { text: 'Bisherige Freigabe-Links (ohne Server)', style: { marginTop: '0' } }));
+      listeBereich.appendChild(el('p', { class: 'hinweis', text: 'Ein zurückgezogener Link gilt beim Einlesen nicht mehr: Rückmeldungen dazu werden abgelehnt. ' +
+        'Der Kunde selbst erfährt davon nichts - bitte Bescheid geben.' }));
+      var behaelter = el('div', { class: 'freigabe-liste' });
+      liste.forEach(function (f) {
+        var frei = String(f.maske || '').split('').filter(function (c) { return c === '1'; }).length;
+        var zeile = el('div', { class: 'freigabe-eintrag' + (f.zurueckgezogen ? ' status-zurueckgezogen' : ' status-offen') });
+        zeile.appendChild(el('div', { class: 'stand', text:
+          'Erstellt am ' + datumZeit(f.erstellt) + '  ·  ' + frei + (frei === 1 ? ' freigegebenes Feld' : ' freigegebene Felder') +
+          '  ·  ' + rechteText(f.rechte) + (f.zurueckgezogen ? '  ·  Zurückgezogen am ' + datumZeit(f.zurueckgezogen) : '') }));
+        if (!f.zurueckgezogen) {
+          zeile.appendChild(el('div', { class: 'knopfleiste' }, el('button', { class: 'klein gefahr', text: 'Zurückziehen', onclick: function () {
+            A.bestaetigen('Freigabe-Link zurückziehen?',
+              'Rückmeldungen zu diesem Link werden danach nicht mehr eingelesen. Trägt der Kunde gerade ein, geht seine Arbeit verloren - bitte Bescheid geben.',
+              'Zurückziehen').then(function (ja) {
+              if (!ja) return;
+              f.zurueckgezogen = new Date().toISOString();
+              A.alsGeaendertMarkieren(); A.speichern();
+              A.toast('Freigabe-Link zurückgezogen.', 'ok');
+              lokaleListeZeigen();
+            });
+          } })));
+        }
+        behaelter.appendChild(zeile);
+      });
+      listeBereich.appendChild(behaelter);
     }
 
     function mailText(f, vorlegen) {
@@ -14649,6 +14951,8 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
         : 'Guten Tag,\n\nbitte tragen Sie unter folgendem Link ein, wer welche Türen öffnen darf. '
           + 'Am Ende auf „Rückmeldung senden“ klicken – oder, wenn alles passt, auf „Rückmeldung senden und Plan freigeben“.\n\n';
       text += f.kurzlink + '\n\n'
+        + (!vorlegen && einstellungenFreigabe.frist && /^\d{4}-\d{2}-\d{2}$/.test(einstellungenFreigabe.frist)
+            ? 'Rückmeldung bitte bis ' + datumKurz(einstellungenFreigabe.frist) + '. ' : '')
         + (f.gueltigBis ? 'Der Link gilt bis ' + datumKurz(f.gueltigBis) + '.\n\n' : '')
         + 'Mit freundlichen Grüßen\n' + (eins.firma || '');
       return { betreff: betreff, text: text };
@@ -14729,11 +15033,21 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
       }
     }
 
+    var nachgefragt = false;
     function listeLaden() {
-      if (!abgleichBereit()) { A.leeren(listeBereich); return; }
+      if (!abgleichBereit()) { lokaleListeZeigen(); return; }
       global.Abgleich.freigabenListe(p.id).then(function (liste) {
         A.leeren(listeBereich);
         if (!liste.length) return;
+        /* Eine Rückmeldung, die der Abgleich noch nicht geholt hat: einmal nachfragen,
+           damit „Rückmeldung prüfen“ nicht erst nach dem nächsten Abgleich erscheint */
+        var fehltNoch = liste.some(function (f) {
+          return f.status === 'beantwortet' && !(global.Abgleich.antwortenFuer(p.id) || []).some(function (a) { return a.code === f.code; });
+        });
+        if (fehltNoch && !nachgefragt && global.Abgleich.jetzt) {
+          nachgefragt = true;
+          Promise.resolve(global.Abgleich.jetzt()).then(function () { setTimeout(listeLaden, 400); }, function () {});
+        }
         listeBereich.appendChild(el('hr', { class: 'trenner' }));
         listeBereich.appendChild(el('h3', { text: 'Bisherige Freigabe-Links', style: { marginTop: '0' } }));
         var behaelter = el('div', { class: 'freigabe-liste' });
@@ -14781,7 +15095,8 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
           if (!tot) {
             knoepfe.appendChild(el('button', { class: 'klein gefahr', text: 'Zurückziehen', onclick: function () {
               A.bestaetigen('Freigabe-Link zurückziehen?',
-                'Der Link funktioniert danach nicht mehr. Eine bereits übertragene Rückmeldung bleibt zur Prüfung erhalten.',
+                'Der Link funktioniert danach nicht mehr. Eine bereits übertragene Rückmeldung bleibt zur Prüfung erhalten. ' +
+                'Trägt der Kunde gerade ein, kann er nicht mehr senden - er kann seine Eingaben dann nur noch als Datei sichern.',
                 'Zurückziehen').then(function (ja) {
                 if (!ja) return;
                 global.Abgleich.freigabeZurueckziehen(f.code).then(function () {
@@ -14804,6 +15119,7 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
       var basis = seite;
       var link = basis + '#plan=' + anker;
       var lokal = location.protocol === 'file:';
+      var dateiBasis = 'Freigabe_' + (p.objekt || p.kunde || 'Matrix').replace(/[^\wäöüÄÖÜß \-]/g, '').trim().replace(/\s+/g, '-');
 
       A.leeren(ergebnisBereich);
       var feld = el('textarea', { class: 'schluessel-feld', readonly: true,
@@ -14814,25 +15130,33 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
       ergebnisBereich.appendChild(el('hr', { class: 'trenner' }));
       ergebnisBereich.appendChild(el('h3', { text: 'Freigabe-Link', style: { marginTop: '0' } }));
 
-      if (lokal) {
+      if (lokal && !seiteHinterlegt) {
         ergebnisBereich.appendChild(el('div', { class: 'meldung warn' }, el('div', {}, [
           el('b', { text: 'Diese Anwendung läuft als lokale Datei. ' }),
-          'Der Link funktioniert nur, wenn der Kunde dieselbe Datei auf seinem Gerät hat. ' +
-          'Für den Versand an Kunden die Anwendung über eine Web-Adresse aufrufen.'
+          'Der Link zeigt auf eine Datei, die der Kunde nicht hat. ' + (hinterlegteSeite
+            ? 'Die unter Einstellungen → Kundenfreigabe hinterlegte Adresse „' + hinterlegteSeite + '“ wird nicht verwendet: Sie muss mit https:// beginnen und auf .html enden.'
+            : 'Hinterlegen Sie unter Einstellungen → Kundenfreigabe die Adresse der Kundenseite im Internet (…/aufmasstool/freigabe.html); dann führt der Link dorthin.')
+          + ' Oder rufen Sie das Werkzeug über seine Web-Adresse auf.'
         ])));
+      } else if (lokal) {
+        ergebnisBereich.appendChild(el('p', { class: 'zart', text: 'Der Link führt auf die hinterlegte Kundenseite ' + hinterlegteSeite + '.' }));
       }
       ergebnisBereich.appendChild(el('p', { class: 'hinweis',
         text: 'Diesen Link vollständig in eine E-Mail einfügen. Die Plandaten stehen hinter dem ' +
               'Rautezeichen und werden dabei an keinen Server übertragen. Eine verbindliche Freigabe ist ' +
               'nur über die gemeinsame Ablage möglich. Länge: ' +
               link.length.toLocaleString('de-DE') + ' Zeichen.' }));
-      if (link.length > 20000) {
-        ergebnisBereich.appendChild(el('div', { class: 'meldung warn' }, el('div', {}, [
-          el('b', { text: 'Der Link ist sehr lang. ' }),
-          'Manche E-Mail-Programme brechen lange Links um. Geben Sie im Zweifel weniger ' +
-          'Spalten frei oder senden Sie die Datei unten.'
-        ])));
-      }
+      /* Jeder lange Link ist für Mailprogramme lang: Outlook bricht Klartext
+         bei 76 Zeichen um, Gmail verlinkt ab einigen tausend Zeichen nicht
+         mehr. Darum steht der sichere Weg immer dabei - nicht erst ab 20.000. */
+      ergebnisBereich.appendChild(el('div', { class: 'meldung ' + (link.length > 20000 ? 'warn' : 'info') }, el('div', {}, [
+        el('b', { text: link.length > 20000 ? 'Der Link ist sehr lang. ' : 'Lange Links und E-Mail: ' }),
+        'E-Mail-Programme brechen lange Links oft um oder machen sie nicht mehr anklickbar; der Kunde sieht dann „Der Link konnte nicht gelesen werden“. ' +
+        'Sicher ist die Datei „Freigabe….html“ unten als Anhang: Der Kunde öffnet sie mit einem Doppelklick, und die Freigabeseite erscheint. ' +
+        'Sperrt ein Mailprogramm HTML-Anhänge, hilft die .txt-Datei: Ihr Inhalt wird vollständig in die Adresszeile des Browsers eingefügt. ' +
+        (link.length > 20000 ? 'Oder weniger Spalten freigeben. ' : '') +
+        (global.Abgleich && global.Abgleich.zustand().eingerichtet ? 'Noch einfacher ist der Kurzlink über die gemeinsame Ablage (anmelden und online gehen).' : '')
+      ])));
       ergebnisBereich.appendChild(feld);
       ergebnisBereich.appendChild(el('div', { class: 'knopfleiste', style: { marginTop: '10px' } }, [
         el('button', { class: 'haupt', text: 'Link kopieren', onclick: function (e) {
@@ -14846,10 +15170,36 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
             catch (err) { e.target.textContent = 'Bitte von Hand markieren'; }
           }
         } }),
-        el('button', { text: 'Als Datei speichern', onclick: function () {
-          var name = 'Freigabe_' + (p.objekt || p.kunde || 'Matrix')
-            .replace(/[^\wäöüÄÖÜß \-]/g, '').trim().replace(/\s+/g, '-') + '.txt';
-          Store.dateiHerunterladen(link, name, 'text/plain').catch(function (f) {
+        el('button', { text: 'E-Mail-Vorlage öffnen', onclick: function () {
+          /* Kurze Links passen in den Text; lange sprengen Mailprogramme -
+             dann verweist die Mail auf die Datei, die der Absender anhängt. */
+          var kurz = link.length <= 6000;
+          var betreff = 'Zutrittsberechtigungen ' + (p.objekt || p.kunde || '');
+          var text = 'Guten Tag,\n\nbitte tragen Sie unter folgendem Link ein, wer welche Türen öffnen darf' +
+            (daten.frist && /^\d{4}-\d{2}-\d{2}$/.test(daten.frist) ? ' - gern bis zum ' + datumKurz(daten.frist) : '') +
+            '. Am Ende auf „Rückmeldung erzeugen“ klicken und die Rückmeldung als Datei oder Text an uns zurücksenden.\n\n' +
+            (kurz ? link : 'Der Link ist als Datei „' + dateiBasis + '.html“ angehängt - bitte mit einem Doppelklick öffnen. ' +
+              'Lässt Ihr Mailprogramm die Datei nicht zu, fügen Sie den Inhalt der Datei „' + dateiBasis + '.txt“ vollständig in die Adresszeile Ihres Browsers ein.') +
+            '\n\nMit freundlichen Grüßen\n' + (eins.firma || '');
+          location.href = 'mailto:?subject=' + encodeURIComponent(betreff) + '&body=' + encodeURIComponent(text);
+          if (!kurz) A.toast('Bitte die gespeicherte Datei „' + dateiBasis + '.html“ an die E-Mail anhängen.', 'ok');
+        } }),
+        el('button', { text: 'Als Datei speichern (öffnet die Freigabe per Doppelklick)', onclick: function () {
+          /* Eine kleine Seite, die auf die Freigabe weiterleitet: Der Anhang
+             überlebt jedes Mailprogramm, der Link darin bleibt ganz. */
+          var h = function (s) { return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); };
+          var seiteText = '<!DOCTYPE html>\n<html lang="de">\n<head>\n<meta charset="utf-8">\n<title>Freigabe ' + h(p.objekt || p.kunde || '') + '</title>\n' +
+            '<meta http-equiv="refresh" content="0; url=' + h(link) + '">\n' +
+            '<style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:32px;max-width:640px;margin:auto;color:#1b2a4a}a{color:#1e5bb8}</style>\n</head>\n<body>\n' +
+            '<h1>Schließplan abstimmen</h1>\n<p>Die Freigabeseite öffnet sich gleich von selbst.</p>\n' +
+            '<p>Falls nicht: <a href="' + h(link) + '">Freigabe öffnen</a></p>\n' +
+            '<p style="color:#5a6a85;font-size:14px">' + h(eins.firma || '') + '</p>\n</body>\n</html>\n';
+          Store.dateiHerunterladen(seiteText, dateiBasis + '.html', 'text/html').catch(function (f) {
+            A.toast(f.message, 'fehler');
+          });
+        } }),
+        el('button', { text: 'Nur den Link als Text (.txt)', onclick: function () {
+          Store.dateiHerunterladen(link, dateiBasis + '.txt', 'text/plain').catch(function (f) {
             A.toast(f.message, 'fehler');
           });
         } })
@@ -14886,6 +15236,10 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
         'Nur noch leere Felder freigeben', function () { vorschauAktualisieren(); }),
       el('p', { class: 'zart', style: { marginLeft: '64px', marginTop: '-6px' },
         text: 'Bereits gesetzte Berechtigungen kann der Kunde dann nicht mehr ändern.' }),
+      A.schalterFeld(einstellungenFreigabe, 'vorgabenSchuetzen',
+        'Gesperrte (–) und befristete (T) Vorgaben nicht freigeben', function () { vorschauAktualisieren(); }),
+      el('p', { class: 'zart', style: { marginLeft: '64px', marginTop: '-6px' },
+        text: 'Ihre ausdrücklichen Vorgaben bleiben für den Kunden gesperrt - ein Tipp machte sonst aus „–“ ein „X“. Vorgeplante Reserven (O) bleiben bearbeitbar.' }),
       el('h3', { text: 'Was darf der Kunde außerdem?' }),
       el('p', { class: 'zart', style: { marginTop: '-6px' },
         text: 'Das legen Sie je Link fest. Was der Kunde ändert, kommt mit der Rückmeldung zurück und wird erst nach Ihrer Prüfung übernommen.' }),
@@ -14896,9 +15250,8 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
         text: 'Neue Spalten des Kunden sind für ihn vollständig bearbeitbar. Welche vorhandenen Spalten er bearbeiten darf, bestimmen Sie oben.' }),
       el('div', { class: 'raster', style: { marginTop: '12px' } }, [
         A.textFeld(einstellungenFreigabe, 'hinweis', 'Hinweis für den Kunden',
-          { platzhalter: 'z. B. Bitte nur die Reinigungszeiten eintragen' }),
-        A.textFeld(einstellungenFreigabe, 'frist', 'Rückmeldung erbeten bis',
-          { platzhalter: 'z. B. 30.09.2026' })
+          { platzhalter: 'z. B. Bitte nur die Reinigungszeiten eintragen', fluechtig: true }),
+        A.textFeld(einstellungenFreigabe, 'frist', 'Rückmeldung erbeten bis', { typ: 'date', fluechtig: true })
       ]),
       vorschau,
       el('div', { class: 'knopfleiste' }, [
@@ -14921,6 +15274,116 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
       knoepfe: [{ fuellen: true }, { text: 'Schließen' }]
     });
     listeLaden();
+  }
+
+  /* --- Bericht über eine Rückmeldung: was sich ändern würde bzw. geändert hat --- */
+  function wertText(w) {
+    var zeichen = K && K.berechtigungZeichen ? K.berechtigungZeichen(w) : '';
+    var namen = { nein: 'keine Berechtigung', ja: 'berechtigt', zeit: 'zeitlich begrenzt', temp: 'befristet', sperr: 'gesperrt', plan: 'vorgeplant (Reserve)' };
+    return (zeichen ? zeichen + '  ' : '') + (namen[w] || w || '–');
+  }
+  function berichtZeichnen(ziel, b) {
+    A.leeren(ziel);
+    var zellen = b.aenderungen.filter(function (x) { return x.tuer !== undefined && !x.spalte && !x.uebersprungen; });
+    var ausgelassen = b.aenderungen.filter(function (x) { return x.uebersprungen; });
+    var leute = b.aenderungen.filter(function (x) { return x.mitarbeiter; });
+    var gruppen = b.aenderungen.filter(function (x) { return x.gruppe; });
+    var spalten = b.aenderungen.filter(function (x) { return x.spalte; });
+    var freigabe = b.aenderungen.filter(function (x) { return x.freigabe; })[0];
+    var hinweise = b.aenderungen.filter(function (x) { return x.hinweis; });
+    var ueb = (b.uebersprungen || 0) + (b.listenUebersprungen || 0);
+    if (b.bereitsUebernommen) {
+      ziel.appendChild(el('div', { class: 'meldung warn' }, el('div', {}, [
+        el('b', { text: 'Diese Rückmeldung wurde bereits am ' + datumZeit(b.bereitsUebernommen) + ' übernommen.' }),
+        el('div', { style: { marginTop: '3px', fontSize: '13px' }, text: 'Ein zweites Einlesen legt nichts doppelt an. Unten steht, was sich jetzt noch ändern würde.' })
+      ])));
+    }
+    hinweise.forEach(function (x) {
+      ziel.appendChild(el('div', { class: 'meldung warn' }, el('div', { text: x.text })));
+    });
+    if (!zellen.length && !leute.length && !gruppen.length && !spalten.length && !freigabe) {
+      ziel.appendChild(el('div', { class: 'meldung ' + (hinweise.length || b.bereitsUebernommen ? 'info' : 'warn') }, el('div', { text:
+        'Diese Rückmeldung enthält keine Änderungen gegenüber dem aktuellen Stand des Aufmaßes'
+        + (ueb ? ' – ' + ueb + (ueb === 1 ? ' Angabe betrifft' : ' Angaben betreffen') + ' Türen, Spalten oder Rechte, die es nicht (mehr) gibt (siehe unten).' : '.') })));
+      if (!ausgelassen.length) return;
+    }
+    if (freigabe) {
+      ziel.appendChild(el('div', { class: 'meldung ok' }, el('div', {}, [
+        el('b', { text: 'Verbindliche Freigabe durch ' + [freigabe.name, freigabe.funktion].filter(Boolean).join(', ') }),
+        el('div', { style: { marginTop: '3px', fontSize: '13px' }, text: freigabe.art === 'nachtraeglich'
+          ? 'Der Kunde hat den vorgelegten Plan freigegeben. Mit „Übernehmen“ wird die Freigabe im Aufmaß vermerkt; der Link ist für den Kunden danach gesperrt.'
+          : 'Der Kunde hat seine Rückmeldung mit einer verbindlichen Freigabe gesendet. Mit „Übernehmen“ gelten die Änderungen unten als freigegebener Stand; der Link ist für den Kunden danach gesperrt.' })
+      ])));
+    }
+    if (zellen.length) {
+      ziel.appendChild(el('h3', { text: zellen.length + (zellen.length === 1 ? ' Berechtigung' : ' Berechtigungen') }));
+      var tabelle = el('table');
+      tabelle.appendChild(el('thead', {}, el('tr', {}, [
+        el('th', { text: 'Tür' }), el('th', { text: 'Spalte' }), el('th', { text: 'Bisher' }), el('th', { text: 'Neu' })
+      ])));
+      var koerper = el('tbody');
+      zellen.forEach(function (x) {
+        koerper.appendChild(el('tr', {}, [
+          el('td', { text: (x.tuer || '–') + (x.mit && x.mit.length ? ' (gleichschließend: ' + x.mit.join(', ') + ')' : '') }), el('td', { text: x.schliessung || '–' }),
+          el('td', { text: wertText(x.vorher) }), el('td', { class: 'neu', text: wertText(x.nachher) })
+        ]));
+      });
+      tabelle.appendChild(koerper);
+      ziel.appendChild(el('div', { class: 'tabelle-rahmen' }, tabelle));
+    }
+    function artText(x) {
+      if (x.art === 'neu') return 'neu';
+      if (x.art === 'entfernt') return 'entfernt';
+      if (x.art === 'behalten') return 'bleibt' + (x.grund ? ' (' + x.grund + ' - lässt sich nicht über eine Rückmeldung entfernen)' : '');
+      return 'geändert' + (x.felder && x.felder.length ? ' (' + x.felder.join(', ') + ')' : '');
+    }
+    if (gruppen.length) {
+      ziel.appendChild(el('h3', { text: gruppen.length + (gruppen.length === 1 ? ' Gruppe' : ' Gruppen') }));
+      gruppen.forEach(function (x) {
+        ziel.appendChild(el('div', { class: 'liste' }, [
+          el('b', { text: x.name || '–' }),
+          el('span', { class: 'zart', text: '  ' + artText(x) + (x.vorher ? ' (vorher „' + x.vorher + '“)' : '') }),
+          x.dublette ? el('div', { class: 'namen', style: { color: 'var(--rot)' }, text: 'Achtung: Eine Gruppe mit diesem Namen gibt es schon - nach dem Übernehmen zweimal vorhanden.' }) : null
+        ]));
+      });
+    }
+    if (leute.length) {
+      ziel.appendChild(el('h3', { text: leute.length + ' Mitarbeiter' }));
+      leute.forEach(function (x) {
+        ziel.appendChild(el('div', { class: 'liste' }, [
+          el('b', { text: x.name || '–' }),
+          el('span', { class: 'zart', text: '  ' + artText(x) }),
+          (x.art !== 'entfernt' && x.art !== 'behalten') ? el('div', { class: 'namen', text:
+            'Gruppen: ' + ((x.gruppen || []).join(', ') || '–') + '  ·  Medien: ' + (x.medien || '1× (Art offen)') }) : null,
+          x.dublette ? el('div', { class: 'namen', style: { color: 'var(--rot)' }, text: 'Achtung: Einen Mitarbeiter mit diesem Namen gibt es schon - nach dem Übernehmen zweimal vorhanden.' }) : null
+        ]));
+      });
+    }
+    if (spalten.length) {
+      ziel.appendChild(el('h3', { text: spalten.length + (spalten.length === 1 ? ' neue Spalte' : ' neue Spalten') }));
+      spalten.forEach(function (x) {
+        ziel.appendChild(el('div', { class: 'liste' }, [
+          el('b', { text: (x.art === 'gruppe' ? 'Gruppe ' : 'Mitarbeiter ') + (x.name || '–') }),
+          el('span', { class: 'zart', text: '  ' + x.zellen + (x.zellen === 1 ? ' Berechtigung' : ' Berechtigungen')
+            + (x.vorhanden ? ' (Spalte gab es schon – Berechtigungen werden ergänzt)' : '') })
+        ]));
+      });
+    }
+    if (ausgelassen.length) {
+      ziel.appendChild(el('h3', { text: ausgelassen.length + (ausgelassen.length === 1 ? ' Angabe wird nicht übernommen' : ' Angaben werden nicht übernommen') }));
+      var tab2 = el('table');
+      tab2.appendChild(el('thead', {}, el('tr', {}, [el('th', { text: 'Tür' }), el('th', { text: 'Spalte' }), el('th', { text: 'Gewünscht' }), el('th', { text: 'Grund' })])));
+      var k2 = el('tbody');
+      ausgelassen.forEach(function (x) {
+        k2.appendChild(el('tr', {}, [el('td', { text: x.tuer || '–' }), el('td', { text: x.schliessung || '–' }), el('td', { text: wertText(x.nachher) }), el('td', { text: x.grund || '' })]));
+      });
+      tab2.appendChild(k2);
+      ziel.appendChild(el('div', { class: 'tabelle-rahmen' }, tab2));
+    }
+    if (ueb > ausgelassen.length) {
+      ziel.appendChild(el('p', { class: 'hinweis', text:
+        (ueb - ausgelassen.length) + ' Listen-Einträge betreffen Rechte oder Einträge, die es nicht (mehr) gibt – sie werden übersprungen.' }));
+    }
   }
 
   /* --- Rückmeldung des Kunden einlesen ------------------------------------ */
@@ -14964,10 +15427,30 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
                       + 'ist nicht möglich.'
                       : 'Matrixgröße zum Zeitpunkt der Freigabe: ' + (gelesen.anzahl || '–') })
       ])));
+      if (fremd) { gelesen = null; return; }
+      /* Vorschau: auf einer Kopie des Aufmaßes probeweise übernehmen und
+         zeigen, was sich ändern würde - vorher wurde blind übernommen. */
+      var probe = JSON.parse(JSON.stringify(p));
+      try {
+        var vorschau = global.Freigabe.antwortUebernehmen(probe, gelesen, {});
+        var kasten = el('div', { class: 'antwort-bericht' });
+        berichtZeichnen(kasten, vorschau);
+        bericht.appendChild(kasten);
+      } catch (fehler2) {
+        gelesen = null;
+        bericht.appendChild(el('div', { class: 'meldung fehler' }, el('div', { text: fehler2.message })));
+      }
     }
     feld.addEventListener('input', pruefen);
+    var geoeffnet = null;
+    function knopfStand() {
+      var knopf = geoeffnet && geoeffnet.kasten ? geoeffnet.kasten.querySelector('.fuss button.haupt') : null;
+      if (knopf) knopf.disabled = !gelesen;
+    }
+    feld.addEventListener('input', knopfStand);
+    dateiEingabe.addEventListener('change', function () { setTimeout(knopfStand, 150); });
 
-    A.dialogOeffnen({
+    geoeffnet = A.dialogOeffnen({
       titel: 'Rückmeldung des Kunden einlesen',
       inhalt: el('div', {}, [
         el('p', { class: 'hinweis', style: { marginTop: '0' },
@@ -14992,12 +15475,19 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
           try { ergebnis = global.Freigabe.antwortUebernehmen(p, gelesen, {}); }
           catch (fehler) { A.toast(fehler.message, 'fehler'); return false; }
           A.alsGeaendertMarkieren(); A.speichern();
-          A.toast(global.Freigabe.berichtText(ergebnis) + '.', 'ok');
+          A.toast('Rückmeldung übernommen.', 'ok');
           schliessen(); neuZeichnen();
+          /* Der Bericht bleibt zum Nachlesen offen - eine Meldung verschwände nach Sekunden */
+          var zusammenfassung = el('div', { class: 'antwort-bericht' });
+          berichtZeichnen(zusammenfassung, ergebnis);
+          A.dialogOeffnen({ titel: 'Rückmeldung übernommen', klein: true,
+            inhalt: el('div', {}, [el('p', { class: 'hinweis', style: { marginTop: '0' }, text: global.Freigabe.berichtText(ergebnis) + '.' }), zusammenfassung]),
+            knoepfe: [{ fuellen: true }, { text: 'Schließen', klasse: 'haupt' }] });
           return false;
         } }
       ]
     });
+    knopfStand();
   }
 
   /* --- Blanko-Plan ------------------------------------------------------ */
@@ -15582,6 +16072,31 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
       logoVorschau
     ]));
 
+    /* --- Kundenfreigabe ----------------------------------------------- */
+    seite.appendChild(el('div', { class: 'karte' }, [
+      el('h2', { text: 'Kundenfreigabe' }),
+      el('p', { class: 'hinweis', text: 'Freigabe-Links führen auf die Kundenseite (freigabe.html). Läuft das Werkzeug als lokale Datei, ' +
+        'trägt man hier die Adresse der Kundenseite im Internet ein - sonst zeigte der lange Link auf eine Datei, die der Kunde nicht hat. ' +
+        'Über die Web-Adresse des Werkzeugs ist die Angabe nicht nötig. Die E-Mail-Adresse aus dem Firmenkopf steht dem Kunden für die Rückmeldung zur Verfügung.' }),
+      el('div', { class: 'raster' }, [
+        (function () {
+          var feldKnoten = textE('freigabeSeite', 'Adresse der Kundenseite', 'https://www.provision-infra.de/aufmasstool/freigabe.html');
+          var stand = el('p', { class: 'hinweis', id: 'freigabe-seite-stand', style: { marginTop: '6px' } });
+          function standZeigen() {
+            var w = String(e.freigabeSeite || '').trim();
+            var gueltig = freigabeSeiteGueltig(w);
+            stand.textContent = !w ? 'Nicht hinterlegt - als lokale Datei zeigt der lange Link dann auf die Datei neben dem Werkzeug.'
+              : gueltig ? 'Wird für lange Freigabe-Links verwendet, wenn das Werkzeug als lokale Datei läuft.'
+              : 'Wird nicht verwendet: Die Adresse muss mit https:// beginnen und auf .html enden (die Seite freigabe.html).';
+            stand.style.color = (w && !gueltig) ? 'var(--rot)' : '';
+          }
+          feldKnoten.querySelector('input').addEventListener('input', standZeigen);
+          standZeigen();
+          return el('div', { style: { gridColumn: '1 / -1' } }, [feldKnoten, stand]);
+        })()
+      ])
+    ]));
+
     /* --- Erscheinungsbild --------------------------------------------- */
     seite.appendChild(el('div', { class: 'karte' }, [
       el('h2', { text: 'Erscheinungsbild' }),
@@ -16001,6 +16516,7 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
   global.ViewsPlan = {
     freigabeDialog: freigabeDialog,
     antwortDialog: antwortDialog,
+    berichtZeichnen: berichtZeichnen,
     ansichtPlan: ansichtPlan,
     ansichtExport: ansichtExport,
     ansichtEinstellungen: ansichtEinstellungen,

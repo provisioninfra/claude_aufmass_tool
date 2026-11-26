@@ -5,7 +5,7 @@
 <!-- Diese Seite darf nur eigene Dateien laden und nur mit der eigenen
      Website sprechen. Das eingebettete Skript steht über seinen Prüfwert
      in der Richtlinie (tools/csp.js). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-mRWmg1IJKO4eIh+W3EdtH+9t7lpDWXec4XDZXnykj0I=' 'sha256-asBK84ZqGw/Lnw5rHj+sjQ163eqbzleuecvLFy/Bs7U='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-mRWmg1IJKO4eIh+W3EdtH+9t7lpDWXec4XDZXnykj0I=' 'sha256-7hPDF1vGpZ1oyYCsIxeJ+nU1WkmBXQq2CqzDd/s/eiY='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0a1637">
@@ -29,6 +29,7 @@
 })();
 </script>
 <link rel="stylesheet" href="css/app.css">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
 <style>
   /* Nur für diese Seite: die Matrix füllt den Bildschirm */
   .fr-kopf { background: var(--flaeche); border-bottom: 1px solid var(--rand);
@@ -77,6 +78,7 @@
   table.matrix td.zelle.gesperrt.gesetzt-temp, table.matrix td.zelle.gesperrt.gesetzt-sperr,
   table.matrix td.zelle.gesperrt.gesetzt-plan { color: var(--akzent); }
   table.matrix td.zelle.frei { box-shadow: inset 0 0 0 2px var(--akzent-bg); }
+  .tuername .verbund { display: block; font-size: 11px; color: var(--text-zart); white-space: nowrap; }
   table.matrix td.zelle.geaendert { box-shadow: inset 0 0 0 2px var(--gruen); }
   table.matrix th.spaltenkopf.neu { background: var(--akzent-bg); }
   table.matrix th.spaltenkopf.neu .dreh { color: var(--akzent); }
@@ -142,6 +144,12 @@
   <div style="padding:40px;text-align:center;color:var(--text-schwach, #5c6670);font:15px system-ui,sans-serif">
     Seite wird geladen …
   </div>
+  <noscript>
+    <div style="max-width:560px;margin:24px auto;padding:16px 20px;border:1px solid #d9a441;border-radius:10px;background:#fff8e6;color:#1b2a4a;font:15px system-ui,sans-serif">
+      <b>Diese Seite braucht JavaScript.</b> Bitte JavaScript im Browser zulassen oder einen aktuellen Browser
+      (Chrome, Edge, Firefox, Safari) verwenden und die Seite neu laden.
+    </div>
+  </noscript>
 </div>
 
 <script src="js/catalog.js"></script>
@@ -212,7 +220,12 @@
   }
   function datumKurz(iso) {
     if (!iso) return '';
-    try { return new Date(iso).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+    /* Frist und Gültigkeit kommen als ISO-Datum; freier Text (etwa „Ende
+       KW 40“ aus einer älteren Fassung) bleibt, wie er ist - vorher stand
+       dann „Invalid Date“ auf der Seite. */
+    var d = /^\d{4}-\d{2}-\d{2}/.test(String(iso)) ? new Date(iso) : null;
+    if (!d || isNaN(d.getTime())) return String(iso);
+    try { return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
     catch (e) { return String(iso).slice(0, 10); }
   }
 
@@ -231,7 +244,7 @@
         try { d = text ? JSON.parse(text) : null; } catch (e) { d = null; }
         if (!antwort.ok) {
           var f = new Error((d && d.message) || ('Der Server antwortete mit ' + antwort.status + '.'));
-          f.status = antwort.status; f.code = d && d.code;
+          f.status = antwort.status; f.code = d && d.code; f.daten = (d && d.data && typeof d.data === 'object') ? d.data : {};
           throw f;
         }
         return d;
@@ -241,8 +254,12 @@
   function meldungFuer(f) {
     if (!f || !f.status) return 'Keine Verbindung zum Server. Bitte prüfen Sie Ihre Internetverbindung und versuchen Sie es erneut.';
     if (f.status === 404) return 'Diesen Freigabe-Link gibt es nicht. Bitte prüfen Sie, ob er vollständig kopiert wurde.';
-    if (f.status === 410) return f.message + ' Bitte wenden Sie sich an den Absender, um einen neuen Link zu erhalten.';
-    if (f.status === 429) return 'Zu viele Versuche. Bitte in einigen Minuten erneut versuchen.';
+    if (f.status === 410) {
+      var an = f.daten && typeof f.daten.firma === 'string' && f.daten.firma ? f.daten.firma : (daten && daten.firma ? daten.firma : 'den Absender');
+      var mail = f.daten && typeof f.daten.mail === 'string' && /@/.test(f.daten.mail) ? f.daten.mail : (daten && daten.mail ? daten.mail : '');
+      return f.message + ' Bitte wenden Sie sich an ' + an + (mail ? ' (' + mail + ')' : '') + ', um einen neuen Link zu erhalten.';
+    }
+    if (f.status === 429) return 'Zu viele Übertragungen von Ihrem Anschluss in kurzer Zeit. Bitte in etwa 10 Minuten erneut senden - Ihre Eingaben bleiben hier erhalten.';
     return f.message || 'Das hat leider nicht geklappt.';
   }
 
@@ -269,6 +286,79 @@
 
   function kopie(x) { return JSON.parse(JSON.stringify(x)); }
   function neueKennung() { return 'neu-' + Math.random().toString(36).slice(2, 10); }
+
+  /* --- Zwischenstand im Browser des Kunden --------------------------------
+     Lädt der Kunde die Seite neu, bricht die Verbindung ab oder schließt er
+     versehentlich das Fenster, sind seine Eingaben nicht weg: Jede Änderung
+     wird je Link im Browser abgelegt und beim nächsten Öffnen wieder
+     eingespielt. Gesendetes räumt den Stand weg. Nur der Browser dieses
+     Geräts kennt ihn; an den Server geht davon nichts. */
+  function entwurfSchluessel() {
+    var kennung;
+    if (modus === 'server') { kennung = code; }
+    else { var h = 0; for (var i = 0; i < anker.length; i++) { h = (h * 31 + anker.charCodeAt(i)) | 0; } kennung = 'anker-' + (daten && daten.pid ? daten.pid : '') + '-' + (h >>> 0).toString(36); }
+    return 'aufmass.freigabe.entwurf.' + kennung;
+  }
+  var entwurfWiederhergestellt = null;
+  /* Momentaufnahme der Eingaben; „basis“ ist der zuletzt übertragene Stand
+     (beim ersten Öffnen der Plan selbst). Nur was davon abweicht, ist ein
+     Zwischenstand. */
+  var basis = '';
+  function momentaufnahme() {
+    return JSON.stringify({ m: arbeitsMatrix.join(''), ma: F.mitarbeiterBereinigen(mitarbeiter), gr: F.gruppenBereinigen(gruppen),
+      max: F.kennungenBereinigen(entfernteMa), grx: F.kennungenBereinigen(entfernteGr), n: neueSpalten });
+  }
+  function basisSetzen() { basis = momentaufnahme(); }
+  function entwurfUnveraendert() { return momentaufnahme() === basis; }
+  function entwurfAblegen() {
+    if (!daten || zustand() !== 'offen') return;
+    var rz = document.getElementById('fr-zuruecksetzen');
+    if (rz) rz.disabled = entwurfUnveraendert();
+    try {
+      if (entwurfUnveraendert()) { localStorage.removeItem(entwurfSchluessel()); return; }
+      localStorage.setItem(entwurfSchluessel(), JSON.stringify({
+        matrix: arbeitsMatrix.join(''), ma: mitarbeiter, gr: gruppen, max: entfernteMa, grx: entfernteGr, n: neueSpalten,
+        am: new Date().toISOString()
+      }));
+    } catch (e) { /* privater Modus oder voller Speicher: dann eben ohne Zwischenstand */ }
+  }
+  function entwurfLaden() {
+    try {
+      var roh = localStorage.getItem(entwurfSchluessel());
+      if (!roh) return false;
+      var stand = JSON.parse(roh);
+      if (!stand || typeof stand.matrix !== 'string' || stand.matrix.length !== daten.matrix.length) return false;
+      /* nur freigegebene Felder, nur gültige Zeichen - der Speicher könnte von Hand verändert sein */
+      var m = arbeitsMatrix.slice();
+      for (var i = 0; i < m.length; i++) { if (daten.maske[i] === '1' && F.ZEICHEN.indexOf(stand.matrix[i]) !== -1) m[i] = stand.matrix[i]; }
+      arbeitsMatrix = m;
+      if (Array.isArray(stand.ma)) mitarbeiter = F.mitarbeiterBereinigen(stand.ma);
+      if (Array.isArray(stand.gr)) gruppen = F.gruppenBereinigen(stand.gr);
+      entfernteMa = F.kennungenBereinigen(stand.max);
+      entfernteGr = F.kennungenBereinigen(stand.grx);
+      neueSpalten = (Array.isArray(stand.n) ? stand.n : []).filter(function (x) { return x && typeof x === 'object' && Array.isArray(x.zellen); })
+        .map(function (x) {
+          var z = x.zellen.slice(0, daten.t.length).map(function (c) { return F.ZEICHEN.indexOf(c) !== -1 ? String(c) : '0'; });
+          while (z.length < daten.t.length) z.push('0');
+          return { art: x.art === 'gruppe' ? 'gruppe' : 'mitarbeiter', refId: String(x.refId || ''), zellen: z };
+        });
+      if (entwurfUnveraendert()) { localStorage.removeItem(entwurfSchluessel()); return false; }
+      entwurfWiederhergestellt = stand.am || '';
+      return true;
+    } catch (e) { return false; }
+  }
+  function entwurfLoeschen() {
+    try { localStorage.removeItem(entwurfSchluessel()); } catch (e) { /* ohne Speicher */ }
+    entwurfWiederhergestellt = null;
+  }
+  /* Auf den zuletzt übertragenen Stand zurück - ohne Zwischenstand */
+  function aufAnfang() {
+    entwurfLoeschen();
+    vorbereiten();
+    if (modus === 'server') antwortEinspielen(server.antwort);
+    basisSetzen();
+    zeichnen();
+  }
   function firma() { return daten.firma || 'den Absender'; }
 
   /* 'offen' = bearbeitbar · 'vorgelegt' = nur freigeben · 'gesperrt' = nichts mehr */
@@ -284,12 +374,27 @@
     return daten.r;
   }
 
+  /* Gleichschließende Türen (Haupttür und Mitläufer): Zeile -> Partnerzeilen.
+     Ihre Felder einer Spalte werden gemeinsam gesetzt, damit kein Widerspruch
+     entsteht, den die Übernahme stillschweigend auflösen müsste. */
+  var partnerZeilen = Object.create(null);
+  function verbuendeAufbauen() {
+    partnerZeilen = Object.create(null);
+    var zeileVon = Object.create(null);
+    daten.t.forEach(function (t, i) { zeileVon[t[0]] = i; });
+    (daten.vb || []).forEach(function (g) {
+      var zeilen = g.map(function (id) { return zeileVon[id]; }).filter(function (z) { return z !== undefined; });
+      zeilen.forEach(function (z) { partnerZeilen[z] = zeilen.filter(function (x) { return x !== z; }); });
+    });
+  }
+  var zellenKnoten = {};
   function vorbereiten() {
     arbeitsMatrix = daten.matrix.split('');
     spalten = daten.s.length;
     mitarbeiter = kopie(daten.ma);
     gruppen = kopie(daten.gr);
     entfernteMa = []; entfernteGr = []; neueSpalten = [];
+    verbuendeAufbauen();
   }
   /* Eine frühere Rückmeldung des Kunden wieder einspielen: Er sieht, was
      er zuletzt übertragen hat, und kann daran weiterarbeiten. */
@@ -303,12 +408,22 @@
       if (F.ZEICHEN.indexOf(teile[1]) === -1) return;
       arbeitsMatrix[i] = teile[1];
     });
-    if (Array.isArray(antwort.gr)) gruppen = F.gruppenBereinigen(antwort.gr);
+    /* Die Antwort enthält nur geänderte und neue Einträge: in die Listen des Links einarbeiten */
+    function einarbeiten(liste, aenderungen) {
+      var aus = liste.slice();
+      aenderungen.forEach(function (x) {
+        var i = -1;
+        for (var k = 0; k < aus.length; k++) { if (aus[k][0] === x[0]) { i = k; break; } }
+        if (i === -1) aus.push(x); else aus[i] = x;
+      });
+      return aus;
+    }
+    if (Array.isArray(antwort.gr)) gruppen = einarbeiten(gruppen, F.gruppenBereinigen(antwort.gr));
     if (Array.isArray(antwort.grx)) {
       entfernteGr = F.kennungenBereinigen(antwort.grx);
       gruppen = gruppen.filter(function (g) { return entfernteGr.indexOf(g[0]) === -1; });
     }
-    if (Array.isArray(antwort.ma)) mitarbeiter = F.mitarbeiterBereinigen(antwort.ma);
+    if (Array.isArray(antwort.ma)) mitarbeiter = einarbeiten(mitarbeiter, F.mitarbeiterBereinigen(antwort.ma));
     if (Array.isArray(antwort.max)) {
       entfernteMa = F.kennungenBereinigen(antwort.max);
       mitarbeiter = mitarbeiter.filter(function (m) { return entfernteMa.indexOf(m[0]) === -1; });
@@ -338,6 +453,11 @@
     return daten.s.some(function (s) { return s[4] === art && s[5] === id; }) ||
            neueSpalten.some(function (n) { return n.art === art && n.refId === id; });
   }
+  /* Schließungen (Schlüssel), deren Träger ein Mitarbeiter ist */
+  function schluesselVon(id) {
+    return daten.s.filter(function (s) { return s[4] === 'schliessung' && Array.isArray(s[6]) && s[6].indexOf(id) !== -1; })
+      .map(function (s) { return s[1] || s[2] || 'Schließung'; });
+  }
   function mitgliederVon(gid) { return mitarbeiter.filter(function (m) { return m[2].indexOf(gid) !== -1; }); }
   function indexVon(zeile, spalte) { return zeile * spalten + spalte; }
   function geaendertAnzahl() {
@@ -362,7 +482,7 @@
   }
   function antwortBauen(fr) {
     /* Spalten für Einträge ohne Namen fallen weg - die Einträge selbst auch */
-    var gueltigeMa = {}, gueltigeGr = {};
+    var gueltigeMa = Object.create(null), gueltigeGr = Object.create(null);
     F.mitarbeiterBereinigen(mitarbeiter).forEach(function (m) { if (m[0]) gueltigeMa[m[0]] = true; });
     F.gruppenBereinigen(gruppen).forEach(function (g) { if (g[0]) gueltigeGr[g[0]] = true; });
     var n = neueSpalten.filter(function (x) { return x.art === 'gruppe' ? gueltigeGr[x.refId] : gueltigeMa[x.refId]; })
@@ -427,7 +547,7 @@
       if (r.s) kann.push('Gruppen oder Mitarbeiter als neue Spalte aufnehmen');
       inhalt.appendChild(el('div', { class: 'meldung info' }, el('div', {}, [
         el('b', { text: 'So geht es: ' }),
-        'Tippen Sie in der Tabelle auf die Felder, die Sie freigeben möchten. ' +
+        'Tippen Sie in der Tabelle auf die Felder, an denen eine Berechtigung bestehen soll. ' +
         'Ein Tippen setzt ein Kreuz (X), ein weiteres macht daraus eine zeitlich ' +
         'begrenzte Berechtigung (Z), ein drittes entfernt sie wieder. ',
         el('br'),
@@ -437,6 +557,25 @@
           ? el('span', { text: ' Zum Schluss unten auf „Rückmeldung senden“ klicken - oder auf „Rückmeldung senden und Plan freigeben“, wenn der Plan damit abgeschlossen sein soll.' })
           : null
       ].concat(zusatz))));
+
+      if (entwurfWiederhergestellt !== null) {
+        inhalt.appendChild(el('div', { class: 'meldung info', id: 'fr-entwurf' }, el('div', { class: 'zeile-verteilt', style: { width: '100%', gap: '10px' } }, [
+          el('div', { class: 'fuellen' }, [
+            el('b', { text: 'Ihr Zwischenstand' + (entwurfWiederhergestellt ? ' vom ' + datum(entwurfWiederhergestellt) : '') + ' ist wieder da.' }),
+            el('div', { style: { marginTop: '3px', fontSize: '13.5px' }, text: 'Die Eingaben, die Sie hier zuletzt gemacht und noch nicht gesendet hatten, sind eingetragen. Sie können daran weiterarbeiten.' })
+          ]),
+          el('button', { type: 'button', class: 'klein', text: 'Zwischenstand verwerfen', onclick: aufAnfang })
+        ])));
+      }
+
+      /* Eine verworfene Rückmeldung: der Kunde soll wissen, warum der Plan wieder leer ist */
+      if (modus === 'server' && !server.antwort && server.verworfenAm) {
+        inhalt.appendChild(el('div', { class: 'meldung warn', id: 'fr-verworfen' }, el('div', {}, [
+          el('b', { text: 'Ihre Rückmeldung' + (server.verworfenAntwortAm ? ' vom ' + datum(server.verworfenAntwortAm) : '') + ' wurde nicht übernommen.' }),
+          el('div', { style: { marginTop: '4px', fontSize: '13.5px' }, text: firma() + ' hat sie am ' + datum(server.verworfenAm) +
+            ' verworfen. Der Plan steht hier wieder zur Bearbeitung offen - bitte tragen Sie Ihre Angaben neu ein oder fragen Sie bei ' + firma() + ' nach.' })
+        ])));
+      }
 
       /* Stand auf dem Server: schon einmal übertragen? */
       if (modus === 'server' && server.antwort) {
@@ -456,7 +595,7 @@
     var legende = el('div', { class: 'matrix-legende' });
     /* Was der Kunde setzen darf, steht immer da; was der Planer vorbelegt hat
        (befristet, gesperrt, Reserve), nur wenn es im Plan vorkommt. */
-    var vorhanden = {};
+    var vorhanden = Object.create(null);
     String(daten.matrix || '').split('').forEach(function (z) { vorhanden[F.zeichenZuWert(z)] = true; });   /* die Matrix ist eine Zeichenkette, ein Zeichen je Feld */
     var eintraege = [['X', 'berechtigt'], ['Z', 'berechtigt, zeitlich begrenzt']];
     if (vorhanden.temp) eintraege.push(['T', 'befristet (vom Planer vorgegeben)']);
@@ -479,8 +618,16 @@
     var fuss = el('div', { class: 'fr-fuss' });
     fuss.appendChild(el('div', { class: 'zaehler', id: 'fr-zaehler' }));
     if (z === 'offen') {
-      fuss.appendChild(el('button', { text: 'Zurücksetzen', onclick: function () {
-        vorbereiten(); zeichnen();
+      fuss.appendChild(el('button', { text: 'Zurücksetzen', id: 'fr-zuruecksetzen', disabled: entwurfUnveraendert(), onclick: function () {
+        if (entwurfUnveraendert()) { return; }
+        var d = dialog('Eingaben zurücksetzen?', [
+          el('p', { style: { marginTop: '0' }, text: 'Alle Änderungen, die Sie hier noch nicht gesendet haben, werden verworfen' +
+            (modus === 'server' && server.antwort ? ' - der Stand Ihrer letzten Übertragung bleibt eingetragen.' : '.') })
+        ], function (schliessen) {
+          return [el('button', { type: 'button', text: 'Abbrechen', onclick: schliessen }), el('div', { class: 'fuellen' }),
+                  el('button', { type: 'button', class: 'gefahr', text: 'Zurücksetzen', onclick: function () { schliessen(); aufAnfang(); } })];
+        });
+        d.kasten.classList.add('klein');
       } }));
       if (modus === 'server') {
         fuss.appendChild(el('button', { id: 'fr-uebertragen', text: 'Rückmeldung senden',
@@ -524,6 +671,7 @@
 
     var koerper = el('tbody');
     var letzterBereich = null;
+    zellenKnoten = {};
     daten.t.forEach(function (t, zeile) {
       if (t[3] && t[3] !== letzterBereich) {
         letzterBereich = t[3];
@@ -531,9 +679,12 @@
           el('td', { colspan: alle.length + 1 }, el('span', { class: 'gruppen-titel', text: t[3] }))));
       }
       var tr = el('tr');
+      var partner = partnerZeilen[zeile] || [];
       tr.appendChild(el('td', { class: 'tuername' }, [
         el('span', { class: 'nr', text: t[1] || '—' }),
-        el('span', { class: 'bez', text: t[2] || '' })
+        el('span', { class: 'bez', text: t[2] || '' }),
+        partner.length ? el('span', { class: 'verbund', title: 'Gleichschließend mit ' + partner.map(function (pz) { return daten.t[pz][1] || daten.t[pz][2] || '–'; }).join(', ') + ': Die Felder dieser Türen werden gemeinsam gesetzt.',
+          text: '⧉ ' + partner.map(function (pz) { return daten.t[pz][1] || '–'; }).join(', ') }) : null
       ]));
       daten.s.forEach(function (s, spalte) {
         var i = indexVon(zeile, spalte);
@@ -544,6 +695,7 @@
                  (frei ? '' : '  (nicht freigegeben)')
         });
         zelleZeichnen(zelle, i, frei);
+        zellenKnoten[i] = zelle;
         if (frei) {
           zelle.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); zelle.click(); } });
           zelle.addEventListener('click', function () {
@@ -557,15 +709,23 @@
             var naechst = folge[(pos === -1 ? 0 : pos + 1) % folge.length];
             arbeitsMatrix[i] = F.wertZuZeichen(naechst);
             zelleZeichnen(zelle, i, true);
+            /* gleichschließende Türen ziehen mit - soweit ihr Feld freigegeben ist */
+            (partnerZeilen[zeile] || []).forEach(function (pz) {
+              var j = indexVon(pz, spalte);
+              if (daten.maske[j] !== '1') return;
+              arbeitsMatrix[j] = arbeitsMatrix[i];
+              if (zellenKnoten[j]) zelleZeichnen(zellenKnoten[j], j, true);
+            });
             zaehlerAktualisieren();
           });
         }
         tr.appendChild(zelle);
       });
-      neueSpalten.forEach(function (n) {
+      neueSpalten.forEach(function (n, ni) {
         var frei = z === 'offen';
         var zelle = el('td', { class: 'zelle', title: (t[1] || t[2]) + ' / neue Spalte' });
         zelleNeuZeichnen(zelle, n, zeile, frei);
+        zellenKnoten['neu' + ni + '|' + zeile] = zelle;
         if (frei) {
           zelle.addEventListener('click', function () {
             var jetzt = F.zeichenZuWert(n.zellen[zeile]);
@@ -573,6 +733,11 @@
             var naechst = FOLGE[(pos === -1 ? 0 : pos + 1) % FOLGE.length];
             n.zellen[zeile] = F.wertZuZeichen(naechst);
             zelleNeuZeichnen(zelle, n, zeile, true);
+            (partnerZeilen[zeile] || []).forEach(function (pz) {
+              n.zellen[pz] = n.zellen[zeile];
+              var k = zellenKnoten['neu' + ni + '|' + pz];
+              if (k) zelleNeuZeichnen(k, n, pz, true);
+            });
             zaehlerAktualisieren();
           });
         }
@@ -653,7 +818,7 @@
       } }) : null
     ]));
     if (!gruppen.length) block.appendChild(el('div', { class: 'fr-leer', text: 'Noch keine Gruppen.' }));
-    var original = {};
+    var original = Object.create(null);
     daten.gr.forEach(function (g) { original[g[0]] = g[1]; });
     gruppen.forEach(function (g, gi) {
       var leute = mitgliederVon(g[0]);
@@ -724,7 +889,7 @@
       block.appendChild(tab);
       return block;
     }
-    var original = {};
+    var original = Object.create(null);
     daten.ma.forEach(function (m) { original[m[0]] = JSON.stringify(F.mitarbeiterBereinigen([m])); });
     mitarbeiter.forEach(function (m, mi) { block.appendChild(mitarbeiterKarte(m, mi, r, original)); });
     return block;
@@ -743,16 +908,28 @@
       zaehlerAktualisieren();
     }
     var hatSpalte = spalteVorhanden('mitarbeiter', m[0]);
+    var schluessel = schluesselVon(m[0]);
+    var festgehalten = hatSpalte ? 'Dieser Mitarbeiter hat eine eigene Spalte im Plan und lässt sich hier nicht entfernen.'
+      : (schluessel.length ? 'Träger von ' + schluessel.join(', ') + ' - lässt sich hier nicht entfernen.' : '');
+    /* Denselben Namen gibt es schon: meist ist der vorhandene Eintrag gemeint */
+    var dublette = el('div', { class: 'zart fr-dublette', style: { display: 'none', color: 'var(--rot)', fontSize: '12.5px', marginTop: '2px' },
+      text: 'Einen Mitarbeiter mit diesem Namen gibt es schon - gemeint ist vielleicht der vorhandene Eintrag.' });
+    function dublettePruefen() {
+      var doppelt = mitarbeiter.some(function (x) { return x !== m && F.namenGleich(x[1], m[1]); });
+      dublette.style.display = doppelt ? '' : 'none';
+    }
     karte.appendChild(el('div', { class: 'zeile' }, [
       el('input', { type: 'text', class: 'name', value: m[1], placeholder: 'Vorname Nachname', autocomplete: 'off',
-        oninput: function (e) { m[1] = e.target.value; markieren(); } }),
-      !hatSpalte ? el('button', { class: 'klein gefahr nur-symbol', type: 'button', text: '✕', title: 'Mitarbeiter entfernen',
+        oninput: function (e) { m[1] = e.target.value; markieren(); dublettePruefen(); } }),
+      !festgehalten ? el('button', { class: 'klein gefahr nur-symbol', type: 'button', text: '✕', title: 'Mitarbeiter entfernen',
         onclick: function () {
           mitarbeiter.splice(mi, 1);
           if (m[0] in original) entfernteMa.push(m[0]);
           listenNeuZeichnen();
-        } }) : null
+        } }) : el('span', { class: 'zart', style: { fontSize: '12px' }, title: festgehalten, text: schluessel.length && !hatSpalte ? 'Träger: ' + schluessel.join(', ') : 'eigene Spalte' })
     ]));
+    karte.appendChild(dublette);
+    dublettePruefen();
 
     /* Gruppen als Chips */
     karte.appendChild(el('div', { class: 'feldname', text: 'Abteilung / Gruppe' }));
@@ -790,7 +967,7 @@
           zeile.appendChild(el('input', { type: 'text', value: eintrag[0], placeholder: 'z. B. Schlüssel, Transponder', autocomplete: 'off',
             oninput: function (e) { m[3][ei][0] = e.target.value; markieren(); } }));
         }
-        zeile.appendChild(el('input', { type: 'text', class: 'anzahl', inputmode: 'numeric', value: String(eintrag[1]), title: 'Anzahl',
+        zeile.appendChild(el('input', { type: 'text', class: 'anzahl', inputmode: 'numeric', value: String(eintrag[1]), title: 'Anzahl (1 bis 999)', placeholder: '1-999',
           oninput: function (e) {
             var roh = String(e.target.value).replace(/[^0-9]/g, '');
             e.target.value = roh;
@@ -851,6 +1028,7 @@
     if (gruppenGeaendert()) text += '  ·  Gruppen geändert';
     if (neueSpalten.length) text += '  ·  ' + (neueSpalten.length === 1 ? '1 neue Spalte' : neueSpalten.length + ' neue Spalten');
     z.textContent = text;
+    entwurfAblegen();
   }
 
   function dialog(titel, koerperKinder, fussKinder) {
@@ -944,11 +1122,16 @@
     setTimeout(function () { nameFeld.focus(); }, 60);
     nameFeld.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); absenden(d.schliessen); } });
 
+    var laeuft = false;
     function absenden(schliessen) {
+      /* Enter im Namensfeld und der Knopf dürfen nicht zweimal senden - der
+         Server zählte sonst zwei Rückmeldungen und schickte zwei Mails. */
+      if (laeuft) return;
       var name = nameFeld.value.trim();
       if (!name) { fehler('Bitte tragen Sie Ihren Namen ein.'); nameFeld.focus(); return; }
       if (mitFreigabe && !bestaetigung.kasten.checked) { fehler('Bitte bestätigen Sie die verbindliche Freigabe.'); return; }
       fehlerZeile.style.display = 'none';
+      laeuft = true;
       sendeKnopf.disabled = true;
       sendeKnopf.textContent = 'Wird übertragen …';
       var antwort = antwortBauen(mitFreigabe ? { name: name, funktion: funktionFeld.value.trim() } : null);
@@ -961,13 +1144,34 @@
         server.antwortName = name;
         server.antwortAnmerkung = anmerkung;
         server.antwortAm = (ergebnis && ergebnis.am) || new Date().toISOString();
+        server.verworfenAm = ''; server.verworfenAntwortAm = '';
         if (mitFreigabe) server.freigabe = { am: server.antwortAm, name: name, funktion: funktionFeld.value.trim(), art: 'mit_antwort' };
+        entwurfLoeschen();
+        basisSetzen();
         schliessen();
         fertigZeigen(ergebnis || {}, name, mitFreigabe);
       }).catch(function (f) {
+        laeuft = false;
         sendeKnopf.disabled = false;
         sendeKnopf.textContent = mitFreigabe ? 'Jetzt senden und freigeben' : 'Jetzt senden';
         fehler(meldungFuer(f));
+        /* Der Link ist tot (zurückgezogen, abgelaufen, gelöscht): Die Eingaben
+           sollen nicht verloren sein - als Datei lassen sie sich noch zusenden
+           und im Werkzeug einlesen. */
+        if (f && (f.status === 410 || f.status === 404)) {
+          fehlerZeile.appendChild(el('div', { style: { marginTop: '8px' } }, [
+            el('div', { style: { fontSize: '13.5px', marginBottom: '6px' }, text: 'Ihre Eingaben sind nicht verloren: Speichern Sie sie als Datei und senden Sie diese per E-Mail' + (daten.mail ? ' an ' + daten.mail : '') + '.' }),
+            el('button', { type: 'button', class: 'klein', text: 'Eingaben als Datei sichern', onclick: function () {
+              var schluessel = F.antwortAlsSchluessel(antwort);
+              var dateiName = 'Berechtigungen_' + (daten.objekt || daten.kunde || 'Rueckmeldung').replace(/[^\wäöüÄÖÜß \-]/g, '').trim().replace(/\s+/g, '-') + '.txt';
+              var blob = new Blob([schluessel], { type: 'text/plain' });
+              var url = URL.createObjectURL(blob);
+              var a = el('a', { href: url, download: dateiName });
+              document.body.appendChild(a); a.click();
+              setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 3000);
+            } })
+          ]));
+        }
       });
     }
   }
@@ -998,11 +1202,14 @@
     setTimeout(function () { nameFeld.focus(); }, 60);
     nameFeld.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); absenden(d.schliessen); } });
 
+    var laeuft = false;
     function absenden(schliessen) {
+      if (laeuft) return;
       var name = nameFeld.value.trim();
       if (!name) { fehler('Bitte tragen Sie Ihren Namen ein.'); nameFeld.focus(); return; }
       if (!bestaetigung.kasten.checked) { fehler('Bitte bestätigen Sie die verbindliche Freigabe.'); return; }
       fehlerZeile.style.display = 'none';
+      laeuft = true;
       sendeKnopf.disabled = true;
       sendeKnopf.textContent = 'Wird übertragen …';
       var funktion = funktionFeld.value.trim();
@@ -1014,9 +1221,12 @@
         server.antwortName = name;
         server.antwortAm = (ergebnis && ergebnis.am) || new Date().toISOString();
         server.freigabe = { am: server.antwortAm, name: name, funktion: funktion, art: 'nachtraeglich' };
+        entwurfLoeschen();
+        basisSetzen();
         schliessen();
         fertigZeigen(ergebnis || {}, name, true);
       }).catch(function (f) {
+        laeuft = false;
         sendeKnopf.disabled = false;
         sendeKnopf.textContent = 'Jetzt verbindlich freigeben';
         fehler(meldungFuer(f));
@@ -1068,7 +1278,7 @@
       ])),
       namenlos() ? el('div', { class: 'meldung warn' }, el('div', { text: 'Einträge ohne Namen sind nicht enthalten.' })) : null,
       el('h3', { text: '1. Als Datei senden' }),
-      el('p', { class: 'hinweis', text: 'Datei speichern und als Anhang zurücksenden. Das ist der zuverlässigste Weg.' }),
+      el('p', { class: 'hinweis', text: 'Datei speichern und als Anhang' + (daten.mail ? ' an ' + daten.mail : '') + ' zurücksenden. Das ist der zuverlässigste Weg.' }),
       el('button', { class: 'haupt', type: 'button', text: 'Rückmeldung als Datei speichern', onclick: function () {
         var name = 'Berechtigungen_' + (daten.objekt || daten.kunde || 'Rueckmeldung')
           .replace(/[^\wäöüÄÖÜß \-]/g, '').trim().replace(/\s+/g, '-') + '.txt';
@@ -1080,7 +1290,16 @@
       } }),
       el('hr', { class: 'trenner' }),
       el('h3', { text: '2. Als Text senden' }),
-      el('p', { class: 'hinweis', text: 'Den gesamten Schlüssel kopieren und in eine E-Mail einfügen.' }),
+      el('p', { class: 'hinweis', text: 'Den gesamten Schlüssel kopieren und in eine E-Mail' + (daten.mail ? ' an ' + daten.mail : '') + ' einfügen.' +
+        (daten.mail ? (schluessel.length <= 1500 ? ' Oder die fertige E-Mail öffnen - der Schlüssel steht schon darin.'
+                                                   : ' Der Schlüssel ist für den Text einer fertigen E-Mail zu lang: Die E-Mail öffnet sich ohne ihn, bitte die gespeicherte Datei anhängen.') : '') }),
+      /* Kurze Schlüssel passen in eine fertige E-Mail; bei langen bleibt die Datei - der Knopf erklärt es, statt zu fehlen */
+      daten.mail ? el('button', { type: 'button', text: schluessel.length <= 1500 ? 'E-Mail mit dem Schlüssel öffnen' : 'E-Mail öffnen (Datei anhängen)', style: { marginBottom: '10px' }, onclick: function () {
+        var kurz = schluessel.length <= 1500;
+        location.href = 'mailto:' + encodeURIComponent(daten.mail) + '?subject=' + encodeURIComponent('Rückmeldung Schließplan ' + (daten.objekt || daten.kunde || '')) +
+          '&body=' + encodeURIComponent('Guten Tag,\n\nanbei meine Rückmeldung zum Schließplan' + (daten.objekt ? ' ' + daten.objekt : '') + '.\n\n' +
+            (kurz ? 'Rückschlüssel:\n' + schluessel : 'Der Rückschlüssel ist als Datei angehängt.') + '\n\nMit freundlichen Grüßen\n');
+      } }) : null,
       feld,
       el('div', { class: 'knopfleiste', style: { marginTop: '10px' } }, [
         el('button', { type: 'button', text: 'In die Zwischenablage kopieren', onclick: function (e) {
@@ -1112,6 +1331,8 @@
       return;
     }
     vorbereiten();
+    basisSetzen();
+    entwurfLaden();
     zeichnen();
     return;
   }
@@ -1126,11 +1347,15 @@
       antwortName: (d && d.antwortName) || '',
       antwortAnmerkung: (d && d.antwortAnmerkung) || '',
       gueltigBis: (d && d.gueltigBis) || '',
+      verworfenAm: (d && d.verworfenAm) || '',
+      verworfenAntwortAm: (d && d.verworfenAntwortAm) || '',
       vorgelegtAm: (d && d.vorgelegtAm) || '',
       freigabe: (d && d.freigabe) || null
     };
     vorbereiten();
     antwortEinspielen(server.antwort);
+    basisSetzen();
+    if (zustand() === 'offen') entwurfLaden();
     zeichnen();
   }).catch(function (f) {
     var titel = (f && f.status === 404) ? 'Diesen Freigabe-Link gibt es nicht.'
