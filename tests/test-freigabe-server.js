@@ -304,6 +304,9 @@ function mails() {
     await warte(1500);
     const fremdSicht = await fremd.evaluate(() => window.Abgleich.zustand().antworten.length);
     p(fremdSicht === 0, 'ein Unzuständiger bekommt die Rückmeldung nicht zu sehen', String(fremdSicht));
+    const fremdListe = await fremd.evaluate(pid => window.Abgleich.freigabenListe(pid), projekt.id);
+    p(fremdListe.length >= 1 && fremdListe.every(f => f.nurStatus && f.code === '' && f.kurzlink === '' && f.link === ''),
+      'und in der Linkliste weder Code noch Link - nur den Stand', JSON.stringify(fremdListe.map(f => [f.status, f.code])));
 
     await seite.evaluate(() => window.Abgleich.jetzt());
     await warte(1200);

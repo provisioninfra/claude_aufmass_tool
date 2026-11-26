@@ -375,12 +375,18 @@ $meine = array_values(array_filter($l, function ($x) use ($code) { return $x['co
 pruefe(count($meine) === 1 && $meine[0]['status'] === 'freigegeben' && $meine[0]['antwortNr'] === 1, 'mit dem aktuellen Zustand');
 pruefe(!isset($meine[0]['daten']), 'aber ohne die ganzen Plandaten');
 pruefe(count(Aufmass_Freigaben::liste('prj-x')) === 0, 'ein fremdes Aufmaß hat keine');
-/* Was der Kunde geantwortet hat, sehen nur die, die es übernehmen dürften */
+/* Was der Kunde geantwortet hat, sehen nur die, die es übernehmen dürften - und
+   auch den Code nicht: Mit ihm ließe sich über den öffentlichen Weg alles lesen
+   und als Kunde senden. Die Reihenfolge (neueste zuerst) bleibt dieselbe. */
 $lf = Aufmass_Freigaben::liste('prj-f', $fremd);
-$lfm = array_values(array_filter($lf, function ($x) use ($code) { return $x['code'] === $code; }));
-pruefe(count($lf) === 7 && count($lfm) === 1 && $lfm[0]['status'] === 'freigegeben', 'wer nicht zuständig ist, sieht den Stand jeder Freigabe');
-pruefe($lfm[0]['antwort'] === null && $lfm[0]['antwortName'] === '' && $lfm[0]['antwortAnmerkung'] === '' && !empty($lfm[0]['nurStatus']),
-    'aber nicht, was der Kunde geantwortet hat (Plan, Name, Anmerkung)', json_encode(array($lfm[0]['antwortName'], $lfm[0]['antwort'] === null)));
+$stelle = -1;
+foreach ($l as $i => $x) { if ($x['code'] === $code) { $stelle = $i; } }
+$lfm = $stelle >= 0 && isset($lf[$stelle]) ? array($lf[$stelle]) : array();
+pruefe(count($lf) === 7 && count($lfm) === 1 && $lfm[0]['status'] === 'freigegeben' && $lfm[0]['antwortNr'] === 1, 'wer nicht zuständig ist, sieht den Stand jeder Freigabe');
+pruefe(count($lfm) === 1 && $lfm[0]['antwort'] === null && $lfm[0]['antwortName'] === '' && $lfm[0]['antwortAnmerkung'] === '' && !empty($lfm[0]['nurStatus']),
+    'aber nicht, was der Kunde geantwortet hat (Plan, Name, Anmerkung)', json_encode(count($lfm) ? array($lfm[0]['antwortName'], $lfm[0]['antwort'] === null) : null));
+pruefe(count($lf) === 7 && count(array_filter($lf, function ($x) { return $x['code'] === '' && $x['kurzlink'] === '' && $x['link'] === ''; })) === 7,
+    'und keinen Code, Kurzlink oder Link - der Code ist der Ausweis des Kunden', json_encode(array_map(function ($x) { return $x['code']; }, $lf)));
 $lw = Aufmass_Freigaben::liste('prj-f', $weber);
 $lwm = array_values(array_filter($lw, function ($x) use ($code) { return $x['code'] === $code; }));
 pruefe(count($lwm) === 1 && is_array($lwm[0]['antwort']) && !isset($lwm[0]['nurStatus']), 'der Zuständige sieht die Antwort', fehlertext($lwm[0]));
@@ -413,7 +419,9 @@ $zz = Aufmass_Freigaben::zeile($f14['code']);
 pruefe($zz['daten'] === '' && $zz['antwort'] !== '' && $zz['antwort_name'] === 'Frau Dritt',
     'auch hier sind die Plandaten weg - die Antwort samt Name bleibt zur Prüfung', json_encode(array(strlen($zz['daten']), $zz['antwort_name'])));
 $u = Aufmass_Freigaben::uebernommen_markieren($f14['code'], 1, $weber);
-pruefe(!is_wp_error($u) && $u['status'] === 'abgelaufen', 'nach der Übernahme gilt der Link als abgelaufen', fehlertext($u));
+pruefe(!is_wp_error($u) && $u['status'] === 'zurueckgezogen', 'nach der Übernahme bleibt der Link zurückgezogen (nicht „freigegeben“ ohne Plan)', fehlertext($u));
+$ku = Aufmass_Freigaben::oeffentlich($f14['code']);
+pruefe(is_wp_error($ku) && status_von($ku) === 410, 'der Kunde bekommt dazu eine klare Auskunft, keinen Serverfehler', fehlertext($ku));
 
 echo "\n== Ablauf ==\n";
 $fa = Aufmass_Freigaben::anlegen('prj-f', freigabedaten(), '', $weber);
@@ -653,6 +661,26 @@ pruefe(!is_wp_error($ka) && $ka['daten']['s'][0][4] === 'schliessung' && $ka['da
 $an = Aufmass_Freigaben::antwort_annehmen($fa['code'], array('f' => 2, 'pid' => 'prj-f', 'typ' => 'antwort', 'anzahl' => '3x3',
     'tIds' => array('t1', 't2', 't3'), 'sIds' => array('s1', 's2', 's3'), 'a' => '', 'n' => array(array(array('gruppe'), 'g1', '000'))), 'Kunde', '');
 pruefe(is_wp_error($an) && status_von($an) === 400, 'eine neue Spalte mit Array als Art wird als unlesbar abgelehnt, nicht mit Absturz', fehlertext($an));
+
+echo "\n== Freigegebene Links behalten ihren Plan, erloschene antworten mit 410 ==\n";
+$fg = Aufmass_Freigaben::anlegen('prj-f', freigabedaten(), '', $weber, true);
+$fr = Aufmass_Freigaben::freigeben($fg['code'], 'Frau Chefin', 'GF', '');
+pruefe(!is_wp_error($fr), 'Vorbereitung: ein vorgelegter Plan wird freigegeben', fehlertext($fr));
+$fu = Aufmass_Freigaben::uebernommen_markieren($fg['code'], (int) $fr['antwortNr'], $weber);
+pruefe(!is_wp_error($fu) && $fu['status'] === 'freigegeben', 'Vorbereitung: die Freigabe ist vermerkt', fehlertext($fu));
+$wpdb->update(Aufmass_Datenbank::tabelle('freigaben'), array('gueltig_bis' => gmdate('Y-m-d H:i:s', time() - 40 * 86400) . '.000000'), array('code' => $fg['code']));
+Aufmass_Freigaben::aufraeumen();
+$zg = Aufmass_Freigaben::zeile($fg['code']);
+pruefe($zg && $zg['daten'] !== '', 'das tägliche Aufräumen lässt die Plandaten eines freigegebenen Links stehen (vorher: nach 30 Tagen 500)', $zg ? strlen($zg['daten']) : 'weg');
+$kg = Aufmass_Freigaben::oeffentlich($fg['code']);
+pruefe(!is_wp_error($kg) && $kg['status'] === 'freigegeben' && is_array($kg['daten']), 'der Kunde sieht den freigegebenen Plan weiter zur Ansicht', fehlertext($kg));
+$wpdb->update(Aufmass_Datenbank::tabelle('freigaben'), array('daten' => ''), array('code' => $fg['code']));
+$kl = Aufmass_Freigaben::oeffentlich($fg['code']);
+pruefe(is_wp_error($kl) && status_von($kl) === 410 && $kl->get_error_code() === 'erloschen', 'ohne Plandaten antwortet der Server mit 410 und Auskunft, nicht mit 500', fehlertext($kl));
+$al = Aufmass_Freigaben::antwort_annehmen($fg['code'], array('f' => 2, 'pid' => 'prj-f', 'typ' => 'antwort', 'anzahl' => '3x3', 'tIds' => array('t1', 't2', 't3'), 'sIds' => array('s1', 's2', 's3'), 'a' => ''), 'Kunde', '');
+pruefe(is_wp_error($al) && status_von($al) !== 500, 'auch Senden an einen erloschenen Link ist kein Serverfehler', fehlertext($al));
+$seiteHttps = Aufmass_Freigaben::seite_pruefen('http://example.test/aufmasstool/freigabe.html');
+pruefe(strpos($seiteHttps, 'https://') === 0 || strpos(home_url('/'), 'https://') !== 0, 'bei einer https-Website wird die Kundenseite auf https gehoben (' . $seiteHttps . ')', home_url('/'));
 
 echo "\n== Ein gesperrter Link nennt dem Kunden den Ansprechpartner ==\n";
 $fk = Aufmass_Freigaben::anlegen('prj-f', freigabedaten(array('mail' => 'info@beispiel.example', 'fid' => 'frg-abc-123')), '', $weber);

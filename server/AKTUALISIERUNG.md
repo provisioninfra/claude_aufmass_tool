@@ -60,7 +60,13 @@ von Anfang bis Ende geprüft und geglättet
   nimmt alle sechs Berechtigungswerte an (auch „vorgeplant“), gibt dem
   Kunden bei gesperrtem Link den Ansprechpartner mit und reicht
   gleichschließende Türen und die Kennung der Freigabe bereinigt durch.
-  Arrays an Textstellen führen zur Ablehnung statt zum Abbruch.
+  Arrays an Textstellen führen zur Ablehnung statt zum Abbruch. Die
+  Linkliste zeigt Kolleginnen und Kollegen ohne Zuständigkeit nur noch den
+  Stand, nicht mehr den Code (mit ihm ließe sich als Kunde senden).
+  Freigegebene Links behalten ihren Plan auch nach Ablauf der Laufzeit,
+  erloschene Links antworten mit einer Auskunft statt mit einem
+  Serverfehler, offene Rückmeldungen werden je Abruf begrenzt, und Leerraum
+  wird auf beiden Seiten gleich behandelt.
 
 **Was 1.5.2 brachte** (gegenüber 1.5.1) – Sichtprüfung und Technik der
 Darstellung auf Telefon, Tablet und Rechner sowie der gedruckten Ausgaben

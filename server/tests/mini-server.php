@@ -179,9 +179,10 @@ if ($rest === '/diktat' && $art === 'POST') {
 }
 /* --- Kundenfreigabe --- */
 if ($rest === '/freigaben' && $art === 'GET') {
-    benutzerOderRaus();
+    /* wie rest.php: mit dem angemeldeten Benutzer - Nicht-Zuständige sehen nur den Stand, keinen Code */
+    $b = benutzerOderRaus();
     if (empty($_GET['projekt'])) { raus(array('code' => 'projekt_fehlt', 'message' => 'Für welches Aufmaß?'), 400); }
-    raus(array('freigaben' => Aufmass_Freigaben::liste($_GET['projekt'])));
+    raus(array('freigaben' => Aufmass_Freigaben::liste($_GET['projekt'], $b)));
 }
 if ($rest === '/freigaben' && $art === 'POST') {
     kopffeldPruefen();

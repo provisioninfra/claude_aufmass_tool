@@ -764,12 +764,15 @@
         var behaelter = el('div', { class: 'freigabe-liste' });
         liste.forEach(function (f) {
           var zeile = el('div', { class: 'freigabe-eintrag status-' + f.status + (f.status === 'beantwortet' ? ' wartet' : '') });
-          zeile.appendChild(el('div', { class: 'code', text: f.kurzlink.replace(/^https?:\/\//, '') }));
+          /* Nicht-Zuständige sehen den Stand, aber nicht den Link: Der Code ist der
+             Ausweis des Kunden, mit ihm ließe sich als Kunde senden. */
+          var nurStatus = !!f.nurStatus || !f.kurzlink;
+          zeile.appendChild(el('div', { class: 'code' + (nurStatus ? ' zart' : ''), text: nurStatus ? 'Link nur für Zuständige sichtbar' : f.kurzlink.replace(/^https?:\/\//, '') }));
           zeile.appendChild(el('div', { class: 'stand', text:
             'Erstellt am ' + datumZeit(f.erstelltAm) + (f.erstelltVon ? ' von ' + f.erstelltVon : '') + '  ·  ' + statusText(f)
             + (f.rechte && f.status !== 'vorgelegt' && f.status !== 'freigegeben' ? '  ·  ' + rechteText(f.rechte) : '') }));
           var knoepfe = el('div', { class: 'knopfleiste' });
-          var tot = f.status === 'zurueckgezogen' || f.status === 'abgelaufen';
+          var tot = f.status === 'zurueckgezogen' || f.status === 'abgelaufen' || nurStatus;
           if (!tot) {
             knoepfe.appendChild(el('button', { class: 'klein', text: 'Kopieren', onclick: function (e) {
               var feld = el('input', { type: 'text', value: f.kurzlink, style: { position: 'absolute', left: '-9999px' } });

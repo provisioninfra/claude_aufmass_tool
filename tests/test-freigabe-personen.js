@@ -355,6 +355,27 @@ console.log('\n== Kennungen wie „constructor“ und „__proto__“ stören ni
   p(w.freigabenLokal.length === 100 && w.freigabenLokal.some(f => f.id === erste.fid), 'bei über 100 Links weichen zuerst zurückgezogene - der erste gültige Link bleibt bekannt', String(w.freigabenLokal.length));
 }
 
+console.log('\n== Bereinigungen wie der Server: Rechte, Kennungen, Anzahl, Zeichenpaare ==');
+{
+  const R = F.rechteBereinigen;
+  p(JSON.stringify(R({ m: '0', g: [], s: {} })) === JSON.stringify({ m: 0, g: 0, s: 0 }), '„0“, leere Liste und leeres Objekt sind kein Recht (wie !empty auf dem Server)', JSON.stringify(R({ m: '0', g: [], s: {} })));
+  p(JSON.stringify(R({ m: '1', g: 1, s: true })) === JSON.stringify({ m: 1, g: 1, s: 1 }) && JSON.stringify(R([1, 1, 1])) === JSON.stringify({ m: 0, g: 0, s: 0 }), '„1“, 1 und true sind Rechte, eine Liste statt Objekt nicht');
+  p(F._intern.kennung(['m1']) === '' && F._intern.kennung(true) === '' && F._intern.kennung('m1') === 'm1' && F._intern.kennung(12) === '12', 'nur Text und Zahl sind Kennungen - keine Listen, kein true');
+  const halb = F._intern.text('x'.repeat(119) + '🙂', 120);
+  p(halb.length === 119 && !/[\uD800-\uDBFF]$/.test(halb) && JSON.stringify(halb).indexOf('\\ud83d') === -1, 'ein Emoji an der Längengrenze wird nicht halbiert');
+  p(F._intern.text({ a: 1 }, 50) === '' && F._intern.text(['a'], 50) === '' && F._intern.text(7, 50) === '7', 'Objekte und Listen sind kein Text, Zahlen schon');
+  const mb = F.medienBereinigen([['Karte', '1e3'], ['Karte', '12abc'], ['Transponder', 1.9]]);
+  p(JSON.stringify(mb) === JSON.stringify([['Karte', 13], ['Transponder', 1]]), 'Anzahlen zählen führende Ziffern: 1e3 ist 1, 12abc ist 12, 1,9 ist 1', JSON.stringify(mb));
+  /* Einträge ohne Kennung werden nicht angelegt - sie kämen bei jeder Übernahme neu */
+  const w = k(q); w.freigabenLokal = [];
+  const d = F.erstellen(w, { freigegebeneSchliessungen: [], rechte: { m: 1, g: 1, s: 0 } });
+  F.freigabeMerken(w, d);
+  const r = F.ausAnker(F.alsAnker(d));
+  const vorMa = w.mitarbeiter.length, vorGr = w.gruppen.length;
+  const b = F.antwortUebernehmen(w, Object.assign(F.antwortErstellen(r, r.matrix, {}), { ma: [['', 'Ohne Kennung', [], []]], gr: [['', 'Gruppe ohne Kennung']] }), {});
+  p(w.mitarbeiter.length === vorMa && w.gruppen.length === vorGr && b.listenUebersprungen === 2, 'Mitarbeiter und Gruppen ohne Kennung werden übersprungen statt angelegt', JSON.stringify(b));
+}
+
 console.log('\n== Gleiche Namen werden im Bericht genannt ==');
 {
   const w = k(q);

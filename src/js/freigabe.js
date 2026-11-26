@@ -106,11 +106,15 @@
    * Die Kundenseite hat kein Modell geladen, deshalb stehen die Regeln für
    * Medien, Mitarbeiter und Gruppen hier noch einmal in knapper Form. */
   function text(wert, max) {
-    if (wert === null || wert === undefined) return '';
-    return String(wert).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').replace(/\s+/g, ' ').trim().slice(0, max);
+    if (wert === null || wert === undefined || (typeof wert !== 'string' && typeof wert !== 'number' && typeof wert !== 'boolean')) return '';
+    var t = String(wert).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').replace(/\s+/g, ' ').trim().slice(0, max);
+    /* nie mitten in einem Zeichenpaar (Emoji) abschneiden - ein halbes Paar ist kein gültiger Text */
+    if (/[\uD800-\uDBFF]$/.test(t)) t = t.slice(0, -1);
+    return t;
   }
   function kennung(wert) {
-    var k = String(wert === null || wert === undefined ? '' : wert).trim();
+    if (typeof wert !== 'string' && typeof wert !== 'number') return '';
+    var k = String(wert).trim();
     return ID.test(k) ? k : '';
   }
   function medienBereinigen(liste) {
@@ -205,9 +209,18 @@
     var n = function (x) { return String(x || '').toLowerCase().replace(/\s+/g, ' ').trim(); };
     return n(a) !== '' && n(a) === n(b);
   }
+  /* Rechte wie der Server (!empty): „0“, leere Listen und Objekte zählen nicht */
   function rechteBereinigen(r) {
-    r = (r && typeof r === 'object') ? r : {};
-    return { m: r.m ? 1 : 0, g: r.g ? 1 : 0, s: r.s ? 1 : 0 };
+    r = (r && typeof r === 'object' && !Array.isArray(r)) ? r : {};
+    function an(w) {
+      if (w === true || w === 1) return 1;
+      if (typeof w === 'number') return w !== 0 ? 1 : 0;
+      if (typeof w === 'string') return (w !== '' && w !== '0') ? 1 : 0;
+      if (Array.isArray(w)) return w.length ? 1 : 0;
+      if (w && typeof w === 'object') return Object.keys(w).length ? 1 : 0;
+      return 0;
+    }
+    return { m: an(r.m), g: an(r.g), s: an(r.s) };
   }
 
   /* =========================================================================
@@ -679,6 +692,7 @@
             return;
           }
           if (id && !NEU_ID.test(id)) return;   /* unbekannte Kennung: nicht erfinden */
+          if (!id) { e.listenUebersprungen++; return; }   /* ohne Kennung käme der Eintrag bei jeder Übernahme neu */
           var dublette = projekt.gruppen.some(function (v) { return namenGleich(v.name, name); });
           var g = M.neueGruppe({ name: name });
           projekt.gruppen.push(g);
@@ -734,6 +748,7 @@
             return;
           }
           if (id && !NEU_ID.test(id)) return;
+          if (!id) { e.listenUebersprungen++; return; }   /* ohne Kennung käme der Eintrag bei jeder Übernahme neu */
           /* Gleicher Name schon da? Der Kunde legt gern „Herr Baumann“ ein zweites
              Mal an statt den vorhandenen zu ändern - der Bericht sagt es dazu. */
           var dublette = projekt.mitarbeiter.some(function (v) { return namenGleich(v.name, name); });

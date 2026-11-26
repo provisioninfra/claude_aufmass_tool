@@ -196,6 +196,7 @@ class Aufmass_Freigaben {
             'geaendert_am' => $jetzt
         ));
         if ($ok === false) {
+            self::protokoll('Freigabe ließ sich nicht ablegen: ' . $wpdb->last_error);
             return new WP_Error('datenbank', 'Die Freigabe ließ sich nicht ablegen.', array('status' => 500));
         }
         /* Gemerkt für den Fall, dass ein Code aufgerufen wird, den es nicht
@@ -253,6 +254,7 @@ class Aufmass_Freigaben {
             'geaendert_am' => $jetzt
         ), array('code' => $code));
         if ($ok === false) {
+            self::protokoll('Vorlage ließ sich nicht ablegen: ' . $wpdb->last_error);
             return new WP_Error('datenbank', 'Die Vorlage ließ sich nicht ablegen.', array('status' => 500));
         }
         return self::beschreiben(self::zeile($code), true);
@@ -404,7 +406,11 @@ class Aufmass_Freigaben {
         if (!empty($s['query']) || !empty($s['fragment']) || !empty($s['user']) || !empty($s['pass'])) { return $vorgabe; }
         $pfad = isset($s['path']) ? $s['path'] : '';
         if (!preg_match('#^/[A-Za-z0-9_./-]*\.html$#', $pfad) || strpos($pfad, '..') !== false) { return $vorgabe; }
-        return strtolower($s['scheme']) . '://' . strtolower($s['host']) . ($sp ? ':' . $sp : '') . $pfad;
+        /* Eine https-Website bekommt eine https-Kundenseite - der Kurzlink führt
+           sonst auf eine unverschlüsselte Seite, die dann unverschlüsselt sendet. */
+        $schema = strtolower($s['scheme']);
+        if (!empty($h['scheme']) && strtolower($h['scheme']) === 'https') { $schema = 'https'; }
+        return $schema . '://' . strtolower($s['host']) . ($sp ? ':' . $sp : '') . $pfad;
     }
 
     /* ---------------------------------------------------------------- */
@@ -426,9 +432,11 @@ class Aufmass_Freigaben {
            Server beschäftigen, nicht eintragen. */
         if (!self::drossel('lesen', self::DROSSEL_LESEN)) { return self::zu_viele(); }
 
-        $daten = json_decode($z['daten'], true);
+        $daten = is_string($z['daten']) && $z['daten'] !== '' ? json_decode($z['daten'], true) : null;
         if (!is_array($daten)) {
-            return new WP_Error('unlesbar', 'Die Freigabe ist beschädigt.', array('status' => 500));
+            /* Ohne Plandaten (zurückgezogen, aufgeräumt) ist der Link erloschen -
+               kein Serverfehler, sondern eine klare Auskunft. */
+            return new WP_Error('erloschen', 'Dieser Freigabe-Link ist nicht mehr gültig.', self::kontakt($z, 410));
         }
         $status = self::status_von($z);
         /* Eine verworfene Antwort bekommt der Kunde nicht zurückgespiegelt -
@@ -499,9 +507,9 @@ class Aufmass_Freigaben {
         }
         $anmerkung = self::text($anmerkung, self::ANMERKUNG_MAX);
 
-        $daten = json_decode($z['daten'], true);
+        $daten = is_string($z['daten']) && $z['daten'] !== '' ? json_decode($z['daten'], true) : null;
         if (!is_array($daten)) {
-            return new WP_Error('unlesbar', 'Die Freigabe ist beschädigt.', array('status' => 500));
+            return new WP_Error('erloschen', 'Dieser Freigabe-Link ist nicht mehr gültig.', self::kontakt($z, 410));
         }
         $sauber = self::antwort_pruefen($daten, $antwort);
         if (is_wp_error($sauber)) {
@@ -535,6 +543,7 @@ class Aufmass_Freigaben {
             'geaendert_am' => $jetzt
         ), array('code' => $code));
         if ($ok === false) {
+            self::protokoll('Rückmeldung ließ sich nicht ablegen: ' . $wpdb->last_error);
             return new WP_Error('datenbank', 'Die Rückmeldung ließ sich nicht ablegen.', array('status' => 500));
         }
         $gesendet = self::benachrichtigen(self::zeile($code));
@@ -572,9 +581,9 @@ class Aufmass_Freigaben {
         }
         $funktion = self::textzeile($funktion, self::NAME_MAX);
         $anmerkung = self::text($anmerkung, self::ANMERKUNG_MAX);
-        $daten = json_decode($z['daten'], true);
+        $daten = is_string($z['daten']) && $z['daten'] !== '' ? json_decode($z['daten'], true) : null;
         if (!is_array($daten)) {
-            return new WP_Error('unlesbar', 'Die Freigabe ist beschädigt.', array('status' => 500));
+            return new WP_Error('erloschen', 'Dieser Freigabe-Link ist nicht mehr gültig.', self::kontakt($z, 410));
         }
         if (!self::drossel_je_code($code)) {
             return new WP_Error('zu_viele', 'Für diesen Link wurden heute schon sehr viele Übertragungen gezählt. Bitte morgen erneut versuchen.', array('status' => 429));
@@ -816,15 +825,21 @@ class Aufmass_Freigaben {
         global $wpdb;
         $tab = self::tabelle();
         $zeilen = $wpdb->get_results($wpdb->prepare(
-            "SELECT * FROM $tab WHERE projekt_id = %s ORDER BY erstellt_am DESC LIMIT 50", (string) $projekt_id), ARRAY_A);
+            "SELECT * FROM $tab WHERE projekt_id = %s ORDER BY erstellt_am DESC LIMIT 200", (string) $projekt_id), ARRAY_A);
         /* Was der Kunde geantwortet hat (Namen seiner Leute, Anmerkungen, der
            Plan), sehen nur die, die es auch übernehmen dürften - Zuständige und
-           Verwaltung. Alle anderen sehen den Stand der Freigabe, nicht den Inhalt. */
+           Verwaltung. Alle anderen sehen den Stand der Freigabe, nicht den Inhalt -
+           und auch nicht den Code: Er ist der einzige Ausweis des Kundenlinks.
+           Wer ihn hat, liest über den öffentlichen Weg die Kundendaten und
+           könnte als „Kunde“ eine Rückmeldung oder Freigabe senden. */
         $mit_antwort = $benutzer === null ? true : Aufmass_Projekte::darf_pruefen((string) $projekt_id, $benutzer);
         $aus = array();
         foreach (($zeilen ?: array()) as $z) {
             $b = self::beschreiben($z, $mit_antwort);
-            if (!$mit_antwort) { $b['antwortName'] = ''; $b['antwortAnmerkung'] = ''; $b['antwort'] = null; $b['nurStatus'] = true; }
+            if (!$mit_antwort) {
+                $b['antwortName'] = ''; $b['antwortAnmerkung'] = ''; $b['antwort'] = null; $b['nurStatus'] = true;
+                $b['code'] = ''; $b['kurzlink'] = ''; $b['link'] = '';
+            }
             $aus[] = $b;
         }
         return $aus;
@@ -843,10 +858,16 @@ class Aufmass_Freigaben {
             "SELECT f.*, p.kunde AS p_kunde, p.objekt AS p_objekt
              FROM $tab f JOIN $pt p ON p.id = f.projekt_id
              WHERE f.status = 'beantwortet' AND p.geloescht = 0
-             ORDER BY f.antwort_am ASC", ARRAY_A);
+             ORDER BY f.antwort_am ASC LIMIT 500", ARRAY_A);
+        /* Die Zuständigkeit je Aufmaß nur einmal nachsehen - nicht je Antwort
+           (bei jedem Abgleich jedes Geräts). Höchstens 200 Antworten je Abruf. */
+        $darf = array();
         $aus = array();
         foreach (($zeilen ?: array()) as $z) {
-            if (!Aufmass_Projekte::darf_pruefen($z['projekt_id'], $benutzer)) { continue; }
+            if (count($aus) >= 200) { break; }
+            $pid = (string) $z['projekt_id'];
+            if (!array_key_exists($pid, $darf)) { $darf[$pid] = Aufmass_Projekte::darf_pruefen($pid, $benutzer); }
+            if (!$darf[$pid]) { continue; }
             $b = self::beschreiben($z, true);
             $b['kunde'] = (string) $z['p_kunde'];
             $b['objekt'] = (string) $z['p_objekt'];
@@ -896,6 +917,10 @@ class Aufmass_Freigaben {
                ist der Link ab jetzt gesperrt. */
             $neu['status'] = 'freigegeben';
         }
+        /* War der Link zurückgezogen, während die Antwort noch wartete (Plandaten
+           schon weg), bleibt er zurückgezogen - sonst stünde da „freigegeben“ ohne
+           Plan, und der Kunde bekäme statt einer Auskunft einen Fehler. */
+        if (!is_string($z['daten']) || $z['daten'] === '') { $neu['status'] = 'zurueckgezogen'; }
         if ($neuer_status === 'verworfen' && $mitFreigabe) {
             /* Eine verworfene Freigabe gilt nicht - der Kunde darf erneut. */
             $neu['freigabe_am'] = null;
@@ -949,7 +974,7 @@ class Aufmass_Freigaben {
         $jetzt = gmdate('Y-m-d H:i:s') . '.000000';
         $wpdb->query($wpdb->prepare(
             "UPDATE $tab SET daten = ''
-             WHERE daten <> '' AND status <> 'beantwortet'
+             WHERE daten <> '' AND status NOT IN ('beantwortet', 'freigegeben')
                AND (status = 'zurueckgezogen' OR (gueltig_bis IS NOT NULL AND gueltig_bis < %s))",
             $jetzt));
         $grenze = gmdate('Y-m-d H:i:s', time() - self::AUFBEWAHRUNG_TAGE * 86400) . '.000000';
@@ -992,6 +1017,13 @@ class Aufmass_Freigaben {
             if (isset($gesehen[$k])) { continue; }
             $gesehen[$k] = true;
             $aus[] = $a;
+        }
+        /* Niemand zuständig und der Ersteller nicht mehr aktiv: Die Nachricht geht
+           an die Verwaltung der Website, statt still zu versanden. */
+        if (!count($aus)) {
+            $admin = function_exists('get_option') ? trim((string) get_option('admin_email', '')) : '';
+            if ($admin !== '' && strpos($admin, '@') !== false && (!function_exists('is_email') || is_email($admin))) { $aus[] = $admin; }
+            self::protokoll('Kundenrückmeldung zu Freigabe ' . (string) $z['code'] . ' ohne zuständigen Empfänger' . (count($aus) ? ' - an die Verwaltung gemeldet' : ' - keine Adresse hinterlegt'));
         }
         return $aus;
     }
@@ -1100,6 +1132,12 @@ class Aufmass_Freigaben {
 
     /* Wen der Kunde fragen kann, wenn der Link nicht mehr gilt: Firma und
        Adresse aus der Freigabe - keine Plandaten. */
+    /* Ins Server-Protokoll, ohne Kundendaten - damit ein Verlust der Tabelle
+       oder ein Datenbankfehler nicht still bleibt. */
+    private static function protokoll($text) {
+        if (function_exists('error_log')) { error_log('Aufmaß-Abgleich (Freigaben): ' . $text); }
+    }
+
     private static function kontakt($z, $status) {
         $d = array('status' => $status);
         $daten = is_string($z['daten']) && $z['daten'] !== '' ? json_decode($z['daten'], true) : null;
@@ -1242,7 +1280,10 @@ class Aufmass_Freigaben {
             } elseif (is_string($x)) { $typ = $x; }
             else { continue; }
             $typ = self::textzeile($typ, 60);
-            $n = is_scalar($anzahl) ? (int) $anzahl : 1;
+            /* wie parseInt im Werkzeug: führende Ziffern zählen, „1e3“ ist 1 */
+            $n = 1;
+            if (is_int($anzahl) || is_float($anzahl) || is_bool($anzahl)) { $n = (int) $anzahl; }
+            elseif (is_string($anzahl) && preg_match('/^\s*([+-]?\d+)/', $anzahl, $zahl)) { $n = (int) $zahl[1]; }
             if ($n < 1) { $n = 1; }
             if ($n > 999) { $n = 999; }
             $da = null;
