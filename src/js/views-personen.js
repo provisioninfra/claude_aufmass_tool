@@ -177,7 +177,7 @@
     /* Beim Anlegen geht es nur um die Person; Gruppen werden danach
      * zugeordnet - hier beim angelegten Mitarbeiter oder in der Gruppe. */
     if (!istNeu) inhalt.appendChild(gruppenChips(m));
-    inhalt.appendChild(medienFeld(m, 'Medien <span class="einheit">(Art und Anzahl - mehrere Arten möglich)</span>'));
+    inhalt.appendChild(medienFeld(m, 'Medien <span class="einheit">(Art und Anzahl – mehrere Arten möglich)</span>'));
     inhalt.appendChild(el('hr', { class: 'trenner' }));
     inhalt.appendChild(A.schalterFeld(spalteWunsch, 'wert', 'Eigene Spalte im Schließplan'));
     inhalt.appendChild(el('p', { class: 'zart', style: { marginLeft: '64px', marginTop: '-6px' },
@@ -190,7 +190,7 @@
     }
     if (istNeu) {
       inhalt.appendChild(el('p', { class: 'zart gruppen-hinweis',
-        text: 'Gruppen werden nach dem Anlegen zugeordnet - beim Bearbeiten des Mitarbeiters oder in der Gruppe.' }));
+        text: 'Gruppen werden nach dem Anlegen zugeordnet – beim Bearbeiten des Mitarbeiters oder in der Gruppe.' }));
     }
 
     function speichern() {
@@ -238,7 +238,7 @@
       /* Einen nach dem anderen: anlegen und gleich den nächsten öffnen */
       knoepfe.push({ text: 'Anlegen & neuer Mitarbeiter', klasse: 'weiter', aktion: function (schliessen) {
         if (!speichern()) return false;
-        A.toast('„' + m.name + '“ angelegt - nächster Mitarbeiter.', 'ok');
+        A.toast('„' + m.name + '“ angelegt – nächster Mitarbeiter.', 'ok');
         schliessen();
         setTimeout(function () { mitarbeiterBearbeiten(null, neuZeichnen, optionen); }, 60);
         return false;
@@ -307,7 +307,7 @@
       inhalt.appendChild(mitgliederFeld);
     } else {
       inhalt.appendChild(el('p', { class: 'zart mitglieder-hinweis',
-        text: 'Mitglieder werden nach dem Anlegen zugeordnet - beim Bearbeiten der Gruppe oder des Mitarbeiters.' }));
+        text: 'Mitglieder werden nach dem Anlegen zugeordnet – beim Bearbeiten der Gruppe oder des Mitarbeiters.' }));
     }
 
     inhalt.appendChild(el('hr', { class: 'trenner' }));
@@ -365,7 +365,7 @@
     if (istNeu) {
       knoepfe.push({ text: 'Anlegen & neue Gruppe', klasse: 'weiter', aktion: function (schliessen) {
         if (!speichern()) return false;
-        A.toast('„' + g.name + '“ angelegt - nächste Gruppe.', 'ok');
+        A.toast('„' + g.name + '“ angelegt – nächste Gruppe.', 'ok');
         schliessen();
         setTimeout(function () { gruppeBearbeiten(null, neuZeichnen); }, 60);
         return false;
@@ -409,7 +409,7 @@
     karte.appendChild(el('div', { class: 'zeile-verteilt' }, [
       el('div', { class: 'fuellen' }, [
         el('h2', { text: 'Mitarbeiter und Gruppen', style: { marginTop: '0' } }),
-        el('p', { class: 'hinweis', text: 'Erst die Mitarbeiter anlegen, dann die Gruppen; zugeordnet wird danach - beim Mitarbeiter oder in der Gruppe. ' +
+        el('p', { class: 'hinweis', text: 'Erst die Mitarbeiter anlegen, dann die Gruppen; zugeordnet wird danach – beim Mitarbeiter oder in der Gruppe. ' +
           'Spalten im Plan sind Gruppen (alle Mitglieder berechtigt) oder einzelne Mitarbeiter; die Medien je Mitarbeiter ergeben die Stückzahlen, ' +
           'auch wer einzeln und in einer Gruppe steht, zählt nur einmal.' })
       ])
@@ -423,7 +423,7 @@
         doppelt.map(function (d) {
           return d.mitarbeiter.name + ' (' + d.spalten.map(function (s) { return s.kuerzel || s.bezeichnung; }).join(', ') + ')';
         }).join('; ') + (doppelt.length === 1 ? ' steht' : ' stehen') +
-        ' in mehreren Spalten - etwa einzeln und über die Gruppe. Das ist zulässig; Medien werden trotzdem nur einmal je Mitarbeiter gezählt.'
+        ' in mehreren Spalten – etwa einzeln und über die Gruppe. Das ist zulässig; Medien werden trotzdem nur einmal je Mitarbeiter gezählt.'
       ])));
     }
     var ohneSpalte = M.mitarbeiterOhneSpalte(p);
@@ -437,7 +437,7 @@
 
     var sortiert = (p.mitarbeiter || []).slice().sort(nachName);
     if (!sortiert.length) {
-      maBereich.appendChild(el('p', { class: 'zart', text: 'Noch keine Mitarbeiter angelegt. Mit „+ Mitarbeiter“ einen nach dem anderen anlegen - „Anlegen & neuer Mitarbeiter“ öffnet gleich den nächsten.' }));
+      maBereich.appendChild(el('p', { class: 'zart', text: 'Noch keine Mitarbeiter angelegt. Mit „+ Mitarbeiter“ einen nach dem anderen anlegen – „Anlegen & neuer Mitarbeiter“ öffnet gleich den nächsten.' }));
     } else {
       var tab = el('table', { class: 'personen-tabelle' });
       tab.appendChild(el('thead', {}, el('tr', {}, [
@@ -467,7 +467,7 @@
       if (ohneSpalte.length) {
         maBereich.appendChild(el('p', { class: 'zart', style: { marginTop: '8px' },
           text: ohneSpalte.length + (ohneSpalte.length === 1 ? ' Mitarbeiter steht' : ' Mitarbeiter stehen') +
-                ' in keiner Spalte des Plans - über eine Gruppe oder eine eigene Spalte zuordnen, sonst gibt es kein Medium.' }));
+                ' in keiner Spalte des Plans – über eine Gruppe oder eine eigene Spalte zuordnen, sonst gibt es kein Medium.' }));
       }
     }
     karte.appendChild(maBereich);
@@ -483,14 +483,14 @@
       var leute = M.gruppenMitglieder(p, g.id);
       var spalte = p.schliessungen.filter(function (s) { return s.art === 'gruppe' && s.gruppeId === g.id; })[0];
       gruppenListe.appendChild(el('button', { type: 'button', class: 'chip gruppe' + (spalte ? ' im-plan' : ''),
-        title: (spalte ? 'Spalte im Plan · ' : 'ohne Spalte im Plan · ') + leute.length + ' Mitglieder - antippen zum Bearbeiten und Zuordnen',
+        title: (spalte ? 'Spalte im Plan · ' : 'ohne Spalte im Plan · ') + leute.length + ' Mitglieder – antippen zum Bearbeiten und Zuordnen',
         onclick: function () { gruppeBearbeiten(g, neuZeichnen); } }, [
         el('span', { class: 'name', text: g.name || '(ohne Namen)' }),
         el('span', { class: 'zahl', text: leute.length + (leute.length === 1 ? ' Mitglied' : ' Mitglieder') + (spalte ? '' : ' · ohne Spalte') })
       ]));
     });
     if (!(p.gruppen || []).length) {
-      gruppenListe.appendChild(el('span', { class: 'zart', text: 'Noch keine Gruppen. Mit „+ Gruppe“ anlegen - benannt wie bei Ihnen üblich, etwa Verwaltung, Reinigung, EDV. Mitglieder werden danach zugeordnet.' }));
+      gruppenListe.appendChild(el('span', { class: 'zart', text: 'Noch keine Gruppen. Mit „+ Gruppe“ anlegen – benannt wie bei Ihnen üblich, etwa Verwaltung, Reinigung, EDV. Mitglieder werden danach zugeordnet.' }));
     }
     gruppenBereich.appendChild(gruppenListe);
     karte.appendChild(gruppenBereich);

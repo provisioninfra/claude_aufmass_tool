@@ -14,8 +14,10 @@
     return p(d.getDate()) + '.' + p(d.getMonth() + 1) + '.' + d.getFullYear();
   }
   function kb(bytes) {
-    if (bytes > 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + ' MB';
-    return Math.round(bytes / 1024) + ' KB';
+    var zahl = function (x) { return x.toLocaleString('de-DE', { maximumFractionDigits: 1 }); };
+    if (bytes > 1024 * 1024 * 1024) return zahl(bytes / 1024 / 1024 / 1024) + ' GB';
+    if (bytes > 1024 * 1024) return zahl(bytes / 1024 / 1024) + ' MB';
+    return Math.round(bytes / 1024).toLocaleString('de-DE') + ' KB';
   }
 
   /* =========================================================================
@@ -138,7 +140,7 @@
         titel: 'Pipedrive ist noch nicht verbunden', klein: true,
         inhalt: el('div', {}, [
           el('p', { class: 'hinweis', style: { marginTop: '0' },
-            text: 'Hinterlegen Sie zuerst unter Einstellungen den Zugriffsschlüssel aus Pipedrive - ' +
+            text: 'Hinterlegen Sie zuerst unter Einstellungen den Zugriffsschlüssel aus Pipedrive – ' +
                   'oder lassen Sie ihn in WordPress hinterlegen, dann braucht kein Gerät einen. ' +
                   'Danach lassen sich Aufmaße direkt aus einem Deal anlegen.' })
         ]),
@@ -561,7 +563,7 @@
                   var geladen = M.migriere(vorhanden);
                   geladen.id = vorhanden.id;
                   A.projektOeffnenIntern(geladen, 'struktur');
-                  A.toast(anzahl + (anzahl === 1 ? ' Eintrag' : ' Einträge') + ' der Gliederung übernommen - Türen unverändert.', 'ok');
+                  A.toast(anzahl + (anzahl === 1 ? ' Eintrag' : ' Einträge') + ' der Gliederung übernommen – Türen unverändert.', 'ok');
                   dlg.schliessen(); neuLaden();
                 });
               }).catch(function (f) { A.toast(f.message || 'Übernahme fehlgeschlagen.', 'fehler'); });
@@ -573,7 +575,7 @@
                   el('p', { style: { marginTop: '0' }, text: 'Ein Projekt mit derselben Kennung existiert bereits („' +
                     (gleich.kunde || gleich.name) + '“).' }),
                   el('p', { class: 'zart', text: '„Nur Gliederung übernehmen“ ergänzt im vorhandenen Projekt die Standorte, ' +
-                    'Gebäude und Bereiche aus der Datei, die hier fehlen - Türen und alles andere bleiben unverändert. ' +
+                    'Gebäude und Bereiche aus der Datei, die hier fehlen – Türen und alles andere bleiben unverändert. ' +
                     'So lässt sich eine verlorene Gliederung aus einer Sicherung zurückholen. „Überschreiben“ ersetzt ' +
                     'das ganze Projekt durch die Datei.' })
                 ]),
@@ -637,7 +639,7 @@
         A.textFeld(p, 'plz', 'PLZ', { inputmode: 'numeric' }),
         A.textFeld(p, 'ort', 'Ort'),
         A.textFeld(p, 'anlagenNr', 'Anlagen-Nr. / Schließanlagen-Nr.'),
-        A.textFeld(p, 'oberflaeche', 'Oberfläche der Zylinder <span class="einheit">(für den Europlan, z. B. NI = Nickel, MS = Messing)</span>', { platzhalter: 'z. B. NI' })
+        A.textFeld(p, 'oberflaeche', 'Oberfläche der Zylinder <span class="einheit">(Europlan)</span>', { platzhalter: 'z. B. NI = Nickel, MS = Messing' })
       ])
     ]));
 
@@ -794,7 +796,7 @@
       seite.appendChild(el('div', { class: 'meldung warn verwaist-hinweis' }, el('div', {}, [
         el('b', { text: 'Gliederung fehlt: ' }),
         betroffen + (betroffen === 1 ? ' Tür verweist' : ' Türen verweisen') + ' auf ' + verwaist.length +
-          (verwaist.length === 1 ? ' Bereich, den' : ' Bereiche, die') + ' es in der Gliederung nicht mehr gibt - ' +
+          (verwaist.length === 1 ? ' Bereich, den' : ' Bereiche, die') + ' es in der Gliederung nicht mehr gibt – ' +
           'etwa nach einem Abgleich, bei dem die Gliederung verloren ging. Die Türen selbst sind vollständig. ' +
           '„Bereiche wiederherstellen“ legt die fehlenden Bereiche unter einem neuen Standort wieder an; die Türen hängen ' +
           'dann wieder daran, und die Einträge lassen sich umbenennen. Liegt eine Sicherung von vorher vor, lässt sich ' +
@@ -804,7 +806,7 @@
             A.schrittMerken('Bereiche wiederhergestellt');
             var neu = M.bereicheWiederherstellen(p);
             A.alsGeaendertMarkieren();
-            A.toast(neu.length + ' Einträge angelegt - bitte umbenennen. Alle Türen hängen wieder an ihrem Bereich.', 'ok');
+            A.toast(neu.length + ' Einträge angelegt – bitte umbenennen. Alle Türen hängen wieder an ihrem Bereich.', 'ok');
             neuZeichnen();
           } })
         ])

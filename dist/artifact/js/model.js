@@ -139,6 +139,14 @@
     };
   }
 
+  /* Anzahl einer Tür: ganze Zahl ab 1. Nachkommastellen, negative und
+     leere Werte kommen nur von außen (Import, Abgleich) und werden hier
+     geglättet, damit Summen und Berichte stimmen. */
+  function anzahlNormieren(wert) {
+    var n = parseInt(wert, 10);
+    return (isFinite(n) && n >= 1) ? n : 1;
+  }
+
   /* --- Tür ---------------------------------------------------------------- */
   function neueTuer(vorgabe) {
     var t = {
@@ -253,6 +261,7 @@
       geaendert: new Date().toISOString()
     };
     if (vorgabe) { for (var k in vorgabe) { if (Object.prototype.hasOwnProperty.call(vorgabe, k)) t[k] = vorgabe[k]; } }
+    t.anzahl = anzahlNormieren(t.anzahl);
     return t;
   }
 
@@ -628,7 +637,10 @@
   function zylinderNummer(projekt, tuer) {
     var basis = basisTuer(projekt, tuer);
     if (!basis) return '';
-    var nummer = String(basis.nummer || '').trim() || '?';
+    /* Ohne Türnummer gibt es keine Zylindernummer. Ein „?“ wäre im
+       Bestellformular ein unzulässiges Zeichen. */
+    var nummer = String(basis.nummer || '').trim();
+    if (!nummer) return '';
     if (basis.id === tuer.id) return nummer;
     var mitlaeufer = schliessungsTueren(projekt, basis).slice(1);
     var index = 0;
@@ -663,7 +675,9 @@
   function zylinderNummerVorschau(projekt, tuer, basisId) {
     var basis = basisTuer(projekt, basisId);
     if (!basis) return '';
-    var nummer = String(basis.nummer || '').trim() || '?';
+    /* Ohne Türnummer gibt es keine Zylindernummer, auch nicht als Vorschau */
+    var nummer = String(basis.nummer || '').trim();
+    if (!nummer) return '';
     var mitlaeufer = schliessungsTueren(projekt, basis).slice(1).filter(function (x) { return x.id !== tuer.id; });
     var reihen = (projekt.tueren || []).filter(function (x) { return x.id === tuer.id || mitlaeufer.some(function (m) { return m.id === x.id; }); });
     var index = 0;
@@ -2223,6 +2237,7 @@
       });
       neu.id = t && typeof t.id === 'string' && t.id ? t.id : uid('tur');
       typenAngleichen(neu, tuerVorlage, ['id', 'strukturId', 'fotos', 'zylinderAusfuehrung', 'beschlagOptionen', 'komponenten']);
+      neu.anzahl = anzahlNormieren(neu.anzahl);
       if (neu.strukturId !== null && typeof neu.strukturId !== 'string') neu.strukturId = null;
       ['zylinderAusfuehrung', 'beschlagOptionen', 'komponenten', 'fotos'].forEach(function (k) {
         if (!Array.isArray(neu[k])) neu[k] = [];

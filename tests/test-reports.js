@@ -31,6 +31,12 @@ ausgaben.forEach(([name, fn]) => {
     const bytes = doc.build();
     fs.writeFileSync(out + '/' + name, Buffer.from(bytes));
     console.log(`  ${name.padEnd(26)} ${String(doc.seitenAnzahl()).padStart(2)} Seiten  ${String(Math.round(bytes.length/1024)).padStart(4)} KB  ${Date.now()-t0} ms`);
+    /* Metadaten jeder Ausgabe: Erstellungszeit und ein Titel mit Umlaut als
+       UTF-16BE (M7, N11); die kompakte Liste ist immer quer (N8) */
+    const s = Buffer.from(bytes).toString('latin1');
+    if (!/\/CreationDate \(D:\d{14}/.test(s)) { fehler++; console.log('  FEHLER ' + name + ': kein CreationDate'); }
+    if (/^tuerliste-kompakt/.test(name) && !doc.querformat) { fehler++; console.log('  FEHLER ' + name + ': kompakte Liste nicht quer'); }
+    if (/^tuerliste|^schliessplan|^materialliste/.test(name) && !/^leer/.test(name) && !/\/Title <FEFF/.test(s)) { fehler++; console.log('  FEHLER ' + name + ': Titel nicht als UTF-16BE'); }
   } catch (e) {
     fehler++;
     console.log(`  FEHLER bei ${name}: ${e.message}\n${e.stack.split('\n').slice(1,4).join('\n')}`);

@@ -113,7 +113,7 @@
       'Kabel liegt = Kabelübergang vorhanden, Leerrohr liegt = Leerrohr vorhanden');
     jaNein('elTuerueberwachung', 'Türüberwachung oder Türzustandsmeldung gewünscht');
     jaNein('elTueroeffnerBestand', 'Elektrischer Türöffner ist schon vorhanden');
-    text('elLeitungsweg', 'Leitungsweg - woher kommt das Kabel');
+    text('elLeitungsweg', 'Leitungsweg – woher kommt das Kabel');
     /* Türdaten */
     zahl('tuerbreite', 'Türbreite in mm');
     zahl('tuerhoehe', 'Türhöhe in mm');
@@ -376,13 +376,13 @@
       aufraeumen();
       A.leeren(inhalt);
       inhalt.appendChild(el('p', { class: 'hinweis', style: { marginTop: '0' },
-        text: 'Einfach in ganzen Sätzen oder Stichworten alles zur Tür sagen - Bezeichnung, Bauteile, Maße, Besonderheiten. Das Werkzeug holt die Angaben heraus und zeigt einen Vorschlag; erst mit „Übernehmen“ landet etwas in der Tür.' }));
+        text: 'Einfach in ganzen Sätzen oder Stichworten alles zur Tür sagen – Bezeichnung, Bauteile, Maße, Besonderheiten. Das Werkzeug holt die Angaben heraus und zeigt einen Vorschlag; erst mit „Übernehmen“ landet etwas in der Tür.' }));
       inhalt.appendChild(el('p', { class: 'hinweis',
-        text: 'Mehrere Türen am Stück: „neue Tür“ sagen und weitersprechen. Dann wird jede Tür ohne Rückfrage eingetragen - diese hier und jede weitere als neue Tür im selben Bereich.' }));
+        text: 'Mehrere Türen am Stück: „neue Tür“ sagen und weitersprechen. Dann wird jede Tür ohne Rückfrage eingetragen – diese hier und jede weitere als neue Tür im selben Bereich.' }));
       inhalt.appendChild(el('p', { class: 'diktat-beispiel',
         text: '„Das ist die Tür zum Büro Empfang, DIN links. Da kommt ein Halbzylinder rein, außen fünfunddreißig. Beschlag Rosettengarnitur mit Drücker innen und außen, Dornmaß 55. Der Wandleser sitzt rechts außen, Kabel liegt schon. Neue Tür. Lager hinten, Doppelzylinder 40 45, DIN rechts …“' }));
       if (!online()) {
-        inhalt.appendChild(el('div', { class: 'meldung warn' }, el('div', { text: 'Zum Einsprechen braucht das Gerät Netz - die Erkennung läuft über den Server.' })));
+        inhalt.appendChild(el('div', { class: 'meldung warn' }, el('div', { text: 'Zum Einsprechen braucht das Gerät Netz – die Erkennung läuft über den Server.' })));
       }
       inhalt.appendChild(el('div', { class: 'diktat-mitte' },
         el('button', { type: 'button', class: 'haupt diktat-aufnahme', text: '🎤 Aufnahme starten', disabled: !online(),
@@ -470,7 +470,7 @@
         if (abbruch !== meine && !zuSpaet) return;   /* bewusst abgebrochen - die Meldung steht schon */
         anfrageBeenden();
         var abgebrochen = f && (f.name === 'AbortError' || /abort/i.test(String(f.message || '')));
-        fehler(zuSpaet ? 'Der Server hat nicht innerhalb von vier Minuten geantwortet. Bitte erneut versuchen - die Aufnahme ist noch da.'
+        fehler(zuSpaet ? 'Der Server hat nicht innerhalb von vier Minuten geantwortet. Bitte erneut versuchen – die Aufnahme ist noch da.'
           : abgebrochen ? 'Abgebrochen.' : ((f && f.message) || 'Der Server hat nicht geantwortet.'), !!blob);
       });
     }
@@ -549,7 +549,7 @@
       if (e.offen.length) {
         var offenKasten = el('input', { type: 'checkbox', checked: true, onchange: function (ev) { offenGewaehlt = ev.target.checked; zaehlen(); } });
         inhalt.appendChild(el('div', { class: 'diktat-offen' }, [
-          el('label', {}, [offenKasten, el('span', { text: ' Nicht zugeordnet - in die Bemerkung übernehmen:' })]),
+          el('label', {}, [offenKasten, el('span', { text: ' Nicht zugeordnet – in die Bemerkung übernehmen:' })]),
           el('ul', {}, e.offen.map(function (o) { return el('li', { text: o }); }))
         ]));
       }

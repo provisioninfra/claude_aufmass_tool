@@ -81,18 +81,36 @@
       var aktiv = Zustand.ansicht === r.id ||
                   (r.id === 'struktur' && Zustand.ansicht === 'bereich');
       reiterLeiste.appendChild(el('button', {
-        role: 'tab', 'aria-selected': aktiv ? 'true' : 'false',
+        role: 'tab', 'aria-selected': aktiv ? 'true' : 'false', 'aria-controls': 'inhalt',
+        tabindex: aktiv ? '0' : '-1',
+        'aria-label': r.label + (zahl ? ', ' + zahl + (zahl === 1 ? ' Eintrag' : ' Einträge') : ''),
         disabled: gesperrt,
-        onclick: function () { wechseln(r.id); }
+        onclick: function () {
+          /* Bei offenem Dialog wechselt nichts (der Hintergrund ist gesperrt;
+             das hier ist der Rückfall für Browser ohne inert) */
+          if (document.querySelector('.dialog-hinter')) return;
+          wechseln(r.id);
+        }
       }, [
         r.label,
-        zahl ? el('span', { class: 'zahl', text: String(zahl) }) : null
+        zahl ? el('span', { class: 'zahl', text: String(zahl), 'aria-hidden': 'true' }) : null
       ]));
+    });
+    /* Pfeiltasten wandern zwischen den Reitern, Enter oder Leertaste wählt */
+    reiterLeiste.addEventListener('keydown', function (e) {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End') return;
+      var knoepfe = Array.prototype.filter.call(reiterLeiste.querySelectorAll('button[role="tab"]'), function (k) { return !k.disabled; });
+      var i = knoepfe.indexOf(document.activeElement);
+      if (i < 0) return;
+      e.preventDefault();
+      var n = e.key === 'Home' ? 0 : e.key === 'End' ? knoepfe.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : knoepfe.length - 1)) % knoepfe.length;
+      knoepfe.forEach(function (k) { k.setAttribute('tabindex', '-1'); });
+      knoepfe[n].setAttribute('tabindex', '0'); knoepfe[n].focus();
     });
     wurzel.appendChild(reiterLeiste);
 
     /* --- Inhalt --- */
-    var haupt = el('main', { class: 'inhalt' });
+    var haupt = el('main', { class: 'inhalt', id: 'inhalt', role: 'tabpanel' });
     wurzel.appendChild(haupt);
     A.toastBereich();      /* hängt am Dokument, nicht an der Ansicht */
 
@@ -114,6 +132,10 @@
                      VT.tuerBearbeiten(null, zeichnen, { strukturId: Zustand.bereichId }); } },
       plan:      { text: '+ Spalte',       tun: function () { VPL.schliessungBearbeiten(null, zeichnen); } }
     };
+    /* Im Europlan heißt die häufigste Aktion „+ Tür / Zylinder“ */
+    if (Zustand.ansicht === 'plan' && global.ViewsEuroplan && global.ViewsEuroplan.darstellung && global.ViewsEuroplan.darstellung() === 'euro') {
+      HAUPTAKTION.plan = { text: '+ Tür / Zylinder', tun: function () { global.ViewsEuroplan.tuerDialog(p, zeichnen); } };
+    }
 
     if (!p && ['projekte', 'einstellungen'].indexOf(Zustand.ansicht) === -1) {
       Zustand.ansicht = 'projekte';
@@ -148,14 +170,49 @@
     var aktion = HAUPTAKTION[Zustand.ansicht];
     if (aktion && (p || Zustand.ansicht === 'projekte')) {
       haupt.classList.add('mit-schwebe');
-      wurzel.appendChild(el('button', {
+      var schwebe = el('button', {
         class: 'schwebe-aktion', text: aktion.text,
         title: aktion.text, onclick: aktion.tun
-      }));
+      });
+      wurzel.appendChild(schwebe);
+      schwebeBeobachten(haupt, schwebe, aktion.text);
     }
+    reiterInsBild(reiterLeiste);
 
     A.statusAnzeigen(Zustand.ungesichert ? 'ungesichert' : (p ? 'gesichert' : ''));
     haupt.scrollTop = scrollPos;
+  }
+
+  /* Der schwebende Knopf doppelt den gleichnamigen Knopf im Seitenkopf. Er
+     bleibt verborgen, solange der im Bild ist, und erscheint erst, wenn der
+     Kopf nach oben weggescrollt wurde. So verdeckt er nie Zeilen oder Knöpfe,
+     die man gerade antippen will. Browser ohne IntersectionObserver zeigen
+     ihn wie bisher immer. */
+  function schwebeBeobachten(haupt, schwebe, text) {
+    if (typeof IntersectionObserver === 'undefined') return;
+    var soll = String(text).replace(/\s+/g, ' ').trim();
+    var kopfKnopf = null;
+    var kandidaten = haupt.querySelectorAll('button');
+    for (var i = 0; i < kandidaten.length; i++) {
+      if (kandidaten[i].textContent.replace(/\s+/g, ' ').trim() === soll) { kopfKnopf = kandidaten[i]; break; }
+    }
+    if (!kopfKnopf) return;
+    schwebe.classList.add('verborgen');
+    var beobachter = new IntersectionObserver(function (eintraege) {
+      var sichtbar = eintraege.some(function (e) { return e.isIntersecting; });
+      schwebe.classList.toggle('verborgen', sichtbar);
+    }, { root: haupt, threshold: 0.4 });
+    beobachter.observe(kopfKnopf);
+  }
+
+  /* Auf dem Telefon ist die Reiterleiste seitlich scrollbar: der gewählte
+     Reiter soll im Bild stehen, nicht hinter dem rechten Rand. */
+  function reiterInsBild(leiste) {
+    try {
+      if (leiste.scrollWidth <= leiste.clientWidth + 2) return;
+      var aktiv = leiste.querySelector('button[aria-selected="true"]');
+      if (aktiv && aktiv.scrollIntoView) aktiv.scrollIntoView({ block: 'nearest', inline: 'center' });
+    } catch (e) { /* ältere Browser */ }
   }
 
   /* =========================================================================
@@ -175,6 +232,10 @@
       w = dunkel ? 'dunkel' : 'hell';
     }
     document.documentElement.setAttribute('data-darstellung', w === 'hell' ? 'hell' : 'dunkel');
+    /* Die Farbe der Browserleiste (iOS/Android) folgt der Darstellung - sonst
+       sitzt über der hellen Ansicht ein dunkelblauer Balken. */
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', w === 'hell' ? '#ffffff' : '#0a1637');
   }
 
   /* Wechselt das Gerät die Darstellung, zieht die Anwendung mit - aber nur,
@@ -290,7 +351,16 @@
       /* Der Abgleich wird nachgelagert aufgebaut: Das Werkzeug ist schon
          bedienbar, bevor der Server geantwortet hat. */
       if (global.AbgleichUI) {
-        global.AbgleichUI.starten(zeichnen).then(function () { zeichnen(); });
+        global.AbgleichUI.starten(zeichnen).then(function () {
+          /* Antwortet der Server, während schon getippt wird oder ein Dialog
+             offen ist, wird nur der Statusknopf nachgeführt - ein Neuaufbau
+             nähme den Cursor aus dem Feld. Verlangt der Server eine
+             Anmeldung, muss die Ansicht aber ganz neu. */
+          var aktiv = document.activeElement;
+          var tippt = aktiv && /^(INPUT|TEXTAREA|SELECT)$/.test(aktiv.tagName);
+          if ((tippt || document.querySelector('.dialog-hinter')) && !global.AbgleichUI.brauchtAnmeldung()) { global.AbgleichUI.statusAktualisieren(); }
+          else { zeichnen(); }
+        });
       }
     });
   }

@@ -162,7 +162,7 @@ header.kopf {
   font-size: 11.5px; font-weight: 700; padding: 1px 7px; border-radius: 9px;
   background: var(--akzent-bg); color: var(--akzent);
 }
-.zurueck-knopf:hover:not(:disabled) { border-color: var(--akzent); color: var(--akzent); }
+@media (hover: hover) { .zurueck-knopf:hover:not(:disabled) { border-color: var(--akzent); color: var(--akzent); } }
 .zurueck-knopf.ohne-schritte { opacity: .4; }
 .zurueck-knopf:disabled { cursor: not-allowed; }
 @media (max-width: 700px) {
@@ -187,7 +187,7 @@ header.kopf {
   font-size: 12px; font-weight: 600; color: var(--text-schwach);
   min-height: 36px; cursor: pointer; font-family: inherit;
 }
-.abgleich-status:hover { border-color: var(--akzent); }
+@media (hover: hover) { .abgleich-status:hover { border-color: var(--akzent); } }
 .abgleich-status .punkt { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
 .abgleich-status.fertig  { color: var(--gruen); }
 .abgleich-status.offen   { color: var(--gelb); }
@@ -292,7 +292,7 @@ header.kopf {
   border: 2px solid var(--rand); border-radius: var(--radius-klein);
   background: var(--flaeche); color: var(--text); font-family: inherit; cursor: pointer;
 }
-.konflikt .fassung:hover { border-color: var(--akzent); }
+@media (hover: hover) { .konflikt .fassung:hover { border-color: var(--akzent); } }
 .konflikt .fassung.gewaehlt { border-color: var(--hausfarbe); background: var(--hausfarbe-flaeche); }
 .konflikt .fassung .herkunft { font-size: 11px; font-weight: 700; color: var(--text-zart); }
 .konflikt .fassung.gewaehlt .herkunft { color: var(--text-schwach); }
@@ -363,7 +363,7 @@ p.hinweis { color: var(--text-schwach); font-size: 13.5px; margin: 4px 0 14px; }
 .feld .einheit { font-weight: 400; color: var(--text-zart); }
 
 input[type="text"], input[type="number"], input[type="date"], input[type="tel"],
-input[type="email"], input[type="search"], select, textarea {
+input[type="email"], input[type="search"], input[type="password"], input[type="url"], select, textarea {
   /* 16px ist Pflicht: darunter zoomt iOS beim Antippen in das Feld hinein,
      was die Bedienung mit einer Hand unbrauchbar macht. */
   font: inherit; font-size: 16px; color: var(--text);
@@ -410,7 +410,7 @@ input::placeholder, textarea::placeholder { color: var(--text-zart); }
   font-size: 15px; cursor: pointer; user-select: none; min-height: var(--tap);
   color: var(--text); touch-action: manipulation;
 }
-.chip:hover { border-color: var(--akzent); }
+@media (hover: hover) { .chip:hover { border-color: var(--akzent); } }
 .chip[aria-pressed="true"] {
   background: var(--hausfarbe); border-color: var(--hausfarbe);
   color: var(--auf-hausfarbe); font-weight: 700;
@@ -425,18 +425,16 @@ button, .knopf {
   min-height: var(--tap); display: inline-flex; align-items: center; justify-content: center;
   gap: 7px; text-decoration: none; white-space: nowrap;
 }
-button:hover, .knopf:hover { border-color: var(--akzent); color: var(--akzent); }
+@media (hover: hover) { button:hover, .knopf:hover { border-color: var(--akzent); color: var(--akzent); } }
 button:active, .knopf:active { transform: translateY(1px); }
 button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 /* Die Hauptaktion trägt die Hausfarbe - so wie der Knopf auf der Website */
 button.haupt, .knopf.haupt {
   background: var(--hausfarbe); border-color: var(--hausfarbe); color: var(--auf-hausfarbe);
 }
-button.haupt:hover {
-  background: var(--hausfarbe-hell); border-color: var(--hausfarbe-hell); color: var(--auf-hausfarbe);
-}
+@media (hover: hover) { button.haupt:hover { background: var(--hausfarbe-hell); border-color: var(--hausfarbe-hell); color: var(--auf-hausfarbe); } }
 button.gefahr { color: var(--rot); border-color: var(--rand); }
-button.gefahr:hover { background: var(--rot); border-color: var(--rot); color: var(--auf-farbe); }
+@media (hover: hover) { button.gefahr:hover { background: var(--rot); border-color: var(--rot); color: var(--auf-farbe); } }
 /* "klein" betrifft nur Innenabstand und Schrift - die Trefffläche bleibt
    fingertauglich, sonst ist der Knopf auf der Baustelle nicht bedienbar. */
 button.klein { padding: 8px 13px; font-size: 14px; min-height: var(--tap); }
@@ -466,7 +464,7 @@ th {
 }
 tbody tr:last-child td { border-bottom: 0; }
 tbody tr.anklickbar { cursor: pointer; }
-tbody tr.anklickbar:hover td { background: var(--akzent-bg); }
+@media (hover: hover) { tbody tr.anklickbar:hover td { background: var(--akzent-bg); } }
 td.zahl, th.zahl { text-align: right; font-variant-numeric: tabular-nums; }
 
 /* --- Türliste als Karten (Touch) ----------------------------------------- */
@@ -487,7 +485,7 @@ td.zahl, th.zahl { text-align: right; font-variant-numeric: tabular-nums; }
   cursor: pointer; background: var(--flaeche);
 }
 .tuer-zeile:last-child { border-bottom: 0; }
-.tuer-zeile:hover { background: var(--akzent-bg); }
+@media (hover: hover) { .tuer-zeile:hover { background: var(--akzent-bg); } }
 .tuer-zeile .statusbalken { width: 7px; flex-shrink: 0; background: var(--text-zart); }
 .tuer-zeile .inhalt { flex: 1; min-width: 0; padding: 15px 14px; display: flex; gap: 12px; align-items: center; min-height: 64px; }
 .tuer-zeile .nummer {
@@ -528,7 +526,7 @@ td.zahl, th.zahl { text-align: right; font-variant-numeric: tabular-nums; }
   background: none; border: 0; padding: 4px 0; min-height: var(--tap);
   text-align: left; color: inherit; font: inherit; border-radius: var(--radius-klein);
 }
-.knoten .knoten-haupt:hover { background: var(--akzent-bg); }
+@media (hover: hover) { .knoten .knoten-haupt:hover { background: var(--akzent-bg); } }
 .knoten .name { flex: 1; font-weight: 600; font-size: 14px; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .knoten .ebene-marke {
@@ -586,13 +584,13 @@ table.matrix tr.gruppenzeile td {
   background: var(--akzent-bg); color: var(--akzent); font-weight: 700;
   font-size: 12.5px; padding: 7px 10px;
 }
-table.matrix tr:hover td.tuername { background: var(--akzent-bg); }
+@media (hover: hover) { table.matrix tr:hover td.tuername { background: var(--akzent-bg); } }
 table.matrix td.zelle {
   text-align: center; cursor: pointer; user-select: none;
   border-right: 1px solid var(--rand-zart); font-weight: 700; font-size: 15px;
   min-width: 48px; height: 48px; color: var(--akzent); touch-action: manipulation;
 }
-table.matrix td.zelle:hover { background: var(--akzent-bg); }
+@media (hover: hover) { table.matrix td.zelle:hover { background: var(--akzent-bg); } }
 table.matrix td.zelle:active { background: var(--hausfarbe); color: var(--auf-hausfarbe); }
 table.matrix td.zelle.gesetzt-ja    { background: var(--hausfarbe-flaeche); }
 table.matrix td.zelle.gesetzt-zeit  { background: rgba(179,114,30,.14); color: var(--gelb); }
@@ -606,7 +604,7 @@ table.matrix tfoot td.tuername { z-index: 5; text-align: left; }
 
 /* --- Entfernen-Modus im Schließplan ------------------------------------- */
 table.matrix th.spaltenkopf.entfernbar { background: rgba(179,38,30,.12); }
-table.matrix th.spaltenkopf.entfernbar:hover { background: rgba(179,38,30,.22); }
+@media (hover: hover) { table.matrix th.spaltenkopf.entfernbar:hover { background: rgba(179,38,30,.22); } }
 table.matrix th.spaltenkopf .entfernen-zeichen {
   display: block; text-align: center; font-size: 14px; font-weight: 700;
   color: var(--rot); padding-bottom: 3px;
@@ -619,7 +617,7 @@ table.matrix td.tuername.entfernbar { background: rgba(179,38,30,.06); }
   display: inline-flex; align-items: center; justify-content: center;
   vertical-align: middle;
 }
-.entfernen-knopf:hover { background: var(--rot); color: var(--auf-farbe); border-color: var(--rot); }
+@media (hover: hover) { .entfernen-knopf:hover { background: var(--rot); color: var(--auf-farbe); border-color: var(--rot); } }
 
 .matrix-legende {
   display: flex; flex-wrap: wrap; gap: 14px; margin-top: 12px;
@@ -710,7 +708,7 @@ table.matrix td.tuername.entfernbar { background: rgba(179,38,30,.06); }
   box-shadow: 0 4px 16px rgba(20,30,45,.28), 0 2px 4px rgba(20,30,45,.2);
   display: inline-flex; align-items: center; gap: 9px;
 }
-.schwebe-aktion:hover { background: var(--hausfarbe-hell); color: var(--auf-hausfarbe); border: 0; }
+@media (hover: hover) { .schwebe-aktion:hover { background: var(--hausfarbe-hell); color: var(--auf-hausfarbe); border: 0; } }
 .schwebe-aktion:active { transform: translateY(1px); }
 /* Platz schaffen, damit der schwebende Knopf nichts verdeckt */
 main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
@@ -760,7 +758,7 @@ html:has(.dialog-hinter) #toast-bereich {
   padding: 15px; cursor: pointer; display: flex; flex-direction: column; gap: 7px;
   box-shadow: var(--schatten);
 }
-.projekt-karte:hover { border-color: var(--akzent); }
+@media (hover: hover) { .projekt-karte:hover { border-color: var(--akzent); } }
 .projekt-karte .titel { font-weight: 700; font-size: 15.5px; }
 .projekt-karte .zeile { font-size: 13px; color: var(--text-schwach); }
 .projekt-karte .zahlen { display: flex; gap: 14px; margin-top: 5px; font-size: 12px; color: var(--text-zart); }
@@ -942,7 +940,7 @@ html:has(.dialog-hinter) #toast-bereich {
   text-align: left; min-height: var(--tap-gross); padding: 11px 13px;
   background: var(--flaeche-2); border: 1px solid var(--rand); border-radius: var(--radius-klein);
 }
-.bereich-kachel:hover { border-color: var(--akzent); background: var(--akzent-bg); }
+@media (hover: hover) { .bereich-kachel:hover { border-color: var(--akzent); background: var(--akzent-bg); } }
 .bereich-kachel .name { font-weight: 600; font-size: 14.5px; }
 .bereich-kachel .zahl { font-size: 12px; color: var(--text-schwach); }
 .bereich-kachel.neu { border-style: dashed; color: var(--akzent); }
@@ -964,7 +962,7 @@ html:has(.dialog-hinter) #toast-bereich {
    Hauptaktion in der Fußzeile - in der Hausfarbe umrandet, damit sie neben
    „Anlegen“ als gleichwertiger Weg erkennbar ist. */
 .dialog > .fuss button.weiter { border-color: var(--hausfarbe); color: var(--hausfarbe); font-weight: 600; }
-.dialog > .fuss button.weiter:hover { background: var(--hausfarbe-flaeche); border-color: var(--hausfarbe); color: var(--hausfarbe); }
+@media (hover: hover) { .dialog > .fuss button.weiter:hover { background: var(--hausfarbe-flaeche); border-color: var(--hausfarbe); color: var(--hausfarbe); } }
 /* Die Blöcke unter den Namensfeldern (Gruppen, Mitglieder, Träger, Medien)
    bekommen Luft nach oben, sonst klebt ihre Beschriftung am Eingabefeld. */
 .dialog [data-feld="gruppen"], .dialog [data-feld="mitglieder"],
@@ -1080,7 +1078,7 @@ body.stift .zahl-knopf { min-width: 56px; }
   border: 1px solid var(--rand); border-radius: var(--radius-klein);
   background: var(--hausfarbe-flaeche); color: var(--text); white-space: nowrap;
 }
-.modus-leiste .diktat-start:hover { border-color: var(--akzent); }
+@media (hover: hover) { .modus-leiste .diktat-start:hover { border-color: var(--akzent); } }
 .diktat .diktat-beispiel {
   margin: 8px 0 14px; padding: 10px 14px; border-left: 3px solid var(--hausfarbe);
   background: var(--flaeche-2); border-radius: 0 var(--radius-klein) var(--radius-klein) 0;
@@ -1140,7 +1138,7 @@ body.stift .zahl-knopf { min-width: 56px; }
 .segmente .segment { border: 0; border-radius: 0; background: transparent; min-height: var(--tap); padding: 8px 16px; font-weight: 600; color: var(--text-schwach); }
 .segmente .segment + .segment { border-left: 1px solid var(--rand); }
 .segmente .segment.aktiv { background: var(--hausfarbe); color: var(--auf-hausfarbe); }
-.segmente .segment:hover:not(.aktiv) { color: var(--akzent); background: var(--akzent-bg); }
+@media (hover: hover) { .segmente .segment:hover:not(.aktiv) { color: var(--akzent); background: var(--akzent-bg); } }
 
 /* --- Europlan: Zylinderzeilen mit Zyl.Nr., Stk., ESL, Type ------------------ */
 table.matrix.europlan th.ecke { min-width: 0; max-width: none; position: sticky; left: 0; z-index: 6; text-align: left; font-size: 12px; color: var(--text-zart); vertical-align: bottom; }
@@ -1162,7 +1160,7 @@ table.matrix.europlan tbody td.links.zyl { font-weight: 700; color: var(--akzent
 table.matrix.europlan tbody td.links.zyl.gleich { color: var(--text-schwach); font-weight: 600; }
 table.matrix.europlan tbody td.links.type { color: var(--text-schwach); font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
 table.matrix.europlan tbody td.links.klickbar { cursor: pointer; }
-table.matrix.europlan tbody td.links.klickbar:hover { background: var(--akzent-bg); }
+@media (hover: hover) { table.matrix.europlan tbody td.links.klickbar:hover { background: var(--akzent-bg); } }
 table.matrix.europlan tr.mitlaeufer td.links { color: var(--text-zart); }
 table.matrix.europlan td.zelle { min-width: 40px; width: 40px; height: 44px; font-size: 14px; }
 table.matrix.europlan td.zelle.euro-x { background: var(--hausfarbe-flaeche); }
@@ -1181,3 +1179,182 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
 .wahl-liste .wahl b { font-size: 18px; min-width: 28px; text-align: center; color: var(--akzent); }
 .wahl-liste .wahl span { font-size: 14px; color: var(--text-schwach); white-space: normal; }
 .wahl-liste .wahl.aktiv { border-color: var(--hausfarbe); background: var(--hausfarbe-flaeche); }
+
+
+/* --- Feinschliff 1.5.2: Sichtprüfung auf Telefon, Tablet und Rechner ------- */
+
+/* Der schwebende Knopf doppelt die Hauptaktion im Seitenkopf. Solange die im
+   Bild ist, bleibt er weg - sonst verdeckt er Zeilen und Knöpfe (Sichtprüfung:
+   Löschen-Knopf der Gliederung, Türzeilen, Matrixkopf). Er erscheint, sobald
+   der Kopf aus dem Bild gescrollt ist. */
+.schwebe-aktion { transition: opacity .18s ease, transform .18s ease; }
+.schwebe-aktion.verborgen { opacity: 0; pointer-events: none; transform: translateY(14px) scale(.96); }
+@media (prefers-reduced-motion: reduce) { .schwebe-aktion { transition: none; } }
+
+/* Werkzeugleisten (Schließplan, Europlan): auf schmalen Bildschirmen ein
+   sauberes Raster statt rechts- und linksbündig gemischter Umbrüche. */
+.werkzeugleiste { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; justify-content: flex-end; }
+.werkzeugleiste.links { justify-content: flex-start; }
+@media (max-width: 700px) {
+  .werkzeugleiste { display: grid; grid-template-columns: 1fr 1fr; justify-content: stretch; }
+  .werkzeugleiste button { width: 100%; min-width: 0; padding-left: 10px; padding-right: 10px; white-space: normal; line-height: 1.2; }
+  .werkzeugleiste .fuellen { display: none; }
+}
+
+/* Dialoge auf dem Telefon: zwei Knöpfe in der Fußzeile passen nebeneinander,
+   kleine Auswahldialoge liegen als Blatt am unteren Rand statt den ganzen
+   Bildschirm zu füllen. */
+@media (max-width: 700px) {
+  /* Genau zwei Knöpfe (Abbrechen + Hauptaktion) teilen sich eine Reihe;
+     drei und mehr brechen wie bisher um (Zurück/Weiter oben, Speichern unten). */
+  .dialog > .fuss:has(button:nth-of-type(2):last-of-type) { display: grid; grid-template-columns: minmax(96px, 2fr) 3fr; }
+  .dialog > .fuss:has(button:nth-of-type(2):last-of-type) button { min-width: 0; }
+  .dialog-hinter:has(> .dialog.klein) { align-items: flex-end; }
+  .dialog.klein { min-height: 0; max-height: 92%; overflow-y: auto; margin: auto 0 0; border-radius: 16px 16px 0 0; }
+  .dialog.klein > .kopf { border-radius: 16px 16px 0 0; }
+}
+
+/* Tabellen unter dem Plan und im Dialog „Spalten verwalten“: auf dem Telefon
+   die Nebenspalten weglassen, damit Medien und Knöpfe im Bild bleiben. Die
+   Zeile selbst öffnet weiterhin den Eintrag. */
+@media (max-width: 700px) {
+  .personen-tabelle th:nth-child(2), .personen-tabelle td:nth-child(2),
+  .personen-tabelle th:nth-child(4), .personen-tabelle td:nth-child(4) { display: none; }
+  .personen-tabelle td:nth-child(3) { white-space: normal; }
+  /* Der Knopf am Zeilenende passte nicht mehr ins Bild: die ganze Zeile
+     öffnet den Eintrag, ein Pfeil sagt es. */
+  .personen-tabelle th:nth-child(5), .personen-tabelle td:nth-child(5) { display: none; }
+  .personen-tabelle td:nth-child(3)::after { content: ' ›'; color: var(--text-zart); font-weight: 700; }
+  .personen-tabelle td:nth-child(1) { white-space: normal; }
+  .spalten-tabelle th:nth-child(3), .spalten-tabelle td:nth-child(3),
+  .spalten-tabelle th:nth-child(4), .spalten-tabelle td:nth-child(4) { display: none; }
+  .spalten-tabelle th:nth-child(5), .spalten-tabelle td:nth-child(5) { display: none; }
+  .spalten-tabelle th, .spalten-tabelle td { padding: 8px 6px; }
+  .spalten-tabelle th:last-child { white-space: normal; font-size: 11px; }
+  .spalten-tabelle .reihenfolge { flex-wrap: nowrap; gap: 4px; }
+  .spalten-tabelle .reihenfolge button { min-width: 36px; min-height: 36px; width: 36px; height: 36px; padding: 0; }
+}
+
+/* Europlan auf dem Telefon: ZP und Type weglassen, Raum schmaler - sonst
+   füllt der linke Block die ganze Breite und keine Schlüsselspalte ist im Bild. */
+@media (max-width: 700px) {
+  table.matrix.europlan .links.zp, table.matrix.europlan .links.type, table.matrix.europlan .links.raum { display: none; }
+  table.matrix.europlan tbody td.links, table.matrix.europlan thead th.links { padding-left: 6px; padding-right: 6px; }
+  table.matrix.europlan tbody td.links.nr { max-width: 96px; overflow: hidden; text-overflow: ellipsis; }
+  table.matrix.europlan thead th.links.nr, table.matrix.europlan tbody td.links.nr { position: sticky; left: 0; z-index: 3; }
+  table.matrix.europlan tbody td.links.stk, table.matrix.europlan tbody td.links.esl, table.matrix.europlan tbody td.links.zyl { min-width: 40px; }
+}
+
+/* Meldungen stapeln sich nicht endlos: höchstens drei, die ältesten gehen zuerst. */
+#toast-bereich .toast { max-height: 40vh; overflow: hidden; }
+
+/* Export: Knöpfe der Ausgabekarten auf eine Linie am unteren Rand */
+.raster.zwei > .karte, .raster > .karte { display: flex; flex-direction: column; }
+.raster.zwei > .karte > button.haupt:last-child, .raster > .karte > button.haupt:last-child { margin-top: auto; align-self: flex-start; }
+.raster.zwei > .karte > :not(:last-child) { margin-bottom: 8px; }
+
+/* Hinweislisten in kleinen Dialogen (etwa zum EVVA-Formular) */
+.hinweisliste { margin: 0; padding-left: 20px; font-size: 13.5px; line-height: 1.45; }
+.hinweisliste li { margin: 5px 0; }
+
+
+/* --- Technik 1.5.2: Druck, Tastatur, Touch, Kontrast, Eigenheiten -------- */
+
+/* Druck: immer die helle Palette (Gold auf Weiß und Navy-Vollflächen waren
+   unlesbar bzw. teuer), Scrollrahmen ausklappen, fixierte Teile weglassen. */
+@media print {
+  :root, :root[data-darstellung="dunkel"], :root[data-darstellung="hell"] { color-scheme: light; --hausfarbe: #fcc91d; --hausfarbe-hell: #ffd84a; --auf-hausfarbe: #0a1637; --hausfarbe-flaeche: rgba(252, 201, 29, .18); --akzent: #14306e; --akzent-hell: #1d4499; --akzent-bg: #e7ecf8; --akzent-flaeche: rgba(20, 48, 110, .10); --auf-akzent: #ffffff; --text: #0a1637; --text-schwach: #46557f; --text-zart: #5c6884; --flaeche: #ffffff; --flaeche-2: #eef2f9; --flaeche-3: #e5ebf6; --rand: #ccd6e8; --rand-zart: #e2e9f4; --gruen: #1b7a44; --gelb: #95560a; --rot: #b3261e; --auf-farbe: #ffffff; --schleier: rgba(2, 9, 43, .58); --schatten: 0 1px 3px rgba(10, 22, 55, .10), 0 8px 24px rgba(10, 22, 55, .08); }
+  html, body { background: #fff !important; color: var(--text) !important; height: auto; }
+  #app { height: auto; display: block; }
+  main.inhalt { overflow: visible !important; height: auto; }
+  .matrix-rahmen, .tabelle-rahmen { max-height: none !important; overflow: visible !important; border: 0; }
+  .matrix-huelle::before, .matrix-huelle::after { display: none !important; }
+  table.matrix th, table.matrix td { position: static !important; }
+  .schwebe-aktion, .zurueck-knopf, .abgleich-status, .speicher-status, #toast-bereich, .dialog-hinter, .fassung-hinweis,
+  .werkzeugleiste, .segmente, .knopfleiste, main.inhalt button { display: none !important; }
+  table.matrix td.zelle, .marke-pille, .statusbalken, .kennzahl { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  table.matrix td.zelle.gesperrt { border: 1px dashed var(--rand); }
+  tr { break-inside: avoid; }
+  thead { display: table-header-group; }
+}
+
+/* Native Auswahllisten, Scrollbalken und Datei-Dialoge folgen der Darstellung */
+:root[data-darstellung="dunkel"] { color-scheme: dark; }
+:root[data-darstellung="hell"] { color-scheme: light; }
+
+/* Sichtbare Fokusmarke für alles, was man mit der Tastatur erreicht */
+:where(button, .knopf, .chip, nav.reiter button, .segmente .segment, .knoten, .tuer-zeile, .projekt-karte, tr.anklickbar, [tabindex="0"]):focus-visible {
+  outline: 3px solid var(--hausfarbe); outline-offset: 2px;
+}
+:root[data-darstellung="hell"] :where(button, .knopf, .chip, nav.reiter button, .segmente .segment, .knoten, .tuer-zeile, tr.anklickbar, [tabindex="0"]):focus-visible { outline-color: var(--akzent); }
+table.matrix td.zelle:focus-visible, table.matrix th.spaltenkopf:focus-visible, table.matrix td.links.klickbar:focus-visible { outline: 3px solid var(--hausfarbe); outline-offset: -3px; }
+:root[data-darstellung="hell"] table.matrix td.zelle:focus-visible, :root[data-darstellung="hell"] table.matrix th.spaltenkopf:focus-visible { outline-color: var(--akzent); }
+
+/* Lange Wörter ohne Leerzeichen laufen nicht mehr aus dem Bild */
+.projekt-karte .titel, .projekt-karte .zeile, .tuer-gruppe > .kopfzeile, .bereich-kopf .pfad, .knoten .name { overflow-wrap: anywhere; min-width: 0; }
+.pfad-knopf { white-space: normal; text-align: left; }
+.kopf .marke { min-width: 0; max-width: 38%; overflow: hidden; text-overflow: ellipsis; }
+.kopf .marke small { overflow: hidden; text-overflow: ellipsis; }
+.kopf .projekt-titel span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Touch-Ziele mindestens 44 px */
+.abgleich-status { min-height: 44px; }
+.entfernen-knopf { min-width: 44px; min-height: 44px; }
+.pfad-knopf { min-height: 44px; padding-top: 8px; padding-bottom: 8px; }
+.personen-tabelle td { padding-top: 13px; padding-bottom: 13px; }
+table.matrix.europlan td.zelle { min-width: 44px; width: 44px; }
+@media (max-width: 700px) {
+  .spalten-tabelle .reihenfolge button { min-width: 44px; min-height: 44px; width: 44px; height: 44px; }
+  .knopfleiste button { white-space: normal; line-height: 1.2; }
+  /* Türzeilen: die Maße bleiben lesbar (zwei Zeilen statt Ellipse) */
+  .tuer-zeile .haupt .detail { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  /* Schutzzonen: Notch oben im Dialog, seitlich im Querformat */
+  .dialog > .kopf { padding-top: max(14px, env(safe-area-inset-top)); }
+  header.kopf, nav.reiter { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); }
+  main.inhalt { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); }
+  .schwebe-aktion { right: max(18px, env(safe-area-inset-right)); }
+  /* Meldung bei offenem Dialog unter dessen Kopf, nicht darauf */
+  html:has(.dialog-hinter) #toast-bereich { top: calc(78px + env(safe-area-inset-top)); }
+}
+
+/* Kontrast in der hellen Darstellung und bei inaktiven Knöpfen */
+:root[data-darstellung="hell"] .marke-pille.gruen { background: rgba(31,122,61,.09); }
+.pflicht-leiste .pflicht-umschalter .pfeil { opacity: 1; }
+.meldung.warn .zart { color: inherit; opacity: .85; }
+.zurueck-knopf.ohne-schritte { opacity: .65; }
+button:disabled { opacity: .6; }
+nav.reiter button:disabled { opacity: .5; }
+
+/* Matrixrahmen: Höhe aus dem Bild, nicht pauschal 72 vh; dazu Schatten, die
+   seitliches Scrollen anzeigen (iOS blendet Scrollbalken aus) */
+.matrix-rahmen { max-height: 72vh; max-height: calc(100dvh - 240px); }
+@media (max-width: 700px) { .matrix-rahmen { max-height: calc(100dvh - 200px); } }
+.matrix-huelle { position: relative; }
+.matrix-huelle::before, .matrix-huelle::after {
+  content: ''; position: absolute; top: 0; bottom: 0; width: 22px; pointer-events: none; z-index: 7;
+  opacity: 0; transition: opacity .15s;
+}
+.matrix-huelle::before { left: var(--ecke, 0px); background: linear-gradient(to right, rgba(0,0,0,.35), transparent); }
+.matrix-huelle::after { right: 0; background: linear-gradient(to left, rgba(0,0,0,.35), transparent); border-radius: 0 var(--radius) var(--radius) 0; }
+.matrix-huelle.kann-links::before { opacity: 1; }
+.matrix-huelle.kann-rechts::after { opacity: 1; }
+:root[data-darstellung="hell"] .matrix-huelle::before { background: linear-gradient(to right, rgba(20,48,110,.22), transparent); }
+:root[data-darstellung="hell"] .matrix-huelle::after { background: linear-gradient(to left, rgba(20,48,110,.22), transparent); }
+
+/* Dialog-Schleier: kein Gummiband auf die Seite dahinter */
+.dialog-hinter { overscroll-behavior: contain; }
+
+/* Reiterleiste: der gewählte Reiter rückt in die Mitte, nicht in die Maske */
+nav.reiter { scroll-padding-inline: 24px; }
+
+/* Bewegungsreduktion vollständig */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+
+/* Bereichs-Überschriften in der Matrix bleiben beim seitlichen Scrollen lesbar */
+table.matrix tr.gruppenzeile td { padding: 0; }
+table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display: inline-block; padding: 7px 10px; max-width: min(92vw, 640px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
+
+/* Zeilen und Karten in Kästen mit overflow: hidden: die Fokusmarke liegt innen, sonst wird sie abgeschnitten */
+.tuer-zeile:focus-visible, tr.anklickbar:focus-visible, .knoten:focus-visible, .projekt-karte:focus-visible { outline-offset: -3px; }

@@ -9,9 +9,14 @@
  * Spalten, versteckten Blättern, Namen und Gültigkeitsregeln.
  *
  * Aufruf: XLSX.erzeugen({ blaetter: [{ name, zellen: { A1: { v, s } }, breiten,
- *         hoehen, verbund, fixierung, versteckt, validierungen }], namen })
+ *         hoehen, verbund, fixierung, versteckt, validierungen, druck }], namen,
+ *         fassung })
  * liefert ein Uint8Array. Formate (s): fett, kopf, umbruch, fettUmbruch,
- * mitte, muster.
+ * mitte, muster, senkrecht, senkrechtFett (Text um 90 Grad gedreht, Schrift 8),
+ * zahlKlein (Schrift 8, auf Zellbreite verkleinert).
+ * druck: { titel: '$A:$G,$1:$4', bereich: '$A$1:$R$20', quer: true,
+ *          einpassen: true } setzt Wiederholungszeilen, Druckbereich,
+ * Querformat und die Anpassung auf eine Seitenbreite.
  * ========================================================================== */
 (function (global) {
   'use strict';
@@ -83,7 +88,9 @@
   }
   /* In Attributen würde ein Zeilenumbruch zum Leerzeichen normalisiert */
   function xa(text) { return x(text).replace(/\n/g, '&#10;').replace(/\r/g, ''); }
-  var FORMATE = ['standard', 'fett', 'kopf', 'umbruch', 'fettUmbruch', 'mitte', 'muster'];
+  var FORMATE = ['standard', 'fett', 'kopf', 'umbruch', 'fettUmbruch', 'mitte', 'muster', 'senkrecht', 'senkrechtFett', 'zahlKlein'];
+  /* Blattname in einer Formel: in Hochkommas, ein Hochkomma im Namen verdoppelt */
+  function blattRef(name) { return "'" + String(name).replace(/'/g, "''") + "'!"; }
   function formatIndex(name) { var i = FORMATE.indexOf(name || 'standard'); return i < 0 ? 0 : i; }
   function spaltenIndex(ref) {
     var m = /^([A-Z]+)(\d+)$/.exec(ref); if (!m) return null;
@@ -102,9 +109,12 @@
       if (si.spalte > maxSpalte) maxSpalte = si.spalte;
       if (si.zeile > maxZeile) maxZeile = si.zeile;
     });
+    var druck = blatt.druck || null;
     var aus = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
-      '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">',
-      '<dimension ref="A1:' + spaltenName(maxSpalte) + maxZeile + '"/>'];
+      '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'];
+    /* Die Seitenanpassung muss vor allem anderen stehen (Reihenfolge im Schema) */
+    if (druck && druck.einpassen) aus.push('<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>');
+    aus.push('<dimension ref="A1:' + spaltenName(maxSpalte) + maxZeile + '"/>');
     var fix = blatt.fixierung;
     aus.push('<sheetViews><sheetView workbookViewId="0"' + (blatt.erste ? ' tabSelected="1"' : '') + '>');
     if (fix && (fix.spalten || fix.zeilen)) {
@@ -155,19 +165,25 @@
       aus.push('</dataValidations>');
     }
     aus.push('<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>');
+    /* Druck: A4 (paperSize 9), Querformat, auf eine Seitenbreite einpassen; die Höhe bleibt frei (0) */
+    if (druck) {
+      aus.push('<pageSetup paperSize="9"' + (druck.quer ? ' orientation="landscape"' : ' orientation="portrait"') +
+        (druck.einpassen ? ' fitToWidth="1" fitToHeight="0"' : '') + '/>');
+    }
     aus.push('</worksheet>');
     return aus.join('');
   }
 
   var STYLES = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
-    '<fonts count="2"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font></fonts>' +
+    '<fonts count="4"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font>' +
+    '<font><sz val="8"/><name val="Arial"/></font><font><b/><sz val="8"/><name val="Arial"/></font></fonts>' +
     '<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>' +
     '<fill><patternFill patternType="solid"><fgColor rgb="FFC0C0C0"/><bgColor indexed="64"/></patternFill></fill>' +
     '<fill><patternFill patternType="solid"><fgColor rgb="FFFFCC99"/><bgColor indexed="64"/></patternFill></fill></fills>' +
     '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
     '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-    '<cellXfs count="7">' +
+    '<cellXfs count="10">' +
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +                                                                        /* 0 standard */
     '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +                                                          /* 1 fett */
     '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' + /* 2 kopf */
@@ -175,6 +191,9 @@
     '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>' + /* 4 fettUmbruch */
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +  /* 5 mitte */
     '<xf numFmtId="0" fontId="0" fillId="3" borderId="0" xfId="0" applyFill="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>' + /* 6 muster */
+    '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="bottom" textRotation="90"/></xf>' + /* 7 senkrecht */
+    '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="bottom" textRotation="90"/></xf>' + /* 8 senkrechtFett */
+    '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center" shrinkToFit="1"/></xf>' + /* 9 zahlKlein */
     '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
 
   function erzeugen(mappe) {
@@ -202,8 +221,12 @@
       '<dc:title>' + x(mappe.titel || 'Schließplan') + '</dc:title><dc:creator>' + x(mappe.ersteller || 'Aufmaß-Werkzeug') + '</dc:creator>' +
       '<dcterms:created xsi:type="dcterms:W3CDTF">' + jetzt + '</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">' + jetzt + '</dcterms:modified>' +
       '</cp:coreProperties>' });
+    /* Die Fassung des Werkzeugs steht in app.xml. In Node (Tests, Skripte)
+       gibt es AppKern nicht, dann kommt sie aus mappe.fassung oder fehlt. */
+    var fassung = mappe.fassung || (global.AppKern && global.AppKern.FASSUNG) || '';
     dateien.push({ name: 'docProps/app.xml', inhalt: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-      '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>' + x(mappe.ersteller || 'Aufmaß-Werkzeug') + '</Application></Properties>' });
+      '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>' + x(mappe.ersteller || 'Aufmaß-Werkzeug') + '</Application>' +
+      (fassung ? '<AppVersion>' + x(fassung) + '</AppVersion>' : '') + '</Properties>' });
     var wb = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
       '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">',
       '<bookViews><workbookView xWindow="0" yWindow="0" windowWidth="20000" windowHeight="10000" activeTab="0"/></bookViews><sheets>'];
@@ -213,8 +236,17 @@
     wb.push('</sheets>');
     var namen = mappe.namen || {};
     var namenKeys = Object.keys(namen);
-    if (namenKeys.length) {
+    /* Druckbereich und Wiederholungszeilen sind Namen je Blatt (localSheetId) */
+    var druckNamen = [];
+    blaetter.forEach(function (b, i) {
+      var d = b.druck; if (!d) return;
+      var ref = blattRef(b.name || ('Blatt' + (i + 1)));
+      if (d.titel) druckNamen.push('<definedName name="_xlnm.Print_Titles" localSheetId="' + i + '">' + x(String(d.titel).split(',').map(function (t) { return ref + t.trim(); }).join(',')) + '</definedName>');
+      if (d.bereich) druckNamen.push('<definedName name="_xlnm.Print_Area" localSheetId="' + i + '">' + x(ref + d.bereich) + '</definedName>');
+    });
+    if (namenKeys.length || druckNamen.length) {
       wb.push('<definedNames>');
+      druckNamen.forEach(function (dn) { wb.push(dn); });
       namenKeys.forEach(function (n) { wb.push('<definedName name="' + x(n) + '">' + x(namen[n]) + '</definedName>'); });
       wb.push('</definedNames>');
     }

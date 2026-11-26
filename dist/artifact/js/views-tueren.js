@@ -148,7 +148,7 @@
     /* --- Filterleiste --- */
     var f = Zustand.tuerFilter;
     var suchfeld = el('input', {
-      type: 'search', placeholder: 'Suche: Nr., Raum, System …', title: 'Sucht in Nummer, Bezeichnung, System und Bemerkung', value: f.suche,
+      type: 'search', placeholder: 'Suche: Nr., Raum, System …', 'aria-label': 'Türen durchsuchen', title: 'Sucht in Nummer, Bezeichnung, System und Bemerkung', value: f.suche,
       oninput: function (e) { f.suche = e.target.value; listeZeichnen(); }
     });
     var strukturWahl = el('select', {
@@ -883,8 +883,8 @@
           var rollen = inhalt.closest ? inhalt.closest('.koerper') : null;
           if (rollen) rollen.scrollTop = 0;
           A.toast(namen.length
-            ? (namen.length + (namen.length === 1 ? ' Angabe' : ' Angaben') + ' aus dem Diktat übernommen - bitte prüfen.')
-            : 'Nichts übernommen - die Angaben standen schon so in der Tür.', namen.length ? 'ok' : 'warn');
+            ? (namen.length + (namen.length === 1 ? ' Angabe' : ' Angaben') + ' aus dem Diktat übernommen – bitte prüfen.')
+            : 'Nichts übernommen – die Angaben standen schon so in der Tür.', namen.length ? 'ok' : 'warn');
         },
         beiSerie: serieUebernehmen });
     }
@@ -943,7 +943,7 @@
       var kasten = el('div', { class: 'serie' });
       kasten.appendChild(el('p', { class: 'hinweis', style: { marginTop: '0' },
         text: angelegt.length + (angelegt.length === 1 ? ' Tür wurde' : ' Türen wurden') + ' aus dem Diktat eingetragen' +
-          (bereich ? ' - Bereich „' + bereich + '“' : '') + '.' +
+          (bereich ? ' – Bereich „' + bereich + '“' : '') + '.' +
           (offen ? (' Bei ' + offen + (offen === 1 ? ' Tür fehlen' : ' Türen fehlen') + ' noch Pflichtangaben.') : '') +
           ' Antippen öffnet eine Tür zum Prüfen.' }));
       var zeilen = el('div', { class: 'tuer-liste' });
@@ -981,7 +981,7 @@
          * Gerät aufnehmen kann - sonst bleibt die Leiste wie gewohnt. */
         (global.Diktat && global.Diktat.verfuegbar()) ? el('button', {
           type: 'button', class: 'diktat-start', 'aria-label': 'Einsprechen',
-          title: 'Angaben zur Tür einsprechen - das Werkzeug macht daraus einen Vorschlag; „neue Tür“ trennt mehrere Türen',
+          title: 'Angaben zur Tür einsprechen – das Werkzeug macht daraus einen Vorschlag; „neue Tür“ trennt mehrere Türen',
           onclick: diktatOeffnen }, [el('span', { class: 'symbol', 'aria-hidden': 'true', text: '🎤' }), el('span', { class: 'wort', text: ' Einsprechen' })]) : null
       ]));
     }

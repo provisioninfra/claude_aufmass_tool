@@ -121,8 +121,20 @@
     } catch (fehler) { console.error(fehler); A.toast('Excel-Ausgabe fehlgeschlagen: ' + fehler.message, 'fehler'); return; }
     Store.dateiHerunterladen(X.alsBlob(mappe), name, X.MIME).then(function (stand) {
       if (stand === 'abgelehnt') { A.toast('Speichern abgebrochen.'); return; }
-      A.toast('EVVA-Formular erzeugt: ' + name + ' (' + mappe.anzahlZeilen + ' Zylinder, ' + mappe.anzahlSpalten + ' Schlüsselspalten)' +
-              (mappe.warnungen.length ? ' – ' + mappe.warnungen.join(' ') : ''), mappe.warnungen.length ? 'fehler' : 'ok');
+      A.toast('EVVA-Formular erzeugt: ' + mappe.anzahlZeilen + ' Zylinder, ' + mappe.anzahlSpalten + ' Schlüsselspalten.', 'ok');
+      /* Hinweise (Kürzungen, ausgelassene Zeilen) gehören in ein Fenster zum
+         Nachlesen, nicht in eine Meldung, die nach Sekunden verschwindet und
+         bis dahin den halben Bildschirm deckt. */
+      if (mappe.warnungen.length) {
+        A.dialogOeffnen({
+          titel: 'Hinweise zum EVVA-Formular', klein: true,
+          inhalt: el('div', {}, [
+            el('p', { class: 'hinweis', style: { marginTop: '0' }, text: 'Die Datei „' + name + '“ wurde gespeichert. Beim Übertragen in das Formular fiel Folgendes auf:' }),
+            el('ul', { class: 'hinweisliste' }, mappe.warnungen.map(function (w) { return el('li', { text: w }); }))
+          ]),
+          knoepfe: [{ fuellen: true }, { text: 'Verstanden', klasse: 'haupt' }]
+        });
+      }
     }).catch(function (fehler) { A.toast(fehler.message || 'Speichern fehlgeschlagen.', 'fehler'); });
   }
 
@@ -136,7 +148,7 @@
       'Z = Zentralzylinder, M = Mitschließung, O = vorgeplant). Zyl.Nr. ist die Türnummer; gleichschließende Türen hängen an ihrer Haupttür (.1, .2 …). ' +
       'Alles, was Sie hier setzen, steht sofort auch im Kreuzschließplan.' }));
 
-    seite.appendChild(el('div', { class: 'knopfleiste', style: { marginBottom: '12px' } }, [
+    seite.appendChild(el('div', { class: 'werkzeugleiste links', style: { marginBottom: '12px' } }, [
       el('button', { class: 'haupt', text: '+ Tür / Zylinder', onclick: function () { tuerDialog(p, neuZeichnen); } }),
       el('button', { text: '+ Schlüssel (X-Spalte)', title: 'Übergeordneter Schlüssel: Schließung mit Rang im Plan', onclick: function () { VPlan.schliessungBearbeiten(null, neuZeichnen); } }),
       el('button', { text: '+ Gruppe (I/Z-Spalte)', title: 'Gruppe von Eigenschlüsseln, z. B. alle Mieter', onclick: function () { VPers.gruppeBearbeiten(null, neuZeichnen); } }),
@@ -164,7 +176,7 @@
 
     var rahmen = el('div', { class: 'matrix-rahmen europlan-rahmen' });
     var rollLage = { x: 0, y: 0 };
-    seite.appendChild(rahmen);
+    seite.appendChild(A.scrollHinweis(rahmen));
 
     function tabelleZeichnen() {
       plan = E().europlan(p);
@@ -184,6 +196,7 @@
 
     function tabelleBauen(plan) {
       var tabelle = el('table', { class: 'matrix europlan' });
+      A.tastenNavigation(tabelle, 'td.zelle');
       var linke = [
         { k: 'zp', t: 'ZP', tip: 'laufende Zeile' }, { k: 'nr', t: 'Tür.Nr.' }, { k: 'raum', t: 'Raumbezeichnung' },
         { k: 'stk', t: 'Stk.', tip: 'Bestellmenge Zylinder' }, { k: 'esl', t: 'ESL', tip: 'Eigenschlüssel: Stückzahl (leer = kein Eigenschlüssel, 0 = vorgeplant)' },
@@ -214,7 +227,7 @@
       plan.zeilen.forEach(function (z) {
         if (z.bereich !== bereich) {
           bereich = z.bereich;
-          koerper.appendChild(el('tr', { class: 'gruppenzeile' }, [el('td', { colspan: linke.length + plan.spalten.length, text: bereich })]));
+          koerper.appendChild(el('tr', { class: 'gruppenzeile' }, [el('td', { colspan: linke.length + plan.spalten.length }, el('span', { class: 'gruppen-titel', text: bereich }))]));
         }
         var t = z.tuer; lfd++;
         var zeile = el('tr', { class: z.mitlaeufer ? 'mitlaeufer' : '' });

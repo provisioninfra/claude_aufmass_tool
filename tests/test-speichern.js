@@ -52,7 +52,8 @@ function p(b, t, i) { if (b) { ok++; console.log('  OK   ' + t); } else { fehler
 
   console.log('\n== Strg+Z bei offenem Türdialog ==');
   const vorher = await page.evaluate(() => window.AppKern.Zustand.projekt.tueren.length);
-  await page.click('.schwebe-aktion');
+  /* Der schwebende Knopf ist oben verborgen, solange „+ Neue Tür“ im Kopf steht */
+  await page.click('main button:has-text("+ Neue Tür")');
   await page.waitForSelector('.dialog');
   await page.fill('.dialog input[type=text] >> nth=1', 'Testtür Zurück');
   await page.click('.dialog button:has-text("Alle Felder")');

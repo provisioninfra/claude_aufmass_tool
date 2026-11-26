@@ -32,8 +32,7 @@
     ]));
     if (euro) { VEuro.zeichnen(seite, p, neuZeichnen); return; }
 
-    seite.appendChild(el('div', { class: 'zeile-verteilt', style: { marginBottom: '12px' } }, [
-      el('div', { class: 'fuellen' }),
+    seite.appendChild(el('div', { class: 'werkzeugleiste', style: { marginBottom: '12px' } }, [
       el('button', { class: 'haupt', text: 'Blanko-Plan erzeugen',
         onclick: function () { blankoDialog(neuZeichnen); } }),
       el('button', { text: '+ Spalte',
@@ -65,7 +64,7 @@
           el('div', { class: 'fuellen' }, [
             el('b', { text: 'Vom Kunden verbindlich freigegeben am ' + datumZeit(p.freigabe.am) + (wer ? ' durch ' + wer : '') + '.' }),
             el('div', { style: { marginTop: '3px', fontSize: '13px' }, text: geaendert
-              ? 'Seit der Freigabe wurde der Plan geändert. Gegenüber dem Kunden gilt der freigegebene Stand - bei Bedarf erneut zur Freigabe vorlegen.'
+              ? 'Seit der Freigabe wurde der Plan geändert. Gegenüber dem Kunden gilt der freigegebene Stand – bei Bedarf erneut zur Freigabe vorlegen.'
               : 'Der Kunde kann über seinen Link nichts mehr ändern. Hier bleibt der Plan weiterhin änderbar.' })
           ]),
           geaendert ? el('button', { class: 'klein', text: 'Erneut zur Freigabe vorlegen',
@@ -339,7 +338,7 @@
     var gruppen = M.tuerenGruppiert(p);
     gruppen.forEach(function (g) {
       koerper.appendChild(el('tr', { class: 'gruppenzeile' }, [
-        el('td', { colspan: schliessungen.length + 1, text: g.titel })
+        el('td', { colspan: schliessungen.length + 1 }, el('span', { class: 'gruppen-titel', text: g.titel }))
       ]));
       g.tueren.forEach(function (t) {
         var zeile = el('tr');
@@ -411,7 +410,8 @@
     }
     summenAktualisieren();
 
-    seite.appendChild(el('div', { class: 'matrix-rahmen' }, tabelle));
+    A.tastenNavigation(tabelle, 'td.zelle');
+    seite.appendChild(A.scrollHinweis(el('div', { class: 'matrix-rahmen' }, tabelle)));
 
     var legende = el('div', { class: 'matrix-legende' });
     K.BERECHTIGUNG.forEach(function (b) {
@@ -610,9 +610,9 @@
       var betreff = (vorlegen ? 'Freigabe des Schließplans ' : 'Zutrittsberechtigungen ') + (p.objekt || p.kunde || '');
       var text = vorlegen
         ? 'Guten Tag,\n\nbitte prüfen Sie den Schließplan unter folgendem Link und geben Sie ihn verbindlich frei. '
-          + 'Mit der Freigabe ist die Abstimmung abgeschlossen - Änderungen sind danach nur noch gegen Mehraufwand möglich.\n\n'
+          + 'Mit der Freigabe ist die Abstimmung abgeschlossen – Änderungen sind danach nur noch gegen Mehraufwand möglich.\n\n'
         : 'Guten Tag,\n\nbitte tragen Sie unter folgendem Link ein, wer welche Türen öffnen darf. '
-          + 'Am Ende auf „Rückmeldung senden“ klicken - oder, wenn alles passt, auf „Rückmeldung senden und Plan freigeben“.\n\n';
+          + 'Am Ende auf „Rückmeldung senden“ klicken – oder, wenn alles passt, auf „Rückmeldung senden und Plan freigeben“.\n\n';
       text += f.kurzlink + '\n\n'
         + (f.gueltigBis ? 'Der Link gilt bis ' + datumKurz(f.gueltigBis) + '.\n\n' : '')
         + 'Mit freundlichen Grüßen\n' + (eins.firma || '');
@@ -646,7 +646,7 @@
           + (vorlegen
             ? 'Der Kunde sieht den fertigen Plan und klickt auf „Plan verbindlich freigeben“. Die Freigabe erscheint dann hier im Werkzeug '
               + 'und wird mit „Übernehmen“ im Aufmaß vermerkt. Danach kann der Kunde über den Link nichts mehr ändern.'
-            : 'Der Kunde trägt ein und klickt auf „Rückmeldung senden“ - oder auf „Rückmeldung senden und Plan freigeben“, wenn alles passt. '
+            : 'Der Kunde trägt ein und klickt auf „Rückmeldung senden“ – oder auf „Rückmeldung senden und Plan freigeben“, wenn alles passt. '
               + 'Seine Rückmeldung erscheint dann hier im Werkzeug (in der Kopfzeile und im Schließplan) und wird erst übernommen, '
               + 'wenn eine zuständige Person sie geprüft hat. Ersteller und Zuständige werden per E-Mail benachrichtigt.') }));
         listeLaden();
@@ -655,7 +655,7 @@
         ergebnisBereich.appendChild(el('hr', { class: 'trenner' }));
         var text;
         if (f && f.status === 404) {
-          text = 'Dieses Aufmaß liegt noch nicht auf dem Server. Der Abgleich sendet es gleich - '
+          text = 'Dieses Aufmaß liegt noch nicht auf dem Server. Der Abgleich sendet es gleich – '
                + 'bitte in ein paar Sekunden erneut tippen.';
           global.Abgleich.jetzt();
         } else if (f && f.status === 403) {
@@ -825,7 +825,7 @@
       el('p', { class: 'hinweis', style: { marginTop: '0' },
         text: online
           ? 'Der Kunde öffnet den kurzen Link im Browser, trägt in den freigegebenen Feldern seine ' +
-            'Berechtigungen ein und sendet seine Rückmeldung - auf Wunsch gleich mit verbindlicher Freigabe. ' +
+            'Berechtigungen ein und sendet seine Rückmeldung – auf Wunsch gleich mit verbindlicher Freigabe. ' +
             'Beides erscheint hier im Werkzeug und wird erst nach Ihrer Prüfung übernommen.'
           : 'Der Kunde öffnet den Link im Browser und trägt in den freigegebenen Feldern ' +
             'seine Berechtigungen ein. Seine Rückmeldung lesen Sie anschließend hier wieder ein.' }),
@@ -998,11 +998,11 @@
     var inhalt = el('div', {}, [
       el('p', { class: 'hinweis', style: { marginTop: '0' },
         text: 'Als Grundlage wird ein Generalhauptschlüssel angelegt, der an allen Türen berechtigt ist. Dazu auf Wunsch je Gruppe ' +
-              'und je Mitarbeiter eine noch leere Spalte - die Berechtigungen tippen Sie danach an. Alle weiteren Schließungen ' +
+              'und je Mitarbeiter eine noch leere Spalte – die Berechtigungen tippen Sie danach an. Alle weiteren Schließungen ' +
               'und Gruppen benennen Sie selbst.' }),
-      schalter('ghs', 'Generalhauptschlüssel (GHS)', hatGhs ? 'Es gibt schon einen GHS im Plan.' : 'Eine Schließung, die an allen Türen berechtigt ist - mit zwei Medien.'),
+      schalter('ghs', 'Generalhauptschlüssel (GHS)', hatGhs ? 'Es gibt schon einen GHS im Plan.' : 'Eine Schließung, die an allen Türen berechtigt ist – mit zwei Medien.'),
       schalter('proGruppe', 'Spalte je Gruppe (' + (p.gruppen || []).length + ')', 'Alle Mitglieder einer Gruppe sind über ihre Spalte berechtigt.'),
-      schalter('proMitarbeiter', 'Spalte je Mitarbeiter (' + (p.mitarbeiter || []).length + ')', 'Nur sinnvoll für Mitarbeiter mit eigenen Berechtigungen - sonst viele Spalten.'),
+      schalter('proMitarbeiter', 'Spalte je Mitarbeiter (' + (p.mitarbeiter || []).length + ')', 'Nur sinnvoll für Mitarbeiter mit eigenen Berechtigungen – sonst viele Spalten.'),
       el('hr', { class: 'trenner' }),
       schalter('vorhandeneErsetzen', 'Vorhandene Spalten vorher entfernen',
         'Ohne diesen Schalter werden die neuen Spalten ergänzt.'),
@@ -1092,11 +1092,11 @@
       medienBereich.appendChild(el('hr', { class: 'trenner' }));
       if (leute.length) {
         medienBereich.appendChild(el('p', { class: 'hinweis', text:
-          M.medienAnzahl(p, s) + (M.medienAnzahl(p, s) === 1 ? ' Medium' : ' Medien') + ' - aus den Angaben der Mitarbeiter (' +
+          M.medienAnzahl(p, s) + (M.medienAnzahl(p, s) === 1 ? ' Medium' : ' Medien') + ' – aus den Angaben der Mitarbeiter (' +
           leute.map(function (m) { return m.name; }).join(', ') + '). Art und Anzahl stehen beim jeweiligen Mitarbeiter.' }));
       } else {
         medienBereich.appendChild(VPers.medienFeld(s, 'Medien ohne benannten Träger <span class="einheit">(z. B. zwei Generalhauptschlüssel im Tresor)</span>',
-          { leerText: 'Noch keine Medien eingetragen - oder oben Mitarbeiter als Träger wählen.' }));
+          { leerText: 'Noch keine Medien eingetragen – oder oben Mitarbeiter als Träger wählen.' }));
       }
     }
 
@@ -1118,7 +1118,7 @@
           ]));
         } else {
           var g = M.gruppeVon(p, s.gruppeId);
-          formular.appendChild(el('p', { class: 'hinweis', text: 'Spalte der Gruppe „' + (g ? g.name : s.bezeichnung) + '“ - ' +
+          formular.appendChild(el('p', { class: 'hinweis', text: 'Spalte der Gruppe „' + (g ? g.name : s.bezeichnung) + '“ – ' +
             M.traegerText(p, s) + '. Name und Mitglieder werden in der Gruppe gepflegt.' }));
           if (g) {
             formular.appendChild(el('div', { class: 'knopfleiste' }, el('button', { text: 'Gruppe bearbeiten', onclick: function () {
@@ -1253,7 +1253,7 @@
       if (!sortiert.length) { inhalt.appendChild(el('p', { class: 'zart', text: 'Keine Spalten vorhanden.' })); return; }
       inhalt.appendChild(el('p', { class: 'hinweis', style: { marginTop: '0' },
         text: 'Die Reihenfolge lässt sich auch direkt im Plan ändern: Spaltenkopf zwei Sekunden halten und ziehen.' }));
-      var tab = el('table');
+      var tab = el('table', { class: 'spalten-tabelle' });
       tab.appendChild(el('thead', {}, el('tr', {}, [
         el('th', { text: 'Kürzel' }), el('th', { text: 'Bezeichnung' }),
         el('th', { text: 'Art' }), el('th', { text: 'Träger / Mitglieder' }),
@@ -1324,7 +1324,7 @@
       var warnungen = probleme.filter(function (x) { return x.schwere === 'warn'; });
       seite.appendChild(el('div', { class: 'meldung ' + (warnungen.length ? 'warn' : 'info') }, [
         el('div', {}, [
-          el('b', { text: probleme.length + ' Hinweis(e) zur Vollständigkeit' }),
+          el('b', { text: probleme.length + (probleme.length === 1 ? ' Hinweis' : ' Hinweise') + ' zur Vollständigkeit' }),
           el('div', { style: { marginTop: '6px', fontSize: '13px' } },
             probleme.slice(0, 6).map(function (x) { return el('div', { text: '• ' + x.text }); })),
           probleme.length > 6 ? el('div', { class: 'zart', style: { marginTop: '4px' },
@@ -1442,7 +1442,7 @@
       el('h3', { text: titel, style: { marginTop: '0' } }),
       el('p', { class: 'hinweis', text: beschreibung }),
       zusatz || null,
-      el('button', { class: 'haupt', text: 'PDF erzeugen', style: { marginTop: '8px' }, onclick: aktion })
+      el('button', { class: 'haupt', text: 'PDF erzeugen', onclick: aktion })   /* steht per Gestaltung am unteren Kartenrand */
     ]);
   }
 
@@ -1665,7 +1665,7 @@
         if (e.pipedriveToken) {
           pdBereich.appendChild(el('div', { class: 'meldung warn' }, el('div', {}, [
             el('b', { text: 'Auf diesem Gerät liegt noch ein Schlüssel. ' }),
-            'Er wird nicht mehr gebraucht - der Server hat Vorrang. ',
+            'Er wird nicht mehr gebraucht – der Server hat Vorrang. ',
             el('button', { class: 'klein', style: { marginLeft: '8px' }, text: 'Vom Gerät entfernen',
               onclick: function () {
                 e.pipedriveToken = ''; e.pipedriveHost = '';
@@ -1717,7 +1717,7 @@
             'die Sie selbst kontrollieren, und ziehen Sie ihn in Pipedrive zurück, wenn ein Gerät ' +
             'abhandenkommt. Sie finden ihn unter: Einstellungen → Persönliche Einstellungen → API. ' +
             'In der gemeinsamen Fassung lässt sich der Schlüssel stattdessen einmal in WordPress ' +
-            'hinterlegen - dann braucht kein Gerät einen.'
+            'hinterlegen – dann braucht kein Gerät einen.'
           ])));
       }
 
@@ -1881,7 +1881,7 @@
     var Ab = global.Abgleich ? global.Abgleich.zustand() : null;
     var Akt = global.Aktualisierung;
     var ablage = Akt && Akt.eingerichtet()
-      ? 'eingerichtet - das Werkzeug startet auch ohne Netz'
+      ? 'eingerichtet – das Werkzeug startet auch ohne Netz'
       : (location.protocol.indexOf('http') === 0 ? 'noch nicht eingerichtet' : 'nicht nötig (lokale Datei)');
     var pruefKnopf = Akt ? el('button', { class: 'klein', text: 'Auf neue Fassung prüfen', onclick: function (ev) {
       ev.target.disabled = true;

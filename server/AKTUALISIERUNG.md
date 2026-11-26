@@ -2,10 +2,69 @@
 
 Diese Anleitung gilt, wenn das Werkzeug **schon läuft**: Plugin
 „Aufmaß-Abgleich“ in WordPress, Ordner `aufmasstool` auf dem Webspace,
-Geräte angemeldet. Sie bringt beides auf den Stand **1.5.1** – Plugin
+Geräte angemeldet. Sie bringt beides auf den Stand **1.5.2** – Plugin
 und Werkzeug tragen dieselbe Fassungsnummer.
 
-**Was 1.5.1 bringt** (gegenüber 1.5.0) – Fehlerbereinigung nach einem
+**Was 1.5.2 bringt** (gegenüber 1.5.1) – Sichtprüfung und Technik der
+Darstellung auf Telefon, Tablet und Rechner sowie der gedruckten Ausgaben
+
+- **Bedienung auf dem Telefon:** Der schwebende Knopf (+ Neue Tür,
+  + Spalte …) erscheint erst, wenn der gleichnamige Knopf im Kopf aus dem
+  Bild gescrollt ist; vorher verdeckte er Zeilen und Löschknöpfe. Die
+  Werkzeugleiste des Schließplans ist ein sauberes Raster, Dialoge mit
+  zwei Knöpfen haben eine Reihe, kleine Auswahldialoge liegen als Blatt am
+  unteren Rand. Tabellen unter dem Plan und „Spalten verwalten“ lassen
+  Nebenspalten weg, damit Medien und Pfeile im Bild bleiben. Der Europlan
+  zeigt auf dem Telefon Schlüsselspalten statt nur des linken Blocks.
+  Bereichs-Überschriften der Matrix bleiben beim seitlichen Scrollen
+  lesbar; Schatten zeigen, dass es seitlich weitergeht. Der gewählte
+  Reiter steht in der Mitte der Reiterleiste. Angetippte Knöpfe bleiben
+  auf Touch-Geräten nicht mehr „beleuchtet“.
+- **Tastatur und Hilfstechnik:** Türzeilen, Matrixzellen, Spaltenköpfe,
+  Personenzeilen und Gliederungsknoten sind per Tab erreichbar, Enter
+  öffnet oder schaltet, Pfeiltasten wandern durch Matrix und Reiter.
+  Dialoge tragen Rolle und Titel, sperren den Hintergrund, halten den
+  Fokus und geben ihn beim Schließen zurück (vorher konnte Enter auf dem
+  Reiter „Projekte“ bei offenem Türformular das Aufmaß schließen und die
+  Tür ging verloren). Sichtbare Fokusmarke überall, Beschriftungen für
+  mehrteilige Felder, Suchfeld und Speicherstatus, Reiter mit Zähler als
+  Text.
+- **Druck:** Strg+P druckt immer hell (auch in der dunklen Darstellung),
+  die Matrix vollständig statt im Scrollrahmen abgeschnitten, ohne
+  Knöpfe, Fußleiste und Werkzeugleisten; das gilt auch für die
+  Kundenseite.
+- **Kleinigkeiten:** Browserleiste in der Farbe der Darstellung,
+  Auswahllisten und Scrollbalken dunkel in der dunklen Darstellung,
+  Passwortfeld in der Gestaltung der übrigen Felder (iOS zoomt nicht),
+  Schutzzonen für Notch und Querformat, Android-Tastatur verdeckt keine
+  Dialogknöpfe mehr, Kontrast in der hellen Darstellung nachgezogen,
+  Touch-Ziele mindestens 44 px, Meldungen begrenzt (höchstens drei, kurz;
+  Hinweise zum EVVA-Formular in einem Fenster zum Nachlesen), lange
+  Wörter brechen um, Gerätespeicher in deutscher Schreibweise.
+- **PDF-Ausgaben:** Lange Bemerkungen, Nacharbeiten, Projektbemerkungen
+  und Hinweise fließen über Seitengrenzen statt über die Fußzeile zu
+  laufen. Keine verwaisten Bereichs-, Tabellen- und Summenzeilen am
+  Seitenende, Unterschriften nie allein. Kopfzeilen, Bereichszeilen und
+  Fußzeile laufen nicht mehr über den Rand. Datenblatt, Kopfblock und
+  Materialliste kürzen Werte nicht mehr nach zwei oder drei Zeilen,
+  Türnummern brechen an Bindestrichen um, der Datenblatt-Titel ist
+  zweizeilig, der Freigabekasten wächst mit. Fotos: bis zu beliebig
+  viele je Tür in Reihen, nicht lesbare Bilder werden benannt, kleine
+  Bilder nicht aufgeblasen, CMYK-Fotos farbrichtig. Schriften mindestens
+  7 pt (Stückzahlen 6,5 pt). Europlan-Schlüsselnummern stehen senkrecht
+  und bleiben lesbar. Sonderzeichen (≥ ≤ ≠ ≈ ∞ Ω) werden umgesetzt,
+  Zeichenbreiten für ß ø ½ Æ korrigiert, Auslassungen als „…“ an
+  Wortgrenzen. PDF-Metadaten (Titel, Betreff) in korrekter Kodierung,
+  dazu Fassung und Erstellungsdatum. Maße mit Dezimalkomma, Anzahl immer
+  als ganze Zahl ab 1.
+- **EVVA-Excel:** Funktion und Schlüsselnummer stehen senkrecht (wie in
+  der Vorlage), Mengen schrumpfen in die Zelle, Besteller und Besitzer
+  bekommen Zeilenhöhe nach Inhalt, Druck im Querformat auf Seitenbreite
+  mit Wiederholungszeilen und -spalten und Druckbereich, Gültigkeitsregeln
+  für Sperrkombination und Schlüsselnummer, Warnungen bei gekürzter
+  Schlüsselnummer und fehlender Zylindernummer (kein „?“ mehr).
+
+**Was 1.5.1 brachte** (gegenüber 1.5.0) – Fehlerbereinigung nach einem
 vollständigen technischen Prüfdurchlauf, ohne neue Bedienung
 
 - **Abgleich zwischen Geräten:** Wird ein Aufmaß auf einem Gerät
@@ -238,7 +297,7 @@ Vorlage, Freigabe) – das erledigt WordPress beim ersten Aufruf von selbst
 4. Das Plugin bleibt dabei aktiv. Beim ersten Aufruf danach ergänzt es die
    Tabelle und übernimmt die Umschreibregel für den Kurzlink.
 
-**Prüfen:** *Plugins* öffnen – bei „Aufmaß-Abgleich“ muss **1.5.1**
+**Prüfen:** *Plugins* öffnen – bei „Aufmaß-Abgleich“ muss **1.5.2**
 stehen. In der Zugangsliste gibt es jetzt die Spalte **„Schlüssel“**. Unter *Einstellungen → Aufmaß-Abgleich* muss neben der
 Organisationsdomäne die neuen Zeilen **„Neue Zugänge“** und **„Herkunft
 der Aufrufe“** erscheinen, weiter unten der Abschnitt **„Tür einsprechen
@@ -309,7 +368,7 @@ vorbei – und meldet sich dann:
   starten**. Der speichert und schließt zuerst; es geht nichts verloren.
 
 Unter *Einstellungen → Über dieses Werkzeug* steht, welche Fassung auf
-dem Gerät läuft (jetzt **1.5.1**), und ein Knopf **Auf neue Fassung
+dem Gerät läuft (jetzt **1.5.2**), und ein Knopf **Auf neue Fassung
 prüfen** stößt die Prüfung sofort an. Ein Gerät, das gerade ohne Netz
 ist, arbeitet mit der alten Fassung weiter, bis es wieder online war –
 auch das ist in Ordnung, die Aufmaße gleichen sich wie gewohnt ab.
@@ -372,10 +431,10 @@ zu ändern: Das übernimmt die Umschreibregel des Plugins auf jeden Fall.
 
 1. `https://www.provision-infra.de/aufmasstool/` öffnen. Die Anmeldeseite
    mit dem Google-Knopf muss erscheinen; ganz unten steht die
-   Werkzeug-Fassung 1.5.1. Anmelden. Oben rechts steht danach
+   Werkzeug-Fassung 1.5.2. Anmelden. Oben rechts steht danach
    **„Abgeglichen“**, und unter *Einstellungen → Über dieses Werkzeug*
    stehen die Fassung des Werkzeugs und die des Server-Plugins (beide
-   1.5.1). Unter *Schließplan* steht oben rechts der Umschalter
+   1.5.2). Unter *Schließplan* steht oben rechts der Umschalter
    **Kreuzschließplan | Europlan**. Darüber steht die neue Karte **„Zugang für Programme und
    Claude Code“**; ein Probeschlüssel lässt sich dort erzeugen und gleich
    wieder widerrufen.

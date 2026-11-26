@@ -5,9 +5,10 @@
 <!-- Diese Seite darf nur eigene Dateien laden und nur mit der eigenen
      Website sprechen. Das eingebettete Skript steht über seinen Prüfwert
      in der Richtlinie (tools/csp.js). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-96WCUqtpvxFWaIUivNkFxWOolLOviVAqLEZQ5IA6FCw=' 'sha256-pUMLFjq8QHFnLY/A1xwSEDihczkwaaUWv5a1s8ts6Oc='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-mRWmg1IJKO4eIh+W3EdtH+9t7lpDWXec4XDZXnykj0I=' 'sha256-asBK84ZqGw/Lnw5rHj+sjQ163eqbzleuecvLFy/Bs7U='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a1637">
 <meta name="robots" content="noindex, nofollow">
 <title>Schließplan abstimmen</title>
 <script>
@@ -23,6 +24,8 @@
     wahl = dunkel ? 'dunkel' : 'hell';
   }
   document.documentElement.setAttribute('data-darstellung', wahl === 'hell' ? 'hell' : 'dunkel');
+  var meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', wahl === 'hell' ? '#ffffff' : '#0a1637');
 })();
 </script>
 <link rel="stylesheet" href="css/app.css">
@@ -34,6 +37,19 @@
   .fr-kopf .objekt { font-size: 14px; color: var(--text-schwach); }
   .fr-inhalt { padding: 16px; max-width: 1400px; margin: 0 auto;
                padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
+  .fr-kopf { padding-top: max(14px, env(safe-area-inset-top)); }
+  /* Druck: ganze Matrix, keine Fußleiste und keine Formulare; helle Palette
+     und ausgeklappter Rahmen kommen aus app.css */
+  @media print {
+    @page { size: A4 landscape; margin: 10mm; }
+    .fr-fuss, button, .fr-ma .chips, .fr-medien-zeile button, #fr-zaehler { display: none !important; }
+    .fr-kopf { position: static; }
+    .fr-inhalt { padding-bottom: 0; max-width: none; }
+    table.matrix td.zelle { min-width: 24px; width: 24px; height: 24px; font-size: 11px; }
+    table.matrix th.ecke, table.matrix td.tuername { min-width: 150px; max-width: 150px; }
+    input, select, textarea { border: 0 !important; background: transparent !important; appearance: none; -webkit-appearance: none; padding-left: 0; }
+    .meldung { break-inside: avoid; }
+  }
   .fr-fuss { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
              background: var(--flaeche); border-top: 1px solid var(--rand);
              padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
@@ -41,6 +57,16 @@
              box-shadow: 0 -2px 12px rgba(20,30,45,.10); }
   .fr-fuss .zaehler { flex: 1; font-size: 14px; color: var(--text-schwach); min-width: 140px; }
   .fr-fuss button.haupt { min-height: var(--tap-gross); font-size: 16px; padding: 0 22px; }
+  /* Telefon: Zähler oben, beide Knöpfe in einer Reihe - die Leiste nahm
+     sonst 40 % des Bildschirms ein und ließ eine Zeile der Matrix übrig. */
+  @media (max-width: 600px) {
+    .fr-fuss { padding-top: 8px; gap: 8px; }
+    .fr-fuss .zaehler { flex: 1 1 100%; font-size: 13px; min-width: 0; }
+    .fr-fuss button { flex: 1 1 0; min-width: 0; padding-left: 10px; padding-right: 10px; }
+    .fr-fuss button.haupt { flex: 2 1 0; font-size: 14.5px; padding: 6px 10px; white-space: normal; line-height: 1.15; }
+    .fr-hinweis, .meldung.hinweis-kasten { font-size: 13.5px; }
+    .fr-inhalt { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+  }
   table.matrix td.zelle.gesperrt { cursor: default; background: repeating-linear-gradient(
       45deg, transparent, transparent 5px, var(--flaeche-3) 5px, var(--flaeche-3) 10px);
       color: var(--text-zart); }
@@ -56,7 +82,7 @@
   table.matrix th.spaltenkopf.neu .dreh { color: var(--akzent); }
   table.matrix th.spaltenkopf .art { display: block; font-size: 9.5px; font-weight: 700; color: var(--akzent);
       text-align: center; padding-bottom: 3px; }
-  .schluessel-feld { width: 100%; min-height: 130px; font-family: ui-monospace, Menlo, Consolas, monospace;
+  .schluessel-feld { width: 100%; min-height: 130px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 16px;
                      font-size: 12px; word-break: break-all; }
   /* Mitarbeiter und Gruppen */
   .fr-listen { margin-top: 22px; }
@@ -77,7 +103,7 @@
   .fr-ma input.name { flex: 1 1 240px; min-width: 0; font-weight: 600; }
   .fr-ma .feldname { font-size: 11.5px; font-weight: 700; color: var(--text-zart); margin: 10px 0 4px; }
   .fr-ma .chips { gap: 6px; }
-  .fr-ma .chip { min-height: 36px; padding: 0 12px; font-size: 13.5px; }
+  .fr-ma .chip { min-height: 44px; padding: 0 12px; font-size: 13.5px; }
   .fr-medien-zeile { display: grid; grid-template-columns: 1fr 90px 44px; gap: 8px; align-items: center; margin-bottom: 6px; }
   .fr-medien-zeile input, .fr-medien-zeile select { width: 100%; min-width: 0; }
   .fr-medien-zeile .anzahl { text-align: center; }
@@ -113,7 +139,7 @@
 </head>
 <body>
 <div id="fr-app">
-  <div style="padding:40px;text-align:center;color:#5c6670;font:15px system-ui,sans-serif">
+  <div style="padding:40px;text-align:center;color:var(--text-schwach, #5c6670);font:15px system-ui,sans-serif">
     Seite wird geladen …
   </div>
 </div>
@@ -374,7 +400,7 @@
 
     var zusatz = [
       daten.hinweis ? el('div', { style: { marginTop: '8px' } }, [el('b', { text: 'Hinweis: ' }), daten.hinweis]) : null,
-      daten.frist && z === 'offen' ? el('div', { style: { marginTop: '4px' } }, [el('b', { text: 'Rückmeldung bitte bis: ' }), daten.frist]) : null
+      daten.frist && z === 'offen' ? el('div', { style: { marginTop: '4px' } }, [el('b', { text: 'Rückmeldung bitte bis: ' }), datumKurz(daten.frist)]) : null
     ];
 
     if (z === 'gesperrt') {
@@ -502,7 +528,7 @@
       if (t[3] && t[3] !== letzterBereich) {
         letzterBereich = t[3];
         koerper.appendChild(el('tr', { class: 'gruppenzeile' },
-          el('td', { colspan: alle.length + 1, text: t[3] })));
+          el('td', { colspan: alle.length + 1 }, el('span', { class: 'gruppen-titel', text: t[3] }))));
       }
       var tr = el('tr');
       tr.appendChild(el('td', { class: 'tuername' }, [
@@ -513,12 +539,13 @@
         var i = indexVon(zeile, spalte);
         var frei = daten.maske[i] === '1' && z === 'offen';
         var zelle = el('td', {
-          class: 'zelle',
+          class: 'zelle', tabindex: frei ? '0' : null, role: frei ? 'button' : null,
           title: (t[1] || t[2]) + ' / ' + ((s[1] || '') + ' ' + (s[2] || '')).trim() +
                  (frei ? '' : '  (nicht freigegeben)')
         });
         zelleZeichnen(zelle, i, frei);
         if (frei) {
+          zelle.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); zelle.click(); } });
           zelle.addEventListener('click', function () {
             var jetzt = F.zeichenZuWert(arbeitsMatrix[i]);
             /* Vorgaben des Planers (befristet, gesperrt, Reserve) kann der Kunde
@@ -554,6 +581,25 @@
       koerper.appendChild(tr);
     });
     tabelle.appendChild(koerper);
+    /* Pfeiltasten von Zelle zu Zelle */
+    tabelle.addEventListener('keydown', function (e) {
+      var z = e.target;
+      if (!z || !z.matches || !z.matches('td.zelle[tabindex]')) return;
+      var schritt = { ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [-1, 0], ArrowDown: [1, 0] }[e.key];
+      if (!schritt) return;
+      e.preventDefault();
+      var zeile = z.parentNode, zellen = Array.prototype.slice.call(zeile.querySelectorAll('td.zelle'));
+      var i = zellen.indexOf(z), ziel = null;
+      if (schritt[1]) { for (var k = i + schritt[1]; k >= 0 && k < zellen.length; k += schritt[1]) { if (zellen[k].hasAttribute('tabindex')) { ziel = zellen[k]; break; } } }
+      else {
+        var zeilen = Array.prototype.slice.call(tabelle.querySelectorAll('tbody tr')).filter(function (r) { return r.querySelector('td.zelle'); });
+        for (var r = zeilen.indexOf(zeile) + schritt[0]; r >= 0 && r < zeilen.length; r += schritt[0]) {
+          var kandidat = zeilen[r].querySelectorAll('td.zelle')[i];
+          if (kandidat && kandidat.hasAttribute('tabindex')) { ziel = kandidat; break; }
+        }
+      }
+      if (ziel) { ziel.focus(); ziel.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+    });
     inhalt.appendChild(el('div', { class: 'matrix-rahmen' }, tabelle));
   }
 
@@ -787,7 +833,7 @@
     neueSpalten.push({ art: art, refId: id, zellen: zellen });
     zeichnen();
     var rahmen = document.querySelector('.matrix-rahmen');
-    if (rahmen) { rahmen.scrollLeft = rahmen.scrollWidth; rahmen.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
+    if (rahmen) { rahmen.scrollLeft = rahmen.scrollWidth; rahmen.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); }
   }
 
   function zaehlerAktualisieren() {
@@ -810,7 +856,7 @@
   function dialog(titel, koerperKinder, fussKinder) {
     var hinter = el('div', { class: 'dialog-hinter' });
     function schliessen() { if (hinter.parentNode) hinter.parentNode.removeChild(hinter); }
-    var kasten = el('div', { class: 'dialog' }, [
+    var kasten = el('div', { class: 'dialog', role: 'dialog', 'aria-modal': 'true', 'aria-label': titel, tabindex: '-1' }, [
       el('div', { class: 'kopf' }, [
         el('h2', { text: titel }),
         el('button', { class: 'nur-symbol', type: 'button', 'aria-label': 'Schließen', text: '✕', onclick: schliessen })
@@ -820,8 +866,21 @@
     ]);
     hinter.appendChild(kasten);
     hinter.addEventListener('click', function (e) { if (e.target === hinter) schliessen(); });
+    /* Escape schließt - wie im Werkzeug; der Fokus geht danach zurück */
+    var vorher = document.activeElement;
+    function beiTaste(e) { if (e.key === 'Escape') { e.preventDefault(); schliessen(); } }
+    document.addEventListener('keydown', beiTaste);
+    var schliessenAlt = schliessen;
+    schliessen = function () {
+      document.removeEventListener('keydown', beiTaste);
+      schliessenAlt();
+      if (vorher && vorher.focus) { try { vorher.focus(); } catch (e2) {} }
+    };
+    kasten.querySelector('.kopf button').onclick = function () { schliessen(); };
     document.body.appendChild(hinter);
-    return { schliessen: schliessen, kasten: kasten };
+    var erstes = kasten.querySelector('input:not([type=checkbox]), select, textarea, button.haupt');
+    if (erstes && !('ontouchstart' in window)) setTimeout(function () { try { erstes.focus(); } catch (e3) {} }, 60);
+    return { schliessen: function () { schliessen(); }, kasten: kasten };
   }
 
   function bestaetigungsFeld() {

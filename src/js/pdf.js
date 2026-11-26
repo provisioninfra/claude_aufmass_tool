@@ -53,7 +53,7 @@
     0xE8:'e',0xE9:'e',0xEA:'e',0xEB:'e',0xEC:'i',0xED:'i',0xEE:'i',0xEF:'i',
     0xF1:'n',0xF2:'o',0xF3:'o',0xF4:'o',0xF5:'o',0xF6:'o',0xF8:'o',
     0xF9:'u',0xFA:'u',0xFB:'u',0xFC:'u',0xFD:'y',0xFF:'y',
-    0xC6:'W',0xE6:'m',0xD0:'D',0xDE:'P',0xFE:'p'
+    0xD0:'D',0xDE:'P',0xFE:'p'
   };
   /* Sonderzeichen mit eigener Breite (regular / bold) */
   var W_SPECIAL = {
@@ -67,7 +67,7 @@
     0x86:[556,556],0x87:[556,556],   /* dagger, daggerdbl */
     0x88:[333,333],  /* circumflex */
     0x89:[1000,1000],/* perthousand */
-    0x8A:[667,722],  /* Scaron */
+    0x8A:[667,667],  /* Scaron */
     0x8B:[333,333],0x9B:[333,333],   /* guilsinglleft/right */
     0x8C:[1000,1000],/* OE */
     0x8E:[611,611],  /* Zcaron */
@@ -82,10 +82,19 @@
     0x97:[1000,1000],/* emdash */
     0xA0:[278,278],  /* nbsp */
     0xA1:[333,333],0xA2:[556,556],0xA3:[556,556],0xA4:[556,556],0xA5:[556,556],
-    0xA7:[556,556],0xA9:[737,737],0xAB:[556,556],0xAE:[737,737],
-    0xB0:[400,400],0xB1:[584,584],0xB2:[333,333],0xB3:[333,333],
-    0xB5:[556,611],0xB6:[537,556],0xB7:[278,278],0xBB:[556,556],0xBF:[611,611],
-    0xD7:[584,584],0xF7:[584,584]
+    0xA6:[260,280],  /* brokenbar */
+    0xA7:[556,556],0xA8:[333,333],0xA9:[737,737],0xAA:[370,370],0xAB:[556,556],
+    0xAC:[584,584],0xAD:[333,333],0xAE:[737,737],0xAF:[333,333],
+    0xB0:[400,400],0xB1:[584,584],0xB2:[333,333],0xB3:[333,333],0xB4:[333,333],
+    0xB5:[556,611],0xB6:[537,556],0xB7:[278,278],0xB8:[333,333],0xB9:[333,333],
+    0xBA:[365,365],0xBB:[556,556],0xBC:[834,834],0xBD:[834,834],0xBE:[834,834],0xBF:[611,611],
+    0xC6:[1000,1000],/* AE */
+    0xD7:[584,584],
+    0xDF:[611,611],  /* germandbls */
+    0xE6:[889,889],  /* ae */
+    0xF0:[556,611],  /* eth */
+    0xF7:[584,584],
+    0xF8:[611,611]   /* oslash */
   };
 
   /* Unicode -> WinAnsi-Byte für den 0x80..0x9F-Bereich und Transliteration */
@@ -102,7 +111,9 @@
     0x2713:'X', 0x2714:'X', 0x2717:'-', 0x2718:'-',
     0x25A0:'-', 0x25A1:'[ ]', 0x25CF:'*', 0x25CB:'o', 0x2605:'*', 0x2606:'*',
     0x2011:'-', 0x2012:'-', 0x2015:'-', 0x2044:'/', 0x02BC:"'",
-    0x00A0:' ', 0x2007:' ', 0x202F:' ', 0x2009:' '
+    0x00A0:' ', 0x2007:' ', 0x202F:' ', 0x2009:' ',
+    0x2265:'>=', 0x2264:'<=', 0x2260:'!=', 0x2248:'~', 0x221E:'inf', 0x03A9:'Ohm', 0x2126:'Ohm',
+    0x2032:"'", 0x2033:'"', 0x2212:'-', 0x00B7:'\u00B7'
   };
 
   function zeichenBreite(code, bold) {
@@ -149,6 +160,26 @@
     return '(' + out + ')';
   }
 
+  /* Text für das Info-Dictionary: reines ASCII als Literal, sonst UTF-16BE
+     mit Byte-Order-Mark als Hex-String. PDF kennt dort kein WinAnsi; mit
+     WinAnsi würden „ “ – € zu anderen Zeichen. */
+  function pdfTextString(text) {
+    var s = String(text == null ? '' : text);
+    if (/^[\x20-\x7E]*$/.test(s)) return pdfString(s);
+    var hex = 'FEFF';
+    for (var i = 0; i < s.length; i++) hex += ('000' + s.charCodeAt(i).toString(16)).slice(-4).toUpperCase();
+    return '<' + hex + '>';
+  }
+
+  /* Datum im PDF-Format D:JJJJMMTThhmmss+hh'mm' (Ortszeit) */
+  function pdfDatum(d) {
+    function p(n) { return (n < 10 ? '0' : '') + n; }
+    var versatz = -d.getTimezoneOffset(), vz = versatz < 0 ? '-' : '+';
+    versatz = Math.abs(versatz);
+    return 'D:' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + p(d.getHours()) + p(d.getMinutes()) +
+           p(d.getSeconds()) + vz + p(Math.floor(versatz / 60)) + "'" + p(versatz % 60) + "'";
+  }
+
   function num(n) {
     if (!isFinite(n)) n = 0;
     var s = (Math.round(n * 1000) / 1000).toString();
@@ -174,11 +205,15 @@
     this.rand = Object.assign({ oben: 15, unten: 15, links: 12, rechts: 12 }, opt.margin || {});
     this.seiten = [];
     this.bilder = [];          // {id, daten(Uint8Array), breite, hoehe, farbraum}
+    /* Die Fassung steht in app.js (AppKern.FASSUNG); in Node gibt es sie
+       nur über opt.fassung. Die Erstellungszeit wird einmal festgehalten. */
     this.meta = {
       titel: opt.titel || 'Dokument',
       autor: opt.autor || '',
       betreff: opt.betreff || '',
-      ersteller: 'Schliessanlagen Aufmass-Tool'
+      ersteller: 'Aufmaß-Werkzeug',
+      fassung: opt.fassung || (global.AppKern && global.AppKern.FASSUNG) || '',
+      erstelltAm: opt.erstelltAm instanceof Date ? opt.erstelltAm : new Date()
     };
     this.aktuelleSeite = null;
     this.y = 0;
@@ -241,7 +276,7 @@
     var absaetze = String(text == null ? '' : text).split(/\r?\n/);
     var zeilen = [], self = this;
 
-    function hartTrennen(wort) {
+    function zeichenweise(wort) {
       var teile = [], akt = '';
       for (var i = 0; i < wort.length; i++) {
         var test = akt + wort[i];
@@ -249,6 +284,30 @@
         else { akt = test; }
       }
       if (akt) teile.push(akt);
+      return teile;
+    }
+    /* Zu lange Wörter zuerst hinter - / . trennen (Türnummern wie
+       LANG-OHNE-0001 bleiben lesbar), erst wenn ein Stück immer noch zu
+       breit ist, zeichenweise. */
+    function hartTrennen(wort) {
+      var stuecke = [], akt = '';
+      for (var k = 0; k < wort.length; k++) {
+        akt += wort[k];
+        if (/[-\/.]/.test(wort[k]) && k < wort.length - 1) { stuecke.push(akt); akt = ''; }
+      }
+      if (akt) stuecke.push(akt);
+      var teile = [], zeile = '';
+      stuecke.forEach(function (st) {
+        var test = zeile + st;
+        if (self.textBreite(test, groesse, fett) <= maxBreite) { zeile = test; return; }
+        if (zeile) teile.push(zeile);
+        if (self.textBreite(st, groesse, fett) > maxBreite) {
+          var z = zeichenweise(st);
+          for (var i = 0; i < z.length - 1; i++) teile.push(z[i]);
+          zeile = z[z.length - 1] || '';
+        } else { zeile = st; }
+      });
+      if (zeile) teile.push(zeile);
       return teile;
     }
 
@@ -318,15 +377,35 @@
     return breite;
   };
 
-  /* Auf maximale Breite kürzen und mit Auslassungszeichen versehen. */
+  /* Auslassungszeichen „…“ (in WinAnsi 0x85) */
+  var ELLIPSE = '\u2026';
+
+  /* Auf maximale Breite kürzen und mit Auslassungszeichen versehen. Passt
+     nicht einmal die Ellipse, bleibt die Zelle leer. */
   PDFDoc.prototype.kuerzen = function (text, maxBreite, groesse, fett) {
     var s = String(text == null ? '' : text);
     if (this.textBreite(s, groesse, fett) <= maxBreite) return s;
-    var punkte = '...';
-    while (s.length > 0 && this.textBreite(s + punkte, groesse, fett) > maxBreite) {
+    if (this.textBreite(ELLIPSE, groesse, fett) > maxBreite) return '';
+    while (s.length > 0 && this.textBreite(s + ELLIPSE, groesse, fett) > maxBreite) {
       s = s.slice(0, -1);
     }
-    return s + punkte;
+    return s.replace(/\s+$/, '') + ELLIPSE;
+  };
+
+  /* Letzte Zeile eines nach maxLines gekürzten Blocks: Die Auslassung
+     steht an der letzten Wortgrenze, solange mindestens ein Drittel der
+     Zeile bleibt, sonst zeichenweise. */
+  PDFDoc.prototype.mitAuslassung = function (zeile, maxBreite, groesse, fett) {
+    if (this.textBreite(zeile + ELLIPSE, groesse, fett) <= maxBreite) return zeile + ELLIPSE;
+    var s = zeile, i;
+    while ((i = s.lastIndexOf(' ')) > 0) {
+      s = s.slice(0, i);
+      if (this.textBreite(s + ELLIPSE, groesse, fett) <= maxBreite) {
+        if (s.length * 3 >= zeile.length) return s + ELLIPSE;
+        break;
+      }
+    }
+    return this.kuerzen(zeile, maxBreite, groesse, fett);
   };
 
   /* Mehrzeiliger Text in fester Breite, gibt die verbrauchte Höhe in mm zurück. */
@@ -337,7 +416,7 @@
     var zeilen = this.umbrechen(text, maxBreite, groesse, opt.bold);
     if (opt.maxLines && zeilen.length > opt.maxLines) {
       zeilen = zeilen.slice(0, opt.maxLines);
-      zeilen[zeilen.length - 1] = zeilen[zeilen.length - 1].replace(/.{3}$/, '...');
+      zeilen[zeilen.length - 1] = this.mitAuslassung(zeilen[zeilen.length - 1], maxBreite, groesse, opt.bold);
     }
     for (var i = 0; i < zeilen.length; i++) {
       var zx = x;
@@ -346,6 +425,33 @@
       this.text(zeilen[i], zx, y + i * zeilenhoehe, opt);
     }
     return zeilen.length * zeilenhoehe;
+  };
+
+  /* Fließtext mit Seitenumbruch. Beginnt bei doc.y und schreibt Zeile für
+   * Zeile weiter. Reicht der Platz nicht, beginnt eine neue Seite und
+   * opt.beiUmbruch(doc) wird gerufen: Dort wiederholt der Aufrufer seinen
+   * Kopf. opt.anhangHoehe hält die letzten Zeilen (opt.anhangZeilen, Vorgabe
+   * 2) mit dem folgenden Block zusammen, etwa mit den Unterschriften.
+   * Setzt doc.y fort und liefert die Zahl der gezeichneten Zeilen. */
+  PDFDoc.prototype.textFliessend = function (text, x, maxBreite, opt) {
+    opt = opt || {};
+    var groesse = opt.size || 9;
+    var zeilenhoehe = opt.lineHeight || (groesse * 1.25 / MM_TO_PT);
+    var zeilen = this.umbrechen(text, maxBreite, groesse, opt.bold);
+    var anhang = opt.anhangHoehe || 0;
+    var zusammen = opt.anhangZeilen || 2;
+    var zx = x;
+    if (opt.align === 'center') zx = x + maxBreite / 2;
+    else if (opt.align === 'right') zx = x + maxBreite;
+    for (var i = 0; i < zeilen.length; i++) {
+      var rest = zeilen.length - i;
+      var noetig = (anhang && rest <= zusammen) ? rest * zeilenhoehe + anhang : zeilenhoehe;
+      var hatteSeite = !!this.aktuelleSeite;
+      if (this.platzPruefen(noetig) && hatteSeite && opt.beiUmbruch) opt.beiUmbruch(this);
+      this.text(zeilen[i], zx, this.y, opt);
+      this.y += zeilenhoehe;
+    }
+    return zeilen.length;
   };
 
   /* Höhe berechnen, ohne zu zeichnen (für Tabellen-Zeilenhöhen). */
@@ -416,13 +522,17 @@
    * ====================================================================== */
   function jpegInfo(bytes) {
     if (bytes.length < 4 || bytes[0] !== 0xFF || bytes[1] !== 0xD8) return null;
-    var i = 2;
+    var i = 2, adobe = false;
     while (i < bytes.length - 1) {
       if (bytes[i] !== 0xFF) { i++; continue; }
       var marker = bytes[i + 1];
+      if (marker === 0xFF) { i++; continue; }   /* Füllbyte vor einem Marker */
       if (marker === 0xD8 || marker === 0x01 || (marker >= 0xD0 && marker <= 0xD7)) { i += 2; continue; }
       if (marker === 0xD9 || marker === 0xDA) break;
       var laenge = (bytes[i + 2] << 8) | bytes[i + 3];
+      /* APP14 „Adobe“: Photoshop legt CMYK invertiert ab, das PDF braucht dann /Decode */
+      if (marker === 0xEE && bytes[i + 4] === 0x41 && bytes[i + 5] === 0x64 && bytes[i + 6] === 0x6F &&
+          bytes[i + 7] === 0x62 && bytes[i + 8] === 0x65) adobe = true;
       var istSOF = (marker >= 0xC0 && marker <= 0xCF) &&
                    marker !== 0xC4 && marker !== 0xC8 && marker !== 0xCC;
       if (istSOF) {
@@ -430,7 +540,8 @@
           hoehe: (bytes[i + 5] << 8) | bytes[i + 6],
           breite: (bytes[i + 7] << 8) | bytes[i + 8],
           kanaele: bytes[i + 9],
-          bits: bytes[i + 4]
+          bits: bytes[i + 4],
+          adobe: adobe
         };
       }
       i += 2 + laenge;
@@ -458,13 +569,23 @@
     try { bytes = base64ZuBytes(dataUrl.slice(komma + 1)); } catch (e) { return null; }
     var info = jpegInfo(bytes);
     if (!info || !info.breite || !info.hoehe) return null;
+    if (info.bits !== 8) return null;   /* 12-Bit-JPEG zeigen die Betrachter nicht an */
     var id = 'Im' + (this.bilder.length + 1);
     this.bilder.push({
       id: id, daten: bytes, breite: info.breite, hoehe: info.hoehe,
       farbraum: info.kanaele === 1 ? 'DeviceGray' : (info.kanaele === 4 ? 'DeviceCMYK' : 'DeviceRGB'),
-      bits: info.bits || 8
+      bits: 8, adobe: !!info.adobe
     });
     return id;
+  };
+
+  /* Pixelmaße eines registrierten Bildes, damit kleine Fotos nicht
+     hochgezogen werden. */
+  PDFDoc.prototype.bildInfo = function (bildId) {
+    for (var i = 0; i < this.bilder.length; i++) {
+      if (this.bilder[i].id === bildId) return { breite: this.bilder[i].breite, hoehe: this.bilder[i].hoehe };
+    }
+    return null;
   };
 
   /* Zeichnet ein registriertes Bild. Gibt {breite,hoehe} in mm zurück. */
@@ -536,6 +657,7 @@
       bildNr[b.id] = addObj({
         dict: '<< /Type /XObject /Subtype /Image /Width ' + b.breite + ' /Height ' + b.hoehe +
               ' /ColorSpace /' + b.farbraum + ' /BitsPerComponent ' + b.bits +
+              (b.adobe && b.farbraum === 'DeviceCMYK' ? ' /Decode [1 0 1 0 1 0 1 0]' : '') +
               ' /Filter /DCTDecode /Length ' + b.daten.length + ' >>',
         stream: b.daten
       });
@@ -565,11 +687,14 @@
     objekte[seitenBaumNr - 1] = '<< /Type /Pages /Count ' + seitenNrs.length + ' /Kids [' +
       seitenNrs.map(function (n) { return n + ' 0 R'; }).join(' ') + '] >>';
 
-    var infoNr = addObj('<< /Title ' + pdfString(this.meta.titel) +
-                        ' /Author ' + pdfString(this.meta.autor) +
-                        ' /Subject ' + pdfString(this.meta.betreff) +
-                        ' /Creator ' + pdfString(this.meta.ersteller) +
-                        ' /Producer ' + pdfString(this.meta.ersteller) + ' >>');
+    var produzent = this.meta.ersteller + (this.meta.fassung ? ' ' + this.meta.fassung : '');
+    var datum = pdfDatum(this.meta.erstelltAm);
+    var infoNr = addObj('<< /Title ' + pdfTextString(this.meta.titel) +
+                        ' /Author ' + pdfTextString(this.meta.autor) +
+                        ' /Subject ' + pdfTextString(this.meta.betreff) +
+                        ' /Creator ' + pdfTextString(this.meta.ersteller) +
+                        ' /Producer ' + pdfTextString(produzent) +
+                        ' /CreationDate ' + pdfString(datum) + ' /ModDate ' + pdfString(datum) + ' >>');
 
     objekte[katalogNr - 1] = '<< /Type /Catalog /Pages ' + seitenBaumNr + ' 0 R >>';
 
@@ -633,7 +758,8 @@
     Doc: PDFDoc,
     FORMATE: FORMATE,
     MM_TO_PT: MM_TO_PT,
-    _intern: { zuWinAnsi: zuWinAnsi, zeichenBreite: zeichenBreite, jpegInfo: jpegInfo, farbe: farbe }
+    _intern: { zuWinAnsi: zuWinAnsi, zeichenBreite: zeichenBreite, jpegInfo: jpegInfo, farbe: farbe,
+               pdfTextString: pdfTextString, pdfDatum: pdfDatum }
   };
   if (typeof module !== 'undefined' && module.exports) { module.exports = global.PDF; }
 })(typeof window !== 'undefined' ? window : globalThis);

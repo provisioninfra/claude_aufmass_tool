@@ -50,7 +50,7 @@
       if (!da || !global.google || !global.google.accounts) {
         A.leeren(platz);
         platz.appendChild(el('p', { class: 'meldung warn', text:
-          'Die Anmeldeseite von Google ist nicht erreichbar. Ohne Netz ist das normal - '
+          'Die Anmeldeseite von Google ist nicht erreichbar. Ohne Netz ist das normal – '
           + 'das Werkzeug arbeitet weiter, der Abgleich holt später nach.' }));
         return;
       }
@@ -300,13 +300,13 @@
         ziel.appendChild(el('div', { class: 'liste' }, [
           el('b', { text: (x.art === 'gruppe' ? 'Gruppe ' : 'Mitarbeiter ') + (x.name || '–') }),
           el('span', { class: 'zart', text: '  ' + x.zellen + (x.zellen === 1 ? ' Berechtigung' : ' Berechtigungen')
-            + (x.vorhanden ? ' (Spalte gab es schon - Berechtigungen werden ergänzt)' : '') })
+            + (x.vorhanden ? ' (Spalte gab es schon – Berechtigungen werden ergänzt)' : '') })
         ]));
       });
     }
     if (ueb) {
       ziel.appendChild(el('p', { class: 'hinweis', text:
-        ueb + ' Einträge betreffen Türen, Spalten oder Rechte, die es nicht (mehr) gibt - sie werden übersprungen.' }));
+        ueb + ' Einträge betreffen Türen, Spalten oder Rechte, die es nicht (mehr) gibt – sie werden übersprungen.' }));
     }
   }
 
@@ -325,7 +325,7 @@
     inhalt.appendChild(bericht);
     inhalt.appendChild(el('p', { class: 'hinweis', text:
       'Am Aufmaß ändert sich erst etwas, wenn Sie unten auf „Übernehmen“ tippen. '
-      + '„Verwerfen“ legt die Rückmeldung ab, ohne sie zu übernehmen - der Kunde kann jederzeit erneut übertragen.' }));
+      + '„Verwerfen“ legt die Rückmeldung ab, ohne sie zu übernehmen – der Kunde kann jederzeit erneut übertragen.' }));
 
     var laeuft = false;
     function fertig(schliessen, text) {
@@ -434,8 +434,9 @@
     var inhalt = el('div', {}, [
       el('p', {}, [
         'Dieses Aufmaß wurde auch von ', el('b', { text: satz.wer }),
-        ' geändert. Alles Übrige wurde bereits zusammengeführt – nur bei diesen ',
-        el('b', { text: String(satz.konflikte.length) }),
+        ' geändert. Alles Übrige wurde bereits zusammengeführt – nur bei ',
+        satz.konflikte.length === 1 ? 'dieser ' : 'diesen ',
+        el('b', { text: satz.konflikte.length === 1 ? 'einen' : String(satz.konflikte.length) }),
         satz.konflikte.length === 1 ? ' Angabe' : ' Angaben',
         ' wurde beidseitig etwas anderes eingetragen.'
       ]),
@@ -604,7 +605,7 @@
       el('h3', { style: { marginTop: '16px', marginBottom: '4px' }, text: 'Claude Code anbinden' }),
       el('ol', { style: { paddingLeft: '20px', margin: '6px 0', fontSize: '14px', lineHeight: '1.45' } }, [
         el('li', { text: 'Das Paket „Anbindung“ herunterladen (Knopf in der Karte) und entpacken, z. B. in den Ordner aufmass-anbindung im Benutzerverzeichnis. Node.js 18 oder neuer muss vorhanden sein.' }),
-        el('li', { text: 'Den folgenden Befehl im Terminal ausführen - den Pfad am Ende ggf. an den Ordner anpassen.' }),
+        el('li', { text: 'Den folgenden Befehl im Terminal ausführen – den Pfad am Ende ggf. an den Ordner anpassen.' }),
         el('li', { text: 'In Claude Code dann einfach fragen: „Welche Aufmaße gibt es?“ oder „Lege im Aufmaß Ibsen eine Tür im Erdgeschoss an.“' })
       ]),
       befehlKasten('Befehl für Claude Code', mcpBefehl),

@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="referrer" content="no-referrer">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5, interactive-widget=resizes-content">
+<meta name="color-scheme" content="dark light">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Aufmaß">
@@ -23,6 +24,8 @@
     wahl = dunkel ? 'dunkel' : 'hell';
   }
   document.documentElement.setAttribute('data-darstellung', wahl === 'hell' ? 'hell' : 'dunkel');
+  var meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', wahl === 'hell' ? '#ffffff' : '#0a1637');
 })();
 </script>
 <style>
@@ -190,7 +193,7 @@ header.kopf {
   font-size: 11.5px; font-weight: 700; padding: 1px 7px; border-radius: 9px;
   background: var(--akzent-bg); color: var(--akzent);
 }
-.zurueck-knopf:hover:not(:disabled) { border-color: var(--akzent); color: var(--akzent); }
+@media (hover: hover) { .zurueck-knopf:hover:not(:disabled) { border-color: var(--akzent); color: var(--akzent); } }
 .zurueck-knopf.ohne-schritte { opacity: .4; }
 .zurueck-knopf:disabled { cursor: not-allowed; }
 @media (max-width: 700px) {
@@ -215,7 +218,7 @@ header.kopf {
   font-size: 12px; font-weight: 600; color: var(--text-schwach);
   min-height: 36px; cursor: pointer; font-family: inherit;
 }
-.abgleich-status:hover { border-color: var(--akzent); }
+@media (hover: hover) { .abgleich-status:hover { border-color: var(--akzent); } }
 .abgleich-status .punkt { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
 .abgleich-status.fertig  { color: var(--gruen); }
 .abgleich-status.offen   { color: var(--gelb); }
@@ -320,7 +323,7 @@ header.kopf {
   border: 2px solid var(--rand); border-radius: var(--radius-klein);
   background: var(--flaeche); color: var(--text); font-family: inherit; cursor: pointer;
 }
-.konflikt .fassung:hover { border-color: var(--akzent); }
+@media (hover: hover) { .konflikt .fassung:hover { border-color: var(--akzent); } }
 .konflikt .fassung.gewaehlt { border-color: var(--hausfarbe); background: var(--hausfarbe-flaeche); }
 .konflikt .fassung .herkunft { font-size: 11px; font-weight: 700; color: var(--text-zart); }
 .konflikt .fassung.gewaehlt .herkunft { color: var(--text-schwach); }
@@ -391,7 +394,7 @@ p.hinweis { color: var(--text-schwach); font-size: 13.5px; margin: 4px 0 14px; }
 .feld .einheit { font-weight: 400; color: var(--text-zart); }
 
 input[type="text"], input[type="number"], input[type="date"], input[type="tel"],
-input[type="email"], input[type="search"], select, textarea {
+input[type="email"], input[type="search"], input[type="password"], input[type="url"], select, textarea {
   /* 16px ist Pflicht: darunter zoomt iOS beim Antippen in das Feld hinein,
      was die Bedienung mit einer Hand unbrauchbar macht. */
   font: inherit; font-size: 16px; color: var(--text);
@@ -438,7 +441,7 @@ input::placeholder, textarea::placeholder { color: var(--text-zart); }
   font-size: 15px; cursor: pointer; user-select: none; min-height: var(--tap);
   color: var(--text); touch-action: manipulation;
 }
-.chip:hover { border-color: var(--akzent); }
+@media (hover: hover) { .chip:hover { border-color: var(--akzent); } }
 .chip[aria-pressed="true"] {
   background: var(--hausfarbe); border-color: var(--hausfarbe);
   color: var(--auf-hausfarbe); font-weight: 700;
@@ -453,18 +456,16 @@ button, .knopf {
   min-height: var(--tap); display: inline-flex; align-items: center; justify-content: center;
   gap: 7px; text-decoration: none; white-space: nowrap;
 }
-button:hover, .knopf:hover { border-color: var(--akzent); color: var(--akzent); }
+@media (hover: hover) { button:hover, .knopf:hover { border-color: var(--akzent); color: var(--akzent); } }
 button:active, .knopf:active { transform: translateY(1px); }
 button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 /* Die Hauptaktion trägt die Hausfarbe - so wie der Knopf auf der Website */
 button.haupt, .knopf.haupt {
   background: var(--hausfarbe); border-color: var(--hausfarbe); color: var(--auf-hausfarbe);
 }
-button.haupt:hover {
-  background: var(--hausfarbe-hell); border-color: var(--hausfarbe-hell); color: var(--auf-hausfarbe);
-}
+@media (hover: hover) { button.haupt:hover { background: var(--hausfarbe-hell); border-color: var(--hausfarbe-hell); color: var(--auf-hausfarbe); } }
 button.gefahr { color: var(--rot); border-color: var(--rand); }
-button.gefahr:hover { background: var(--rot); border-color: var(--rot); color: var(--auf-farbe); }
+@media (hover: hover) { button.gefahr:hover { background: var(--rot); border-color: var(--rot); color: var(--auf-farbe); } }
 /* "klein" betrifft nur Innenabstand und Schrift - die Trefffläche bleibt
    fingertauglich, sonst ist der Knopf auf der Baustelle nicht bedienbar. */
 button.klein { padding: 8px 13px; font-size: 14px; min-height: var(--tap); }
@@ -494,7 +495,7 @@ th {
 }
 tbody tr:last-child td { border-bottom: 0; }
 tbody tr.anklickbar { cursor: pointer; }
-tbody tr.anklickbar:hover td { background: var(--akzent-bg); }
+@media (hover: hover) { tbody tr.anklickbar:hover td { background: var(--akzent-bg); } }
 td.zahl, th.zahl { text-align: right; font-variant-numeric: tabular-nums; }
 
 /* --- Türliste als Karten (Touch) ----------------------------------------- */
@@ -515,7 +516,7 @@ td.zahl, th.zahl { text-align: right; font-variant-numeric: tabular-nums; }
   cursor: pointer; background: var(--flaeche);
 }
 .tuer-zeile:last-child { border-bottom: 0; }
-.tuer-zeile:hover { background: var(--akzent-bg); }
+@media (hover: hover) { .tuer-zeile:hover { background: var(--akzent-bg); } }
 .tuer-zeile .statusbalken { width: 7px; flex-shrink: 0; background: var(--text-zart); }
 .tuer-zeile .inhalt { flex: 1; min-width: 0; padding: 15px 14px; display: flex; gap: 12px; align-items: center; min-height: 64px; }
 .tuer-zeile .nummer {
@@ -556,7 +557,7 @@ td.zahl, th.zahl { text-align: right; font-variant-numeric: tabular-nums; }
   background: none; border: 0; padding: 4px 0; min-height: var(--tap);
   text-align: left; color: inherit; font: inherit; border-radius: var(--radius-klein);
 }
-.knoten .knoten-haupt:hover { background: var(--akzent-bg); }
+@media (hover: hover) { .knoten .knoten-haupt:hover { background: var(--akzent-bg); } }
 .knoten .name { flex: 1; font-weight: 600; font-size: 14px; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .knoten .ebene-marke {
@@ -614,13 +615,13 @@ table.matrix tr.gruppenzeile td {
   background: var(--akzent-bg); color: var(--akzent); font-weight: 700;
   font-size: 12.5px; padding: 7px 10px;
 }
-table.matrix tr:hover td.tuername { background: var(--akzent-bg); }
+@media (hover: hover) { table.matrix tr:hover td.tuername { background: var(--akzent-bg); } }
 table.matrix td.zelle {
   text-align: center; cursor: pointer; user-select: none;
   border-right: 1px solid var(--rand-zart); font-weight: 700; font-size: 15px;
   min-width: 48px; height: 48px; color: var(--akzent); touch-action: manipulation;
 }
-table.matrix td.zelle:hover { background: var(--akzent-bg); }
+@media (hover: hover) { table.matrix td.zelle:hover { background: var(--akzent-bg); } }
 table.matrix td.zelle:active { background: var(--hausfarbe); color: var(--auf-hausfarbe); }
 table.matrix td.zelle.gesetzt-ja    { background: var(--hausfarbe-flaeche); }
 table.matrix td.zelle.gesetzt-zeit  { background: rgba(179,114,30,.14); color: var(--gelb); }
@@ -634,7 +635,7 @@ table.matrix tfoot td.tuername { z-index: 5; text-align: left; }
 
 /* --- Entfernen-Modus im Schließplan ------------------------------------- */
 table.matrix th.spaltenkopf.entfernbar { background: rgba(179,38,30,.12); }
-table.matrix th.spaltenkopf.entfernbar:hover { background: rgba(179,38,30,.22); }
+@media (hover: hover) { table.matrix th.spaltenkopf.entfernbar:hover { background: rgba(179,38,30,.22); } }
 table.matrix th.spaltenkopf .entfernen-zeichen {
   display: block; text-align: center; font-size: 14px; font-weight: 700;
   color: var(--rot); padding-bottom: 3px;
@@ -647,7 +648,7 @@ table.matrix td.tuername.entfernbar { background: rgba(179,38,30,.06); }
   display: inline-flex; align-items: center; justify-content: center;
   vertical-align: middle;
 }
-.entfernen-knopf:hover { background: var(--rot); color: var(--auf-farbe); border-color: var(--rot); }
+@media (hover: hover) { .entfernen-knopf:hover { background: var(--rot); color: var(--auf-farbe); border-color: var(--rot); } }
 
 .matrix-legende {
   display: flex; flex-wrap: wrap; gap: 14px; margin-top: 12px;
@@ -738,7 +739,7 @@ table.matrix td.tuername.entfernbar { background: rgba(179,38,30,.06); }
   box-shadow: 0 4px 16px rgba(20,30,45,.28), 0 2px 4px rgba(20,30,45,.2);
   display: inline-flex; align-items: center; gap: 9px;
 }
-.schwebe-aktion:hover { background: var(--hausfarbe-hell); color: var(--auf-hausfarbe); border: 0; }
+@media (hover: hover) { .schwebe-aktion:hover { background: var(--hausfarbe-hell); color: var(--auf-hausfarbe); border: 0; } }
 .schwebe-aktion:active { transform: translateY(1px); }
 /* Platz schaffen, damit der schwebende Knopf nichts verdeckt */
 main.inhalt.mit-schwebe { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
@@ -788,7 +789,7 @@ html:has(.dialog-hinter) #toast-bereich {
   padding: 15px; cursor: pointer; display: flex; flex-direction: column; gap: 7px;
   box-shadow: var(--schatten);
 }
-.projekt-karte:hover { border-color: var(--akzent); }
+@media (hover: hover) { .projekt-karte:hover { border-color: var(--akzent); } }
 .projekt-karte .titel { font-weight: 700; font-size: 15.5px; }
 .projekt-karte .zeile { font-size: 13px; color: var(--text-schwach); }
 .projekt-karte .zahlen { display: flex; gap: 14px; margin-top: 5px; font-size: 12px; color: var(--text-zart); }
@@ -970,7 +971,7 @@ html:has(.dialog-hinter) #toast-bereich {
   text-align: left; min-height: var(--tap-gross); padding: 11px 13px;
   background: var(--flaeche-2); border: 1px solid var(--rand); border-radius: var(--radius-klein);
 }
-.bereich-kachel:hover { border-color: var(--akzent); background: var(--akzent-bg); }
+@media (hover: hover) { .bereich-kachel:hover { border-color: var(--akzent); background: var(--akzent-bg); } }
 .bereich-kachel .name { font-weight: 600; font-size: 14.5px; }
 .bereich-kachel .zahl { font-size: 12px; color: var(--text-schwach); }
 .bereich-kachel.neu { border-style: dashed; color: var(--akzent); }
@@ -992,7 +993,7 @@ html:has(.dialog-hinter) #toast-bereich {
    Hauptaktion in der Fußzeile - in der Hausfarbe umrandet, damit sie neben
    „Anlegen“ als gleichwertiger Weg erkennbar ist. */
 .dialog > .fuss button.weiter { border-color: var(--hausfarbe); color: var(--hausfarbe); font-weight: 600; }
-.dialog > .fuss button.weiter:hover { background: var(--hausfarbe-flaeche); border-color: var(--hausfarbe); color: var(--hausfarbe); }
+@media (hover: hover) { .dialog > .fuss button.weiter:hover { background: var(--hausfarbe-flaeche); border-color: var(--hausfarbe); color: var(--hausfarbe); } }
 /* Die Blöcke unter den Namensfeldern (Gruppen, Mitglieder, Träger, Medien)
    bekommen Luft nach oben, sonst klebt ihre Beschriftung am Eingabefeld. */
 .dialog [data-feld="gruppen"], .dialog [data-feld="mitglieder"],
@@ -1108,7 +1109,7 @@ body.stift .zahl-knopf { min-width: 56px; }
   border: 1px solid var(--rand); border-radius: var(--radius-klein);
   background: var(--hausfarbe-flaeche); color: var(--text); white-space: nowrap;
 }
-.modus-leiste .diktat-start:hover { border-color: var(--akzent); }
+@media (hover: hover) { .modus-leiste .diktat-start:hover { border-color: var(--akzent); } }
 .diktat .diktat-beispiel {
   margin: 8px 0 14px; padding: 10px 14px; border-left: 3px solid var(--hausfarbe);
   background: var(--flaeche-2); border-radius: 0 var(--radius-klein) var(--radius-klein) 0;
@@ -1168,7 +1169,7 @@ body.stift .zahl-knopf { min-width: 56px; }
 .segmente .segment { border: 0; border-radius: 0; background: transparent; min-height: var(--tap); padding: 8px 16px; font-weight: 600; color: var(--text-schwach); }
 .segmente .segment + .segment { border-left: 1px solid var(--rand); }
 .segmente .segment.aktiv { background: var(--hausfarbe); color: var(--auf-hausfarbe); }
-.segmente .segment:hover:not(.aktiv) { color: var(--akzent); background: var(--akzent-bg); }
+@media (hover: hover) { .segmente .segment:hover:not(.aktiv) { color: var(--akzent); background: var(--akzent-bg); } }
 
 /* --- Europlan: Zylinderzeilen mit Zyl.Nr., Stk., ESL, Type ------------------ */
 table.matrix.europlan th.ecke { min-width: 0; max-width: none; position: sticky; left: 0; z-index: 6; text-align: left; font-size: 12px; color: var(--text-zart); vertical-align: bottom; }
@@ -1190,7 +1191,7 @@ table.matrix.europlan tbody td.links.zyl { font-weight: 700; color: var(--akzent
 table.matrix.europlan tbody td.links.zyl.gleich { color: var(--text-schwach); font-weight: 600; }
 table.matrix.europlan tbody td.links.type { color: var(--text-schwach); font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
 table.matrix.europlan tbody td.links.klickbar { cursor: pointer; }
-table.matrix.europlan tbody td.links.klickbar:hover { background: var(--akzent-bg); }
+@media (hover: hover) { table.matrix.europlan tbody td.links.klickbar:hover { background: var(--akzent-bg); } }
 table.matrix.europlan tr.mitlaeufer td.links { color: var(--text-zart); }
 table.matrix.europlan td.zelle { min-width: 40px; width: 40px; height: 44px; font-size: 14px; }
 table.matrix.europlan td.zelle.euro-x { background: var(--hausfarbe-flaeche); }
@@ -1209,6 +1210,185 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
 .wahl-liste .wahl b { font-size: 18px; min-width: 28px; text-align: center; color: var(--akzent); }
 .wahl-liste .wahl span { font-size: 14px; color: var(--text-schwach); white-space: normal; }
 .wahl-liste .wahl.aktiv { border-color: var(--hausfarbe); background: var(--hausfarbe-flaeche); }
+
+
+/* --- Feinschliff 1.5.2: Sichtprüfung auf Telefon, Tablet und Rechner ------- */
+
+/* Der schwebende Knopf doppelt die Hauptaktion im Seitenkopf. Solange die im
+   Bild ist, bleibt er weg - sonst verdeckt er Zeilen und Knöpfe (Sichtprüfung:
+   Löschen-Knopf der Gliederung, Türzeilen, Matrixkopf). Er erscheint, sobald
+   der Kopf aus dem Bild gescrollt ist. */
+.schwebe-aktion { transition: opacity .18s ease, transform .18s ease; }
+.schwebe-aktion.verborgen { opacity: 0; pointer-events: none; transform: translateY(14px) scale(.96); }
+@media (prefers-reduced-motion: reduce) { .schwebe-aktion { transition: none; } }
+
+/* Werkzeugleisten (Schließplan, Europlan): auf schmalen Bildschirmen ein
+   sauberes Raster statt rechts- und linksbündig gemischter Umbrüche. */
+.werkzeugleiste { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; justify-content: flex-end; }
+.werkzeugleiste.links { justify-content: flex-start; }
+@media (max-width: 700px) {
+  .werkzeugleiste { display: grid; grid-template-columns: 1fr 1fr; justify-content: stretch; }
+  .werkzeugleiste button { width: 100%; min-width: 0; padding-left: 10px; padding-right: 10px; white-space: normal; line-height: 1.2; }
+  .werkzeugleiste .fuellen { display: none; }
+}
+
+/* Dialoge auf dem Telefon: zwei Knöpfe in der Fußzeile passen nebeneinander,
+   kleine Auswahldialoge liegen als Blatt am unteren Rand statt den ganzen
+   Bildschirm zu füllen. */
+@media (max-width: 700px) {
+  /* Genau zwei Knöpfe (Abbrechen + Hauptaktion) teilen sich eine Reihe;
+     drei und mehr brechen wie bisher um (Zurück/Weiter oben, Speichern unten). */
+  .dialog > .fuss:has(button:nth-of-type(2):last-of-type) { display: grid; grid-template-columns: minmax(96px, 2fr) 3fr; }
+  .dialog > .fuss:has(button:nth-of-type(2):last-of-type) button { min-width: 0; }
+  .dialog-hinter:has(> .dialog.klein) { align-items: flex-end; }
+  .dialog.klein { min-height: 0; max-height: 92%; overflow-y: auto; margin: auto 0 0; border-radius: 16px 16px 0 0; }
+  .dialog.klein > .kopf { border-radius: 16px 16px 0 0; }
+}
+
+/* Tabellen unter dem Plan und im Dialog „Spalten verwalten“: auf dem Telefon
+   die Nebenspalten weglassen, damit Medien und Knöpfe im Bild bleiben. Die
+   Zeile selbst öffnet weiterhin den Eintrag. */
+@media (max-width: 700px) {
+  .personen-tabelle th:nth-child(2), .personen-tabelle td:nth-child(2),
+  .personen-tabelle th:nth-child(4), .personen-tabelle td:nth-child(4) { display: none; }
+  .personen-tabelle td:nth-child(3) { white-space: normal; }
+  /* Der Knopf am Zeilenende passte nicht mehr ins Bild: die ganze Zeile
+     öffnet den Eintrag, ein Pfeil sagt es. */
+  .personen-tabelle th:nth-child(5), .personen-tabelle td:nth-child(5) { display: none; }
+  .personen-tabelle td:nth-child(3)::after { content: ' ›'; color: var(--text-zart); font-weight: 700; }
+  .personen-tabelle td:nth-child(1) { white-space: normal; }
+  .spalten-tabelle th:nth-child(3), .spalten-tabelle td:nth-child(3),
+  .spalten-tabelle th:nth-child(4), .spalten-tabelle td:nth-child(4) { display: none; }
+  .spalten-tabelle th:nth-child(5), .spalten-tabelle td:nth-child(5) { display: none; }
+  .spalten-tabelle th, .spalten-tabelle td { padding: 8px 6px; }
+  .spalten-tabelle th:last-child { white-space: normal; font-size: 11px; }
+  .spalten-tabelle .reihenfolge { flex-wrap: nowrap; gap: 4px; }
+  .spalten-tabelle .reihenfolge button { min-width: 36px; min-height: 36px; width: 36px; height: 36px; padding: 0; }
+}
+
+/* Europlan auf dem Telefon: ZP und Type weglassen, Raum schmaler - sonst
+   füllt der linke Block die ganze Breite und keine Schlüsselspalte ist im Bild. */
+@media (max-width: 700px) {
+  table.matrix.europlan .links.zp, table.matrix.europlan .links.type, table.matrix.europlan .links.raum { display: none; }
+  table.matrix.europlan tbody td.links, table.matrix.europlan thead th.links { padding-left: 6px; padding-right: 6px; }
+  table.matrix.europlan tbody td.links.nr { max-width: 96px; overflow: hidden; text-overflow: ellipsis; }
+  table.matrix.europlan thead th.links.nr, table.matrix.europlan tbody td.links.nr { position: sticky; left: 0; z-index: 3; }
+  table.matrix.europlan tbody td.links.stk, table.matrix.europlan tbody td.links.esl, table.matrix.europlan tbody td.links.zyl { min-width: 40px; }
+}
+
+/* Meldungen stapeln sich nicht endlos: höchstens drei, die ältesten gehen zuerst. */
+#toast-bereich .toast { max-height: 40vh; overflow: hidden; }
+
+/* Export: Knöpfe der Ausgabekarten auf eine Linie am unteren Rand */
+.raster.zwei > .karte, .raster > .karte { display: flex; flex-direction: column; }
+.raster.zwei > .karte > button.haupt:last-child, .raster > .karte > button.haupt:last-child { margin-top: auto; align-self: flex-start; }
+.raster.zwei > .karte > :not(:last-child) { margin-bottom: 8px; }
+
+/* Hinweislisten in kleinen Dialogen (etwa zum EVVA-Formular) */
+.hinweisliste { margin: 0; padding-left: 20px; font-size: 13.5px; line-height: 1.45; }
+.hinweisliste li { margin: 5px 0; }
+
+
+/* --- Technik 1.5.2: Druck, Tastatur, Touch, Kontrast, Eigenheiten -------- */
+
+/* Druck: immer die helle Palette (Gold auf Weiß und Navy-Vollflächen waren
+   unlesbar bzw. teuer), Scrollrahmen ausklappen, fixierte Teile weglassen. */
+@media print {
+  :root, :root[data-darstellung="dunkel"], :root[data-darstellung="hell"] { color-scheme: light; --hausfarbe: #fcc91d; --hausfarbe-hell: #ffd84a; --auf-hausfarbe: #0a1637; --hausfarbe-flaeche: rgba(252, 201, 29, .18); --akzent: #14306e; --akzent-hell: #1d4499; --akzent-bg: #e7ecf8; --akzent-flaeche: rgba(20, 48, 110, .10); --auf-akzent: #ffffff; --text: #0a1637; --text-schwach: #46557f; --text-zart: #5c6884; --flaeche: #ffffff; --flaeche-2: #eef2f9; --flaeche-3: #e5ebf6; --rand: #ccd6e8; --rand-zart: #e2e9f4; --gruen: #1b7a44; --gelb: #95560a; --rot: #b3261e; --auf-farbe: #ffffff; --schleier: rgba(2, 9, 43, .58); --schatten: 0 1px 3px rgba(10, 22, 55, .10), 0 8px 24px rgba(10, 22, 55, .08); }
+  html, body { background: #fff !important; color: var(--text) !important; height: auto; }
+  #app { height: auto; display: block; }
+  main.inhalt { overflow: visible !important; height: auto; }
+  .matrix-rahmen, .tabelle-rahmen { max-height: none !important; overflow: visible !important; border: 0; }
+  .matrix-huelle::before, .matrix-huelle::after { display: none !important; }
+  table.matrix th, table.matrix td { position: static !important; }
+  .schwebe-aktion, .zurueck-knopf, .abgleich-status, .speicher-status, #toast-bereich, .dialog-hinter, .fassung-hinweis,
+  .werkzeugleiste, .segmente, .knopfleiste, main.inhalt button { display: none !important; }
+  table.matrix td.zelle, .marke-pille, .statusbalken, .kennzahl { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  table.matrix td.zelle.gesperrt { border: 1px dashed var(--rand); }
+  tr { break-inside: avoid; }
+  thead { display: table-header-group; }
+}
+
+/* Native Auswahllisten, Scrollbalken und Datei-Dialoge folgen der Darstellung */
+:root[data-darstellung="dunkel"] { color-scheme: dark; }
+:root[data-darstellung="hell"] { color-scheme: light; }
+
+/* Sichtbare Fokusmarke für alles, was man mit der Tastatur erreicht */
+:where(button, .knopf, .chip, nav.reiter button, .segmente .segment, .knoten, .tuer-zeile, .projekt-karte, tr.anklickbar, [tabindex="0"]):focus-visible {
+  outline: 3px solid var(--hausfarbe); outline-offset: 2px;
+}
+:root[data-darstellung="hell"] :where(button, .knopf, .chip, nav.reiter button, .segmente .segment, .knoten, .tuer-zeile, tr.anklickbar, [tabindex="0"]):focus-visible { outline-color: var(--akzent); }
+table.matrix td.zelle:focus-visible, table.matrix th.spaltenkopf:focus-visible, table.matrix td.links.klickbar:focus-visible { outline: 3px solid var(--hausfarbe); outline-offset: -3px; }
+:root[data-darstellung="hell"] table.matrix td.zelle:focus-visible, :root[data-darstellung="hell"] table.matrix th.spaltenkopf:focus-visible { outline-color: var(--akzent); }
+
+/* Lange Wörter ohne Leerzeichen laufen nicht mehr aus dem Bild */
+.projekt-karte .titel, .projekt-karte .zeile, .tuer-gruppe > .kopfzeile, .bereich-kopf .pfad, .knoten .name { overflow-wrap: anywhere; min-width: 0; }
+.pfad-knopf { white-space: normal; text-align: left; }
+.kopf .marke { min-width: 0; max-width: 38%; overflow: hidden; text-overflow: ellipsis; }
+.kopf .marke small { overflow: hidden; text-overflow: ellipsis; }
+.kopf .projekt-titel span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Touch-Ziele mindestens 44 px */
+.abgleich-status { min-height: 44px; }
+.entfernen-knopf { min-width: 44px; min-height: 44px; }
+.pfad-knopf { min-height: 44px; padding-top: 8px; padding-bottom: 8px; }
+.personen-tabelle td { padding-top: 13px; padding-bottom: 13px; }
+table.matrix.europlan td.zelle { min-width: 44px; width: 44px; }
+@media (max-width: 700px) {
+  .spalten-tabelle .reihenfolge button { min-width: 44px; min-height: 44px; width: 44px; height: 44px; }
+  .knopfleiste button { white-space: normal; line-height: 1.2; }
+  /* Türzeilen: die Maße bleiben lesbar (zwei Zeilen statt Ellipse) */
+  .tuer-zeile .haupt .detail { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  /* Schutzzonen: Notch oben im Dialog, seitlich im Querformat */
+  .dialog > .kopf { padding-top: max(14px, env(safe-area-inset-top)); }
+  header.kopf, nav.reiter { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); }
+  main.inhalt { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); }
+  .schwebe-aktion { right: max(18px, env(safe-area-inset-right)); }
+  /* Meldung bei offenem Dialog unter dessen Kopf, nicht darauf */
+  html:has(.dialog-hinter) #toast-bereich { top: calc(78px + env(safe-area-inset-top)); }
+}
+
+/* Kontrast in der hellen Darstellung und bei inaktiven Knöpfen */
+:root[data-darstellung="hell"] .marke-pille.gruen { background: rgba(31,122,61,.09); }
+.pflicht-leiste .pflicht-umschalter .pfeil { opacity: 1; }
+.meldung.warn .zart { color: inherit; opacity: .85; }
+.zurueck-knopf.ohne-schritte { opacity: .65; }
+button:disabled { opacity: .6; }
+nav.reiter button:disabled { opacity: .5; }
+
+/* Matrixrahmen: Höhe aus dem Bild, nicht pauschal 72 vh; dazu Schatten, die
+   seitliches Scrollen anzeigen (iOS blendet Scrollbalken aus) */
+.matrix-rahmen { max-height: 72vh; max-height: calc(100dvh - 240px); }
+@media (max-width: 700px) { .matrix-rahmen { max-height: calc(100dvh - 200px); } }
+.matrix-huelle { position: relative; }
+.matrix-huelle::before, .matrix-huelle::after {
+  content: ''; position: absolute; top: 0; bottom: 0; width: 22px; pointer-events: none; z-index: 7;
+  opacity: 0; transition: opacity .15s;
+}
+.matrix-huelle::before { left: var(--ecke, 0px); background: linear-gradient(to right, rgba(0,0,0,.35), transparent); }
+.matrix-huelle::after { right: 0; background: linear-gradient(to left, rgba(0,0,0,.35), transparent); border-radius: 0 var(--radius) var(--radius) 0; }
+.matrix-huelle.kann-links::before { opacity: 1; }
+.matrix-huelle.kann-rechts::after { opacity: 1; }
+:root[data-darstellung="hell"] .matrix-huelle::before { background: linear-gradient(to right, rgba(20,48,110,.22), transparent); }
+:root[data-darstellung="hell"] .matrix-huelle::after { background: linear-gradient(to left, rgba(20,48,110,.22), transparent); }
+
+/* Dialog-Schleier: kein Gummiband auf die Seite dahinter */
+.dialog-hinter { overscroll-behavior: contain; }
+
+/* Reiterleiste: der gewählte Reiter rückt in die Mitte, nicht in die Maske */
+nav.reiter { scroll-padding-inline: 24px; }
+
+/* Bewegungsreduktion vollständig */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+
+/* Bereichs-Überschriften in der Matrix bleiben beim seitlichen Scrollen lesbar */
+table.matrix tr.gruppenzeile td { padding: 0; }
+table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display: inline-block; padding: 7px 10px; max-width: min(92vw, 640px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
+
+/* Zeilen und Karten in Kästen mit overflow: hidden: die Fokusmarke liegt innen, sonst wird sie abgeschnitten */
+.tuer-zeile:focus-visible, tr.anklickbar:focus-visible, .knoten:focus-visible, .projekt-karte:focus-visible { outline-offset: -3px; }
 
 </style>
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiByb2xlPSJpbWciIGFyaWEtbGFiZWw9IkF1Zm1hw58tVG9vbCI+CiAgPHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSIxMDQiIGZpbGw9IiMwMjA5MmIiLz4KICA8IS0tIFTDvHJibGF0dCAtLT4KICA8cmVjdCB4PSIxMTIiIHk9Ijk2IiB3aWR0aD0iMTk2IiBoZWlnaHQ9IjMyMCIgcng9IjEwIiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMjIiLz4KICA8IS0tIFp5bGluZGVyIC8gU2NobMO8c3NlbGxvY2ggaW4gZGVyIEhhdXNmYXJiZSAtLT4KICA8Y2lyY2xlIGN4PSIyNjIiIGN5PSIyNTIiIHI9IjIwIiBmaWxsPSIjZmNjOTFkIi8+CiAgPHJlY3QgeD0iMjUzIiB5PSIyNjIiIHdpZHRoPSIxOCIgaGVpZ2h0PSI0MiIgcng9IjYiIGZpbGw9IiNmY2M5MWQiLz4KICA8IS0tIE1hw59wZmVpbCByZWNodHMgLS0+CiAgPHBhdGggZD0iTTM2OCAxMjAgdjI3MiIgc3Ryb2tlPSIjZmNjOTFkIiBzdHJva2Utd2lkdGg9IjE2IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KICA8cGF0aCBkPSJNMzQ4IDE0NiBsMjAgLTI2IGwyMCAyNiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmNjOTFkIiBzdHJva2Utd2lkdGg9IjE2IgogICAgICAgIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgogIDxwYXRoIGQ9Ik0zNDggMzY2IGwyMCAyNiBsMjAgLTI2IiBmaWxsPSJub25lIiBzdHJva2U9IiNmY2M5MWQiIHN0cm9rZS13aWR0aD0iMTYiCiAgICAgICAgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPgo=" type="image/svg+xml">
@@ -1944,6 +2124,14 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     };
   }
 
+  /* Anzahl einer Tür: ganze Zahl ab 1. Nachkommastellen, negative und
+     leere Werte kommen nur von außen (Import, Abgleich) und werden hier
+     geglättet, damit Summen und Berichte stimmen. */
+  function anzahlNormieren(wert) {
+    var n = parseInt(wert, 10);
+    return (isFinite(n) && n >= 1) ? n : 1;
+  }
+
   /* --- Tür ---------------------------------------------------------------- */
   function neueTuer(vorgabe) {
     var t = {
@@ -2058,6 +2246,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       geaendert: new Date().toISOString()
     };
     if (vorgabe) { for (var k in vorgabe) { if (Object.prototype.hasOwnProperty.call(vorgabe, k)) t[k] = vorgabe[k]; } }
+    t.anzahl = anzahlNormieren(t.anzahl);
     return t;
   }
 
@@ -2433,7 +2622,10 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
   function zylinderNummer(projekt, tuer) {
     var basis = basisTuer(projekt, tuer);
     if (!basis) return '';
-    var nummer = String(basis.nummer || '').trim() || '?';
+    /* Ohne Türnummer gibt es keine Zylindernummer. Ein „?“ wäre im
+       Bestellformular ein unzulässiges Zeichen. */
+    var nummer = String(basis.nummer || '').trim();
+    if (!nummer) return '';
     if (basis.id === tuer.id) return nummer;
     var mitlaeufer = schliessungsTueren(projekt, basis).slice(1);
     var index = 0;
@@ -2468,7 +2660,9 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
   function zylinderNummerVorschau(projekt, tuer, basisId) {
     var basis = basisTuer(projekt, basisId);
     if (!basis) return '';
-    var nummer = String(basis.nummer || '').trim() || '?';
+    /* Ohne Türnummer gibt es keine Zylindernummer, auch nicht als Vorschau */
+    var nummer = String(basis.nummer || '').trim();
+    if (!nummer) return '';
     var mitlaeufer = schliessungsTueren(projekt, basis).slice(1).filter(function (x) { return x.id !== tuer.id; });
     var reihen = (projekt.tueren || []).filter(function (x) { return x.id === tuer.id || mitlaeufer.some(function (m) { return m.id === x.id; }); });
     var index = 0;
@@ -4028,6 +4222,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       });
       neu.id = t && typeof t.id === 'string' && t.id ? t.id : uid('tur');
       typenAngleichen(neu, tuerVorlage, ['id', 'strukturId', 'fotos', 'zylinderAusfuehrung', 'beschlagOptionen', 'komponenten']);
+      neu.anzahl = anzahlNormieren(neu.anzahl);
       if (neu.strukturId !== null && typeof neu.strukturId !== 'string') neu.strukturId = null;
       ['zylinderAusfuehrung', 'beschlagOptionen', 'komponenten', 'fotos'].forEach(function (k) {
         if (!Array.isArray(neu[k])) neu[k] = [];
@@ -4356,7 +4551,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       var heim = a.heimVon[s.id];
       return {
         id: s.id, spalte: s, art: gruppe ? 'gruppe' : 'schluessel',
-        schlNr: heim ? M.zylinderNummer(p, heim) : (s.kuerzel || ''), funktion: s.bezeichnung || '',
+        schlNr: (heim && M.zylinderNummer(p, heim)) || s.kuerzel || '', funktion: s.bezeichnung || '',
         menge: gruppe ? gruppenMenge(p, s) : M.medienAnzahl(p, s),
         mitglieder: gruppe ? M.gruppenMitglieder(p, s.gruppeId) : M.spaltenMitglieder(p, s)
       };
@@ -4382,7 +4577,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
         });
         zeilen.push({
           tuer: t, basis: basis, mitlaeufer: mitlaeufer, bereich: g.titel,
-          zylNr: M.zylinderNummer(p, t), stk: parseInt(t.anzahl, 10) || 1,
+          zylNr: M.zylinderNummer(p, t), stk: Math.max(1, parseInt(t.anzahl, 10) || 1),
           esl: mitlaeufer ? null : eslVon(p, a, basis),
           inhaber: inh, eigenschluessel: a.ezJeBasis[basis.id] || [],
           produktcode: M.produktcode(p, t), zellen: zellen
@@ -4414,7 +4609,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       var heimTuer = eigene ? (a.heimVon[eigene.id] || null) : null;
       spalten.push({
         id: 'ma:' + m.id, mitarbeiter: m, art: 'schluessel',
-        schlNr: heimTuer ? M.zylinderNummer(p, heimTuer) : (eigene && eigene.kuerzel ? eigene.kuerzel : M.kuerzelAus(m.name || '')),
+        schlNr: (heimTuer && M.zylinderNummer(p, heimTuer)) || (eigene && eigene.kuerzel) || M.kuerzelAus(m.name || ''),
         funktion: m.name || '', menge: M.mitarbeiterMedienAnzahl(m),
         zelle: function (t) {
           var beste = 'nein';
@@ -4441,7 +4636,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
         var ez = a.ezJeBasis[basis.id] || [];
         var esl = mitlaeufer ? null : (ez.length ? ez.reduce(function (sum, s) { return sum + M.medienAnzahl(p, s); }, 0) : (basis.eigenschluesselVorgeplant ? 0 : null));
         zeilen.push({ tuer: t, basis: basis, mitlaeufer: mitlaeufer, bereich: g.titel, zylNr: M.zylinderNummer(p, t),
-                      stk: parseInt(t.anzahl, 10) || 1, esl: esl, produktcode: M.produktcode(p, t), zellen: zellen });
+                      stk: Math.max(1, parseInt(t.anzahl, 10) || 1), esl: esl, produktcode: M.produktcode(p, t), zellen: zellen });
       });
     });
     return { spalten: spalten, zeilen: zeilen, hinweise: a.hinweise, analyse: a };
@@ -4588,6 +4783,13 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
   var SPALTEN_MAX = 95;      /* H bis CX */
   function spaltenName(n) { var s = ''; while (n > 0) { var r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); } return s; }
   function mehrzeilig() { return Array.prototype.slice.call(arguments).filter(function (x) { return x !== undefined && x !== null && String(x).trim() !== ''; }).join('\n'); }
+  /* Zeilenhöhe in Punkt für einen umbrechenden Text: je Zeile etwa so viele
+     Zeichen wie die Spalte breit ist (Excel-Einheit), 12,75 pt je Zeile. */
+  function hoeheFuer(text, spaltenBreite, mindest, hoechstens) {
+    var zeilen = 0;
+    String(text || '').split('\n').forEach(function (z) { zeilen += Math.max(1, Math.ceil(z.length / Math.max(1, spaltenBreite))); });
+    return Math.min(hoechstens, Math.max(mindest, Math.round(zeilen * 12.75 + 3)));
+  }
 
   function evvaBlatt(p, einstellungen, art) {
     einstellungen = einstellungen || {};
@@ -4610,12 +4812,19 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     ['ZP', 'Tür.Nr.', 'Raumbezeichnung', 'Stk.', 'ESL', 'Type (Produktcode)', 'Zyl.Nr.'].forEach(function (k, i) {
       z[spaltenName(i + 1) + '4'] = { v: k, s: 'kopf' };
     });
+    /* Die Schlüsselspalten sind 2,1 Zeichen schmal: Funktion und Schl.Nr
+       stehen senkrecht (wie in der EVVA-Vorlage), die Menge in Schrift 8
+       auf Zellbreite verkleinert. */
+    var schlGekuerzt = [];
     spalten.forEach(function (sp, i) {
       var c = spaltenName(8 + i);
-      z[c + '1'] = { v: String(sp.funktion || ''), s: 'umbruch' };
-      if (sp.menge > 0) z[c + '2'] = { v: sp.menge };
-      z[c + '3'] = { v: String(sp.schlNr || '').slice(0, 10) };
+      z[c + '1'] = { v: String(sp.funktion || ''), s: 'senkrecht' };
+      if (sp.menge > 0) z[c + '2'] = { v: sp.menge, s: 'zahlKlein' };
+      var schlNr = String(sp.schlNr || '');
+      if (schlNr.length > 10) schlGekuerzt.push('„' + schlNr + '“ → „' + schlNr.slice(0, 10) + '“ (' + (sp.funktion || c) + ')');
+      z[c + '3'] = { v: schlNr.slice(0, 10), s: 'senkrechtFett' };
     });
+    if (schlGekuerzt.length) warnungen.push('Schl.Nr. auf 10 Zeichen gekürzt: ' + schlGekuerzt.slice(0, 6).join('; ') + (schlGekuerzt.length > 6 ? '; …' : '') + '.');
     var ohneZylinder = plan.zeilen.filter(function (zeile) { return zeile.tuer.brauchtZylinder === false; });
     if (ohneZylinder.length) warnungen.push(ohneZylinder.length + (ohneZylinder.length === 1 ? ' Tür ohne Zylinderbedarf wurde' : ' Türen ohne Zylinderbedarf wurden') + ' nicht als Bestellzeile übernommen (' + ohneZylinder.slice(0, 5).map(function (zeile) { return zeile.tuer.nummer || zeile.tuer.bezeichnung; }).join(', ') + (ohneZylinder.length > 5 ? ', …' : '') + ').');
     var zeilen = plan.zeilen.filter(function (zeile) { return zeile.tuer.brauchtZylinder !== false; });
@@ -4628,8 +4837,12 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       gekuerzt.push('Zyl.Nr. „' + zylNr + '“ → „' + kurz + '“ (' + (tuer.nummer || tuer.bezeichnung) + ')');
       return kurz;
     }
+    /* Ohne Türnummer gibt es keine Zylindernummer: Die Zelle bleibt leer,
+       die Warnung nennt die Zeilen, damit die Nummer nachgetragen wird. */
+    var ohneZylNr = [];
     zeilen.slice(0, 500).forEach(function (zeile, i) {
       var r = 5 + i;
+      if (!String(zeile.zylNr || '').trim()) ohneZylNr.push(r);
       z['A' + r] = { v: i + 1 };
       z['B' + r] = { v: kuerzen(zeile.tuer.nummer, 10, 'Tür.Nr.', zeile.tuer) };
       z['C' + r] = { v: kuerzen(zeile.tuer.bezeichnung, 20, 'Raumbezeichnung', zeile.tuer) };
@@ -4644,8 +4857,21 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     });
     for (var leer = zeilen.length; leer < 500; leer++) z['A' + (5 + leer)] = { v: leer + 1 };
     if (zeilen.length > 500) warnungen.push('Das Formular fasst 500 Zylinderzeilen; ' + (zeilen.length - 500) + ' weitere wurden nicht übernommen.');
+    if (ohneZylNr.length) warnungen.push((ohneZylNr.length === 1 ? 'Eine Tür ohne Türnummer hat keine Zyl.Nr. (Zeile ' : ohneZylNr.length + ' Türen ohne Türnummer haben keine Zyl.Nr. (Zeilen ') + ohneZylNr.slice(0, 8).join(', ') + (ohneZylNr.length > 8 ? ', …' : '') + '); bitte die Türnummern nachtragen.');
     if (gekuerzt.length) warnungen.push('Auf die Längen des Formulars gekürzt: ' + gekuerzt.slice(0, 6).join('; ') + (gekuerzt.length > 6 ? '; …' : '') + '.');
-    return { zellen: z, warnungen: warnungen, anzahlSpalten: spalten.length, anzahlZeilen: Math.min(zeilen.length, 500), plan: plan };
+    /* Zeilenhöhen: Zeile 1 nach dem längsten Funktionsnamen (senkrecht, Schrift 8,
+       etwa 4,6 pt je Zeichen), Zeilen 2 und 3 nach dem Umbruch von Besteller,
+       Besitzer und Anlagedaten. Die Vorlage gibt die Mindesthöhen vor. Nach
+       oben sind die Höhen begrenzt: Die Zeilen 1 bis 4 wiederholen sich auf
+       jeder Druckseite und müssen zusammen deutlich unter einer Seite bleiben. */
+    var laengsteFunktion = spalten.reduce(function (m, sp) { return Math.max(m, String(sp.funktion || '').length); }, 0);
+    var hoehen = {
+      1: Math.max(84, Math.min(130, Math.round(laengsteFunktion * 4.6 + 10))),
+      2: hoeheFuer(besteller, 18.7, 49.5, 90),
+      3: Math.max(hoeheFuer(besitzer, 18.7, 60, 100), hoeheFuer(z.F3.v, 16.7, 60, 100)),
+      4: 10.8
+    };
+    return { zellen: z, warnungen: warnungen, anzahlSpalten: spalten.length, anzahlZeilen: Math.min(zeilen.length, 500), hoehen: hoehen, plan: plan };
   }
 
   /* Vollständige Arbeitsmappe im EVVA-Layout (für xlsx.js) */
@@ -4661,12 +4887,20 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       A10: { v: 'Längen', s: 'fett' }, B10: { v: 'Maximale Länge Türnummer', s: 'fett' }, C10: { v: 'Maximale Länge Schlüsselnummer', s: 'fett' }, D10: { v: 'Maximale Länge Zylindernummer', s: 'fett' }, E10: { v: 'Maximale Länge Raumbezeichnung', s: 'fett' },
       B11: { v: 10, s: 'muster' }, C11: { v: 10, s: 'muster' }, D11: { v: 10, s: 'muster' }, E11: { v: 20, s: 'muster' }
     };
+    /* Druck: Tür- und Schlüsselbezeichnung auf jeder Seite wiederholen, nur
+       den belegten Bereich drucken (mindestens 10 Zeilen für Nachträge von
+       Hand), Querformat auf eine Seitenbreite. */
+    var letzteSpalte = spaltenName(Math.max(8, 7 + blatt.anzahlSpalten));
+    var letzteZeile = 4 + Math.max(10, blatt.anzahlZeilen);
     return {
       blaetter: [
-        { name: 'Plan', zellen: blatt.zellen, breiten: breiten, hoehen: { 1: 84, 2: 49.5, 3: 60, 4: 10.8 },
+        { name: 'Plan', zellen: blatt.zellen, breiten: breiten, hoehen: blatt.hoehen,
           verbund: ['D2:E2', 'D3:E3'], fixierung: { spalten: 7, zeilen: 4 },
+          druck: { titel: '$A:$G,$1:$4', bereich: '$A$1:$' + letzteSpalte + '$' + letzteZeile, quer: true, einpassen: true },
           validierungen: [
             { bereich: 'H2:CX' + 2, typ: 'whole', op: 'greaterThanOrEqual', f1: '0', fehler: 'Hier die Anzahl der Schlüssel (als ganze Zahl) eintragen' },
+            { bereich: 'H3:CX3', typ: 'textLength', op: 'lessThanOrEqual', f1: 'maxSlNr', fehler: 'Maximal 10 Zeichen!' },
+            { bereich: 'H5:CX504', typ: 'list', f1: '"X,O,Z,I,M"', fehler: 'Erlaubt sind nur X, O, Z, I und M (Sperrkombination).' },
             { bereich: 'D5:D504', typ: 'whole', op: 'greaterThanOrEqual', f1: '0', fehler: 'Bestellmenge für Zylinder angeben!' },
             { bereich: 'E5:E504', typ: 'whole', op: 'greaterThanOrEqual', f1: '0', hinweis: 'Wenn "0" Stück ESL bestellt werden, wird die Sperrfunktion für den Eigenschlüssel im Zylinder vorgesehen.\n\nWenn dieses Feld leer gelassen wird gibt es für diesen Zylinder keinen Eigenschlüssel. Nur Zahlenwerte erlaubt!' },
             { bereich: 'B5:B504', typ: 'textLength', op: 'lessThanOrEqual', f1: 'maxTNr', fehler: 'Hier sind nur 10 Zeichen möglich' },
@@ -4724,9 +4958,14 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
  * Spalten, versteckten Blättern, Namen und Gültigkeitsregeln.
  *
  * Aufruf: XLSX.erzeugen({ blaetter: [{ name, zellen: { A1: { v, s } }, breiten,
- *         hoehen, verbund, fixierung, versteckt, validierungen }], namen })
+ *         hoehen, verbund, fixierung, versteckt, validierungen, druck }], namen,
+ *         fassung })
  * liefert ein Uint8Array. Formate (s): fett, kopf, umbruch, fettUmbruch,
- * mitte, muster.
+ * mitte, muster, senkrecht, senkrechtFett (Text um 90 Grad gedreht, Schrift 8),
+ * zahlKlein (Schrift 8, auf Zellbreite verkleinert).
+ * druck: { titel: '$A:$G,$1:$4', bereich: '$A$1:$R$20', quer: true,
+ *          einpassen: true } setzt Wiederholungszeilen, Druckbereich,
+ * Querformat und die Anpassung auf eine Seitenbreite.
  * ========================================================================== */
 (function (global) {
   'use strict';
@@ -4798,7 +5037,9 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
   }
   /* In Attributen würde ein Zeilenumbruch zum Leerzeichen normalisiert */
   function xa(text) { return x(text).replace(/\n/g, '&#10;').replace(/\r/g, ''); }
-  var FORMATE = ['standard', 'fett', 'kopf', 'umbruch', 'fettUmbruch', 'mitte', 'muster'];
+  var FORMATE = ['standard', 'fett', 'kopf', 'umbruch', 'fettUmbruch', 'mitte', 'muster', 'senkrecht', 'senkrechtFett', 'zahlKlein'];
+  /* Blattname in einer Formel: in Hochkommas, ein Hochkomma im Namen verdoppelt */
+  function blattRef(name) { return "'" + String(name).replace(/'/g, "''") + "'!"; }
   function formatIndex(name) { var i = FORMATE.indexOf(name || 'standard'); return i < 0 ? 0 : i; }
   function spaltenIndex(ref) {
     var m = /^([A-Z]+)(\d+)$/.exec(ref); if (!m) return null;
@@ -4817,9 +5058,12 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       if (si.spalte > maxSpalte) maxSpalte = si.spalte;
       if (si.zeile > maxZeile) maxZeile = si.zeile;
     });
+    var druck = blatt.druck || null;
     var aus = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
-      '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">',
-      '<dimension ref="A1:' + spaltenName(maxSpalte) + maxZeile + '"/>'];
+      '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'];
+    /* Die Seitenanpassung muss vor allem anderen stehen (Reihenfolge im Schema) */
+    if (druck && druck.einpassen) aus.push('<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>');
+    aus.push('<dimension ref="A1:' + spaltenName(maxSpalte) + maxZeile + '"/>');
     var fix = blatt.fixierung;
     aus.push('<sheetViews><sheetView workbookViewId="0"' + (blatt.erste ? ' tabSelected="1"' : '') + '>');
     if (fix && (fix.spalten || fix.zeilen)) {
@@ -4870,19 +5114,25 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       aus.push('</dataValidations>');
     }
     aus.push('<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>');
+    /* Druck: A4 (paperSize 9), Querformat, auf eine Seitenbreite einpassen; die Höhe bleibt frei (0) */
+    if (druck) {
+      aus.push('<pageSetup paperSize="9"' + (druck.quer ? ' orientation="landscape"' : ' orientation="portrait"') +
+        (druck.einpassen ? ' fitToWidth="1" fitToHeight="0"' : '') + '/>');
+    }
     aus.push('</worksheet>');
     return aus.join('');
   }
 
   var STYLES = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
-    '<fonts count="2"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font></fonts>' +
+    '<fonts count="4"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font>' +
+    '<font><sz val="8"/><name val="Arial"/></font><font><b/><sz val="8"/><name val="Arial"/></font></fonts>' +
     '<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>' +
     '<fill><patternFill patternType="solid"><fgColor rgb="FFC0C0C0"/><bgColor indexed="64"/></patternFill></fill>' +
     '<fill><patternFill patternType="solid"><fgColor rgb="FFFFCC99"/><bgColor indexed="64"/></patternFill></fill></fills>' +
     '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
     '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-    '<cellXfs count="7">' +
+    '<cellXfs count="10">' +
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +                                                                        /* 0 standard */
     '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +                                                          /* 1 fett */
     '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' + /* 2 kopf */
@@ -4890,6 +5140,9 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>' + /* 4 fettUmbruch */
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +  /* 5 mitte */
     '<xf numFmtId="0" fontId="0" fillId="3" borderId="0" xfId="0" applyFill="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>' + /* 6 muster */
+    '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="bottom" textRotation="90"/></xf>' + /* 7 senkrecht */
+    '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="bottom" textRotation="90"/></xf>' + /* 8 senkrechtFett */
+    '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center" shrinkToFit="1"/></xf>' + /* 9 zahlKlein */
     '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
 
   function erzeugen(mappe) {
@@ -4917,8 +5170,12 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       '<dc:title>' + x(mappe.titel || 'Schließplan') + '</dc:title><dc:creator>' + x(mappe.ersteller || 'Aufmaß-Werkzeug') + '</dc:creator>' +
       '<dcterms:created xsi:type="dcterms:W3CDTF">' + jetzt + '</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">' + jetzt + '</dcterms:modified>' +
       '</cp:coreProperties>' });
+    /* Die Fassung des Werkzeugs steht in app.xml. In Node (Tests, Skripte)
+       gibt es AppKern nicht, dann kommt sie aus mappe.fassung oder fehlt. */
+    var fassung = mappe.fassung || (global.AppKern && global.AppKern.FASSUNG) || '';
     dateien.push({ name: 'docProps/app.xml', inhalt: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-      '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>' + x(mappe.ersteller || 'Aufmaß-Werkzeug') + '</Application></Properties>' });
+      '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>' + x(mappe.ersteller || 'Aufmaß-Werkzeug') + '</Application>' +
+      (fassung ? '<AppVersion>' + x(fassung) + '</AppVersion>' : '') + '</Properties>' });
     var wb = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
       '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">',
       '<bookViews><workbookView xWindow="0" yWindow="0" windowWidth="20000" windowHeight="10000" activeTab="0"/></bookViews><sheets>'];
@@ -4928,8 +5185,17 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     wb.push('</sheets>');
     var namen = mappe.namen || {};
     var namenKeys = Object.keys(namen);
-    if (namenKeys.length) {
+    /* Druckbereich und Wiederholungszeilen sind Namen je Blatt (localSheetId) */
+    var druckNamen = [];
+    blaetter.forEach(function (b, i) {
+      var d = b.druck; if (!d) return;
+      var ref = blattRef(b.name || ('Blatt' + (i + 1)));
+      if (d.titel) druckNamen.push('<definedName name="_xlnm.Print_Titles" localSheetId="' + i + '">' + x(String(d.titel).split(',').map(function (t) { return ref + t.trim(); }).join(',')) + '</definedName>');
+      if (d.bereich) druckNamen.push('<definedName name="_xlnm.Print_Area" localSheetId="' + i + '">' + x(ref + d.bereich) + '</definedName>');
+    });
+    if (namenKeys.length || druckNamen.length) {
       wb.push('<definedNames>');
+      druckNamen.forEach(function (dn) { wb.push(dn); });
       namenKeys.forEach(function (n) { wb.push('<definedName name="' + x(n) + '">' + x(namen[n]) + '</definedName>'); });
       wb.push('</definedNames>');
     }
@@ -5011,7 +5277,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     0xE8:'e',0xE9:'e',0xEA:'e',0xEB:'e',0xEC:'i',0xED:'i',0xEE:'i',0xEF:'i',
     0xF1:'n',0xF2:'o',0xF3:'o',0xF4:'o',0xF5:'o',0xF6:'o',0xF8:'o',
     0xF9:'u',0xFA:'u',0xFB:'u',0xFC:'u',0xFD:'y',0xFF:'y',
-    0xC6:'W',0xE6:'m',0xD0:'D',0xDE:'P',0xFE:'p'
+    0xD0:'D',0xDE:'P',0xFE:'p'
   };
   /* Sonderzeichen mit eigener Breite (regular / bold) */
   var W_SPECIAL = {
@@ -5025,7 +5291,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     0x86:[556,556],0x87:[556,556],   /* dagger, daggerdbl */
     0x88:[333,333],  /* circumflex */
     0x89:[1000,1000],/* perthousand */
-    0x8A:[667,722],  /* Scaron */
+    0x8A:[667,667],  /* Scaron */
     0x8B:[333,333],0x9B:[333,333],   /* guilsinglleft/right */
     0x8C:[1000,1000],/* OE */
     0x8E:[611,611],  /* Zcaron */
@@ -5040,10 +5306,19 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     0x97:[1000,1000],/* emdash */
     0xA0:[278,278],  /* nbsp */
     0xA1:[333,333],0xA2:[556,556],0xA3:[556,556],0xA4:[556,556],0xA5:[556,556],
-    0xA7:[556,556],0xA9:[737,737],0xAB:[556,556],0xAE:[737,737],
-    0xB0:[400,400],0xB1:[584,584],0xB2:[333,333],0xB3:[333,333],
-    0xB5:[556,611],0xB6:[537,556],0xB7:[278,278],0xBB:[556,556],0xBF:[611,611],
-    0xD7:[584,584],0xF7:[584,584]
+    0xA6:[260,280],  /* brokenbar */
+    0xA7:[556,556],0xA8:[333,333],0xA9:[737,737],0xAA:[370,370],0xAB:[556,556],
+    0xAC:[584,584],0xAD:[333,333],0xAE:[737,737],0xAF:[333,333],
+    0xB0:[400,400],0xB1:[584,584],0xB2:[333,333],0xB3:[333,333],0xB4:[333,333],
+    0xB5:[556,611],0xB6:[537,556],0xB7:[278,278],0xB8:[333,333],0xB9:[333,333],
+    0xBA:[365,365],0xBB:[556,556],0xBC:[834,834],0xBD:[834,834],0xBE:[834,834],0xBF:[611,611],
+    0xC6:[1000,1000],/* AE */
+    0xD7:[584,584],
+    0xDF:[611,611],  /* germandbls */
+    0xE6:[889,889],  /* ae */
+    0xF0:[556,611],  /* eth */
+    0xF7:[584,584],
+    0xF8:[611,611]   /* oslash */
   };
 
   /* Unicode -> WinAnsi-Byte für den 0x80..0x9F-Bereich und Transliteration */
@@ -5060,7 +5335,9 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     0x2713:'X', 0x2714:'X', 0x2717:'-', 0x2718:'-',
     0x25A0:'-', 0x25A1:'[ ]', 0x25CF:'*', 0x25CB:'o', 0x2605:'*', 0x2606:'*',
     0x2011:'-', 0x2012:'-', 0x2015:'-', 0x2044:'/', 0x02BC:"'",
-    0x00A0:' ', 0x2007:' ', 0x202F:' ', 0x2009:' '
+    0x00A0:' ', 0x2007:' ', 0x202F:' ', 0x2009:' ',
+    0x2265:'>=', 0x2264:'<=', 0x2260:'!=', 0x2248:'~', 0x221E:'inf', 0x03A9:'Ohm', 0x2126:'Ohm',
+    0x2032:"'", 0x2033:'"', 0x2212:'-', 0x00B7:'\u00B7'
   };
 
   function zeichenBreite(code, bold) {
@@ -5107,6 +5384,26 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     return '(' + out + ')';
   }
 
+  /* Text für das Info-Dictionary: reines ASCII als Literal, sonst UTF-16BE
+     mit Byte-Order-Mark als Hex-String. PDF kennt dort kein WinAnsi; mit
+     WinAnsi würden „ “ – € zu anderen Zeichen. */
+  function pdfTextString(text) {
+    var s = String(text == null ? '' : text);
+    if (/^[\x20-\x7E]*$/.test(s)) return pdfString(s);
+    var hex = 'FEFF';
+    for (var i = 0; i < s.length; i++) hex += ('000' + s.charCodeAt(i).toString(16)).slice(-4).toUpperCase();
+    return '<' + hex + '>';
+  }
+
+  /* Datum im PDF-Format D:JJJJMMTThhmmss+hh'mm' (Ortszeit) */
+  function pdfDatum(d) {
+    function p(n) { return (n < 10 ? '0' : '') + n; }
+    var versatz = -d.getTimezoneOffset(), vz = versatz < 0 ? '-' : '+';
+    versatz = Math.abs(versatz);
+    return 'D:' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + p(d.getHours()) + p(d.getMinutes()) +
+           p(d.getSeconds()) + vz + p(Math.floor(versatz / 60)) + "'" + p(versatz % 60) + "'";
+  }
+
   function num(n) {
     if (!isFinite(n)) n = 0;
     var s = (Math.round(n * 1000) / 1000).toString();
@@ -5132,11 +5429,15 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     this.rand = Object.assign({ oben: 15, unten: 15, links: 12, rechts: 12 }, opt.margin || {});
     this.seiten = [];
     this.bilder = [];          // {id, daten(Uint8Array), breite, hoehe, farbraum}
+    /* Die Fassung steht in app.js (AppKern.FASSUNG); in Node gibt es sie
+       nur über opt.fassung. Die Erstellungszeit wird einmal festgehalten. */
     this.meta = {
       titel: opt.titel || 'Dokument',
       autor: opt.autor || '',
       betreff: opt.betreff || '',
-      ersteller: 'Schliessanlagen Aufmass-Tool'
+      ersteller: 'Aufmaß-Werkzeug',
+      fassung: opt.fassung || (global.AppKern && global.AppKern.FASSUNG) || '',
+      erstelltAm: opt.erstelltAm instanceof Date ? opt.erstelltAm : new Date()
     };
     this.aktuelleSeite = null;
     this.y = 0;
@@ -5199,7 +5500,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     var absaetze = String(text == null ? '' : text).split(/\r?\n/);
     var zeilen = [], self = this;
 
-    function hartTrennen(wort) {
+    function zeichenweise(wort) {
       var teile = [], akt = '';
       for (var i = 0; i < wort.length; i++) {
         var test = akt + wort[i];
@@ -5207,6 +5508,30 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
         else { akt = test; }
       }
       if (akt) teile.push(akt);
+      return teile;
+    }
+    /* Zu lange Wörter zuerst hinter - / . trennen (Türnummern wie
+       LANG-OHNE-0001 bleiben lesbar), erst wenn ein Stück immer noch zu
+       breit ist, zeichenweise. */
+    function hartTrennen(wort) {
+      var stuecke = [], akt = '';
+      for (var k = 0; k < wort.length; k++) {
+        akt += wort[k];
+        if (/[-\/.]/.test(wort[k]) && k < wort.length - 1) { stuecke.push(akt); akt = ''; }
+      }
+      if (akt) stuecke.push(akt);
+      var teile = [], zeile = '';
+      stuecke.forEach(function (st) {
+        var test = zeile + st;
+        if (self.textBreite(test, groesse, fett) <= maxBreite) { zeile = test; return; }
+        if (zeile) teile.push(zeile);
+        if (self.textBreite(st, groesse, fett) > maxBreite) {
+          var z = zeichenweise(st);
+          for (var i = 0; i < z.length - 1; i++) teile.push(z[i]);
+          zeile = z[z.length - 1] || '';
+        } else { zeile = st; }
+      });
+      if (zeile) teile.push(zeile);
       return teile;
     }
 
@@ -5276,15 +5601,35 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     return breite;
   };
 
-  /* Auf maximale Breite kürzen und mit Auslassungszeichen versehen. */
+  /* Auslassungszeichen „…“ (in WinAnsi 0x85) */
+  var ELLIPSE = '\u2026';
+
+  /* Auf maximale Breite kürzen und mit Auslassungszeichen versehen. Passt
+     nicht einmal die Ellipse, bleibt die Zelle leer. */
   PDFDoc.prototype.kuerzen = function (text, maxBreite, groesse, fett) {
     var s = String(text == null ? '' : text);
     if (this.textBreite(s, groesse, fett) <= maxBreite) return s;
-    var punkte = '...';
-    while (s.length > 0 && this.textBreite(s + punkte, groesse, fett) > maxBreite) {
+    if (this.textBreite(ELLIPSE, groesse, fett) > maxBreite) return '';
+    while (s.length > 0 && this.textBreite(s + ELLIPSE, groesse, fett) > maxBreite) {
       s = s.slice(0, -1);
     }
-    return s + punkte;
+    return s.replace(/\s+$/, '') + ELLIPSE;
+  };
+
+  /* Letzte Zeile eines nach maxLines gekürzten Blocks: Die Auslassung
+     steht an der letzten Wortgrenze, solange mindestens ein Drittel der
+     Zeile bleibt, sonst zeichenweise. */
+  PDFDoc.prototype.mitAuslassung = function (zeile, maxBreite, groesse, fett) {
+    if (this.textBreite(zeile + ELLIPSE, groesse, fett) <= maxBreite) return zeile + ELLIPSE;
+    var s = zeile, i;
+    while ((i = s.lastIndexOf(' ')) > 0) {
+      s = s.slice(0, i);
+      if (this.textBreite(s + ELLIPSE, groesse, fett) <= maxBreite) {
+        if (s.length * 3 >= zeile.length) return s + ELLIPSE;
+        break;
+      }
+    }
+    return this.kuerzen(zeile, maxBreite, groesse, fett);
   };
 
   /* Mehrzeiliger Text in fester Breite, gibt die verbrauchte Höhe in mm zurück. */
@@ -5295,7 +5640,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     var zeilen = this.umbrechen(text, maxBreite, groesse, opt.bold);
     if (opt.maxLines && zeilen.length > opt.maxLines) {
       zeilen = zeilen.slice(0, opt.maxLines);
-      zeilen[zeilen.length - 1] = zeilen[zeilen.length - 1].replace(/.{3}$/, '...');
+      zeilen[zeilen.length - 1] = this.mitAuslassung(zeilen[zeilen.length - 1], maxBreite, groesse, opt.bold);
     }
     for (var i = 0; i < zeilen.length; i++) {
       var zx = x;
@@ -5304,6 +5649,33 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       this.text(zeilen[i], zx, y + i * zeilenhoehe, opt);
     }
     return zeilen.length * zeilenhoehe;
+  };
+
+  /* Fließtext mit Seitenumbruch. Beginnt bei doc.y und schreibt Zeile für
+   * Zeile weiter. Reicht der Platz nicht, beginnt eine neue Seite und
+   * opt.beiUmbruch(doc) wird gerufen: Dort wiederholt der Aufrufer seinen
+   * Kopf. opt.anhangHoehe hält die letzten Zeilen (opt.anhangZeilen, Vorgabe
+   * 2) mit dem folgenden Block zusammen, etwa mit den Unterschriften.
+   * Setzt doc.y fort und liefert die Zahl der gezeichneten Zeilen. */
+  PDFDoc.prototype.textFliessend = function (text, x, maxBreite, opt) {
+    opt = opt || {};
+    var groesse = opt.size || 9;
+    var zeilenhoehe = opt.lineHeight || (groesse * 1.25 / MM_TO_PT);
+    var zeilen = this.umbrechen(text, maxBreite, groesse, opt.bold);
+    var anhang = opt.anhangHoehe || 0;
+    var zusammen = opt.anhangZeilen || 2;
+    var zx = x;
+    if (opt.align === 'center') zx = x + maxBreite / 2;
+    else if (opt.align === 'right') zx = x + maxBreite;
+    for (var i = 0; i < zeilen.length; i++) {
+      var rest = zeilen.length - i;
+      var noetig = (anhang && rest <= zusammen) ? rest * zeilenhoehe + anhang : zeilenhoehe;
+      var hatteSeite = !!this.aktuelleSeite;
+      if (this.platzPruefen(noetig) && hatteSeite && opt.beiUmbruch) opt.beiUmbruch(this);
+      this.text(zeilen[i], zx, this.y, opt);
+      this.y += zeilenhoehe;
+    }
+    return zeilen.length;
   };
 
   /* Höhe berechnen, ohne zu zeichnen (für Tabellen-Zeilenhöhen). */
@@ -5374,13 +5746,17 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
    * ====================================================================== */
   function jpegInfo(bytes) {
     if (bytes.length < 4 || bytes[0] !== 0xFF || bytes[1] !== 0xD8) return null;
-    var i = 2;
+    var i = 2, adobe = false;
     while (i < bytes.length - 1) {
       if (bytes[i] !== 0xFF) { i++; continue; }
       var marker = bytes[i + 1];
+      if (marker === 0xFF) { i++; continue; }   /* Füllbyte vor einem Marker */
       if (marker === 0xD8 || marker === 0x01 || (marker >= 0xD0 && marker <= 0xD7)) { i += 2; continue; }
       if (marker === 0xD9 || marker === 0xDA) break;
       var laenge = (bytes[i + 2] << 8) | bytes[i + 3];
+      /* APP14 „Adobe“: Photoshop legt CMYK invertiert ab, das PDF braucht dann /Decode */
+      if (marker === 0xEE && bytes[i + 4] === 0x41 && bytes[i + 5] === 0x64 && bytes[i + 6] === 0x6F &&
+          bytes[i + 7] === 0x62 && bytes[i + 8] === 0x65) adobe = true;
       var istSOF = (marker >= 0xC0 && marker <= 0xCF) &&
                    marker !== 0xC4 && marker !== 0xC8 && marker !== 0xCC;
       if (istSOF) {
@@ -5388,7 +5764,8 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
           hoehe: (bytes[i + 5] << 8) | bytes[i + 6],
           breite: (bytes[i + 7] << 8) | bytes[i + 8],
           kanaele: bytes[i + 9],
-          bits: bytes[i + 4]
+          bits: bytes[i + 4],
+          adobe: adobe
         };
       }
       i += 2 + laenge;
@@ -5416,13 +5793,23 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     try { bytes = base64ZuBytes(dataUrl.slice(komma + 1)); } catch (e) { return null; }
     var info = jpegInfo(bytes);
     if (!info || !info.breite || !info.hoehe) return null;
+    if (info.bits !== 8) return null;   /* 12-Bit-JPEG zeigen die Betrachter nicht an */
     var id = 'Im' + (this.bilder.length + 1);
     this.bilder.push({
       id: id, daten: bytes, breite: info.breite, hoehe: info.hoehe,
       farbraum: info.kanaele === 1 ? 'DeviceGray' : (info.kanaele === 4 ? 'DeviceCMYK' : 'DeviceRGB'),
-      bits: info.bits || 8
+      bits: 8, adobe: !!info.adobe
     });
     return id;
+  };
+
+  /* Pixelmaße eines registrierten Bildes, damit kleine Fotos nicht
+     hochgezogen werden. */
+  PDFDoc.prototype.bildInfo = function (bildId) {
+    for (var i = 0; i < this.bilder.length; i++) {
+      if (this.bilder[i].id === bildId) return { breite: this.bilder[i].breite, hoehe: this.bilder[i].hoehe };
+    }
+    return null;
   };
 
   /* Zeichnet ein registriertes Bild. Gibt {breite,hoehe} in mm zurück. */
@@ -5494,6 +5881,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       bildNr[b.id] = addObj({
         dict: '<< /Type /XObject /Subtype /Image /Width ' + b.breite + ' /Height ' + b.hoehe +
               ' /ColorSpace /' + b.farbraum + ' /BitsPerComponent ' + b.bits +
+              (b.adobe && b.farbraum === 'DeviceCMYK' ? ' /Decode [1 0 1 0 1 0 1 0]' : '') +
               ' /Filter /DCTDecode /Length ' + b.daten.length + ' >>',
         stream: b.daten
       });
@@ -5523,11 +5911,14 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     objekte[seitenBaumNr - 1] = '<< /Type /Pages /Count ' + seitenNrs.length + ' /Kids [' +
       seitenNrs.map(function (n) { return n + ' 0 R'; }).join(' ') + '] >>';
 
-    var infoNr = addObj('<< /Title ' + pdfString(this.meta.titel) +
-                        ' /Author ' + pdfString(this.meta.autor) +
-                        ' /Subject ' + pdfString(this.meta.betreff) +
-                        ' /Creator ' + pdfString(this.meta.ersteller) +
-                        ' /Producer ' + pdfString(this.meta.ersteller) + ' >>');
+    var produzent = this.meta.ersteller + (this.meta.fassung ? ' ' + this.meta.fassung : '');
+    var datum = pdfDatum(this.meta.erstelltAm);
+    var infoNr = addObj('<< /Title ' + pdfTextString(this.meta.titel) +
+                        ' /Author ' + pdfTextString(this.meta.autor) +
+                        ' /Subject ' + pdfTextString(this.meta.betreff) +
+                        ' /Creator ' + pdfTextString(this.meta.ersteller) +
+                        ' /Producer ' + pdfTextString(produzent) +
+                        ' /CreationDate ' + pdfString(datum) + ' /ModDate ' + pdfString(datum) + ' >>');
 
     objekte[katalogNr - 1] = '<< /Type /Catalog /Pages ' + seitenBaumNr + ' 0 R >>';
 
@@ -5591,7 +5982,8 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     Doc: PDFDoc,
     FORMATE: FORMATE,
     MM_TO_PT: MM_TO_PT,
-    _intern: { zuWinAnsi: zuWinAnsi, zeichenBreite: zeichenBreite, jpegInfo: jpegInfo, farbe: farbe }
+    _intern: { zuWinAnsi: zuWinAnsi, zeichenBreite: zeichenBreite, jpegInfo: jpegInfo, farbe: farbe,
+               pdfTextString: pdfTextString, pdfDatum: pdfDatum }
   };
   if (typeof module !== 'undefined' && module.exports) { module.exports = global.PDF; }
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -5631,6 +6023,13 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
 
   function txt(v) { return (v === null || v === undefined || v === '') ? '' : String(v); }
   function plural(n, ein, viele) { return n + ' ' + (n === 1 ? ein : viele); }
+  /* Anzahl einer Tür: ganze Zahl ab 1, auch wenn im Datensatz etwas anderes steht */
+  function anzahlVon(t) { return Math.max(1, parseInt(t && t.anzahl, 10) || 1); }
+  /* Maße mit Dezimalkomma ausgeben, wie sie auf deutschem Papier erwartet werden */
+  function massText(v) {
+    v = txt(v);
+    return /^-?\d+\.\d+$/.test(v) ? v.replace('.', ',') : v;
+  }
   /* Kategorie nur ausgeben, wenn sie nicht schon in der Bezeichnung steckt. */
   function kategorieZusatz(t) {
     if (!t.kategorie) return '';
@@ -5729,6 +6128,9 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       d.y = trennY + 5;
     };
 
+    /* Der Stand wird einmal gebildet: Alle Seiten tragen dieselbe Uhrzeit,
+       auch wenn die Minute während der Erzeugung wechselt. */
+    var stand = jetztDe();
     doc.onSeitenfuss = function (d, nr, gesamt) {
       var y = d.hoehe - d.rand.unten + 3;
       var rechts = d.breite - d.rand.rechts;
@@ -5737,10 +6139,12 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       if (einstellungen.firma) links.push(einstellungen.firma);
       links.push('Aufmaß ' + datumDe(projekt.aufmassDatum));
       if (projekt.bearbeiter) links.push(projekt.bearbeiter);
-      d.text(d.kuerzen(links.join('  ·  '), d.inhaltsBreite() - 40, 7, false),
+      /* Rechter Text zuerst messen; der linke bekommt den Rest mit Abstand */
+      var rechtsText = 'Stand ' + stand + '   Seite ' + nr + ' / ' + gesamt;
+      var rechtsBreite = d.textBreite(rechtsText, 7, false);
+      d.text(d.kuerzen(links.join('  ·  '), d.inhaltsBreite() - rechtsBreite - 4, 7, false),
              d.rand.links, y + 1.5, { size: 7, color: FARBE.hellgrau });
-      d.text('Stand ' + jetztDe() + '   Seite ' + nr + ' / ' + gesamt,
-             rechts, y + 1.5, { size: 7, align: 'right', color: FARBE.hellgrau });
+      d.text(rechtsText, rechts, y + 1.5, { size: 7, align: 'right', color: FARBE.hellgrau });
     };
   }
 
@@ -5775,7 +6179,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       for (var sp2 = 0; sp2 < 3; sp2++) {
         var f2 = felder[z * 3 + sp2];
         if (!f2) continue;
-        var h = doc.blockHoehe(txt(f2[1]), spalte - 6, { size: 8.5, bold: true, maxLines: 2 });
+        var h = doc.blockHoehe(txt(f2[1]), spalte - 6, { size: 8.5, bold: true, maxLines: 4 });
         if (h > maxH) maxH = h;
       }
       zeilenHoehen.push(Math.max(4.2, maxH) + 4.2);
@@ -5789,8 +6193,8 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     felder.forEach(function (f, i) {
       var sp = i % 3, ze = Math.floor(i / 3);
       var fx = x + sp * spalte + 3, fy = startY + yOffsets[ze];
-      doc.text(f[0], fx, fy, { size: 6.8, color: FARBE.hellgrau });
-      doc.textBlock(txt(f[1]), fx, fy + 3.4, spalte - 6, { size: 8.5, bold: true, maxLines: 2 });
+      doc.text(f[0], fx, fy, { size: 7, color: FARBE.hellgrau });
+      doc.textBlock(txt(f[1]), fx, fy + 3.4, spalte - 6, { size: 8.5, bold: true, maxLines: 4 });
     });
     doc.y = startY + hoehe + 5;
   }
@@ -5798,6 +6202,8 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
   /* =========================================================================
    * Tabellenmaschine mit Seitenumbruch und wiederholtem Tabellenkopf
    * spalten: [{titel, key|render, breite, align, size, bold, maxLines}]
+   * opt.vorspann: { hoehe, zeichnen } - eine Überschrift des Aufrufers, die
+   * zusammen mit Tabellenkopf und erster Zeile auf die Seite kommt.
    * ====================================================================== */
   function tabelle(doc, spalten, zeilen, opt) {
     opt = opt || {};
@@ -5805,10 +6211,40 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     var gesamtBreite = spalten.reduce(function (s, c) { return s + c.breite; }, 0);
     var schrift = opt.size || 7.6;
     var padX = 1.6, padY = 1.4;
+    var kopfHoehe = opt.headerHeight || 6.5;
+    var gruppenHoehe = 1.5 + 6.4;
 
-    function kopfZeichnen() {
-      var kopfHoehe = opt.headerHeight || 6.5;
-      doc.platzPruefen(kopfHoehe + 8);
+    /* Zellinhalte und Zeilenhöhe einer Datenzeile (höchster Zellinhalt) */
+    function zellenVon(zeile) {
+      return spalten.map(function (c) {
+        var wert = c.render ? c.render(zeile) : txt(zeile[c.key]);
+        return { spalte: c, wert: txt(wert) };
+      });
+    }
+    function zeilenHoehe(zellen) {
+      var hoehe = 0;
+      zellen.forEach(function (z) {
+        var h = doc.blockHoehe(z.wert, z.spalte.breite - 2 * padX, {
+          size: z.spalte.size || schrift, bold: z.spalte.bold, maxLines: z.spalte.maxLines || 3
+        });
+        if (h > hoehe) hoehe = h;
+      });
+      return Math.max(5.2, hoehe + 2 * padY);
+    }
+    /* Was ab Zeile i mindestens zusammen auf die Seite muss: die
+       Gruppenzeilen bis zur nächsten Datenzeile und diese Datenzeile. So
+       bleibt keine Gruppen- oder Kopfzeile allein am Seitenende. */
+    function folgeHoehe(i) {
+      var h = 0;
+      for (var j = i; j < zeilen.length; j++) {
+        if (zeilen[j].__gruppe) { h += gruppenHoehe; continue; }
+        return h + zeilenHoehe(zellenVon(zeilen[j]));
+      }
+      return h;
+    }
+
+    function kopfZeichnen(naechsteHoehe) {
+      doc.platzPruefen(Math.min(kopfHoehe + (naechsteHoehe || 8), doc.inhaltsHoehe()));
       var y = doc.y;
       doc.rechteck(x0, y, gesamtBreite, kopfHoehe, { fill: FARBE.kopfBg, stroke: FARBE.linie, width: 0.25 });
       var cx = x0;
@@ -5826,14 +6262,21 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       doc.y = y + kopfHoehe;
     }
 
-    kopfZeichnen();
+    var ersteHoehe = folgeHoehe(0);
+    if (opt.vorspann) {
+      doc.platzPruefen(Math.min(opt.vorspann.hoehe + kopfHoehe + ersteHoehe, doc.inhaltsHoehe()));
+      opt.vorspann.zeichnen();
+    }
+    kopfZeichnen(ersteHoehe);
     var zebra = 0;
 
-    zeilen.forEach(function (zeile) {
-      /* Gruppentrenner */
+    zeilen.forEach(function (zeile, i) {
+      /* Gruppentrenner: erst zeichnen, wenn auch die erste Datenzeile der
+         Gruppe noch auf die Seite passt. Nach einem Umbruch steht der
+         Tabellenkopf wieder über der Gruppenzeile. */
       if (zeile.__gruppe) {
-        doc.platzPruefen(9 + 8);
-        if (doc.y === doc.rand.oben + 20 || doc.aktuelleSeite.ops.length < 12) { /* frische Seite */ }
+        var noetig = folgeHoehe(i);
+        if (doc.platzPruefen(Math.min(noetig, doc.inhaltsHoehe()))) kopfZeichnen(noetig);
         var gy = doc.y + 1.5;
         doc.rechteck(x0, gy, gesamtBreite, 6.4, { fill: '#dce6f2', stroke: FARBE.linie, width: 0.25 });
         doc.text(doc.kuerzen(zeile.__gruppe, gesamtBreite - 40, 8.2, true), x0 + padX, gy + 1.3,
@@ -5847,23 +6290,11 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
         return;
       }
 
-      /* Zeilenhöhe aus dem höchsten Zellinhalt bestimmen */
-      var zellen = spalten.map(function (c) {
-        var wert = c.render ? c.render(zeile) : txt(zeile[c.key]);
-        return { spalte: c, wert: txt(wert) };
-      });
-      var hoehe = 0;
-      zellen.forEach(function (z) {
-        var h = doc.blockHoehe(z.wert, z.spalte.breite - 2 * padX, {
-          size: z.spalte.size || schrift, bold: z.spalte.bold, maxLines: z.spalte.maxLines || 3
-        });
-        if (h > hoehe) hoehe = h;
-      });
-      hoehe += 2 * padY;
-      if (hoehe < 5.2) hoehe = 5.2;
+      var zellen = zellenVon(zeile);
+      var hoehe = zeilenHoehe(zellen);
 
       var umbrochen = doc.platzPruefen(hoehe);
-      if (umbrochen) { kopfZeichnen(); zebra = 0; }
+      if (umbrochen) { kopfZeichnen(hoehe); zebra = 0; }
 
       var y = doc.y;
       if (zebra % 2 === 1) {
@@ -5905,7 +6336,10 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     optionen = optionen || {};
     var modus = optionen.modus || 'kompakt';
     var mitFotos = optionen.mitFotos !== false;
-    var quer = optionen.orientation || (modus === 'kompakt' ? 'landscape' : 'portrait');
+    /* Die kompakte Liste ist immer quer: Ihre Spaltenanteile sind für
+       277 mm ausgelegt, im Hochformat zerrissen Köpfe und Nummern. Nur das
+       Datenblatt kennt die Wahl zwischen hoch und quer. */
+    var quer = modus === 'kompakt' ? 'landscape' : (optionen.orientation || 'portrait');
 
     var doc = new PDF.Doc({
       format: 'a4', orientation: quer,
@@ -5937,18 +6371,27 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
 
   function zylinderMass(t) {
     if (!t.masseAussen && !t.masseInnen) return '';
-    return (t.masseAussen || '–') + ' / ' + (t.masseInnen || '–');
+    return (massText(t.masseAussen) || '–') + ' / ' + (massText(t.masseInnen) || '–');
   }
 
   function tuerlisteKompakt(doc, projekt, gruppen, einstellungen) {
     var b = doc.inhaltsBreite();
+    /* Die Nummernspalte richtet sich nach der breitesten Türnummer (5,2 bis
+       9 Prozent der Breite); was sie mehr braucht, gibt die Bemerkung ab.
+       Noch längere Nummern brechen hinter - / . um, ohne Kürzung. */
+    var nrBreite = 0;
+    projekt.tueren.forEach(function (t) {
+      var w = doc.textBreite(txt(t.nummer), 7.2, true) + 3.6;
+      if (w > nrBreite) nrBreite = w;
+    });
+    var nrAnteil = Math.min(0.09, Math.max(0.052, nrBreite / b));
     /* Spaltenbreiten als Anteile der verfügbaren Breite (A4 quer: 277 mm) */
     var anteile = [
-      { titel: 'Nr.',            breite: 0.052, render: function (t) { return txt(t.nummer); }, bold: true },
+      { titel: 'Nr.',            breite: nrAnteil, maxLines: 6, render: function (t) { return txt(t.nummer); }, bold: true },
       { titel: 'Bezeichnung / Raum', breite: 0.145, render: function (t) {
           var zusatz = kategorieZusatz(t);
           return txt(t.bezeichnung) + (zusatz ? ('\n' + zusatz) : ''); } },
-      { titel: 'Anz.',           breite: 0.032, align: 'center', render: function (t) { return String(t.anzahl || 1); } },
+      { titel: 'Anz.',           breite: 0.032, align: 'center', render: function (t) { return String(anzahlVon(t)); } },
       { titel: 'Ausführung',     breite: 0.115, render: function (t) {
           var sid = M.tuerSystemId(projekt, t);
           var s = sid ? K.systemLabel(sid, einstellungen && einstellungen.eigeneSysteme) : '–';
@@ -5959,17 +6402,17 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       { titel: 'Beschlag / Drücker', breite: 0.115, render: function (t) {
           var b = K.beschlagText(t);
           if (!b) return '–';
-          return b + (t.vierkant ? ('\nVK ' + t.vierkant) : ''); } },
+          return b + (t.vierkant ? ('\nVK ' + massText(t.vierkant)) : ''); } },
       { titel: 'Schloss',        breite: 0.105, render: function (t) {
           var sch = K.schlossText(t);
           if (!sch) return '–';
           var d = [];
-          if (t.dornmass) d.push('DM ' + t.dornmass);
-          if (t.entfernung) d.push('E ' + t.entfernung);
+          if (t.dornmass) d.push('DM ' + massText(t.dornmass));
+          if (t.entfernung) d.push('E ' + massText(t.entfernung));
           return sch + (d.length ? ('\n' + d.join(' / ')) : ''); } },
       { titel: 'DIN',            breite: 0.045, align: 'center', render: function (t) {
           return txt(t.dinRichtung).replace('DIN ', ''); } },
-      { titel: 'Bemerkung',      breite: 0.211, render: function (t) {
+      { titel: 'Bemerkung',      breite: 0.211 - (nrAnteil - 0.052), maxLines: 6, render: function (t) {
           var n = [];
           if (t.notiz) n.push(t.notiz);
           if (t.nacharbeit) n.push('! ' + (t.nacharbeitText || 'Nacharbeit'));
@@ -5983,7 +6426,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
 
     var zeilen = [];
     gruppen.forEach(function (g) {
-      var anz = g.tueren.reduce(function (s, t) { return s + (parseInt(t.anzahl, 10) || 1); }, 0);
+      var anz = g.tueren.reduce(function (s, t) { return s + anzahlVon(t); }, 0);
       zeilen.push({ __gruppe: g.titel,
         __gruppeRechts: plural(g.tueren.length, 'Position', 'Positionen') + '  ·  ' + plural(anz, 'Tür', 'Türen') });
       g.tueren.forEach(function (t) {
@@ -6000,20 +6443,24 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     var x = doc.rand.links;
 
     gruppen.forEach(function (g) {
-      doc.platzPruefen(16);
-      doc.rechteck(x, doc.y, b, 7, { fill: '#dce6f2', stroke: FARBE.linie, width: 0.25 });
-      doc.text(g.titel, x + 2, doc.y + 1.6, { size: 9.5, bold: true, color: FARBE.akzent });
-      doc.text(plural(g.tueren.length, 'Tür', 'Türen'), x + b - 2, doc.y + 1.9,
-               { size: 7.5, align: 'right', color: FARBE.grau });
-      doc.y += 10;
-
-      g.tueren.forEach(function (t) {
-        tuerDatenblatt(doc, projekt, t, einstellungen, mitFotos);
+      /* Die Bereichszeile zeichnet das erste Datenblatt der Gruppe als
+         Vorspann, nachdem es seinen eigenen Platz geprüft hat. So bleibt
+         sie nie allein am Seitenende stehen. */
+      var vorspann = { hoehe: 10, zeichnen: function () {
+        doc.rechteck(x, doc.y, b, 7, { fill: '#dce6f2', stroke: FARBE.linie, width: 0.25 });
+        doc.text(doc.kuerzen(g.titel, b - 30, 9.5, true), x + 2, doc.y + 1.6, { size: 9.5, bold: true, color: FARBE.akzent });
+        doc.text(plural(g.tueren.length, 'Tür', 'Türen'), x + b - 2, doc.y + 1.9,
+                 { size: 7.5, align: 'right', color: FARBE.grau });
+        doc.y += 10;
+      } };
+      if (!g.tueren.length) { doc.platzPruefen(16); vorspann.zeichnen(); return; }
+      g.tueren.forEach(function (t, i) {
+        tuerDatenblatt(doc, projekt, t, einstellungen, mitFotos, i === 0 ? vorspann : null);
       });
     });
   }
 
-  function tuerDatenblatt(doc, projekt, t, einstellungen, mitFotos) {
+  function tuerDatenblatt(doc, projekt, t, einstellungen, mitFotos, vorspann) {
     var x = doc.rand.links, b = doc.inhaltsBreite();
     var fotos = mitFotos ? (t.fotos || []) : [];
 
@@ -6028,31 +6475,31 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
                : tech === 'mechanik' ? 'Mechanisch'
                : tech === 'hybrid' ? 'Hybrid' : '–';
         })()],
-      ['Kategorie', t.kategorie],
-      ['Anzahl', String(t.anzahl || 1)],
-      ['Zylinder', K.zylinderText(t) || (t.brauchtZylinder ? '' : 'kein Zylinder')],
+      ['Kategorie', t.kategorie, true],
+      ['Anzahl', String(anzahlVon(t))],
+      ['Zylinder', K.zylinderText(t) || (t.brauchtZylinder ? '' : 'kein Zylinder'), true],
       ['Zylinderlänge außen/innen', zylinderMass(t) ? zylinderMass(t) + ' mm' : ''],
-      ['Beschlag / Drücker', K.beschlagText(t) || (t.brauchtBeschlag ? '' : 'kein Beschlag')],
-      ['Beschlag-Optionen', K.beschlagOptionenText(t)],
-      ['Schloss', K.schlossText(t)],
+      ['Beschlag / Drücker', K.beschlagText(t) || (t.brauchtBeschlag ? '' : 'kein Beschlag'), true],
+      ['Beschlag-Optionen', K.beschlagOptionenText(t), true],
+      ['Schloss', K.schlossText(t), true],
       ['Wandleser', t.brauchtWandleser ? 'ja' : ''],
       ['Systemkomponenten', (t.komponenten || []).join(', '), true],
       ['DIN-Richtung', t.dinRichtung],
       ['Öffnungsrichtung', t.oeffnungsrichtung],
-      ['Türblattstärke', t.tuerblattstaerke ? t.tuerblattstaerke + ' mm' : ''],
-      ['Dornmaß', t.dornmass ? t.dornmass + ' mm' : ''],
-      ['Entfernung', t.entfernung ? t.entfernung + ' mm' : ''],
-      ['Vierkant', t.vierkant ? t.vierkant + ' mm' : ''],
-      ['Profilbreite', t.profilbreite],
-      ['Türbreite', t.tuerbreite ? t.tuerbreite + ' mm' : ''],
-      ['Türhöhe', t.tuerhoehe ? t.tuerhoehe + ' mm' : ''],
+      ['Türblattstärke', t.tuerblattstaerke ? massText(t.tuerblattstaerke) + ' mm' : ''],
+      ['Dornmaß', t.dornmass ? massText(t.dornmass) + ' mm' : ''],
+      ['Entfernung', t.entfernung ? massText(t.entfernung) + ' mm' : ''],
+      ['Vierkant', t.vierkant ? massText(t.vierkant) + ' mm' : ''],
+      ['Profilbreite', massText(t.profilbreite)],
+      ['Türbreite', t.tuerbreite ? massText(t.tuerbreite) + ' mm' : ''],
+      ['Türhöhe', t.tuerhoehe ? massText(t.tuerhoehe) + ' mm' : ''],
       ['Türanschlag', t.tuerAnschlag],
       ['Stulpmaß', t.stulpmass],
       ['Stulpform', t.schlossStulpform],
-      ['Stulpbreite', t.schlossStulpbreite ? t.schlossStulpbreite + ' mm' : ''],
-      ['Stulplänge', t.schlossStulplaenge ? t.schlossStulplaenge + ' mm' : ''],
+      ['Stulpbreite', t.schlossStulpbreite ? massText(t.schlossStulpbreite) + ' mm' : ''],
+      ['Stulplänge', t.schlossStulplaenge ? massText(t.schlossStulplaenge) + ' mm' : ''],
       ['Fallenart', t.schlossFallenart],
-      ['Riegelausschluss', t.schlossRiegelausschluss ? t.schlossRiegelausschluss + ' mm' : ''],
+      ['Riegelausschluss', t.schlossRiegelausschluss ? massText(t.schlossRiegelausschluss) + ' mm' : ''],
       ['Verriegelungspunkte', t.schlossVerriegelungspunkte],
       ['Norm / Zulassung Schloss', t.schlossNorm],
       ['Bohrbild', t.bohrbild],
@@ -6061,7 +6508,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       ['Maß-Bemerkung', t.masseBemerkung, true],
       ['Bestand Fabrikat', t.bestandFabrikat],
       ['Bestand Zylinderart', t.bestandZylinderart],
-      ['Bestand Länge', [t.bestandLaengeAussen, t.bestandLaengeInnen].filter(Boolean).join('/') ||
+      ['Bestand Länge', [massText(t.bestandLaengeAussen), massText(t.bestandLaengeInnen)].filter(Boolean).join('/') ||
                         t.bestandLaenge],
       ['Bestand Schlüsselanzahl', t.bestandAnzahlSchluessel],
       ['Bestand Bemerkung', t.bestandBemerkung, true],
@@ -6083,8 +6530,14 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
 
     var spaltenAnzahl = 3;
     var spaltenBreite = b / spaltenAnzahl;
-    var kopfHoehe = 8;
     var status = K.statusById(t.status);
+    /* Der Titel darf zwei Zeilen haben; der Kopf wächst mit (8 oder 12,6 mm) */
+    var titelBasis = (t.nummer ? t.nummer + '  ·  ' : '') + (t.bezeichnung || 'ohne Bezeichnung');
+    function titelVon(fortsetzung) { return titelBasis + (fortsetzung ? '   (Fortsetzung)' : ''); }
+    function kopfHoeheVon(fortsetzung) {
+      return 3.4 + doc.blockHoehe(titelVon(fortsetzung), b - 70, { size: 10.5, bold: true, maxLines: 2 });
+    }
+    var kopfHoehe = kopfHoeheVon(false);
 
     /* Rasterzeilen bilden und ihre Höhe am längsten Wert ausrichten, damit
        lange Werte (z. B. mehrere Zutrittsarten) vollständig lesbar bleiben. */
@@ -6094,7 +6547,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       if (!puffer.length) return;
       var maxH = 0;
       puffer.forEach(function (f) {
-        var h = doc.blockHoehe(txt(f[1]), spaltenBreite - 4, { size: 8, maxLines: 2 });
+        var h = doc.blockHoehe(txt(f[1]), spaltenBreite - 4, { size: 8, maxLines: 4 });
         if (h > maxH) maxH = h;
       });
       rasterZeilen.push({ felder: puffer.slice(), voll: false, hoehe: Math.max(3.4, maxH) + 4.6 });
@@ -6109,7 +6562,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
         pufferAbschliessen();
         rasterZeilen.push({
           felder: [f], voll: true,
-          hoehe: doc.blockHoehe(txt(f[1]), b - 4, { size: 8, maxLines: 3 }) + 4.6
+          hoehe: doc.blockHoehe(txt(f[1]), b - 4, { size: 8, maxLines: 6 }) + 4.6
         });
         return;
       }
@@ -6122,26 +6575,39 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     var notizHoehe = 0;
     if (t.notiz) notizHoehe += doc.blockHoehe(t.notiz, b - 26, { size: 8 }) + 2;
     if (t.nacharbeit) notizHoehe += doc.blockHoehe(t.nacharbeitText || 'Nacharbeit erforderlich', b - 26, { size: 8 }) + 2;
-    var fotoHoehe = fotos.length ? 34 : 0;
+    /* Fotos: erst die lesbaren (JPEG) ermitteln, dann in Reihen mit
+       Platzprüfung je Reihe zeichnen. Nicht lesbare Bilder (PNG, defekte
+       Daten) verbrauchen keinen Platz und werden benannt, statt still zu
+       fehlen. */
+    var fotoEintraege = fotos.map(function (foto, i) {
+      return { foto: foto || {}, id: doc.bildRegistrieren(foto && foto.dataUrl), nr: i + 1 };
+    });
+    var lesbar = fotoEintraege.filter(function (e) { return e.id; });
+    var unlesbar = fotoEintraege.filter(function (e) { return !e.id; });
+    var fotoBreite = 42, fotoAbstand = 3, fotoMaxHoehe = 30;
+    var proReihe = Math.max(1, Math.min(6, Math.floor((b - 4 + fotoAbstand) / (fotoBreite + fotoAbstand))));
+    var fotoReihen = Math.ceil(lesbar.length / proReihe);
+    var fotoHoehe = fotoReihen * (fotoMaxHoehe + 4) + (unlesbar.length ? 4 : 0);
     var gesamt = kopfHoehe + feldHoeheGesamt + notizHoehe + fotoHoehe + 8;
 
     /* Passt das Datenblatt komplett auf eine Seite, wird es nicht zerrissen.
        Andernfalls beginnt es auf einer frischen Seite und wird sauber
-       umbrochen - kein Feld darf verloren gehen. */
-    if (gesamt <= doc.inhaltsHoehe()) doc.platzPruefen(gesamt);
-    else doc.platzPruefen(kopfHoehe + rasterZeilen.slice(0, 3)
+       umbrochen - kein Feld darf verloren gehen. Ein Vorspann (die
+       Bereichszeile) wird mitgeprüft und danach gezeichnet. */
+    var vorspannHoehe = vorspann ? vorspann.hoehe : 0;
+    if (gesamt + vorspannHoehe <= doc.inhaltsHoehe()) doc.platzPruefen(vorspannHoehe + gesamt);
+    else doc.platzPruefen(vorspannHoehe + kopfHoehe + rasterZeilen.slice(0, 3)
       .reduce(function (a, r) { return a + r.hoehe; }, 0));
+    if (vorspann) vorspann.zeichnen();
 
     function kopfZeichnen(fortsetzung) {
-      var startY = doc.y;
-      doc.rechteck(x, startY, b, kopfHoehe, { fill: '#eef2f7', stroke: FARBE.linie, width: 0.3 });
-      doc.rechteck(x, startY, 1.6, kopfHoehe, { fill: t.nacharbeit ? FARBE.fehler : status.farbe });
-      var titel = (t.nummer ? t.nummer + '  ·  ' : '') + (t.bezeichnung || 'ohne Bezeichnung');
-      if (fortsetzung) titel += '   (Fortsetzung)';
-      doc.text(doc.kuerzen(titel, b - 70, 10.5, true), x + 4, startY + 2, { size: 10.5, bold: true });
+      var startY = doc.y, kh = kopfHoeheVon(fortsetzung);
+      doc.rechteck(x, startY, b, kh, { fill: '#eef2f7', stroke: FARBE.linie, width: 0.3 });
+      doc.rechteck(x, startY, 1.6, kh, { fill: t.nacharbeit ? FARBE.fehler : status.farbe });
+      doc.textBlock(titelVon(fortsetzung), x + 4, startY + 2, b - 70, { size: 10.5, bold: true, maxLines: 2 });
       doc.text(status.label + (t.nacharbeit ? '  ·  NACHARBEIT' : ''), x + b - 3, startY + 2.4,
                { size: 7.5, align: 'right', bold: true, color: t.nacharbeit ? FARBE.fehler : status.farbe });
-      doc.y = startY + kopfHoehe + 1.5;
+      doc.y = startY + kh + 1.5;
     }
 
     kopfZeichnen(false);
@@ -6155,13 +6621,13 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       var fy = doc.y;
       if (rz.voll) {
         var fv = rz.felder[0];
-        doc.text(fv[0], x + 2, fy, { size: 6.6, color: FARBE.hellgrau });
-        doc.textBlock(txt(fv[1]), x + 2, fy + 3.1, b - 4, { size: 8, maxLines: 3 });
+        doc.text(fv[0], x + 2, fy, { size: 7, color: FARBE.hellgrau });
+        doc.textBlock(txt(fv[1]), x + 2, fy + 3.1, b - 4, { size: 8, maxLines: 6 });
       } else {
         rz.felder.forEach(function (f, sp) {
           var fx = x + sp * spaltenBreite + 2;
-          doc.text(f[0], fx, fy, { size: 6.6, color: FARBE.hellgrau });
-          doc.textBlock(txt(f[1]), fx, fy + 3.1, spaltenBreite - 4, { size: 8, maxLines: 2 });
+          doc.text(f[0], fx, fy, { size: 7, color: FARBE.hellgrau });
+          doc.textBlock(txt(f[1]), fx, fy + 3.1, spaltenBreite - 4, { size: 8, maxLines: 4 });
           if (sp > 0) {
             doc.linie(x + sp * spaltenBreite, fy - 0.5, x + sp * spaltenBreite, fy + rz.hoehe - 1.2,
                       { color: FARBE.linieHell, width: 0.15 });
@@ -6172,37 +6638,48 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     });
     doc.y += 1;
 
-    /* Notiz / Nacharbeit */
-    if (t.notiz) {
+    /* Notiz / Nacharbeit als Fließtext: Ein langer Text läuft auf die
+       nächste Seite weiter, dort steht der Kopf des Datenblatts als
+       Fortsetzung. Kein Text darf unter der Fußzeile verschwinden. */
+    function notizBlock(label, text, farbe, fett) {
+      var labelOpt = { size: 7, bold: !!fett, color: farbe };
       doc.platzPruefen(8);
-      doc.text('Bemerkung', x + 2, doc.y, { size: 6.6, color: FARBE.hellgrau });
-      doc.y += doc.textBlock(t.notiz, x + 24, doc.y, b - 26, { size: 8 }) + 1.5;
-    }
-    if (t.nacharbeit) {
-      doc.platzPruefen(8);
-      doc.text('Nacharbeit', x + 2, doc.y, { size: 6.6, bold: true, color: FARBE.fehler });
-      doc.y += doc.textBlock(t.nacharbeitText || 'Nacharbeit erforderlich', x + 24, doc.y, b - 26,
-                             { size: 8, color: FARBE.fehler }) + 1.5;
-    }
-
-    /* Fotos */
-    if (fotos.length) {
-      doc.platzPruefen(34);
-      var fx2 = x + 2, maxH = 30;
-      fotos.slice(0, 4).forEach(function (foto) {
-        var id = doc.bildRegistrieren(foto.dataUrl);
-        if (!id) return;
-        var gez = doc.bild(id, fx2, doc.y, 42, maxH);
-        if (gez) {
-          doc.rechteck(fx2, doc.y, gez.breite, gez.hoehe, { stroke: FARBE.linie, width: 0.2 });
-          if (foto.beschriftung) {
-            doc.text(doc.kuerzen(foto.beschriftung, gez.breite, 6.4, false), fx2, doc.y + gez.hoehe + 0.6,
-                     { size: 6.4, color: FARBE.hellgrau });
-          }
-          fx2 += gez.breite + 3;
-        }
+      doc.text(label, x + 2, doc.y, labelOpt);
+      doc.textFliessend(text, x + 24, b - 26, {
+        size: 8, color: fett ? farbe : FARBE.text,
+        beiUmbruch: function () { kopfZeichnen(true); doc.text(label, x + 2, doc.y, labelOpt); }
       });
-      doc.y += maxH + 4;
+      doc.y += 1.5;
+    }
+    if (t.notiz) notizBlock('Bemerkung', t.notiz, FARBE.hellgrau, false);
+    if (t.nacharbeit) notizBlock('Nacharbeit', t.nacharbeitText || 'Nacharbeit erforderlich', FARBE.fehler, true);
+
+    /* Fotos in Reihen; jede Reihe prüft ihren Platz */
+    for (var reihe = 0; reihe < fotoReihen; reihe++) {
+      doc.platzPruefen(fotoMaxHoehe + 4);
+      var fx2 = x + 2, fy2 = doc.y;
+      lesbar.slice(reihe * proReihe, (reihe + 1) * proReihe).forEach(function (e) {
+        /* Kleine Bilder nicht hochziehen: 150 Pixel je Zoll als Obergrenze */
+        var info = doc.bildInfo(e.id);
+        var maxB = Math.min(fotoBreite, Math.max(8, info.breite / 150 * 25.4));
+        var gez = doc.bild(e.id, fx2, fy2, maxB, fotoMaxHoehe);
+        if (!gez) return;
+        doc.rechteck(fx2, fy2, gez.breite, gez.hoehe, { stroke: FARBE.linie, width: 0.2 });
+        var platz = Math.max(gez.breite, 14);
+        if (e.foto.beschriftung) {
+          doc.text(doc.kuerzen(e.foto.beschriftung, platz - 1, 7, false), fx2, fy2 + gez.hoehe + 0.6,
+                   { size: 7, color: FARBE.hellgrau });
+        }
+        fx2 += platz + fotoAbstand;
+      });
+      doc.y += fotoMaxHoehe + 4;
+    }
+    if (unlesbar.length) {
+      doc.platzPruefen(4);
+      var namen = unlesbar.map(function (e) { return e.nr + (e.foto.beschriftung ? ' (' + e.foto.beschriftung + ')' : ''); }).join(', ');
+      doc.text(doc.kuerzen((unlesbar.length === 1 ? 'Foto ' + namen + ' ist' : 'Fotos ' + namen + ' sind') +
+               ' nicht als JPEG lesbar und fehlen hier.', b - 4, 7, false), x + 2, doc.y, { size: 7, color: FARBE.warn });
+      doc.y += 4;
     }
 
     doc.linie(x, doc.y, x + b, doc.y, { color: FARBE.linie, width: 0.3 });
@@ -6212,7 +6689,10 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
   function zusammenfassung(doc, projekt, einstellungen) {
     var s = M.statistik(projekt);
     var x = doc.rand.links, b = doc.inhaltsBreite();
-    doc.platzPruefen(26);
+    /* Kennzahlen, Projektbemerkung und Unterschriften möglichst zusammen
+       auf eine Seite; sonst stünden die Unterschriften allein auf einer. */
+    var bemerkungHoehe = projekt.bemerkung ? 8 + doc.blockHoehe(projekt.bemerkung, b, { size: 8 }) : 0;
+    doc.platzPruefen(Math.min(25 + bemerkungHoehe + 26, doc.inhaltsHoehe()));
     doc.y += 3;
     doc.text('Zusammenfassung', x, doc.y, { size: 10, bold: true, color: FARBE.akzent });
     doc.y += 6;
@@ -6229,7 +6709,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       var kx = x + i * kw;
       doc.rechteck(kx, doc.y, kw - 2, 12, { fill: FARBE.zebraBg, stroke: FARBE.linieHell });
       doc.text(w[1], kx + kw / 2 - 1, doc.y + 1.5, { size: 12, bold: true, align: 'center', color: FARBE.akzent });
-      doc.text(w[0], kx + kw / 2 - 1, doc.y + 7.8, { size: 6.8, align: 'center', color: FARBE.grau });
+      doc.text(w[0], kx + kw / 2 - 1, doc.y + 7.8, { size: 7, align: 'center', color: FARBE.grau });
     });
     doc.y += 16;
 
@@ -6237,10 +6717,16 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       doc.platzPruefen(12);
       doc.text('Projektbemerkung', x, doc.y, { size: 8, bold: true });
       doc.y += 4;
-      doc.y += doc.textBlock(projekt.bemerkung, x, doc.y, b, { size: 8, color: FARBE.grau });
+      /* Fließtext über Seitengrenzen; die letzten Zeilen bleiben bei den
+         Unterschriften (26 mm), damit diese nicht allein auf einer Seite stehen. */
+      doc.textFliessend(projekt.bemerkung, x, b, { size: 8, color: FARBE.grau, anhangHoehe: 26,
+        beiUmbruch: function () {
+          doc.text('Projektbemerkung (Fortsetzung)', x, doc.y, { size: 8, bold: true });
+          doc.y += 4;
+        } });
     }
 
-    doc.platzPruefen(24);
+    doc.platzPruefen(26);
     doc.y += 8;
     var sb = (b - 10) / 2;
     [['Aufgenommen durch (Datum, Unterschrift)', x],
@@ -6340,21 +6826,21 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
         var anz = M.medienAnzahl(projekt, s);
         if (anz > 0) {
           doc.text(String(anz), cx + spaltenBreite / 2, y + kopfHoehe - medienZeile + 0.1,
-                   { size: 5.6, align: 'center', color: FARBE.grau });
+                   { size: 6.5, align: 'center', color: FARBE.grau });
         }
       });
       doc.linie(x0 + tuerSpalte, y, x0 + tuerSpalte, y + kopfHoehe, { color: FARBE.linie, width: 0.4 });
       doc.linie(x0 + tuerSpalte, y + kopfHoehe - medienZeile, x0 + gesamtBreite,
                 y + kopfHoehe - medienZeile, { color: FARBE.linie, width: 0.2 });
       doc.text('Stk', x0 + tuerSpalte - 2, y + kopfHoehe - medienZeile + 0.1,
-               { size: 5.6, align: 'right', color: FARBE.hellgrau });
+               { size: 6.5, align: 'right', color: FARBE.hellgrau });
       doc.y = y + kopfHoehe;
     }
 
     kopfZeichnen();
     var zebra = 0;
 
-    gruppen.forEach(function (g) {
+    gruppen.forEach(function (g, gi) {
       /* Gruppenzeile */
       if (doc.platzPruefen(zeilenHoehe * 3)) { kopfZeichnen(); zebra = 0; }
       var gy = doc.y;
@@ -6364,13 +6850,16 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       doc.y = gy + 5;
       zebra = 0;
 
-      g.tueren.forEach(function (t) {
-        if (doc.platzPruefen(zeilenHoehe)) { kopfZeichnen(); zebra = 0; }
+      g.tueren.forEach(function (t, ti) {
+        /* Die letzte Zeile nimmt die Summenzeile mit, damit diese nicht
+           allein mit wiederholtem Kopf auf einer neuen Seite steht. */
+        var letzte = gi === gruppen.length - 1 && ti === g.tueren.length - 1;
+        if (doc.platzPruefen(letzte ? zeilenHoehe * 2 + 2 : zeilenHoehe)) { kopfZeichnen(); zebra = 0; }
         var y = doc.y;
         if (zebra % 2 === 1) doc.rechteck(x0, y, gesamtBreite, zeilenHoehe, { fill: FARBE.zebraBg });
 
         var label = (t.nummer ? t.nummer + ' ' : '') + (t.bezeichnung || '');
-        if (t.anzahl > 1) label += ' (' + t.anzahl + 'x)';
+        if (anzahlVon(t) > 1) label += ' (' + anzahlVon(t) + 'x)';
         doc.text(doc.kuerzen(label || '–', tuerSpalte - 4, 7, false), x0 + 2, y + 1.1, { size: 7 });
 
         var raster = [];
@@ -6403,11 +6892,11 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       var summe = 0;
       projekt.tueren.forEach(function (t) {
         var w = M.getBerechtigung(projekt, t.id, s.id);
-        if (w !== 'nein' && w !== 'sperr') summe += (parseInt(t.anzahl, 10) || 1);
+        if (w !== 'nein' && w !== 'sperr') summe += anzahlVon(t);
       });
       doc.linie(cx, sy, cx, sy + zeilenHoehe, { color: FARBE.linie, width: 0.25 });
       doc.text(String(summe), cx + spaltenBreite / 2, sy + 1.1,
-               { size: 6.8, align: 'center', bold: true, color: FARBE.akzent });
+               { size: 7, align: 'center', bold: true, color: FARBE.akzent });
     });
     doc.y = sy + zeilenHoehe + 4;
   }
@@ -6425,12 +6914,14 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
                (wer ? ' durch ' + wer : '') +
                (f.art === 'nachtraeglich' ? ' (nachträgliche Freigabe)' : '') + '.';
     if (geaendert) text += '  Achtung: Der Plan wurde nach der Freigabe geändert - der Vermerk gilt für den freigegebenen Stand.';
-    doc.platzPruefen(10);
-    doc.rechteck(x, doc.y, b, 7, { fill: geaendert ? '#fff3e0' : '#e8f5e9',
-                                   stroke: geaendert ? FARBE.warn : '#81c784', width: 0.3 });
+    /* Der Kasten wächst mit dem Text (lange Namen, Warnung nach Änderung) */
+    var hoehe = doc.blockHoehe(text, b - 6, { size: 7.6, bold: true, maxLines: 3 }) + 3.2;
+    doc.platzPruefen(hoehe + 3);
+    doc.rechteck(x, doc.y, b, hoehe, { fill: geaendert ? '#fff3e0' : '#e8f5e9',
+                                       stroke: geaendert ? FARBE.warn : '#81c784', width: 0.3 });
     doc.textBlock(text, x + 3, doc.y + 1.6, b - 6, { size: 7.6, bold: true,
-                  color: geaendert ? FARBE.warn : '#2e7d32', maxLines: 2 });
-    doc.y += 10;
+                  color: geaendert ? FARBE.warn : '#2e7d32', maxLines: 3 });
+    doc.y += hoehe + 3;
   }
 
   /* „2× Transponder, 1× Smartphone“ - was hinter einer Spalte an Medien
@@ -6497,7 +6988,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       { titel: 'Kürzel', breite: b * 0.07, key: 'kuerzel', bold: true },
       { titel: 'Bezeichnung', breite: b * 0.17, key: 'bezeichnung' },
       { titel: 'Art', breite: b * 0.11, render: function (s) { return M.spaltenArtText(s); } },
-      { titel: 'Träger / Mitglieder', breite: b * 0.37, maxLines: 8, render: function (s) {
+      { titel: 'Träger / Mitglieder', breite: b * 0.37, maxLines: 20, render: function (s) {
           return mitgliederText(projekt, s); } },
       { titel: 'Medien', breite: b * 0.06, align: 'center', render: function (s) {
           return String(M.medienAnzahl(projekt, s)); } },
@@ -6516,7 +7007,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       doc.y += 5;
       var gSpalten = [
         { titel: 'Gruppe', breite: b * 0.20, key: 'name', bold: true },
-        { titel: 'Mitglieder', breite: b * 0.62, maxLines: 10, render: function (g) {
+        { titel: 'Mitglieder', breite: b * 0.62, maxLines: 20, render: function (g) {
             var leute = M.gruppenMitglieder(projekt, g.id);
             if (!leute.length) return '– keine Mitglieder hinterlegt –';
             return leute.map(function (m) {
@@ -6535,11 +7026,11 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     if (doppelt.length) {
       doc.y += 3;
       doc.platzPruefen(10);
-      doc.textBlock('Hinweis: ' + doppelt.map(function (d) {
+      doc.textFliessend('Hinweis: ' + doppelt.map(function (d) {
         return d.mitarbeiter.name + ' (' + d.spalten.map(function (s) { return s.kuerzel || s.bezeichnung; }).join(', ') + ')';
       }).join('; ') + ' stehen einzeln und über eine Gruppe im Plan. In der Materialliste werden ihre Medien nur einmal gezählt.',
-        x, doc.y, b, { size: 7, color: FARBE.grau, maxLines: 4 });
-      doc.y += 8;
+        x, b, { size: 7, color: FARBE.grau });
+      doc.y += 3;
     }
   }
 
@@ -6572,10 +7063,10 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     var systemName = projekt.systemMechanik ? ((K.systemLabel && K.systemLabel(projekt.systemMechanik)) || projekt.systemMechanik) : '';
     var kopfText = ['Anlage: ' + (projekt.anlagenNr || '–'), 'System: ' + (systemName || '–'), 'Oberfläche: ' + (projekt.oberflaeche || '–'),
                     'Datum: ' + (projekt.aufmassDatum ? datumDe(projekt.aufmassDatum) : '–'), 'Objekt: ' + (projekt.objekt || '–')].join('    ');
-    doc.text(kopfText, doc.rand.links, doc.y, { size: 7.5, color: FARBE.grau });
-    doc.y += 5;
-
     var b = doc.inhaltsBreite();
+    /* Ein langes Objekt bricht in eine zweite Zeile um, statt über den Rand zu laufen */
+    doc.y += doc.textBlock(kopfText, doc.rand.links, doc.y, b, { size: 7.5, color: FARBE.grau, maxLines: 2 }) + 1.7;
+
     var linke = [
       { t: 'ZP', w: 7, f: function (z, i) { return String(i + 1); }, align: 'right' },
       { t: 'Tür.Nr.', w: 16, f: function (z) { return z.tuer.nummer || ''; }, bold: true },
@@ -6592,6 +7083,16 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     for (var i = 0; i < plan.spalten.length; i += proSeite) bloecke.push(plan.spalten.slice(i, i + proSeite));
     if (!bloecke.length) bloecke.push([]);
     var zeilenHoehe = 5.4;
+    /* Schl.Nr: Passt die breiteste Nummer nicht in die Spalte, stehen alle
+       Nummern senkrecht wie die Funktion, in einer Zone nach der breitesten
+       Nummer (höchstens 20 mm, etwa 13 Zeichen; längere werden gekürzt).
+       Kurze Nummern bleiben waagerecht. */
+    var schlBreite = 0;
+    plan.spalten.forEach(function (s) { var w = doc.textBreite(String(s.schlNr || ''), 7, true); if (w > schlBreite) schlBreite = w; });
+    var schlSenkrecht = schlBreite > spaltenBreite - 0.8;
+    var mengeZone = 3.6;
+    var schlZone = schlSenkrecht ? Math.min(20, schlBreite + 2.4) : 3.6;
+    var unterZeilen = mengeZone + schlZone;    /* Menge + Schl.Nr */
 
     bloecke.forEach(function (block, blockIndex) {
       if (blockIndex > 0) { doc.neueSeite(); doc.y += 2; }
@@ -6603,8 +7104,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       var kopfTexte = block.map(function (s) { return s.funktion || s.schlNr || '–'; });
       var maxText = 0;
       kopfTexte.forEach(function (tx) { var w = doc.textBreite(tx, 7, true); if (w > maxText) maxText = w; });
-      var unterZeilen = 7.2;    /* Menge + Schl.Nr */
-      var kopfHoehe = Math.min(60, Math.max(24, maxText + 6 + unterZeilen));
+      var kopfHoehe = Math.min(52.8, Math.max(16.8, maxText + 6)) + unterZeilen;
 
       function kopfZeichnen() {
         doc.platzPruefen(kopfHoehe + 3 * zeilenHoehe);
@@ -6612,24 +7112,29 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
         doc.rechteck(x0, y, gesamt, kopfHoehe, { fill: FARBE.kopfBg, stroke: FARBE.linie, width: 0.3 });
         var lx = x0;
         linke.forEach(function (l) {
-          doc.text(l.t, lx + 1.5, y + kopfHoehe - unterZeilen - 5.2, { size: 6.6, bold: true });
+          doc.text(l.t, lx + 1.5, y + kopfHoehe - unterZeilen - 5.2, { size: 7, bold: true });
           lx += l.w;
           doc.linie(lx, y + kopfHoehe - unterZeilen - 6.5, lx, y + kopfHoehe, { color: FARBE.linie, width: 0.25 });
         });
-        doc.text('Funktion', x0 + linksBreite - 1.5, y + kopfHoehe - unterZeilen - 10.5, { size: 6, color: FARBE.grau, align: 'right' });
-        doc.text('Menge', x0 + linksBreite - 1.5, y + kopfHoehe - unterZeilen + 0.3, { size: 6, color: FARBE.grau, align: 'right' });
-        doc.text('Schl.Nr', x0 + linksBreite - 1.5, y + kopfHoehe - 3.5, { size: 6, color: FARBE.grau, align: 'right' });
+        doc.text('Funktion', x0 + linksBreite - 1.5, y + kopfHoehe - unterZeilen - 10.5, { size: 7, color: FARBE.grau, align: 'right' });
+        doc.text('Menge', x0 + linksBreite - 1.5, y + kopfHoehe - unterZeilen + 0.3, { size: 7, color: FARBE.grau, align: 'right' });
+        doc.text('Schl.Nr', x0 + linksBreite - 1.5, y + kopfHoehe - 3.5, { size: 7, color: FARBE.grau, align: 'right' });
         block.forEach(function (s, i) {
           var cx = x0 + linksBreite + i * spaltenBreite;
           doc.linie(cx, y, cx, y + kopfHoehe, { color: FARBE.linie, width: 0.25 });
           var text = doc.kuerzen(kopfTexte[i], kopfHoehe - unterZeilen - 3, 7, true);
           doc.textRotiert(text, cx + spaltenBreite / 2 + 2.4, y + kopfHoehe - unterZeilen - 1.5, { size: 7, bold: true });
-          if (s.menge > 0) doc.text(String(s.menge), cx + spaltenBreite / 2, y + kopfHoehe - unterZeilen + 0.3, { size: 5.6, align: 'center', color: FARBE.grau });
-          doc.text(doc.kuerzen(String(s.schlNr || ''), spaltenBreite - 0.8, 6, true), cx + spaltenBreite / 2, y + kopfHoehe - 3.5, { size: 6, align: 'center', bold: true });
+          if (s.menge > 0) doc.text(String(s.menge), cx + spaltenBreite / 2, y + kopfHoehe - unterZeilen + 0.3, { size: 6.5, align: 'center', color: FARBE.grau });
+          var schlNr = String(s.schlNr || '');
+          if (schlSenkrecht) {
+            doc.textRotiert(doc.kuerzen(schlNr, schlZone - 2, 7, true), cx + spaltenBreite / 2 + 1, y + kopfHoehe - 1.2, { size: 7, bold: true });
+          } else {
+            doc.text(schlNr, cx + spaltenBreite / 2, y + kopfHoehe - 3.4, { size: 7, align: 'center', bold: true });
+          }
         });
         doc.linie(x0 + linksBreite, y, x0 + linksBreite, y + kopfHoehe, { color: FARBE.linie, width: 0.4 });
         doc.linie(x0 + linksBreite, y + kopfHoehe - unterZeilen, x0 + gesamt, y + kopfHoehe - unterZeilen, { color: FARBE.linie, width: 0.2 });
-        doc.linie(x0 + linksBreite, y + kopfHoehe - 3.6, x0 + gesamt, y + kopfHoehe - 3.6, { color: FARBE.linie, width: 0.2 });
+        doc.linie(x0 + linksBreite, y + kopfHoehe - schlZone, x0 + gesamt, y + kopfHoehe - schlZone, { color: FARBE.linie, width: 0.2 });
         doc.y = y + kopfHoehe;
       }
       kopfZeichnen();
@@ -6648,9 +7153,9 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
         if (zebra % 2 === 1) doc.rechteck(x0, y, gesamt, zeilenHoehe, { fill: FARBE.zebraBg });
         var lx = x0;
         linke.forEach(function (l) {
-          var text = doc.kuerzen(l.f(z, index), l.w - 2.5, 6.8, !!l.bold);
+          var text = doc.kuerzen(l.f(z, index), l.w - 2.5, 7, !!l.bold);
           var tx = l.align === 'center' ? lx + l.w / 2 : (l.align === 'right' ? lx + l.w - 1.2 : lx + 1.2);
-          doc.text(text, tx, y + 1.2, { size: 6.8, bold: !!l.bold, align: l.align || 'left', color: z.mitlaeufer && l.t !== 'Zyl.Nr.' ? FARBE.grau : FARBE.text });
+          doc.text(text, tx, y + 1.2, { size: 7, bold: !!l.bold, align: l.align || 'left', color: z.mitlaeufer && l.t !== 'Zyl.Nr.' ? FARBE.grau : FARBE.text });
           lx += l.w;
         });
         var raster = [];
@@ -6672,25 +7177,31 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       doc.y += 3;
     });
 
-    /* Legende */
-    doc.platzPruefen(22);
-    doc.y += 2;
-    doc.text('Legende', doc.rand.links, doc.y, { size: 9, bold: true, color: FARBE.akzent });
-    doc.y += 5;
+    /* Legende. Die Gesamthöhe wird vorab bestimmt, damit sie als Ganzes auf
+       die Seite kommt und nicht in die Fußzeile läuft. Reicht eine Seite
+       nicht (sehr viele Hinweise), fließen ESL-Text und Hinweise weiter. */
     var legendeTexte = [['X', 'Schlüssel der Spalte sperrt den Zylinder'], ['I', 'Eigenschlüssel der Tür gehört zur Gruppe der Spalte'],
       ['Z', 'Zentralzylinder: alle Eigenschlüssel der Gruppe sperren'], ['M', 'Mitschließung: die Gruppe sperrt diesen Zylinder mit eigenem Schlüssel mit'],
       ['O', 'vorgeplant (Reserve): vorbereitet, sperrt noch nicht']];
+    var eslText = 'ESL = Stückzahl der Eigenschlüssel je Zylinder (leer: kein Eigenschlüssel, 0: vorgeplant). Zyl.Nr. = Türnummer; gleichschließende Türen tragen die Nummer ihrer Haupttür mit .1, .2 … ' +
+      'Menge = Stück je Schlüsselspalte; bei einer Gruppe die Schlüssel der Mitglieder ohne eigene Tür.';
+    var hinweisText = plan.hinweise.length ? 'Hinweise: ' + plan.hinweise.join(' ') : '';
+    var legendeHoehe = 2 + 5 + legendeTexte.length * 4 + doc.blockHoehe(eslText, b, { size: 7 }) + 3 +
+                       (hinweisText ? doc.blockHoehe(hinweisText, b, { size: 7 }) + 3 : 0);
+    doc.platzPruefen(Math.min(legendeHoehe, doc.inhaltsHoehe()));
+    doc.y += 2;
+    doc.text('Legende', doc.rand.links, doc.y, { size: 9, bold: true, color: FARBE.akzent });
+    doc.y += 5;
     legendeTexte.forEach(function (l) {
       doc.text(l[0], doc.rand.links, doc.y, { size: 8, bold: true, color: FARBE.akzent });
       doc.text(l[1], doc.rand.links + 5, doc.y, { size: 7.5, color: FARBE.grau });
       doc.y += 4;
     });
-    doc.textBlock('ESL = Stückzahl der Eigenschlüssel je Zylinder (leer: kein Eigenschlüssel, 0: vorgeplant). Zyl.Nr. = Türnummer; gleichschließende Türen tragen die Nummer ihrer Haupttür mit .1, .2 … ' +
-      'Menge = Stück je Schlüsselspalte; bei einer Gruppe die Schlüssel der Mitglieder ohne eigene Tür.', doc.rand.links, doc.y, b, { size: 7, color: FARBE.grau, maxLines: 3 });
-    doc.y += 8;
-    if (plan.hinweise.length) {
-      doc.textBlock('Hinweise: ' + plan.hinweise.join(' '), doc.rand.links, doc.y, b, { size: 7, color: FARBE.warn, maxLines: 4 });
-      doc.y += 8;
+    doc.textFliessend(eslText, doc.rand.links, b, { size: 7, color: FARBE.grau });
+    doc.y += 3;
+    if (hinweisText) {
+      doc.textFliessend(hinweisText, doc.rand.links, b, { size: 7, color: FARBE.warn });
+      doc.y += 3;
     }
     return doc;
   }
@@ -6733,7 +7244,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
      * beim Lieferanten eingetragen, das Werkzeug erfindet sie nicht.
      * ------------------------------------------------------------------- */
     var pos = 0;
-    function f(x, name) { return txt((x.felder || {})[name]); }
+    function f(x, name) { return massText((x.felder || {})[name]); }
 
     /* Breiten als Gewichte: der Satz stimmt unabhängig davon, welche
      * zusätzlichen Spalten gerade mitlaufen. */
@@ -6753,15 +7264,15 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     /* Bewusst leer: handschriftlich oder beim Lieferanten auszufüllen */
     var spalteArtNr = { titel: 'Art.-Nr.', w: 12, render: function () { return ''; } };
     var spaltePreis = { titel: 'Preis', w: 8, align: 'right', render: function () { return ''; } };
-    var spalteTueren = { titel: 'Türen', w: 15, size: 6.8, color: FARBE.grau, maxLines: 3,
+    var spalteTueren = { titel: 'Türen', w: 15, size: 7, color: FARBE.grau, maxLines: 12,
       render: function (x) { return (x.tueren || []).join(', '); } };
 
     function satzFuer(art) {
       var mitte;
       if (art === 'Zylinder') {
         mitte = [
-          { titel: 'Bezeichnung', w: 22, key: 'bezeichnung', bold: true },
-          { titel: 'Ausführung', w: 18, key: 'ausfuehrung' },
+          { titel: 'Bezeichnung', w: 22, key: 'bezeichnung', bold: true, maxLines: 8 },
+          { titel: 'Ausführung', w: 18, key: 'ausfuehrung', maxLines: 10 },
           { titel: 'außen', w: 6, align: 'right', render: function (x) { return f(x, 'laengeAussen'); } },
           { titel: 'innen', w: 6, align: 'right', render: function (x) { return f(x, 'laengeInnen'); } },
           { titel: 'gesamt', w: 6.5, align: 'right', render: function (x) { return f(x, 'gesamtlaenge'); } },
@@ -6769,9 +7280,9 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
         ];
       } else if (art === 'Beschlag') {
         mitte = [
-          { titel: 'Bezeichnung', w: 18, key: 'bezeichnung', bold: true },
-          { titel: 'Ausführung', w: 14, key: 'ausfuehrung' },
-          { titel: 'Bestückung', w: 12, size: 7, render: function (x) { return f(x, 'bestueckung'); } },
+          { titel: 'Bezeichnung', w: 18, key: 'bezeichnung', bold: true, maxLines: 8 },
+          { titel: 'Ausführung', w: 14, key: 'ausfuehrung', maxLines: 10 },
+          { titel: 'Bestückung', w: 12, size: 7, maxLines: 10, render: function (x) { return f(x, 'bestueckung'); } },
           { titel: 'TS', w: 4.5, align: 'right', render: function (x) { return f(x, 'tuerblattstaerke'); } },
           { titel: 'DM', w: 4.5, align: 'right', render: function (x) { return f(x, 'dornmass'); } },
           { titel: 'E', w: 4.5, align: 'right', render: function (x) { return f(x, 'entfernung'); } },
@@ -6780,23 +7291,23 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
         ];
       } else if (art === 'Schloss') {
         mitte = [
-          { titel: 'Bezeichnung', w: 16, key: 'bezeichnung', bold: true },
-          { titel: 'Funktion', w: 16, key: 'ausfuehrung' },
+          { titel: 'Bezeichnung', w: 16, key: 'bezeichnung', bold: true, maxLines: 8 },
+          { titel: 'Funktion', w: 16, key: 'ausfuehrung', maxLines: 10 },
           { titel: 'DM', w: 4.5, align: 'right', render: function (x) { return f(x, 'dornmass'); } },
           { titel: 'E', w: 4.5, align: 'right', render: function (x) { return f(x, 'entfernung'); } },
           { titel: 'DIN', w: 7.5, size: 7, render: function (x) { return f(x, 'din'); } },
           { titel: 'Stulp', w: 11, size: 7, render: function (x) { return f(x, 'stulp'); } },
           { titel: 'Falle', w: 8.5, size: 7, render: function (x) { return f(x, 'fallenart'); } },
-          { titel: 'Detail', w: 10, size: 6.8, render: function (x) {
+          { titel: 'Detail', w: 10, size: 7, render: function (x) {
               return [f(x, 'riegelausschluss') ? ('Riegel ' + f(x, 'riegelausschluss') + ' mm') : '',
                       f(x, 'verriegelungspunkte') ? (f(x, 'verriegelungspunkte') + ' Pkt.') : '',
                       f(x, 'norm')].filter(Boolean).join(' · '); } }
         ];
       } else {
         mitte = [
-          { titel: 'Bezeichnung', w: 30, key: 'bezeichnung', bold: true },
-          { titel: 'Ausführung', w: 22, key: 'ausfuehrung' },
-          { titel: 'Hinweis', w: 16, size: 7, color: FARBE.grau, key: 'hinweis' }
+          { titel: 'Bezeichnung', w: 30, key: 'bezeichnung', bold: true, maxLines: 8 },
+          { titel: 'Ausführung', w: 22, key: 'ausfuehrung', maxLines: 10 },
+          { titel: 'Hinweis', w: 16, size: 7, color: FARBE.grau, key: 'hinweis', maxLines: 8 }
         ];
       }
       var spec = [spaltePos].concat(mitte, [spalteMenge, spalteArtNr, spaltePreis]);
@@ -6813,7 +7324,8 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
 
     liste.gliederung.forEach(function (abschnitt, index) {
       if (index > 0) doc.y += 4;
-      doc.platzPruefen(30);
+      /* Abschnitt, Systemzeile, Bauteilart, Tabellenkopf und erste Zeile zusammen */
+      doc.platzPruefen(46);
 
       /* Abschnittsüberschrift */
       doc.rechteck(doc.rand.links, doc.y, b, 9, { fill: FARBE.akzent });
@@ -6826,26 +7338,32 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
 
       abschnitt.gruppen.forEach(function (g, gi) {
         if (gi > 0) doc.y += 3;
-        doc.platzPruefen(22);
-        /* System bzw. Hersteller: danach wird bestellt */
-        doc.rechteck(doc.rand.links, doc.y, b, 6.6, { fill: '#dce6f2', stroke: FARBE.linie, width: 0.25 });
-        doc.text(g.label, doc.rand.links + 2, doc.y + 1.4, { size: 8.4, bold: true, color: FARBE.akzent });
-        doc.text(g.summe + ' Stück', doc.rand.links + b - 2, doc.y + 1.6,
-                 { size: 7.4, align: 'right', color: FARBE.grau });
-        doc.y += 6.6 + 2;
+        /* System bzw. Hersteller: danach wird bestellt. Die Zeile wird als
+           Vorspann der ersten Tabelle gezeichnet und bleibt so bei ihr. */
+        function systemZeile() {
+          doc.rechteck(doc.rand.links, doc.y, b, 6.6, { fill: '#dce6f2', stroke: FARBE.linie, width: 0.25 });
+          doc.text(doc.kuerzen(g.label, b - 30, 8.4, true), doc.rand.links + 2, doc.y + 1.4, { size: 8.4, bold: true, color: FARBE.akzent });
+          doc.text(g.summe + ' Stück', doc.rand.links + b - 2, doc.y + 1.6,
+                   { size: 7.4, align: 'right', color: FARBE.grau });
+          doc.y += 6.6 + 2;
+        }
+        var arten = g.arten || [];
+        if (!arten.length) { doc.platzPruefen(22); systemZeile(); return; }
 
-        (g.arten || []).forEach(function (art, ai) {
+        arten.forEach(function (art, ai) {
           if (ai > 0) doc.y += 3;
-          doc.platzPruefen(20);
-          doc.text(art.art + '  ·  ' + art.summe + ' Stück', doc.rand.links + 1, doc.y,
-                   { size: 8, bold: true, color: FARBE.text });
-          doc.y += 4;
-          if (EINHEIT_HINWEIS[art.art]) {
-            doc.text(EINHEIT_HINWEIS[art.art], doc.rand.links + 1, doc.y,
-                     { size: 6.6, color: FARBE.hellgrau });
-            doc.y += 3.4;
-          }
-          tabelle(doc, satzFuer(art.art), art.positionen.slice(), { size: 7.8 });
+          var hinweis = EINHEIT_HINWEIS[art.art] || '';
+          var vorspann = { hoehe: (ai === 0 ? 8.6 : 0) + 4 + (hinweis ? 3.4 : 0), zeichnen: function () {
+            if (ai === 0) systemZeile();
+            doc.text(art.art + '  ·  ' + art.summe + ' Stück', doc.rand.links + 1, doc.y,
+                     { size: 8, bold: true, color: FARBE.text });
+            doc.y += 4;
+            if (hinweis) {
+              doc.text(hinweis, doc.rand.links + 1, doc.y, { size: 7, color: FARBE.hellgrau });
+              doc.y += 3.4;
+            }
+          } };
+          tabelle(doc, satzFuer(art.art), art.positionen.slice(), { size: 7.8, vorspann: vorspann });
         });
       });
     });
@@ -6918,10 +7436,6 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     }
 
     /* --- Angaben zur Anlage, die für die Bestellung gebraucht werden --- */
-    doc.platzPruefen(30);
-    doc.text('Bestellangaben und Umfang', doc.rand.links, doc.y,
-             { size: 10, bold: true, color: FARBE.akzent });
-    doc.y += 6;
     /* Hier steht ausschließlich, was nicht schon im Kopfblock dieses
      * Dokuments steht. Kunde, Objekt, Adresse, Ansprechpartner, Anlagen-Nr.
      * und die Systeme sind dort bereits aufgeführt - sie noch einmal zu
@@ -6933,23 +7447,39 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     });
     var anlage = [
       ['Kommission / Bestellzeichen', projekt.kommission || '–'],
-      ['Lieferadresse', projekt.lieferAdresse
-        ? String(projekt.lieferAdresse).replace(/\s*\n\s*/g, ', ')
-        : 'wie Objektadresse im Kopf'],
+      ['Lieferadresse', projekt.lieferAdresse ? String(projekt.lieferAdresse) : 'wie Objektadresse im Kopf'],
       ['Türpositionen im Aufmaß', String(projekt.tueren.length) +
         (vollstaendig ? ('  ·  ' + vollstaendig + ' unvollständig') : '  ·  alle vollständig')],
       ['Positionen in dieser Liste', String(zeilenAnzahl)],
       ['Schließungen im Plan', String(projekt.schliessungen.length)],
       ['Identmedien gesamt', String(liste.gesamtMedien) + ' Stück']
     ];
+    /* Kein Wert wird gekürzt: Die Lieferadresse bleibt mehrzeilig, die
+       Rasterzeile wächst mit ihrem höchsten Wert. */
     var sp = b / 3;
+    var rasterHoehen = [];
+    for (var rz = 0; rz < Math.ceil(anlage.length / 3); rz++) {
+      var maxH = 0;
+      anlage.slice(rz * 3, rz * 3 + 3).forEach(function (feld) {
+        var h = doc.blockHoehe(txt(feld[1]), sp - 4, { size: 8.5, bold: true });
+        if (h > maxH) maxH = h;
+      });
+      rasterHoehen.push(maxH + 5.4);
+    }
+    var rasterGesamt = rasterHoehen.reduce(function (a, h) { return a + h; }, 0);
+    doc.platzPruefen(Math.min(6 + rasterGesamt + 4, doc.inhaltsHoehe()));
+    doc.text('Bestellangaben und Umfang', doc.rand.links, doc.y,
+             { size: 10, bold: true, color: FARBE.akzent });
+    doc.y += 6;
+    var versatz = 0;
     anlage.forEach(function (feld, i) {
       var spalte = i % 3, zeile = Math.floor(i / 3);
-      var fx = doc.rand.links + spalte * sp, fy = doc.y + zeile * 9;
-      doc.text(feld[0], fx, fy, { size: 6.8, color: FARBE.hellgrau });
-      doc.textBlock(txt(feld[1]), fx, fy + 3.2, sp - 4, { size: 8.5, bold: true, maxLines: 1 });
+      if (spalte === 0 && zeile > 0) versatz += rasterHoehen[zeile - 1];
+      var fx = doc.rand.links + spalte * sp, fy = doc.y + versatz;
+      doc.text(feld[0], fx, fy, { size: 7, color: FARBE.hellgrau });
+      doc.textBlock(txt(feld[1]), fx, fy + 3.2, sp - 4, { size: 8.5, bold: true });
     });
-    doc.y += Math.ceil(anlage.length / 3) * 9 + 4;
+    doc.y += rasterGesamt + 4;
 
     doc.platzPruefen(20);
     var schluss = 'Hinweis: Die Mengen ergeben sich rechnerisch aus dem Aufmaß. ' +
@@ -6960,7 +7490,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       schluss += ' Achtung: Bei ' + vollstaendig + ' Türposition(en) fehlen noch Pflichtangaben; ' +
         'die betroffenen Zeilen sind in den Maßspalten leer. Einzelheiten im Prüfprotokoll.';
     }
-    doc.textBlock(schluss, doc.rand.links, doc.y, b, { size: 7.5, color: FARBE.hellgrau });
+    doc.textFliessend(schluss, doc.rand.links, b, { size: 7.5, color: FARBE.hellgrau });
 
     return doc;
   }
@@ -6991,7 +7521,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       { titel: 'Art', breite: b * 0.14, bold: true, render: function (p) {
           return p.schwere === 'warn' ? 'Prüfen' : 'Hinweis'; },
         color: FARBE.warn },
-      { titel: 'Feststellung', breite: b * 0.86, key: 'text' }
+      { titel: 'Feststellung', breite: b * 0.86, key: 'text', maxLines: 6 }
     ];
     tabelle(doc, spalten, probleme.slice(), { size: 8.5 });
     return doc;
@@ -9079,7 +9609,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       'Kabel liegt = Kabelübergang vorhanden, Leerrohr liegt = Leerrohr vorhanden');
     jaNein('elTuerueberwachung', 'Türüberwachung oder Türzustandsmeldung gewünscht');
     jaNein('elTueroeffnerBestand', 'Elektrischer Türöffner ist schon vorhanden');
-    text('elLeitungsweg', 'Leitungsweg - woher kommt das Kabel');
+    text('elLeitungsweg', 'Leitungsweg – woher kommt das Kabel');
     /* Türdaten */
     zahl('tuerbreite', 'Türbreite in mm');
     zahl('tuerhoehe', 'Türhöhe in mm');
@@ -9342,13 +9872,13 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       aufraeumen();
       A.leeren(inhalt);
       inhalt.appendChild(el('p', { class: 'hinweis', style: { marginTop: '0' },
-        text: 'Einfach in ganzen Sätzen oder Stichworten alles zur Tür sagen - Bezeichnung, Bauteile, Maße, Besonderheiten. Das Werkzeug holt die Angaben heraus und zeigt einen Vorschlag; erst mit „Übernehmen“ landet etwas in der Tür.' }));
+        text: 'Einfach in ganzen Sätzen oder Stichworten alles zur Tür sagen – Bezeichnung, Bauteile, Maße, Besonderheiten. Das Werkzeug holt die Angaben heraus und zeigt einen Vorschlag; erst mit „Übernehmen“ landet etwas in der Tür.' }));
       inhalt.appendChild(el('p', { class: 'hinweis',
-        text: 'Mehrere Türen am Stück: „neue Tür“ sagen und weitersprechen. Dann wird jede Tür ohne Rückfrage eingetragen - diese hier und jede weitere als neue Tür im selben Bereich.' }));
+        text: 'Mehrere Türen am Stück: „neue Tür“ sagen und weitersprechen. Dann wird jede Tür ohne Rückfrage eingetragen – diese hier und jede weitere als neue Tür im selben Bereich.' }));
       inhalt.appendChild(el('p', { class: 'diktat-beispiel',
         text: '„Das ist die Tür zum Büro Empfang, DIN links. Da kommt ein Halbzylinder rein, außen fünfunddreißig. Beschlag Rosettengarnitur mit Drücker innen und außen, Dornmaß 55. Der Wandleser sitzt rechts außen, Kabel liegt schon. Neue Tür. Lager hinten, Doppelzylinder 40 45, DIN rechts …“' }));
       if (!online()) {
-        inhalt.appendChild(el('div', { class: 'meldung warn' }, el('div', { text: 'Zum Einsprechen braucht das Gerät Netz - die Erkennung läuft über den Server.' })));
+        inhalt.appendChild(el('div', { class: 'meldung warn' }, el('div', { text: 'Zum Einsprechen braucht das Gerät Netz – die Erkennung läuft über den Server.' })));
       }
       inhalt.appendChild(el('div', { class: 'diktat-mitte' },
         el('button', { type: 'button', class: 'haupt diktat-aufnahme', text: '🎤 Aufnahme starten', disabled: !online(),
@@ -9436,7 +9966,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
         if (abbruch !== meine && !zuSpaet) return;   /* bewusst abgebrochen - die Meldung steht schon */
         anfrageBeenden();
         var abgebrochen = f && (f.name === 'AbortError' || /abort/i.test(String(f.message || '')));
-        fehler(zuSpaet ? 'Der Server hat nicht innerhalb von vier Minuten geantwortet. Bitte erneut versuchen - die Aufnahme ist noch da.'
+        fehler(zuSpaet ? 'Der Server hat nicht innerhalb von vier Minuten geantwortet. Bitte erneut versuchen – die Aufnahme ist noch da.'
           : abgebrochen ? 'Abgebrochen.' : ((f && f.message) || 'Der Server hat nicht geantwortet.'), !!blob);
       });
     }
@@ -9515,7 +10045,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       if (e.offen.length) {
         var offenKasten = el('input', { type: 'checkbox', checked: true, onchange: function (ev) { offenGewaehlt = ev.target.checked; zaehlen(); } });
         inhalt.appendChild(el('div', { class: 'diktat-offen' }, [
-          el('label', {}, [offenKasten, el('span', { text: ' Nicht zugeordnet - in die Bemerkung übernehmen:' })]),
+          el('label', {}, [offenKasten, el('span', { text: ' Nicht zugeordnet – in die Bemerkung übernehmen:' })]),
           el('ul', {}, e.offen.map(function (o) { return el('li', { text: o }); }))
         ]));
       }
@@ -9584,11 +10114,38 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
      Anmeldeseite und in der Abgleich-Übersicht, damit man auf jedem Gerät
      in einer Sekunde sieht, welcher Stand dort läuft. Muss mit FASSUNG in
      sw.js übereinstimmen - der Prüflauf achtet darauf. */
-  var FASSUNG = '1.5.1';
+  var FASSUNG = '1.5.2';
 
   /* =========================================================================
    * DOM-Hilfsmittel
    * ====================================================================== */
+  /* Elemente mit onclick, die keine Knöpfe sind (Türzeilen, Zellen, Köpfe,
+     Karten, Gliederungsknoten), bekommen hier Tastaturbedienung: tabindex,
+     Rolle und Enter/Leertaste. Sonst sind sie ohne Maus oder Finger
+     unerreichbar. Knöpfe, Links und Felder können das von selbst. */
+  var TASTEN_EIGENE = { BUTTON: 1, A: 1, INPUT: 1, SELECT: 1, TEXTAREA: 1, LABEL: 1, SUMMARY: 1, DETAILS: 1 };
+  function tastaturNachruesten(knoten, eigenschaften) {
+    var tag = knoten.tagName;
+    var anklickbareZeile = tag === 'TR' && /\banklickbar\b/.test(knoten.className);
+    if (!anklickbareZeile) {
+      if (!eigenschaften || typeof eigenschaften.onclick !== 'function') return;
+      if (TASTEN_EIGENE[tag]) return;
+      /* In Tabellen nur die eigentlichen Zellen, nicht jede Zelle einer
+         anklickbaren Zeile (die Zeile selbst wird ein Ziel) */
+      if (/^(TD|TH)$/.test(tag) && !/\b(zelle|klickbar|spaltenkopf)\b/.test(knoten.className)) return;
+    }
+    if (knoten.hasAttribute('tabindex')) return;
+    knoten.setAttribute('tabindex', '0');
+    if (!knoten.hasAttribute('role') && !/^(TD|TH|TR)$/.test(tag)) knoten.setAttribute('role', 'button');
+    knoten.addEventListener('keydown', function (e) {
+      if (e.target !== knoten) return;                /* Enter in einem inneren Feld bleibt dort */
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      if (anklickbareZeile) { var ersteZelle = knoten.querySelector('td'); if (ersteZelle) ersteZelle.click(); }
+      else knoten.click();
+    });
+  }
+
   function el(tag, eigenschaften, kinder) {
     var knoten = document.createElement(tag);
     if (eigenschaften) {
@@ -9612,7 +10169,47 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       if (kind === null || kind === undefined || kind === false) return;
       knoten.appendChild(typeof kind === 'string' ? document.createTextNode(kind) : kind);
     });
+    tastaturNachruesten(knoten, eigenschaften);
     return knoten;
+  }
+
+  /* Pfeiltasten in einer Matrix: von Zelle zu Zelle, auch über Gruppenzeilen hinweg */
+  function tastenNavigation(tabelle, selektor) {
+    selektor = selektor || 'td.zelle';
+    tabelle.addEventListener('keydown', function (e) {
+      var z = e.target;
+      if (!z || !z.matches || !z.matches(selektor)) return;
+      var schritt = { ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [-1, 0], ArrowDown: [1, 0] }[e.key];
+      if (!schritt) return;
+      e.preventDefault();
+      var zeile = z.parentNode;
+      var zellen = Array.prototype.slice.call(zeile.querySelectorAll(selektor));
+      var i = zellen.indexOf(z), ziel = null;
+      if (schritt[1]) { ziel = zellen[i + schritt[1]]; }
+      else {
+        var zeilen = Array.prototype.slice.call(tabelle.querySelectorAll('tr')).filter(function (r) { return r.querySelector(selektor); });
+        var naechste = zeilen[zeilen.indexOf(zeile) + schritt[0]];
+        if (naechste) ziel = naechste.querySelectorAll(selektor)[i];
+      }
+      if (ziel) { ziel.focus(); if (ziel.scrollIntoView) ziel.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+    });
+  }
+
+  /* Ein Scrollrahmen bekommt eine Hülle mit Schatten links und rechts, sobald
+     dort noch etwas liegt - iOS zeigt sonst nicht, dass man wischen kann. */
+  function scrollHinweis(rahmen) {
+    var huelle = el('div', { class: 'matrix-huelle' }, rahmen);
+    function nachsehen() {
+      /* Der linke Schatten sitzt hinter der festen ersten Spalte, nicht am Rand */
+      var ecke = rahmen.querySelector('th.ecke');
+      huelle.style.setProperty('--ecke', (ecke ? Math.round(ecke.getBoundingClientRect().width) : 0) + 'px');
+      huelle.classList.toggle('kann-links', rahmen.scrollLeft > 2);
+      huelle.classList.toggle('kann-rechts', rahmen.scrollLeft + rahmen.clientWidth < rahmen.scrollWidth - 2);
+    }
+    rahmen.addEventListener('scroll', nachsehen, { passive: true });
+    if (typeof ResizeObserver !== 'undefined') { new ResizeObserver(nachsehen).observe(rahmen); }
+    setTimeout(nachsehen, 0);
+    return huelle;
   }
   function leeren(knoten) { while (knoten.firstChild) knoten.removeChild(knoten.firstChild); }
   function $(sel, wurzel) { return (wurzel || document).querySelector(sel); }
@@ -9634,7 +10231,13 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
 
   function toast(text, art) {
     var bereich = toastBereich();
-    var t = el('div', { class: 'toast' + (art ? ' ' + art : ''), text: text });
+    /* Eine Meldung ist ein Satz, kein Bericht: Überlanges wird gekürzt (der
+       volle Text steht in der Konsole), und mehr als drei Meldungen stapeln
+       sich nicht - die älteste geht. Sonst deckt der Stapel die Ansicht zu. */
+    text = String(text == null ? '' : text);
+    if (text.length > 220) { try { console.info('Meldung (voll): ' + text); } catch (e) {} text = text.slice(0, 217).replace(/\s+\S*$/, '') + ' …'; }
+    while (bereich.children.length >= 3) { bereich.removeChild(bereich.firstChild); }
+    var t = el('div', { class: 'toast' + (art ? ' ' + art : ''), text: text, role: art === 'fehler' ? 'alert' : 'status' });
     bereich.appendChild(t);
     setTimeout(function () {
       t.style.transition = 'opacity .25s'; t.style.opacity = '0';
@@ -9644,6 +10247,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
 
   /* --- Dialoge ------------------------------------------------------------ */
   var offeneDialoge = [];
+  var dialogZaehler = 0;
 
   function dialogOeffnen(optionen) {
     var koerper = el('div', { class: 'koerper' }, optionen.inhalt);
@@ -9658,12 +10262,37 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       koerper, fuss
     ]);
     hinter.appendChild(kasten);
+    /* Ein Dialog ist ein Dialog: Rolle und Titel für Hilfstechnik, der
+       Hintergrund ist gesperrt (inert), Tab bleibt im Dialog, und beim
+       Schließen kehrt der Fokus zum Auslöser zurück. Ohne das lief Tab
+       durch die Seite dahinter, und Enter auf dem Reiter „Projekte“ schloss
+       das Aufmaß bei offenem Türformular - die Tür war dann verloren. */
+    kasten.setAttribute('role', 'dialog'); kasten.setAttribute('aria-modal', 'true');
+    var titelKnoten = kasten.querySelector('h2');
+    titelKnoten.id = 'dialog-titel-' + (++dialogZaehler);
+    kasten.setAttribute('aria-labelledby', titelKnoten.id);
+    kasten.tabIndex = -1;
+    var ausloeser = document.activeElement;
+    var app = document.getElementById('app');
+    if (app && offeneDialoge.length === 0) { app.inert = true; app.setAttribute('aria-hidden', 'true'); }
+    kasten.addEventListener('keydown', function (e) {
+      if (e.key !== 'Tab') return;
+      var f = Array.prototype.filter.call(kasten.querySelectorAll('button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'),
+        function (k) { return k.offsetParent !== null; });
+      if (!f.length) { e.preventDefault(); return; }
+      if (e.shiftKey && (document.activeElement === f[0] || document.activeElement === kasten)) { e.preventDefault(); f[f.length - 1].focus(); }
+      else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
+    });
 
     function schliessen(ergebnis) {
       if (hinter.parentNode) hinter.parentNode.removeChild(hinter);
       var i = offeneDialoge.indexOf(schliessen);
       if (i >= 0) offeneDialoge.splice(i, 1);
       document.removeEventListener('keydown', beiTaste);
+      if (app && offeneDialoge.length === 0) { app.inert = false; app.removeAttribute('aria-hidden'); }
+      if (ausloeser && ausloeser.isConnected && typeof ausloeser.focus === 'function' && !document.querySelector('.dialog-hinter')) {
+        try { ausloeser.focus({ preventScroll: true }); } catch (e2) { /* ältere Browser */ }
+      }
       if (optionen.beimSchliessen) optionen.beimSchliessen(ergebnis);
     }
     function beiTaste(e) {
@@ -9686,7 +10315,11 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     document.body.appendChild(hinter);
     offeneDialoge.push(schliessen);
     var erstesFeld = kasten.querySelector('input:not([type=file]), select, textarea');
-    if (erstesFeld && !('ontouchstart' in window)) setTimeout(function () { erstesFeld.focus(); }, 60);
+    setTimeout(function () {
+      if (!kasten.isConnected) return;
+      if (erstesFeld && !('ontouchstart' in window)) erstesFeld.focus();
+      else { try { kasten.focus({ preventScroll: true }); } catch (e3) { /* ältere Browser */ } }
+    }, 60);
     return { schliessen: schliessen, kasten: kasten, koerper: koerper };
   }
 
@@ -9806,11 +10439,13 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     };
     var e = texte[art] || ['', ''];
     knoten.className = 'speicher-status ' + e[1];
+    knoten.setAttribute('role', 'status'); knoten.setAttribute('aria-live', 'polite');
     leeren(knoten);
     if (e[0]) {
       knoten.appendChild(el('span', { class: 'punkt' }));
       knoten.appendChild(document.createTextNode(e[0]));
-    }
+      knoten.title = e[0]; knoten.setAttribute('aria-label', e[0]);
+    } else { knoten.removeAttribute('title'); knoten.removeAttribute('aria-label'); }
   }
 
   /* Verhindert Datenverlust beim Schließen des Browsers */
@@ -9850,6 +10485,16 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     if (ziel) {
       if (!ziel.id) ziel.id = 'f' + (++feldZaehler) + '-' + (schluessel || 'feld');
       marke.setAttribute('for', ziel.id);
+    } else if (eingabeKnoten && eingabeKnoten.querySelectorAll) {
+      /* Mehrere Bedienelemente (Auswahl plus Freitext): jedes bekommt die
+         Beschriftung, sonst liest Hilfstechnik nur „Eingabefeld“ vor. */
+      var mehrere = eingabeKnoten.querySelectorAll('input, select, textarea');
+      if (mehrere.length > 1) {
+        if (!marke.id) marke.id = 'l' + (++feldZaehler) + '-' + (schluessel || 'feld');
+        Array.prototype.forEach.call(mehrere, function (k) {
+          if (!k.getAttribute('aria-label') && !k.getAttribute('aria-labelledby')) k.setAttribute('aria-labelledby', marke.id);
+        });
+      }
     }
     var knoten = el('div', { class: 'feld' + (breit ? ' voll' : '') }, [marke, eingabeKnoten]);
     if (schluessel) knoten.setAttribute('data-feld', schluessel);
@@ -10107,6 +10752,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     el: el, leeren: leeren, $: $, toast: toast,
     toastBereich: toastBereich,
     dialogOeffnen: dialogOeffnen, bestaetigen: bestaetigen, textAbfragen: textAbfragen,
+    tastenNavigation: tastenNavigation, scrollHinweis: scrollHinweis,
     Zustand: Zustand, alsGeaendertMarkieren: alsGeaendertMarkieren, speichern: speichern,
     projektOeffnenIntern: projektOeffnenIntern,
     projektSchliessen: projektSchliessen,
@@ -10138,8 +10784,10 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     return p(d.getDate()) + '.' + p(d.getMonth() + 1) + '.' + d.getFullYear();
   }
   function kb(bytes) {
-    if (bytes > 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + ' MB';
-    return Math.round(bytes / 1024) + ' KB';
+    var zahl = function (x) { return x.toLocaleString('de-DE', { maximumFractionDigits: 1 }); };
+    if (bytes > 1024 * 1024 * 1024) return zahl(bytes / 1024 / 1024 / 1024) + ' GB';
+    if (bytes > 1024 * 1024) return zahl(bytes / 1024 / 1024) + ' MB';
+    return Math.round(bytes / 1024).toLocaleString('de-DE') + ' KB';
   }
 
   /* =========================================================================
@@ -10262,7 +10910,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
         titel: 'Pipedrive ist noch nicht verbunden', klein: true,
         inhalt: el('div', {}, [
           el('p', { class: 'hinweis', style: { marginTop: '0' },
-            text: 'Hinterlegen Sie zuerst unter Einstellungen den Zugriffsschlüssel aus Pipedrive - ' +
+            text: 'Hinterlegen Sie zuerst unter Einstellungen den Zugriffsschlüssel aus Pipedrive – ' +
                   'oder lassen Sie ihn in WordPress hinterlegen, dann braucht kein Gerät einen. ' +
                   'Danach lassen sich Aufmaße direkt aus einem Deal anlegen.' })
         ]),
@@ -10685,7 +11333,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
                   var geladen = M.migriere(vorhanden);
                   geladen.id = vorhanden.id;
                   A.projektOeffnenIntern(geladen, 'struktur');
-                  A.toast(anzahl + (anzahl === 1 ? ' Eintrag' : ' Einträge') + ' der Gliederung übernommen - Türen unverändert.', 'ok');
+                  A.toast(anzahl + (anzahl === 1 ? ' Eintrag' : ' Einträge') + ' der Gliederung übernommen – Türen unverändert.', 'ok');
                   dlg.schliessen(); neuLaden();
                 });
               }).catch(function (f) { A.toast(f.message || 'Übernahme fehlgeschlagen.', 'fehler'); });
@@ -10697,7 +11345,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
                   el('p', { style: { marginTop: '0' }, text: 'Ein Projekt mit derselben Kennung existiert bereits („' +
                     (gleich.kunde || gleich.name) + '“).' }),
                   el('p', { class: 'zart', text: '„Nur Gliederung übernehmen“ ergänzt im vorhandenen Projekt die Standorte, ' +
-                    'Gebäude und Bereiche aus der Datei, die hier fehlen - Türen und alles andere bleiben unverändert. ' +
+                    'Gebäude und Bereiche aus der Datei, die hier fehlen – Türen und alles andere bleiben unverändert. ' +
                     'So lässt sich eine verlorene Gliederung aus einer Sicherung zurückholen. „Überschreiben“ ersetzt ' +
                     'das ganze Projekt durch die Datei.' })
                 ]),
@@ -10761,7 +11409,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
         A.textFeld(p, 'plz', 'PLZ', { inputmode: 'numeric' }),
         A.textFeld(p, 'ort', 'Ort'),
         A.textFeld(p, 'anlagenNr', 'Anlagen-Nr. / Schließanlagen-Nr.'),
-        A.textFeld(p, 'oberflaeche', 'Oberfläche der Zylinder <span class="einheit">(für den Europlan, z. B. NI = Nickel, MS = Messing)</span>', { platzhalter: 'z. B. NI' })
+        A.textFeld(p, 'oberflaeche', 'Oberfläche der Zylinder <span class="einheit">(Europlan)</span>', { platzhalter: 'z. B. NI = Nickel, MS = Messing' })
       ])
     ]));
 
@@ -10918,7 +11566,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       seite.appendChild(el('div', { class: 'meldung warn verwaist-hinweis' }, el('div', {}, [
         el('b', { text: 'Gliederung fehlt: ' }),
         betroffen + (betroffen === 1 ? ' Tür verweist' : ' Türen verweisen') + ' auf ' + verwaist.length +
-          (verwaist.length === 1 ? ' Bereich, den' : ' Bereiche, die') + ' es in der Gliederung nicht mehr gibt - ' +
+          (verwaist.length === 1 ? ' Bereich, den' : ' Bereiche, die') + ' es in der Gliederung nicht mehr gibt – ' +
           'etwa nach einem Abgleich, bei dem die Gliederung verloren ging. Die Türen selbst sind vollständig. ' +
           '„Bereiche wiederherstellen“ legt die fehlenden Bereiche unter einem neuen Standort wieder an; die Türen hängen ' +
           'dann wieder daran, und die Einträge lassen sich umbenennen. Liegt eine Sicherung von vorher vor, lässt sich ' +
@@ -10928,7 +11576,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
             A.schrittMerken('Bereiche wiederhergestellt');
             var neu = M.bereicheWiederherstellen(p);
             A.alsGeaendertMarkieren();
-            A.toast(neu.length + ' Einträge angelegt - bitte umbenennen. Alle Türen hängen wieder an ihrem Bereich.', 'ok');
+            A.toast(neu.length + ' Einträge angelegt – bitte umbenennen. Alle Türen hängen wieder an ihrem Bereich.', 'ok');
             neuZeichnen();
           } })
         ])
@@ -11375,7 +12023,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     /* --- Filterleiste --- */
     var f = Zustand.tuerFilter;
     var suchfeld = el('input', {
-      type: 'search', placeholder: 'Suche: Nr., Raum, System …', title: 'Sucht in Nummer, Bezeichnung, System und Bemerkung', value: f.suche,
+      type: 'search', placeholder: 'Suche: Nr., Raum, System …', 'aria-label': 'Türen durchsuchen', title: 'Sucht in Nummer, Bezeichnung, System und Bemerkung', value: f.suche,
       oninput: function (e) { f.suche = e.target.value; listeZeichnen(); }
     });
     var strukturWahl = el('select', {
@@ -12110,8 +12758,8 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
           var rollen = inhalt.closest ? inhalt.closest('.koerper') : null;
           if (rollen) rollen.scrollTop = 0;
           A.toast(namen.length
-            ? (namen.length + (namen.length === 1 ? ' Angabe' : ' Angaben') + ' aus dem Diktat übernommen - bitte prüfen.')
-            : 'Nichts übernommen - die Angaben standen schon so in der Tür.', namen.length ? 'ok' : 'warn');
+            ? (namen.length + (namen.length === 1 ? ' Angabe' : ' Angaben') + ' aus dem Diktat übernommen – bitte prüfen.')
+            : 'Nichts übernommen – die Angaben standen schon so in der Tür.', namen.length ? 'ok' : 'warn');
         },
         beiSerie: serieUebernehmen });
     }
@@ -12170,7 +12818,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       var kasten = el('div', { class: 'serie' });
       kasten.appendChild(el('p', { class: 'hinweis', style: { marginTop: '0' },
         text: angelegt.length + (angelegt.length === 1 ? ' Tür wurde' : ' Türen wurden') + ' aus dem Diktat eingetragen' +
-          (bereich ? ' - Bereich „' + bereich + '“' : '') + '.' +
+          (bereich ? ' – Bereich „' + bereich + '“' : '') + '.' +
           (offen ? (' Bei ' + offen + (offen === 1 ? ' Tür fehlen' : ' Türen fehlen') + ' noch Pflichtangaben.') : '') +
           ' Antippen öffnet eine Tür zum Prüfen.' }));
       var zeilen = el('div', { class: 'tuer-liste' });
@@ -12208,7 +12856,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
          * Gerät aufnehmen kann - sonst bleibt die Leiste wie gewohnt. */
         (global.Diktat && global.Diktat.verfuegbar()) ? el('button', {
           type: 'button', class: 'diktat-start', 'aria-label': 'Einsprechen',
-          title: 'Angaben zur Tür einsprechen - das Werkzeug macht daraus einen Vorschlag; „neue Tür“ trennt mehrere Türen',
+          title: 'Angaben zur Tür einsprechen – das Werkzeug macht daraus einen Vorschlag; „neue Tür“ trennt mehrere Türen',
           onclick: diktatOeffnen }, [el('span', { class: 'symbol', 'aria-hidden': 'true', text: '🎤' }), el('span', { class: 'wort', text: ' Einsprechen' })]) : null
       ]));
     }
@@ -12686,7 +13334,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     /* Beim Anlegen geht es nur um die Person; Gruppen werden danach
      * zugeordnet - hier beim angelegten Mitarbeiter oder in der Gruppe. */
     if (!istNeu) inhalt.appendChild(gruppenChips(m));
-    inhalt.appendChild(medienFeld(m, 'Medien <span class="einheit">(Art und Anzahl - mehrere Arten möglich)</span>'));
+    inhalt.appendChild(medienFeld(m, 'Medien <span class="einheit">(Art und Anzahl – mehrere Arten möglich)</span>'));
     inhalt.appendChild(el('hr', { class: 'trenner' }));
     inhalt.appendChild(A.schalterFeld(spalteWunsch, 'wert', 'Eigene Spalte im Schließplan'));
     inhalt.appendChild(el('p', { class: 'zart', style: { marginLeft: '64px', marginTop: '-6px' },
@@ -12699,7 +13347,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     }
     if (istNeu) {
       inhalt.appendChild(el('p', { class: 'zart gruppen-hinweis',
-        text: 'Gruppen werden nach dem Anlegen zugeordnet - beim Bearbeiten des Mitarbeiters oder in der Gruppe.' }));
+        text: 'Gruppen werden nach dem Anlegen zugeordnet – beim Bearbeiten des Mitarbeiters oder in der Gruppe.' }));
     }
 
     function speichern() {
@@ -12747,7 +13395,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       /* Einen nach dem anderen: anlegen und gleich den nächsten öffnen */
       knoepfe.push({ text: 'Anlegen & neuer Mitarbeiter', klasse: 'weiter', aktion: function (schliessen) {
         if (!speichern()) return false;
-        A.toast('„' + m.name + '“ angelegt - nächster Mitarbeiter.', 'ok');
+        A.toast('„' + m.name + '“ angelegt – nächster Mitarbeiter.', 'ok');
         schliessen();
         setTimeout(function () { mitarbeiterBearbeiten(null, neuZeichnen, optionen); }, 60);
         return false;
@@ -12816,7 +13464,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       inhalt.appendChild(mitgliederFeld);
     } else {
       inhalt.appendChild(el('p', { class: 'zart mitglieder-hinweis',
-        text: 'Mitglieder werden nach dem Anlegen zugeordnet - beim Bearbeiten der Gruppe oder des Mitarbeiters.' }));
+        text: 'Mitglieder werden nach dem Anlegen zugeordnet – beim Bearbeiten der Gruppe oder des Mitarbeiters.' }));
     }
 
     inhalt.appendChild(el('hr', { class: 'trenner' }));
@@ -12874,7 +13522,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     if (istNeu) {
       knoepfe.push({ text: 'Anlegen & neue Gruppe', klasse: 'weiter', aktion: function (schliessen) {
         if (!speichern()) return false;
-        A.toast('„' + g.name + '“ angelegt - nächste Gruppe.', 'ok');
+        A.toast('„' + g.name + '“ angelegt – nächste Gruppe.', 'ok');
         schliessen();
         setTimeout(function () { gruppeBearbeiten(null, neuZeichnen); }, 60);
         return false;
@@ -12918,7 +13566,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     karte.appendChild(el('div', { class: 'zeile-verteilt' }, [
       el('div', { class: 'fuellen' }, [
         el('h2', { text: 'Mitarbeiter und Gruppen', style: { marginTop: '0' } }),
-        el('p', { class: 'hinweis', text: 'Erst die Mitarbeiter anlegen, dann die Gruppen; zugeordnet wird danach - beim Mitarbeiter oder in der Gruppe. ' +
+        el('p', { class: 'hinweis', text: 'Erst die Mitarbeiter anlegen, dann die Gruppen; zugeordnet wird danach – beim Mitarbeiter oder in der Gruppe. ' +
           'Spalten im Plan sind Gruppen (alle Mitglieder berechtigt) oder einzelne Mitarbeiter; die Medien je Mitarbeiter ergeben die Stückzahlen, ' +
           'auch wer einzeln und in einer Gruppe steht, zählt nur einmal.' })
       ])
@@ -12932,7 +13580,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
         doppelt.map(function (d) {
           return d.mitarbeiter.name + ' (' + d.spalten.map(function (s) { return s.kuerzel || s.bezeichnung; }).join(', ') + ')';
         }).join('; ') + (doppelt.length === 1 ? ' steht' : ' stehen') +
-        ' in mehreren Spalten - etwa einzeln und über die Gruppe. Das ist zulässig; Medien werden trotzdem nur einmal je Mitarbeiter gezählt.'
+        ' in mehreren Spalten – etwa einzeln und über die Gruppe. Das ist zulässig; Medien werden trotzdem nur einmal je Mitarbeiter gezählt.'
       ])));
     }
     var ohneSpalte = M.mitarbeiterOhneSpalte(p);
@@ -12946,7 +13594,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
 
     var sortiert = (p.mitarbeiter || []).slice().sort(nachName);
     if (!sortiert.length) {
-      maBereich.appendChild(el('p', { class: 'zart', text: 'Noch keine Mitarbeiter angelegt. Mit „+ Mitarbeiter“ einen nach dem anderen anlegen - „Anlegen & neuer Mitarbeiter“ öffnet gleich den nächsten.' }));
+      maBereich.appendChild(el('p', { class: 'zart', text: 'Noch keine Mitarbeiter angelegt. Mit „+ Mitarbeiter“ einen nach dem anderen anlegen – „Anlegen & neuer Mitarbeiter“ öffnet gleich den nächsten.' }));
     } else {
       var tab = el('table', { class: 'personen-tabelle' });
       tab.appendChild(el('thead', {}, el('tr', {}, [
@@ -12976,7 +13624,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       if (ohneSpalte.length) {
         maBereich.appendChild(el('p', { class: 'zart', style: { marginTop: '8px' },
           text: ohneSpalte.length + (ohneSpalte.length === 1 ? ' Mitarbeiter steht' : ' Mitarbeiter stehen') +
-                ' in keiner Spalte des Plans - über eine Gruppe oder eine eigene Spalte zuordnen, sonst gibt es kein Medium.' }));
+                ' in keiner Spalte des Plans – über eine Gruppe oder eine eigene Spalte zuordnen, sonst gibt es kein Medium.' }));
       }
     }
     karte.appendChild(maBereich);
@@ -12992,14 +13640,14 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       var leute = M.gruppenMitglieder(p, g.id);
       var spalte = p.schliessungen.filter(function (s) { return s.art === 'gruppe' && s.gruppeId === g.id; })[0];
       gruppenListe.appendChild(el('button', { type: 'button', class: 'chip gruppe' + (spalte ? ' im-plan' : ''),
-        title: (spalte ? 'Spalte im Plan · ' : 'ohne Spalte im Plan · ') + leute.length + ' Mitglieder - antippen zum Bearbeiten und Zuordnen',
+        title: (spalte ? 'Spalte im Plan · ' : 'ohne Spalte im Plan · ') + leute.length + ' Mitglieder – antippen zum Bearbeiten und Zuordnen',
         onclick: function () { gruppeBearbeiten(g, neuZeichnen); } }, [
         el('span', { class: 'name', text: g.name || '(ohne Namen)' }),
         el('span', { class: 'zahl', text: leute.length + (leute.length === 1 ? ' Mitglied' : ' Mitglieder') + (spalte ? '' : ' · ohne Spalte') })
       ]));
     });
     if (!(p.gruppen || []).length) {
-      gruppenListe.appendChild(el('span', { class: 'zart', text: 'Noch keine Gruppen. Mit „+ Gruppe“ anlegen - benannt wie bei Ihnen üblich, etwa Verwaltung, Reinigung, EDV. Mitglieder werden danach zugeordnet.' }));
+      gruppenListe.appendChild(el('span', { class: 'zart', text: 'Noch keine Gruppen. Mit „+ Gruppe“ anlegen – benannt wie bei Ihnen üblich, etwa Verwaltung, Reinigung, EDV. Mitglieder werden danach zugeordnet.' }));
     }
     gruppenBereich.appendChild(gruppenListe);
     karte.appendChild(gruppenBereich);
@@ -13142,8 +13790,20 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     } catch (fehler) { console.error(fehler); A.toast('Excel-Ausgabe fehlgeschlagen: ' + fehler.message, 'fehler'); return; }
     Store.dateiHerunterladen(X.alsBlob(mappe), name, X.MIME).then(function (stand) {
       if (stand === 'abgelehnt') { A.toast('Speichern abgebrochen.'); return; }
-      A.toast('EVVA-Formular erzeugt: ' + name + ' (' + mappe.anzahlZeilen + ' Zylinder, ' + mappe.anzahlSpalten + ' Schlüsselspalten)' +
-              (mappe.warnungen.length ? ' – ' + mappe.warnungen.join(' ') : ''), mappe.warnungen.length ? 'fehler' : 'ok');
+      A.toast('EVVA-Formular erzeugt: ' + mappe.anzahlZeilen + ' Zylinder, ' + mappe.anzahlSpalten + ' Schlüsselspalten.', 'ok');
+      /* Hinweise (Kürzungen, ausgelassene Zeilen) gehören in ein Fenster zum
+         Nachlesen, nicht in eine Meldung, die nach Sekunden verschwindet und
+         bis dahin den halben Bildschirm deckt. */
+      if (mappe.warnungen.length) {
+        A.dialogOeffnen({
+          titel: 'Hinweise zum EVVA-Formular', klein: true,
+          inhalt: el('div', {}, [
+            el('p', { class: 'hinweis', style: { marginTop: '0' }, text: 'Die Datei „' + name + '“ wurde gespeichert. Beim Übertragen in das Formular fiel Folgendes auf:' }),
+            el('ul', { class: 'hinweisliste' }, mappe.warnungen.map(function (w) { return el('li', { text: w }); }))
+          ]),
+          knoepfe: [{ fuellen: true }, { text: 'Verstanden', klasse: 'haupt' }]
+        });
+      }
     }).catch(function (fehler) { A.toast(fehler.message || 'Speichern fehlgeschlagen.', 'fehler'); });
   }
 
@@ -13157,7 +13817,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       'Z = Zentralzylinder, M = Mitschließung, O = vorgeplant). Zyl.Nr. ist die Türnummer; gleichschließende Türen hängen an ihrer Haupttür (.1, .2 …). ' +
       'Alles, was Sie hier setzen, steht sofort auch im Kreuzschließplan.' }));
 
-    seite.appendChild(el('div', { class: 'knopfleiste', style: { marginBottom: '12px' } }, [
+    seite.appendChild(el('div', { class: 'werkzeugleiste links', style: { marginBottom: '12px' } }, [
       el('button', { class: 'haupt', text: '+ Tür / Zylinder', onclick: function () { tuerDialog(p, neuZeichnen); } }),
       el('button', { text: '+ Schlüssel (X-Spalte)', title: 'Übergeordneter Schlüssel: Schließung mit Rang im Plan', onclick: function () { VPlan.schliessungBearbeiten(null, neuZeichnen); } }),
       el('button', { text: '+ Gruppe (I/Z-Spalte)', title: 'Gruppe von Eigenschlüsseln, z. B. alle Mieter', onclick: function () { VPers.gruppeBearbeiten(null, neuZeichnen); } }),
@@ -13185,7 +13845,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
 
     var rahmen = el('div', { class: 'matrix-rahmen europlan-rahmen' });
     var rollLage = { x: 0, y: 0 };
-    seite.appendChild(rahmen);
+    seite.appendChild(A.scrollHinweis(rahmen));
 
     function tabelleZeichnen() {
       plan = E().europlan(p);
@@ -13205,6 +13865,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
 
     function tabelleBauen(plan) {
       var tabelle = el('table', { class: 'matrix europlan' });
+      A.tastenNavigation(tabelle, 'td.zelle');
       var linke = [
         { k: 'zp', t: 'ZP', tip: 'laufende Zeile' }, { k: 'nr', t: 'Tür.Nr.' }, { k: 'raum', t: 'Raumbezeichnung' },
         { k: 'stk', t: 'Stk.', tip: 'Bestellmenge Zylinder' }, { k: 'esl', t: 'ESL', tip: 'Eigenschlüssel: Stückzahl (leer = kein Eigenschlüssel, 0 = vorgeplant)' },
@@ -13235,7 +13896,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       plan.zeilen.forEach(function (z) {
         if (z.bereich !== bereich) {
           bereich = z.bereich;
-          koerper.appendChild(el('tr', { class: 'gruppenzeile' }, [el('td', { colspan: linke.length + plan.spalten.length, text: bereich })]));
+          koerper.appendChild(el('tr', { class: 'gruppenzeile' }, [el('td', { colspan: linke.length + plan.spalten.length }, el('span', { class: 'gruppen-titel', text: bereich }))]));
         }
         var t = z.tuer; lfd++;
         var zeile = el('tr', { class: z.mitlaeufer ? 'mitlaeufer' : '' });
@@ -13406,8 +14067,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     ]));
     if (euro) { VEuro.zeichnen(seite, p, neuZeichnen); return; }
 
-    seite.appendChild(el('div', { class: 'zeile-verteilt', style: { marginBottom: '12px' } }, [
-      el('div', { class: 'fuellen' }),
+    seite.appendChild(el('div', { class: 'werkzeugleiste', style: { marginBottom: '12px' } }, [
       el('button', { class: 'haupt', text: 'Blanko-Plan erzeugen',
         onclick: function () { blankoDialog(neuZeichnen); } }),
       el('button', { text: '+ Spalte',
@@ -13439,7 +14099,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
           el('div', { class: 'fuellen' }, [
             el('b', { text: 'Vom Kunden verbindlich freigegeben am ' + datumZeit(p.freigabe.am) + (wer ? ' durch ' + wer : '') + '.' }),
             el('div', { style: { marginTop: '3px', fontSize: '13px' }, text: geaendert
-              ? 'Seit der Freigabe wurde der Plan geändert. Gegenüber dem Kunden gilt der freigegebene Stand - bei Bedarf erneut zur Freigabe vorlegen.'
+              ? 'Seit der Freigabe wurde der Plan geändert. Gegenüber dem Kunden gilt der freigegebene Stand – bei Bedarf erneut zur Freigabe vorlegen.'
               : 'Der Kunde kann über seinen Link nichts mehr ändern. Hier bleibt der Plan weiterhin änderbar.' })
           ]),
           geaendert ? el('button', { class: 'klein', text: 'Erneut zur Freigabe vorlegen',
@@ -13713,7 +14373,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     var gruppen = M.tuerenGruppiert(p);
     gruppen.forEach(function (g) {
       koerper.appendChild(el('tr', { class: 'gruppenzeile' }, [
-        el('td', { colspan: schliessungen.length + 1, text: g.titel })
+        el('td', { colspan: schliessungen.length + 1 }, el('span', { class: 'gruppen-titel', text: g.titel }))
       ]));
       g.tueren.forEach(function (t) {
         var zeile = el('tr');
@@ -13785,7 +14445,8 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     }
     summenAktualisieren();
 
-    seite.appendChild(el('div', { class: 'matrix-rahmen' }, tabelle));
+    A.tastenNavigation(tabelle, 'td.zelle');
+    seite.appendChild(A.scrollHinweis(el('div', { class: 'matrix-rahmen' }, tabelle)));
 
     var legende = el('div', { class: 'matrix-legende' });
     K.BERECHTIGUNG.forEach(function (b) {
@@ -13984,9 +14645,9 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       var betreff = (vorlegen ? 'Freigabe des Schließplans ' : 'Zutrittsberechtigungen ') + (p.objekt || p.kunde || '');
       var text = vorlegen
         ? 'Guten Tag,\n\nbitte prüfen Sie den Schließplan unter folgendem Link und geben Sie ihn verbindlich frei. '
-          + 'Mit der Freigabe ist die Abstimmung abgeschlossen - Änderungen sind danach nur noch gegen Mehraufwand möglich.\n\n'
+          + 'Mit der Freigabe ist die Abstimmung abgeschlossen – Änderungen sind danach nur noch gegen Mehraufwand möglich.\n\n'
         : 'Guten Tag,\n\nbitte tragen Sie unter folgendem Link ein, wer welche Türen öffnen darf. '
-          + 'Am Ende auf „Rückmeldung senden“ klicken - oder, wenn alles passt, auf „Rückmeldung senden und Plan freigeben“.\n\n';
+          + 'Am Ende auf „Rückmeldung senden“ klicken – oder, wenn alles passt, auf „Rückmeldung senden und Plan freigeben“.\n\n';
       text += f.kurzlink + '\n\n'
         + (f.gueltigBis ? 'Der Link gilt bis ' + datumKurz(f.gueltigBis) + '.\n\n' : '')
         + 'Mit freundlichen Grüßen\n' + (eins.firma || '');
@@ -14020,7 +14681,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
           + (vorlegen
             ? 'Der Kunde sieht den fertigen Plan und klickt auf „Plan verbindlich freigeben“. Die Freigabe erscheint dann hier im Werkzeug '
               + 'und wird mit „Übernehmen“ im Aufmaß vermerkt. Danach kann der Kunde über den Link nichts mehr ändern.'
-            : 'Der Kunde trägt ein und klickt auf „Rückmeldung senden“ - oder auf „Rückmeldung senden und Plan freigeben“, wenn alles passt. '
+            : 'Der Kunde trägt ein und klickt auf „Rückmeldung senden“ – oder auf „Rückmeldung senden und Plan freigeben“, wenn alles passt. '
               + 'Seine Rückmeldung erscheint dann hier im Werkzeug (in der Kopfzeile und im Schließplan) und wird erst übernommen, '
               + 'wenn eine zuständige Person sie geprüft hat. Ersteller und Zuständige werden per E-Mail benachrichtigt.') }));
         listeLaden();
@@ -14029,7 +14690,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
         ergebnisBereich.appendChild(el('hr', { class: 'trenner' }));
         var text;
         if (f && f.status === 404) {
-          text = 'Dieses Aufmaß liegt noch nicht auf dem Server. Der Abgleich sendet es gleich - '
+          text = 'Dieses Aufmaß liegt noch nicht auf dem Server. Der Abgleich sendet es gleich – '
                + 'bitte in ein paar Sekunden erneut tippen.';
           global.Abgleich.jetzt();
         } else if (f && f.status === 403) {
@@ -14199,7 +14860,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       el('p', { class: 'hinweis', style: { marginTop: '0' },
         text: online
           ? 'Der Kunde öffnet den kurzen Link im Browser, trägt in den freigegebenen Feldern seine ' +
-            'Berechtigungen ein und sendet seine Rückmeldung - auf Wunsch gleich mit verbindlicher Freigabe. ' +
+            'Berechtigungen ein und sendet seine Rückmeldung – auf Wunsch gleich mit verbindlicher Freigabe. ' +
             'Beides erscheint hier im Werkzeug und wird erst nach Ihrer Prüfung übernommen.'
           : 'Der Kunde öffnet den Link im Browser und trägt in den freigegebenen Feldern ' +
             'seine Berechtigungen ein. Seine Rückmeldung lesen Sie anschließend hier wieder ein.' }),
@@ -14372,11 +15033,11 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     var inhalt = el('div', {}, [
       el('p', { class: 'hinweis', style: { marginTop: '0' },
         text: 'Als Grundlage wird ein Generalhauptschlüssel angelegt, der an allen Türen berechtigt ist. Dazu auf Wunsch je Gruppe ' +
-              'und je Mitarbeiter eine noch leere Spalte - die Berechtigungen tippen Sie danach an. Alle weiteren Schließungen ' +
+              'und je Mitarbeiter eine noch leere Spalte – die Berechtigungen tippen Sie danach an. Alle weiteren Schließungen ' +
               'und Gruppen benennen Sie selbst.' }),
-      schalter('ghs', 'Generalhauptschlüssel (GHS)', hatGhs ? 'Es gibt schon einen GHS im Plan.' : 'Eine Schließung, die an allen Türen berechtigt ist - mit zwei Medien.'),
+      schalter('ghs', 'Generalhauptschlüssel (GHS)', hatGhs ? 'Es gibt schon einen GHS im Plan.' : 'Eine Schließung, die an allen Türen berechtigt ist – mit zwei Medien.'),
       schalter('proGruppe', 'Spalte je Gruppe (' + (p.gruppen || []).length + ')', 'Alle Mitglieder einer Gruppe sind über ihre Spalte berechtigt.'),
-      schalter('proMitarbeiter', 'Spalte je Mitarbeiter (' + (p.mitarbeiter || []).length + ')', 'Nur sinnvoll für Mitarbeiter mit eigenen Berechtigungen - sonst viele Spalten.'),
+      schalter('proMitarbeiter', 'Spalte je Mitarbeiter (' + (p.mitarbeiter || []).length + ')', 'Nur sinnvoll für Mitarbeiter mit eigenen Berechtigungen – sonst viele Spalten.'),
       el('hr', { class: 'trenner' }),
       schalter('vorhandeneErsetzen', 'Vorhandene Spalten vorher entfernen',
         'Ohne diesen Schalter werden die neuen Spalten ergänzt.'),
@@ -14466,11 +15127,11 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       medienBereich.appendChild(el('hr', { class: 'trenner' }));
       if (leute.length) {
         medienBereich.appendChild(el('p', { class: 'hinweis', text:
-          M.medienAnzahl(p, s) + (M.medienAnzahl(p, s) === 1 ? ' Medium' : ' Medien') + ' - aus den Angaben der Mitarbeiter (' +
+          M.medienAnzahl(p, s) + (M.medienAnzahl(p, s) === 1 ? ' Medium' : ' Medien') + ' – aus den Angaben der Mitarbeiter (' +
           leute.map(function (m) { return m.name; }).join(', ') + '). Art und Anzahl stehen beim jeweiligen Mitarbeiter.' }));
       } else {
         medienBereich.appendChild(VPers.medienFeld(s, 'Medien ohne benannten Träger <span class="einheit">(z. B. zwei Generalhauptschlüssel im Tresor)</span>',
-          { leerText: 'Noch keine Medien eingetragen - oder oben Mitarbeiter als Träger wählen.' }));
+          { leerText: 'Noch keine Medien eingetragen – oder oben Mitarbeiter als Träger wählen.' }));
       }
     }
 
@@ -14492,7 +15153,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
           ]));
         } else {
           var g = M.gruppeVon(p, s.gruppeId);
-          formular.appendChild(el('p', { class: 'hinweis', text: 'Spalte der Gruppe „' + (g ? g.name : s.bezeichnung) + '“ - ' +
+          formular.appendChild(el('p', { class: 'hinweis', text: 'Spalte der Gruppe „' + (g ? g.name : s.bezeichnung) + '“ – ' +
             M.traegerText(p, s) + '. Name und Mitglieder werden in der Gruppe gepflegt.' }));
           if (g) {
             formular.appendChild(el('div', { class: 'knopfleiste' }, el('button', { text: 'Gruppe bearbeiten', onclick: function () {
@@ -14627,7 +15288,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       if (!sortiert.length) { inhalt.appendChild(el('p', { class: 'zart', text: 'Keine Spalten vorhanden.' })); return; }
       inhalt.appendChild(el('p', { class: 'hinweis', style: { marginTop: '0' },
         text: 'Die Reihenfolge lässt sich auch direkt im Plan ändern: Spaltenkopf zwei Sekunden halten und ziehen.' }));
-      var tab = el('table');
+      var tab = el('table', { class: 'spalten-tabelle' });
       tab.appendChild(el('thead', {}, el('tr', {}, [
         el('th', { text: 'Kürzel' }), el('th', { text: 'Bezeichnung' }),
         el('th', { text: 'Art' }), el('th', { text: 'Träger / Mitglieder' }),
@@ -14698,7 +15359,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       var warnungen = probleme.filter(function (x) { return x.schwere === 'warn'; });
       seite.appendChild(el('div', { class: 'meldung ' + (warnungen.length ? 'warn' : 'info') }, [
         el('div', {}, [
-          el('b', { text: probleme.length + ' Hinweis(e) zur Vollständigkeit' }),
+          el('b', { text: probleme.length + (probleme.length === 1 ? ' Hinweis' : ' Hinweise') + ' zur Vollständigkeit' }),
           el('div', { style: { marginTop: '6px', fontSize: '13px' } },
             probleme.slice(0, 6).map(function (x) { return el('div', { text: '• ' + x.text }); })),
           probleme.length > 6 ? el('div', { class: 'zart', style: { marginTop: '4px' },
@@ -14816,7 +15477,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       el('h3', { text: titel, style: { marginTop: '0' } }),
       el('p', { class: 'hinweis', text: beschreibung }),
       zusatz || null,
-      el('button', { class: 'haupt', text: 'PDF erzeugen', style: { marginTop: '8px' }, onclick: aktion })
+      el('button', { class: 'haupt', text: 'PDF erzeugen', onclick: aktion })   /* steht per Gestaltung am unteren Kartenrand */
     ]);
   }
 
@@ -15039,7 +15700,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
         if (e.pipedriveToken) {
           pdBereich.appendChild(el('div', { class: 'meldung warn' }, el('div', {}, [
             el('b', { text: 'Auf diesem Gerät liegt noch ein Schlüssel. ' }),
-            'Er wird nicht mehr gebraucht - der Server hat Vorrang. ',
+            'Er wird nicht mehr gebraucht – der Server hat Vorrang. ',
             el('button', { class: 'klein', style: { marginLeft: '8px' }, text: 'Vom Gerät entfernen',
               onclick: function () {
                 e.pipedriveToken = ''; e.pipedriveHost = '';
@@ -15091,7 +15752,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
             'die Sie selbst kontrollieren, und ziehen Sie ihn in Pipedrive zurück, wenn ein Gerät ' +
             'abhandenkommt. Sie finden ihn unter: Einstellungen → Persönliche Einstellungen → API. ' +
             'In der gemeinsamen Fassung lässt sich der Schlüssel stattdessen einmal in WordPress ' +
-            'hinterlegen - dann braucht kein Gerät einen.'
+            'hinterlegen – dann braucht kein Gerät einen.'
           ])));
       }
 
@@ -15255,7 +15916,7 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     var Ab = global.Abgleich ? global.Abgleich.zustand() : null;
     var Akt = global.Aktualisierung;
     var ablage = Akt && Akt.eingerichtet()
-      ? 'eingerichtet - das Werkzeug startet auch ohne Netz'
+      ? 'eingerichtet – das Werkzeug startet auch ohne Netz'
       : (location.protocol.indexOf('http') === 0 ? 'noch nicht eingerichtet' : 'nicht nötig (lokale Datei)');
     var pruefKnopf = Akt ? el('button', { class: 'klein', text: 'Auf neue Fassung prüfen', onclick: function (ev) {
       ev.target.disabled = true;
@@ -15432,18 +16093,36 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       var aktiv = Zustand.ansicht === r.id ||
                   (r.id === 'struktur' && Zustand.ansicht === 'bereich');
       reiterLeiste.appendChild(el('button', {
-        role: 'tab', 'aria-selected': aktiv ? 'true' : 'false',
+        role: 'tab', 'aria-selected': aktiv ? 'true' : 'false', 'aria-controls': 'inhalt',
+        tabindex: aktiv ? '0' : '-1',
+        'aria-label': r.label + (zahl ? ', ' + zahl + (zahl === 1 ? ' Eintrag' : ' Einträge') : ''),
         disabled: gesperrt,
-        onclick: function () { wechseln(r.id); }
+        onclick: function () {
+          /* Bei offenem Dialog wechselt nichts (der Hintergrund ist gesperrt;
+             das hier ist der Rückfall für Browser ohne inert) */
+          if (document.querySelector('.dialog-hinter')) return;
+          wechseln(r.id);
+        }
       }, [
         r.label,
-        zahl ? el('span', { class: 'zahl', text: String(zahl) }) : null
+        zahl ? el('span', { class: 'zahl', text: String(zahl), 'aria-hidden': 'true' }) : null
       ]));
+    });
+    /* Pfeiltasten wandern zwischen den Reitern, Enter oder Leertaste wählt */
+    reiterLeiste.addEventListener('keydown', function (e) {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End') return;
+      var knoepfe = Array.prototype.filter.call(reiterLeiste.querySelectorAll('button[role="tab"]'), function (k) { return !k.disabled; });
+      var i = knoepfe.indexOf(document.activeElement);
+      if (i < 0) return;
+      e.preventDefault();
+      var n = e.key === 'Home' ? 0 : e.key === 'End' ? knoepfe.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : knoepfe.length - 1)) % knoepfe.length;
+      knoepfe.forEach(function (k) { k.setAttribute('tabindex', '-1'); });
+      knoepfe[n].setAttribute('tabindex', '0'); knoepfe[n].focus();
     });
     wurzel.appendChild(reiterLeiste);
 
     /* --- Inhalt --- */
-    var haupt = el('main', { class: 'inhalt' });
+    var haupt = el('main', { class: 'inhalt', id: 'inhalt', role: 'tabpanel' });
     wurzel.appendChild(haupt);
     A.toastBereich();      /* hängt am Dokument, nicht an der Ansicht */
 
@@ -15465,6 +16144,10 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
                      VT.tuerBearbeiten(null, zeichnen, { strukturId: Zustand.bereichId }); } },
       plan:      { text: '+ Spalte',       tun: function () { VPL.schliessungBearbeiten(null, zeichnen); } }
     };
+    /* Im Europlan heißt die häufigste Aktion „+ Tür / Zylinder“ */
+    if (Zustand.ansicht === 'plan' && global.ViewsEuroplan && global.ViewsEuroplan.darstellung && global.ViewsEuroplan.darstellung() === 'euro') {
+      HAUPTAKTION.plan = { text: '+ Tür / Zylinder', tun: function () { global.ViewsEuroplan.tuerDialog(p, zeichnen); } };
+    }
 
     if (!p && ['projekte', 'einstellungen'].indexOf(Zustand.ansicht) === -1) {
       Zustand.ansicht = 'projekte';
@@ -15499,14 +16182,49 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
     var aktion = HAUPTAKTION[Zustand.ansicht];
     if (aktion && (p || Zustand.ansicht === 'projekte')) {
       haupt.classList.add('mit-schwebe');
-      wurzel.appendChild(el('button', {
+      var schwebe = el('button', {
         class: 'schwebe-aktion', text: aktion.text,
         title: aktion.text, onclick: aktion.tun
-      }));
+      });
+      wurzel.appendChild(schwebe);
+      schwebeBeobachten(haupt, schwebe, aktion.text);
     }
+    reiterInsBild(reiterLeiste);
 
     A.statusAnzeigen(Zustand.ungesichert ? 'ungesichert' : (p ? 'gesichert' : ''));
     haupt.scrollTop = scrollPos;
+  }
+
+  /* Der schwebende Knopf doppelt den gleichnamigen Knopf im Seitenkopf. Er
+     bleibt verborgen, solange der im Bild ist, und erscheint erst, wenn der
+     Kopf nach oben weggescrollt wurde. So verdeckt er nie Zeilen oder Knöpfe,
+     die man gerade antippen will. Browser ohne IntersectionObserver zeigen
+     ihn wie bisher immer. */
+  function schwebeBeobachten(haupt, schwebe, text) {
+    if (typeof IntersectionObserver === 'undefined') return;
+    var soll = String(text).replace(/\s+/g, ' ').trim();
+    var kopfKnopf = null;
+    var kandidaten = haupt.querySelectorAll('button');
+    for (var i = 0; i < kandidaten.length; i++) {
+      if (kandidaten[i].textContent.replace(/\s+/g, ' ').trim() === soll) { kopfKnopf = kandidaten[i]; break; }
+    }
+    if (!kopfKnopf) return;
+    schwebe.classList.add('verborgen');
+    var beobachter = new IntersectionObserver(function (eintraege) {
+      var sichtbar = eintraege.some(function (e) { return e.isIntersecting; });
+      schwebe.classList.toggle('verborgen', sichtbar);
+    }, { root: haupt, threshold: 0.4 });
+    beobachter.observe(kopfKnopf);
+  }
+
+  /* Auf dem Telefon ist die Reiterleiste seitlich scrollbar: der gewählte
+     Reiter soll im Bild stehen, nicht hinter dem rechten Rand. */
+  function reiterInsBild(leiste) {
+    try {
+      if (leiste.scrollWidth <= leiste.clientWidth + 2) return;
+      var aktiv = leiste.querySelector('button[aria-selected="true"]');
+      if (aktiv && aktiv.scrollIntoView) aktiv.scrollIntoView({ block: 'nearest', inline: 'center' });
+    } catch (e) { /* ältere Browser */ }
   }
 
   /* =========================================================================
@@ -15526,6 +16244,10 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       w = dunkel ? 'dunkel' : 'hell';
     }
     document.documentElement.setAttribute('data-darstellung', w === 'hell' ? 'hell' : 'dunkel');
+    /* Die Farbe der Browserleiste (iOS/Android) folgt der Darstellung - sonst
+       sitzt über der hellen Ansicht ein dunkelblauer Balken. */
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', w === 'hell' ? '#ffffff' : '#0a1637');
   }
 
   /* Wechselt das Gerät die Darstellung, zieht die Anwendung mit - aber nur,
@@ -15641,7 +16363,16 @@ table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
       /* Der Abgleich wird nachgelagert aufgebaut: Das Werkzeug ist schon
          bedienbar, bevor der Server geantwortet hat. */
       if (global.AbgleichUI) {
-        global.AbgleichUI.starten(zeichnen).then(function () { zeichnen(); });
+        global.AbgleichUI.starten(zeichnen).then(function () {
+          /* Antwortet der Server, während schon getippt wird oder ein Dialog
+             offen ist, wird nur der Statusknopf nachgeführt - ein Neuaufbau
+             nähme den Cursor aus dem Feld. Verlangt der Server eine
+             Anmeldung, muss die Ansicht aber ganz neu. */
+          var aktiv = document.activeElement;
+          var tippt = aktiv && /^(INPUT|TEXTAREA|SELECT)$/.test(aktiv.tagName);
+          if ((tippt || document.querySelector('.dialog-hinter')) && !global.AbgleichUI.brauchtAnmeldung()) { global.AbgleichUI.statusAktualisieren(); }
+          else { zeichnen(); }
+        });
       }
     });
   }

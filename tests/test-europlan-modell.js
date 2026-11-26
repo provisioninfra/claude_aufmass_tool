@@ -120,7 +120,51 @@ for (const art of ['HS', 'Z']) {
   p(/<c r="C6" t="inlineStr"><is><t xml:space="preserve">Wohnung 1<\/t><\/is><\/c>/.test(blatt) && /<c r="E6"><v>3<\/v><\/c>/.test(blatt), 'sheet1.xml: Zeichenketten und Zahlen an der richtigen Stelle');
   p(/<pane xSplit="7" ySplit="4" topLeftCell="H5"/.test(blatt) && /<mergeCell ref="D2:E2"\/>/.test(blatt), 'fixierte Zeilen und Spalten, Verbundzellen');
   p(/<col min="8" max="8" width="2.1"/.test(blatt) && /<row r="1" ht="84"/.test(blatt), 'Spaltenbreiten und Zeilenhöhen wie in der Vorlage');
+  /* Lesbarkeit und Druck (H6, M12, M13, N10, N11) */
+  const stile = teile['xl/styles.xml'] || '';
+  p(/textRotation="90"/.test(stile) && /shrinkToFit="1"/.test(stile) && /<sz val="8"\/>/.test(stile), 'styles.xml: senkrechte Ausrichtung, Verkleinern auf Zellbreite, Schrift 8');
+  p(/<c r="H1" s="7" t="inlineStr">/.test(blatt) && /<c r="H3" s="8" t="inlineStr">/.test(blatt) && /<c r="H2" s="9">/.test(blatt), 'Funktion und Schl.Nr stehen senkrecht, die Menge verkleinert (Stile 7, 8, 9)');
+  p(/<sheetPr><pageSetUpPr fitToPage="1"\/><\/sheetPr>/.test(blatt) && /<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"\/>/.test(blatt), 'Druck: Querformat auf eine Seitenbreite');
+  const wbx = teile['xl/workbook.xml'] || '';
+  p(/<definedName name="_xlnm.Print_Titles" localSheetId="0">'Plan'!\$A:\$G,'Plan'!\$1:\$4<\/definedName>/.test(wbx), 'Wiederholungszeilen 1 bis 4 und -spalten A bis G');
+  const bereich = /<definedName name="_xlnm.Print_Area" localSheetId="0">'Plan'!\$A\$1:\$([A-Z]+)\$(\d+)<\/definedName>/.exec(wbx);
+  p(bereich && bereich[1] === E.spaltenName(7 + mappe.anzahlSpalten) && parseInt(bereich[2], 10) === 4 + Math.max(10, mappe.anzahlZeilen), 'Druckbereich endet an der letzten belegten Spalte und Zeile', bereich && bereich[0]);
+  p(/type="list"[^>]*sqref="H5:CX504"><formula1>&quot;X,O,Z,I,M&quot;<\/formula1>/.test(blatt), 'Gültigkeit: Sperrkombination nur X, O, Z, I, M');
+  p(/type="textLength" operator="lessThanOrEqual"[^>]*sqref="H3:CX3"><formula1>maxSlNr<\/formula1>/.test(blatt), 'Gültigkeit: Schl.Nr höchstens maxSlNr Zeichen');
+  const mitFassung = E.evvaMappe(pr, { firma: 'Prüffirma GmbH' }, 'euro'); mitFassung.fassung = '1.5.1';
+  const bytes2 = X.erzeugen(mitFassung); const text2 = Buffer.from(bytes2).toString('utf8');
+  p(/<AppVersion>1\.5\.1<\/AppVersion>/.test(text2), 'app.xml trägt die Fassung');
   fs.unlinkSync(datei);
+}
+
+console.log('\n== EVVA-Formular: Zeilenhöhen, Warnungen, Anzahl ==');
+{
+  const pr = M.neuesProjekt('Formular');
+  const t1 = E.tuerAnlegen(pr, { nummer: '1', bezeichnung: 'Haustür', anzahl: 2.5 });
+  const t2 = E.tuerAnlegen(pr, { nummer: '', bezeichnung: 'ohne Nummer' });
+  t2.nummer = '';   /* tuerAnlegen vergibt sonst eine laufende Nummer */
+  t2.anzahl = -1;
+  const lang = M.neueSchliessung({ kuerzel: 'GHS-LANGES-KÜRZEL-0001', bezeichnung: 'Generalhauptschlüssel für sämtliche Türen des Verwaltungsgebäudes', typ: 'ghs', medien: [{ typ: 'Schlüssel', anzahl: 2 }] });
+  pr.schliessungen.push(lang);
+  M.berechtigungSetzenVerbund(pr, t1.id, lang.id, 'ja'); M.berechtigungSetzenVerbund(pr, t2.id, lang.id, 'ja');
+  const e = E.europlan(pr);
+  /* Die Zeilen sind nach Türnummer sortiert; die Tür ohne Nummer steht zuerst (Zeile 5) */
+  const zeileVon = t => e.zeilen.filter(z => z.tuer.id === t.id)[0];
+  p(zeileVon(t1).stk === 2 && zeileVon(t2).stk === 1 && M.neueTuer({ anzahl: 2.5 }).anzahl === 2 && M.neueTuer({ anzahl: 0 }).anzahl === 1, 'Anzahl 2,5 wird 2, leer oder negativ wird 1 (N6)', e.zeilen.map(z => z.stk).join(','));
+  p(zeileVon(t2).zylNr === '' && M.zylinderNummer(pr, t2) === '' && zeileVon(t1).zylNr === '1', 'eine Tür ohne Nummer hat keine Zyl.Nr., kein „?“ (N10)', JSON.stringify(zeileVon(t2).zylNr));
+  const mappe = E.evvaMappe(pr, {}, 'euro');
+  const z = mappe.blaetter[0].zellen;
+  p(z.G5.v === '' && z.G6.v === '1' && z.H3.v === 'GHS-LANGES', 'im Formular: Zyl.Nr leer, Schl.Nr auf 10 Zeichen', z.G5.v + ' / ' + z.G6.v + ' / ' + z.H3.v);
+  p(mappe.warnungen.some(w => /ohne Türnummer.*Zeile 5/.test(w)) && mappe.warnungen.some(w => /Schl\.Nr\. auf 10 Zeichen gekürzt: „GHS-LANGES-KÜRZEL-0001“/.test(w)), 'Warnungen zu fehlender Zyl.Nr und gekürzter Schl.Nr', mappe.warnungen.join(' | '));
+  const h = mappe.blaetter[0].hoehen;
+  p(h[1] === 130 && h[2] === 49.5 && h[3] === 60 && h[4] === 10.8, 'Zeile 1 wächst mit dem Funktionsnamen (begrenzt auf 130 pt), die anderen behalten die Vorlage', JSON.stringify(h));
+  const lange = E.evvaMappe(pr, { firma: 'Firma', firmaZusatz: 'Zusatz mit einem sehr langen Namen, der mehrfach umbricht', strasse: 'Straße 1', plz: '12345', ort: 'Ort' }, 'euro');
+  p(lange.blaetter[0].hoehen[2] > 49.5 && lange.blaetter[0].hoehen[2] <= 90, 'Zeile 2 wächst mit dem Besteller (höchstens 90 pt)', lange.blaetter[0].hoehen[2]);
+  const mitMitlaeufer = M.neuesProjekt('Gleich');
+  const a = E.tuerAnlegen(mitMitlaeufer, { nummer: '', bezeichnung: 'A' }), b = E.tuerAnlegen(mitMitlaeufer, { nummer: '', bezeichnung: 'B' });
+  a.nummer = ''; b.nummer = '';
+  M.gleichschliessendSetzen(mitMitlaeufer, b.id, a.id);
+  p(M.zylinderNummer(mitMitlaeufer, b) === '', 'auch ein Mitläufer einer Tür ohne Nummer bleibt ohne Zyl.Nr.');
 }
 
 console.log('\n== Bearbeiten im Europlan: ein Plan entsteht von Hand ==');

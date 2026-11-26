@@ -10,11 +10,38 @@
      Anmeldeseite und in der Abgleich-Übersicht, damit man auf jedem Gerät
      in einer Sekunde sieht, welcher Stand dort läuft. Muss mit FASSUNG in
      sw.js übereinstimmen - der Prüflauf achtet darauf. */
-  var FASSUNG = '1.5.1';
+  var FASSUNG = '1.5.2';
 
   /* =========================================================================
    * DOM-Hilfsmittel
    * ====================================================================== */
+  /* Elemente mit onclick, die keine Knöpfe sind (Türzeilen, Zellen, Köpfe,
+     Karten, Gliederungsknoten), bekommen hier Tastaturbedienung: tabindex,
+     Rolle und Enter/Leertaste. Sonst sind sie ohne Maus oder Finger
+     unerreichbar. Knöpfe, Links und Felder können das von selbst. */
+  var TASTEN_EIGENE = { BUTTON: 1, A: 1, INPUT: 1, SELECT: 1, TEXTAREA: 1, LABEL: 1, SUMMARY: 1, DETAILS: 1 };
+  function tastaturNachruesten(knoten, eigenschaften) {
+    var tag = knoten.tagName;
+    var anklickbareZeile = tag === 'TR' && /\banklickbar\b/.test(knoten.className);
+    if (!anklickbareZeile) {
+      if (!eigenschaften || typeof eigenschaften.onclick !== 'function') return;
+      if (TASTEN_EIGENE[tag]) return;
+      /* In Tabellen nur die eigentlichen Zellen, nicht jede Zelle einer
+         anklickbaren Zeile (die Zeile selbst wird ein Ziel) */
+      if (/^(TD|TH)$/.test(tag) && !/\b(zelle|klickbar|spaltenkopf)\b/.test(knoten.className)) return;
+    }
+    if (knoten.hasAttribute('tabindex')) return;
+    knoten.setAttribute('tabindex', '0');
+    if (!knoten.hasAttribute('role') && !/^(TD|TH|TR)$/.test(tag)) knoten.setAttribute('role', 'button');
+    knoten.addEventListener('keydown', function (e) {
+      if (e.target !== knoten) return;                /* Enter in einem inneren Feld bleibt dort */
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      if (anklickbareZeile) { var ersteZelle = knoten.querySelector('td'); if (ersteZelle) ersteZelle.click(); }
+      else knoten.click();
+    });
+  }
+
   function el(tag, eigenschaften, kinder) {
     var knoten = document.createElement(tag);
     if (eigenschaften) {
@@ -38,7 +65,47 @@
       if (kind === null || kind === undefined || kind === false) return;
       knoten.appendChild(typeof kind === 'string' ? document.createTextNode(kind) : kind);
     });
+    tastaturNachruesten(knoten, eigenschaften);
     return knoten;
+  }
+
+  /* Pfeiltasten in einer Matrix: von Zelle zu Zelle, auch über Gruppenzeilen hinweg */
+  function tastenNavigation(tabelle, selektor) {
+    selektor = selektor || 'td.zelle';
+    tabelle.addEventListener('keydown', function (e) {
+      var z = e.target;
+      if (!z || !z.matches || !z.matches(selektor)) return;
+      var schritt = { ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [-1, 0], ArrowDown: [1, 0] }[e.key];
+      if (!schritt) return;
+      e.preventDefault();
+      var zeile = z.parentNode;
+      var zellen = Array.prototype.slice.call(zeile.querySelectorAll(selektor));
+      var i = zellen.indexOf(z), ziel = null;
+      if (schritt[1]) { ziel = zellen[i + schritt[1]]; }
+      else {
+        var zeilen = Array.prototype.slice.call(tabelle.querySelectorAll('tr')).filter(function (r) { return r.querySelector(selektor); });
+        var naechste = zeilen[zeilen.indexOf(zeile) + schritt[0]];
+        if (naechste) ziel = naechste.querySelectorAll(selektor)[i];
+      }
+      if (ziel) { ziel.focus(); if (ziel.scrollIntoView) ziel.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+    });
+  }
+
+  /* Ein Scrollrahmen bekommt eine Hülle mit Schatten links und rechts, sobald
+     dort noch etwas liegt - iOS zeigt sonst nicht, dass man wischen kann. */
+  function scrollHinweis(rahmen) {
+    var huelle = el('div', { class: 'matrix-huelle' }, rahmen);
+    function nachsehen() {
+      /* Der linke Schatten sitzt hinter der festen ersten Spalte, nicht am Rand */
+      var ecke = rahmen.querySelector('th.ecke');
+      huelle.style.setProperty('--ecke', (ecke ? Math.round(ecke.getBoundingClientRect().width) : 0) + 'px');
+      huelle.classList.toggle('kann-links', rahmen.scrollLeft > 2);
+      huelle.classList.toggle('kann-rechts', rahmen.scrollLeft + rahmen.clientWidth < rahmen.scrollWidth - 2);
+    }
+    rahmen.addEventListener('scroll', nachsehen, { passive: true });
+    if (typeof ResizeObserver !== 'undefined') { new ResizeObserver(nachsehen).observe(rahmen); }
+    setTimeout(nachsehen, 0);
+    return huelle;
   }
   function leeren(knoten) { while (knoten.firstChild) knoten.removeChild(knoten.firstChild); }
   function $(sel, wurzel) { return (wurzel || document).querySelector(sel); }
@@ -60,7 +127,13 @@
 
   function toast(text, art) {
     var bereich = toastBereich();
-    var t = el('div', { class: 'toast' + (art ? ' ' + art : ''), text: text });
+    /* Eine Meldung ist ein Satz, kein Bericht: Überlanges wird gekürzt (der
+       volle Text steht in der Konsole), und mehr als drei Meldungen stapeln
+       sich nicht - die älteste geht. Sonst deckt der Stapel die Ansicht zu. */
+    text = String(text == null ? '' : text);
+    if (text.length > 220) { try { console.info('Meldung (voll): ' + text); } catch (e) {} text = text.slice(0, 217).replace(/\s+\S*$/, '') + ' …'; }
+    while (bereich.children.length >= 3) { bereich.removeChild(bereich.firstChild); }
+    var t = el('div', { class: 'toast' + (art ? ' ' + art : ''), text: text, role: art === 'fehler' ? 'alert' : 'status' });
     bereich.appendChild(t);
     setTimeout(function () {
       t.style.transition = 'opacity .25s'; t.style.opacity = '0';
@@ -70,6 +143,7 @@
 
   /* --- Dialoge ------------------------------------------------------------ */
   var offeneDialoge = [];
+  var dialogZaehler = 0;
 
   function dialogOeffnen(optionen) {
     var koerper = el('div', { class: 'koerper' }, optionen.inhalt);
@@ -84,12 +158,37 @@
       koerper, fuss
     ]);
     hinter.appendChild(kasten);
+    /* Ein Dialog ist ein Dialog: Rolle und Titel für Hilfstechnik, der
+       Hintergrund ist gesperrt (inert), Tab bleibt im Dialog, und beim
+       Schließen kehrt der Fokus zum Auslöser zurück. Ohne das lief Tab
+       durch die Seite dahinter, und Enter auf dem Reiter „Projekte“ schloss
+       das Aufmaß bei offenem Türformular - die Tür war dann verloren. */
+    kasten.setAttribute('role', 'dialog'); kasten.setAttribute('aria-modal', 'true');
+    var titelKnoten = kasten.querySelector('h2');
+    titelKnoten.id = 'dialog-titel-' + (++dialogZaehler);
+    kasten.setAttribute('aria-labelledby', titelKnoten.id);
+    kasten.tabIndex = -1;
+    var ausloeser = document.activeElement;
+    var app = document.getElementById('app');
+    if (app && offeneDialoge.length === 0) { app.inert = true; app.setAttribute('aria-hidden', 'true'); }
+    kasten.addEventListener('keydown', function (e) {
+      if (e.key !== 'Tab') return;
+      var f = Array.prototype.filter.call(kasten.querySelectorAll('button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'),
+        function (k) { return k.offsetParent !== null; });
+      if (!f.length) { e.preventDefault(); return; }
+      if (e.shiftKey && (document.activeElement === f[0] || document.activeElement === kasten)) { e.preventDefault(); f[f.length - 1].focus(); }
+      else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
+    });
 
     function schliessen(ergebnis) {
       if (hinter.parentNode) hinter.parentNode.removeChild(hinter);
       var i = offeneDialoge.indexOf(schliessen);
       if (i >= 0) offeneDialoge.splice(i, 1);
       document.removeEventListener('keydown', beiTaste);
+      if (app && offeneDialoge.length === 0) { app.inert = false; app.removeAttribute('aria-hidden'); }
+      if (ausloeser && ausloeser.isConnected && typeof ausloeser.focus === 'function' && !document.querySelector('.dialog-hinter')) {
+        try { ausloeser.focus({ preventScroll: true }); } catch (e2) { /* ältere Browser */ }
+      }
       if (optionen.beimSchliessen) optionen.beimSchliessen(ergebnis);
     }
     function beiTaste(e) {
@@ -112,7 +211,11 @@
     document.body.appendChild(hinter);
     offeneDialoge.push(schliessen);
     var erstesFeld = kasten.querySelector('input:not([type=file]), select, textarea');
-    if (erstesFeld && !('ontouchstart' in window)) setTimeout(function () { erstesFeld.focus(); }, 60);
+    setTimeout(function () {
+      if (!kasten.isConnected) return;
+      if (erstesFeld && !('ontouchstart' in window)) erstesFeld.focus();
+      else { try { kasten.focus({ preventScroll: true }); } catch (e3) { /* ältere Browser */ } }
+    }, 60);
     return { schliessen: schliessen, kasten: kasten, koerper: koerper };
   }
 
@@ -232,11 +335,13 @@
     };
     var e = texte[art] || ['', ''];
     knoten.className = 'speicher-status ' + e[1];
+    knoten.setAttribute('role', 'status'); knoten.setAttribute('aria-live', 'polite');
     leeren(knoten);
     if (e[0]) {
       knoten.appendChild(el('span', { class: 'punkt' }));
       knoten.appendChild(document.createTextNode(e[0]));
-    }
+      knoten.title = e[0]; knoten.setAttribute('aria-label', e[0]);
+    } else { knoten.removeAttribute('title'); knoten.removeAttribute('aria-label'); }
   }
 
   /* Verhindert Datenverlust beim Schließen des Browsers */
@@ -276,6 +381,16 @@
     if (ziel) {
       if (!ziel.id) ziel.id = 'f' + (++feldZaehler) + '-' + (schluessel || 'feld');
       marke.setAttribute('for', ziel.id);
+    } else if (eingabeKnoten && eingabeKnoten.querySelectorAll) {
+      /* Mehrere Bedienelemente (Auswahl plus Freitext): jedes bekommt die
+         Beschriftung, sonst liest Hilfstechnik nur „Eingabefeld“ vor. */
+      var mehrere = eingabeKnoten.querySelectorAll('input, select, textarea');
+      if (mehrere.length > 1) {
+        if (!marke.id) marke.id = 'l' + (++feldZaehler) + '-' + (schluessel || 'feld');
+        Array.prototype.forEach.call(mehrere, function (k) {
+          if (!k.getAttribute('aria-label') && !k.getAttribute('aria-labelledby')) k.setAttribute('aria-labelledby', marke.id);
+        });
+      }
     }
     var knoten = el('div', { class: 'feld' + (breit ? ' voll' : '') }, [marke, eingabeKnoten]);
     if (schluessel) knoten.setAttribute('data-feld', schluessel);
@@ -533,6 +648,7 @@
     el: el, leeren: leeren, $: $, toast: toast,
     toastBereich: toastBereich,
     dialogOeffnen: dialogOeffnen, bestaetigen: bestaetigen, textAbfragen: textAbfragen,
+    tastenNavigation: tastenNavigation, scrollHinweis: scrollHinweis,
     Zustand: Zustand, alsGeaendertMarkieren: alsGeaendertMarkieren, speichern: speichern,
     projektOeffnenIntern: projektOeffnenIntern,
     projektSchliessen: projektSchliessen,

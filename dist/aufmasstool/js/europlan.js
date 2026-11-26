@@ -131,7 +131,7 @@
       var heim = a.heimVon[s.id];
       return {
         id: s.id, spalte: s, art: gruppe ? 'gruppe' : 'schluessel',
-        schlNr: heim ? M.zylinderNummer(p, heim) : (s.kuerzel || ''), funktion: s.bezeichnung || '',
+        schlNr: (heim && M.zylinderNummer(p, heim)) || s.kuerzel || '', funktion: s.bezeichnung || '',
         menge: gruppe ? gruppenMenge(p, s) : M.medienAnzahl(p, s),
         mitglieder: gruppe ? M.gruppenMitglieder(p, s.gruppeId) : M.spaltenMitglieder(p, s)
       };
@@ -157,7 +157,7 @@
         });
         zeilen.push({
           tuer: t, basis: basis, mitlaeufer: mitlaeufer, bereich: g.titel,
-          zylNr: M.zylinderNummer(p, t), stk: parseInt(t.anzahl, 10) || 1,
+          zylNr: M.zylinderNummer(p, t), stk: Math.max(1, parseInt(t.anzahl, 10) || 1),
           esl: mitlaeufer ? null : eslVon(p, a, basis),
           inhaber: inh, eigenschluessel: a.ezJeBasis[basis.id] || [],
           produktcode: M.produktcode(p, t), zellen: zellen
@@ -189,7 +189,7 @@
       var heimTuer = eigene ? (a.heimVon[eigene.id] || null) : null;
       spalten.push({
         id: 'ma:' + m.id, mitarbeiter: m, art: 'schluessel',
-        schlNr: heimTuer ? M.zylinderNummer(p, heimTuer) : (eigene && eigene.kuerzel ? eigene.kuerzel : M.kuerzelAus(m.name || '')),
+        schlNr: (heimTuer && M.zylinderNummer(p, heimTuer)) || (eigene && eigene.kuerzel) || M.kuerzelAus(m.name || ''),
         funktion: m.name || '', menge: M.mitarbeiterMedienAnzahl(m),
         zelle: function (t) {
           var beste = 'nein';
@@ -216,7 +216,7 @@
         var ez = a.ezJeBasis[basis.id] || [];
         var esl = mitlaeufer ? null : (ez.length ? ez.reduce(function (sum, s) { return sum + M.medienAnzahl(p, s); }, 0) : (basis.eigenschluesselVorgeplant ? 0 : null));
         zeilen.push({ tuer: t, basis: basis, mitlaeufer: mitlaeufer, bereich: g.titel, zylNr: M.zylinderNummer(p, t),
-                      stk: parseInt(t.anzahl, 10) || 1, esl: esl, produktcode: M.produktcode(p, t), zellen: zellen });
+                      stk: Math.max(1, parseInt(t.anzahl, 10) || 1), esl: esl, produktcode: M.produktcode(p, t), zellen: zellen });
       });
     });
     return { spalten: spalten, zeilen: zeilen, hinweise: a.hinweise, analyse: a };
@@ -363,6 +363,13 @@
   var SPALTEN_MAX = 95;      /* H bis CX */
   function spaltenName(n) { var s = ''; while (n > 0) { var r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); } return s; }
   function mehrzeilig() { return Array.prototype.slice.call(arguments).filter(function (x) { return x !== undefined && x !== null && String(x).trim() !== ''; }).join('\n'); }
+  /* Zeilenhöhe in Punkt für einen umbrechenden Text: je Zeile etwa so viele
+     Zeichen wie die Spalte breit ist (Excel-Einheit), 12,75 pt je Zeile. */
+  function hoeheFuer(text, spaltenBreite, mindest, hoechstens) {
+    var zeilen = 0;
+    String(text || '').split('\n').forEach(function (z) { zeilen += Math.max(1, Math.ceil(z.length / Math.max(1, spaltenBreite))); });
+    return Math.min(hoechstens, Math.max(mindest, Math.round(zeilen * 12.75 + 3)));
+  }
 
   function evvaBlatt(p, einstellungen, art) {
     einstellungen = einstellungen || {};
@@ -385,12 +392,19 @@
     ['ZP', 'Tür.Nr.', 'Raumbezeichnung', 'Stk.', 'ESL', 'Type (Produktcode)', 'Zyl.Nr.'].forEach(function (k, i) {
       z[spaltenName(i + 1) + '4'] = { v: k, s: 'kopf' };
     });
+    /* Die Schlüsselspalten sind 2,1 Zeichen schmal: Funktion und Schl.Nr
+       stehen senkrecht (wie in der EVVA-Vorlage), die Menge in Schrift 8
+       auf Zellbreite verkleinert. */
+    var schlGekuerzt = [];
     spalten.forEach(function (sp, i) {
       var c = spaltenName(8 + i);
-      z[c + '1'] = { v: String(sp.funktion || ''), s: 'umbruch' };
-      if (sp.menge > 0) z[c + '2'] = { v: sp.menge };
-      z[c + '3'] = { v: String(sp.schlNr || '').slice(0, 10) };
+      z[c + '1'] = { v: String(sp.funktion || ''), s: 'senkrecht' };
+      if (sp.menge > 0) z[c + '2'] = { v: sp.menge, s: 'zahlKlein' };
+      var schlNr = String(sp.schlNr || '');
+      if (schlNr.length > 10) schlGekuerzt.push('„' + schlNr + '“ → „' + schlNr.slice(0, 10) + '“ (' + (sp.funktion || c) + ')');
+      z[c + '3'] = { v: schlNr.slice(0, 10), s: 'senkrechtFett' };
     });
+    if (schlGekuerzt.length) warnungen.push('Schl.Nr. auf 10 Zeichen gekürzt: ' + schlGekuerzt.slice(0, 6).join('; ') + (schlGekuerzt.length > 6 ? '; …' : '') + '.');
     var ohneZylinder = plan.zeilen.filter(function (zeile) { return zeile.tuer.brauchtZylinder === false; });
     if (ohneZylinder.length) warnungen.push(ohneZylinder.length + (ohneZylinder.length === 1 ? ' Tür ohne Zylinderbedarf wurde' : ' Türen ohne Zylinderbedarf wurden') + ' nicht als Bestellzeile übernommen (' + ohneZylinder.slice(0, 5).map(function (zeile) { return zeile.tuer.nummer || zeile.tuer.bezeichnung; }).join(', ') + (ohneZylinder.length > 5 ? ', …' : '') + ').');
     var zeilen = plan.zeilen.filter(function (zeile) { return zeile.tuer.brauchtZylinder !== false; });
@@ -403,8 +417,12 @@
       gekuerzt.push('Zyl.Nr. „' + zylNr + '“ → „' + kurz + '“ (' + (tuer.nummer || tuer.bezeichnung) + ')');
       return kurz;
     }
+    /* Ohne Türnummer gibt es keine Zylindernummer: Die Zelle bleibt leer,
+       die Warnung nennt die Zeilen, damit die Nummer nachgetragen wird. */
+    var ohneZylNr = [];
     zeilen.slice(0, 500).forEach(function (zeile, i) {
       var r = 5 + i;
+      if (!String(zeile.zylNr || '').trim()) ohneZylNr.push(r);
       z['A' + r] = { v: i + 1 };
       z['B' + r] = { v: kuerzen(zeile.tuer.nummer, 10, 'Tür.Nr.', zeile.tuer) };
       z['C' + r] = { v: kuerzen(zeile.tuer.bezeichnung, 20, 'Raumbezeichnung', zeile.tuer) };
@@ -419,8 +437,21 @@
     });
     for (var leer = zeilen.length; leer < 500; leer++) z['A' + (5 + leer)] = { v: leer + 1 };
     if (zeilen.length > 500) warnungen.push('Das Formular fasst 500 Zylinderzeilen; ' + (zeilen.length - 500) + ' weitere wurden nicht übernommen.');
+    if (ohneZylNr.length) warnungen.push((ohneZylNr.length === 1 ? 'Eine Tür ohne Türnummer hat keine Zyl.Nr. (Zeile ' : ohneZylNr.length + ' Türen ohne Türnummer haben keine Zyl.Nr. (Zeilen ') + ohneZylNr.slice(0, 8).join(', ') + (ohneZylNr.length > 8 ? ', …' : '') + '); bitte die Türnummern nachtragen.');
     if (gekuerzt.length) warnungen.push('Auf die Längen des Formulars gekürzt: ' + gekuerzt.slice(0, 6).join('; ') + (gekuerzt.length > 6 ? '; …' : '') + '.');
-    return { zellen: z, warnungen: warnungen, anzahlSpalten: spalten.length, anzahlZeilen: Math.min(zeilen.length, 500), plan: plan };
+    /* Zeilenhöhen: Zeile 1 nach dem längsten Funktionsnamen (senkrecht, Schrift 8,
+       etwa 4,6 pt je Zeichen), Zeilen 2 und 3 nach dem Umbruch von Besteller,
+       Besitzer und Anlagedaten. Die Vorlage gibt die Mindesthöhen vor. Nach
+       oben sind die Höhen begrenzt: Die Zeilen 1 bis 4 wiederholen sich auf
+       jeder Druckseite und müssen zusammen deutlich unter einer Seite bleiben. */
+    var laengsteFunktion = spalten.reduce(function (m, sp) { return Math.max(m, String(sp.funktion || '').length); }, 0);
+    var hoehen = {
+      1: Math.max(84, Math.min(130, Math.round(laengsteFunktion * 4.6 + 10))),
+      2: hoeheFuer(besteller, 18.7, 49.5, 90),
+      3: Math.max(hoeheFuer(besitzer, 18.7, 60, 100), hoeheFuer(z.F3.v, 16.7, 60, 100)),
+      4: 10.8
+    };
+    return { zellen: z, warnungen: warnungen, anzahlSpalten: spalten.length, anzahlZeilen: Math.min(zeilen.length, 500), hoehen: hoehen, plan: plan };
   }
 
   /* Vollständige Arbeitsmappe im EVVA-Layout (für xlsx.js) */
@@ -436,12 +467,20 @@
       A10: { v: 'Längen', s: 'fett' }, B10: { v: 'Maximale Länge Türnummer', s: 'fett' }, C10: { v: 'Maximale Länge Schlüsselnummer', s: 'fett' }, D10: { v: 'Maximale Länge Zylindernummer', s: 'fett' }, E10: { v: 'Maximale Länge Raumbezeichnung', s: 'fett' },
       B11: { v: 10, s: 'muster' }, C11: { v: 10, s: 'muster' }, D11: { v: 10, s: 'muster' }, E11: { v: 20, s: 'muster' }
     };
+    /* Druck: Tür- und Schlüsselbezeichnung auf jeder Seite wiederholen, nur
+       den belegten Bereich drucken (mindestens 10 Zeilen für Nachträge von
+       Hand), Querformat auf eine Seitenbreite. */
+    var letzteSpalte = spaltenName(Math.max(8, 7 + blatt.anzahlSpalten));
+    var letzteZeile = 4 + Math.max(10, blatt.anzahlZeilen);
     return {
       blaetter: [
-        { name: 'Plan', zellen: blatt.zellen, breiten: breiten, hoehen: { 1: 84, 2: 49.5, 3: 60, 4: 10.8 },
+        { name: 'Plan', zellen: blatt.zellen, breiten: breiten, hoehen: blatt.hoehen,
           verbund: ['D2:E2', 'D3:E3'], fixierung: { spalten: 7, zeilen: 4 },
+          druck: { titel: '$A:$G,$1:$4', bereich: '$A$1:$' + letzteSpalte + '$' + letzteZeile, quer: true, einpassen: true },
           validierungen: [
             { bereich: 'H2:CX' + 2, typ: 'whole', op: 'greaterThanOrEqual', f1: '0', fehler: 'Hier die Anzahl der Schlüssel (als ganze Zahl) eintragen' },
+            { bereich: 'H3:CX3', typ: 'textLength', op: 'lessThanOrEqual', f1: 'maxSlNr', fehler: 'Maximal 10 Zeichen!' },
+            { bereich: 'H5:CX504', typ: 'list', f1: '"X,O,Z,I,M"', fehler: 'Erlaubt sind nur X, O, Z, I und M (Sperrkombination).' },
             { bereich: 'D5:D504', typ: 'whole', op: 'greaterThanOrEqual', f1: '0', fehler: 'Bestellmenge für Zylinder angeben!' },
             { bereich: 'E5:E504', typ: 'whole', op: 'greaterThanOrEqual', f1: '0', hinweis: 'Wenn "0" Stück ESL bestellt werden, wird die Sperrfunktion für den Eigenschlüssel im Zylinder vorgesehen.\n\nWenn dieses Feld leer gelassen wird gibt es für diesen Zylinder keinen Eigenschlüssel. Nur Zahlenwerte erlaubt!' },
             { bereich: 'B5:B504', typ: 'textLength', op: 'lessThanOrEqual', f1: 'maxTNr', fehler: 'Hier sind nur 10 Zeichen möglich' },
