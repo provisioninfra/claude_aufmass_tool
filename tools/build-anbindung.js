@@ -15,7 +15,7 @@ const ZIP = path.join(WURZEL, 'dist', 'aufmass-anbindung.zip');
 const ONLINE = path.join(WURZEL, 'dist', 'aufmasstool');
 
 const PROGRAMME = ['aufmass-mcp.js', 'aufmass-client.js', 'aufmass-cli.js', 'README.md'];
-const BAUSTEINE = ['catalog.js', 'model.js', 'pdf.js', 'reports.js', 'zusammenfuehren.js'];
+const BAUSTEINE = ['catalog.js', 'model.js', 'europlan.js', 'xlsx.js', 'pdf.js', 'reports.js', 'zusammenfuehren.js'];
 
 fs.rmSync(ZIEL, { recursive: true, force: true });
 fs.mkdirSync(path.join(ZIEL, 'lib'), { recursive: true });

@@ -154,7 +154,7 @@ function tuerFelderEintragen(p, t, felder) {
   if (!felder || typeof felder !== 'object' || Array.isArray(felder)) throw new Error('„felder“ muss ein Objekt mit Feldname → Wert sein.');
   const hinweise = [];
   Object.keys(felder).forEach(k => {
-    if (k === 'strukturId' || k === 'bereich') return;   /* eigens unten */
+    if (k === 'strukturId' || k === 'bereich' || k === 'gleichschliessendMit') return;   /* eigens unten */
     if (TUERFELDER.indexOf(k) === -1) {
       throw new Error('Unbekanntes Türfeld „' + k + '“. Erlaubt sind: ' + TUERFELDER.join(', ') + ' (katalog_lesen nennt Bedeutung und Werte).');
     }
@@ -188,6 +188,10 @@ function tuerFelderEintragen(p, t, felder) {
     t[k] = w;
     if (k === 'status') t.statusVonHand = true;
   });
+  if (felder.gleichschliessendMit !== undefined) {
+    const ziel = felder.gleichschliessendMit ? tuerFinden(p, /^tur-/.test(String(felder.gleichschliessendMit)) ? { tuerId: felder.gleichschliessendMit } : { nummer: felder.gleichschliessendMit }) : null;
+    if (!M.gleichschliessendSetzen(p, t.id, ziel ? ziel.id : '')) throw new Error('Diese Gleichschließung ist nicht möglich (Kreis oder eigene Schließung).');
+  }
   const bereich = felder.bereich !== undefined ? felder.bereich : felder.strukturId;
   if (bereich !== undefined) {
     if (bereich === '' || bereich === null) { t.strukturId = null; }
@@ -354,16 +358,24 @@ const WERKZEUGE = [
   },
   {
     name: 'schliessplan_lesen',
-    beschreibung: 'Zeigt den Kreuzschließplan als Tabelle: Zeilen sind Türen, Spalten die Gruppen, Mitarbeiter und Schließungen (Kürzel), dazu die Spaltenliste mit ids.',
-    schema: O({ projektId: PROJEKT }, ['projektId']),
-    ausfuehren: async (a) => { const v = await verbindung().projekt(a.projektId); const p = M.migriere(v.daten); return schliessplanText(p) + '\n\nSpalten:\n' + spaltenText(p); }
+    beschreibung: 'Zeigt den Schließplan als Tabelle. darstellung „kreuz“ (Vorgabe): Zeilen Türen, Spalten Gruppen, Mitarbeiter und Schließungen mit X/Z/T/–/O. darstellung „euro“: die Schreibweise der Hersteller (Zyl.Nr., ESL, Spalten mit X, I, Z, M, O).',
+    schema: O({ projektId: PROJEKT, darstellung: S('kreuz oder euro', { enum: ['kreuz', 'euro'] }) }, ['projektId']),
+    ausfuehren: async (a) => {
+      const v = await verbindung().projekt(a.projektId); const p = M.migriere(v.daten);
+      if (a.darstellung === 'euro') {
+        const E = require(path.join(C.LIB, 'europlan.js'));
+        const e = E.europlan(p);
+        return E.alsText(e) + '\n\nZeichen: X = sperrt, I = Eigenschlüssel gehört zur Gruppe, Z = Zentralzylinder, M = Mitschließung, O = vorgeplant, · = leer. ESL = Stück Eigenschlüssel.' + (e.hinweise.length ? '\nHinweise: ' + e.hinweise.join(' ') : '');
+      }
+      return schliessplanText(p) + '\n\nSpalten:\n' + spaltenText(p);
+    }
   },
   {
     name: 'berechtigung_setzen',
-    beschreibung: 'Setzt eine Berechtigung im Schließplan: Tür (tuerId/nummer) × Spalte (id/Kürzel) → wert ja, zeit, temp, sperr oder nein.',
-    schema: O({ projektId: PROJEKT, tuerId: S('id der Tür'), nummer: S('Türnummer'), spalte: S('id oder Kürzel der Spalte'), wert: S('ja, zeit, temp, sperr oder nein', { enum: ['ja', 'zeit', 'temp', 'sperr', 'nein'] }) }, ['projektId', 'spalte', 'wert']),
+    beschreibung: 'Setzt eine Berechtigung im Schließplan: Tür (tuerId/nummer) × Spalte (id/Kürzel) → wert ja, zeit, temp, sperr, plan (vorgeplant/Reserve) oder nein. Gleichschließende Türen werden mitgesetzt.',
+    schema: O({ projektId: PROJEKT, tuerId: S('id der Tür'), nummer: S('Türnummer'), spalte: S('id oder Kürzel der Spalte'), wert: S('ja, zeit, temp, sperr, plan (vorgeplant) oder nein', { enum: ['ja', 'zeit', 'temp', 'sperr', 'plan', 'nein'] }) }, ['projektId', 'spalte', 'wert']),
     ausfuehren: async (a) => {
-      const e = await verbindung().aendern(a.projektId, (p) => { const t = tuerFinden(p, a); const s = spalteFinden(p, a.spalte); M.setBerechtigung(p, t.id, s.id, a.wert); return { t, s }; });
+      const e = await verbindung().aendern(a.projektId, (p) => { const t = tuerFinden(p, a); const s = spalteFinden(p, a.spalte); M.berechtigungSetzenVerbund(p, t.id, s.id, a.wert); return { t, s }; });
       return 'Berechtigung gesetzt: ' + e.ergebnis.t.nummer + ' × ' + e.ergebnis.s.kuerzel + ' = ' + a.wert + ' (Version ' + e.version + ').';
     }
   },

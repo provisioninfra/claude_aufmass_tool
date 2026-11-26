@@ -298,7 +298,7 @@ class Aufmass_Freigaben {
         if (strlen($matrix) !== $erwartet || strlen($maske) !== $erwartet) {
             return new WP_Error('matrix_unvollstaendig', 'Die Matrix passt nicht zur Zahl der Türen und Spalten.', array('status' => 400));
         }
-        if (!preg_match('/^[0-4]*$/', $matrix) || !preg_match('/^[01]*$/', $maske)) {
+        if (!preg_match('/^[0-5]*$/', $matrix) || !preg_match('/^[01]*$/', $maske)) {
             return new WP_Error('matrix_unlesbar', 'Die Matrix ist nicht lesbar.', array('status' => 400));
         }
         $gr = self::gruppen_bereinigen(isset($daten['gr']) ? $daten['gr'] : array(), false);

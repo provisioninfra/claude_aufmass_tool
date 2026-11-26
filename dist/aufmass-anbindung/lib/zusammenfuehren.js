@@ -43,6 +43,7 @@
   /* Verständliche Namen für die Angaben, über die gestritten werden kann. */
   var FELDNAMEN = {
     nummer: 'Tür-Nr.', bezeichnung: 'Bezeichnung / Raum', kategorie: 'Türkategorie',
+    gleichschliessendMit: 'Gleichschließend mit', produktcode: 'Type / Produktcode', oberflaeche: 'Oberfläche', eigenschluesselVorgeplant: 'Eigenschlüssel vorgeplant',
     strukturId: 'Standort / Bereich', etage: 'Etage', anzahl: 'Anzahl baugleicher Türen',
     status: 'Status', notiz: 'Bemerkung', nacharbeit: 'Nacharbeit', nacharbeitText: 'Nacharbeit',
     masseAussen: 'Zylinderlänge außen', masseInnen: 'Zylinderlänge innen',

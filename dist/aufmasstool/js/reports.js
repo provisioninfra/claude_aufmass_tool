@@ -944,6 +944,158 @@
   }
 
   /* =========================================================================
+   * 2b) EUROPLAN - der Plan in der Schreibweise der Hersteller
+   * Zylinder als Zeilen mit Zyl.Nr., Stk., ESL und Type; Schlüssel als
+   * Spalten mit drei Kopfzeilen (Funktion, Menge, Schl.Nr) und den Zeichen
+   * X, I, Z, M, O. Layout wie das EVVA-Bestellformular.
+   * ====================================================================== */
+  function europlan(projekt, einstellungen, optionen) {
+    optionen = optionen || {};
+    var E = global.Europlan;
+    var doc = new PDF.Doc({
+      format: optionen.format || 'a4', orientation: 'landscape',
+      titel: 'Europlan ' + (projekt.kunde || projekt.name),
+      autor: einstellungen && einstellungen.firma || '',
+      betreff: 'Europlan / Bestellplan der Schließanlage',
+      margin: { oben: 12, unten: 14, links: 10, rechts: 10 }
+    });
+    kopfUndFussSetzen(doc, projekt, einstellungen, 'Europlan / Bestellplan');
+    doc.neueSeite();
+    projektKopfBlock(doc, projekt, einstellungen);
+    freigabeVermerk(doc, projekt);
+    if (!E) { doc.text('Der Europlan steht in dieser Fassung nicht zur Verfügung.', doc.rand.links, doc.y, { size: 10, color: FARBE.grau }); return doc; }
+    var plan = optionen.art === 'kreuz' ? E.kreuzplan(projekt) : E.europlan(projekt);
+    if (!projekt.tueren.length) {
+      doc.text('Für den Europlan wird mindestens eine Tür benötigt.', doc.rand.links, doc.y, { size: 10, color: FARBE.grau });
+      return doc;
+    }
+    var systemName = K.systemLabel ? (K.systemLabel(projekt.systemMechanik) || projekt.systemMechanik || '') : '';
+    var kopfText = ['Anlage: ' + (projekt.anlagenNr || '–'), 'System: ' + (systemName || '–'), 'Oberfläche: ' + (projekt.oberflaeche || '–'),
+                    'Datum: ' + (projekt.aufmassDatum ? datumDe(projekt.aufmassDatum) : '–'), 'Objekt: ' + (projekt.objekt || '–')].join('    ');
+    doc.text(kopfText, doc.rand.links, doc.y, { size: 7.5, color: FARBE.grau });
+    doc.y += 5;
+
+    var b = doc.inhaltsBreite();
+    var linke = [
+      { t: 'ZP', w: 7, f: function (z, i) { return String(i + 1); }, align: 'right' },
+      { t: 'Tür.Nr.', w: 16, f: function (z) { return z.tuer.nummer || ''; }, bold: true },
+      { t: 'Raumbezeichnung', w: 40, f: function (z) { return z.tuer.bezeichnung || ''; } },
+      { t: 'Stk.', w: 8, f: function (z) { return String(z.stk); }, align: 'center' },
+      { t: 'ESL', w: 8, f: function (z) { return z.esl === null || z.esl === undefined ? '' : String(z.esl); }, align: 'center' },
+      { t: 'Type (Produktcode)', w: 30, f: function (z) { return z.produktcode || ''; } },
+      { t: 'Zyl.Nr.', w: 14, f: function (z) { return z.zylNr || ''; }, bold: true, align: 'center' }
+    ];
+    var linksBreite = linke.reduce(function (s, l) { return s + l.w; }, 0);
+    var spaltenBreite = optionen.spaltenBreite || 7.2;
+    var proSeite = Math.max(1, Math.floor((b - linksBreite) / spaltenBreite));
+    var bloecke = [];
+    for (var i = 0; i < plan.spalten.length; i += proSeite) bloecke.push(plan.spalten.slice(i, i + proSeite));
+    if (!bloecke.length) bloecke.push([]);
+    var zeilenHoehe = 5.4;
+
+    bloecke.forEach(function (block, blockIndex) {
+      if (blockIndex > 0) { doc.neueSeite(); doc.y += 2; }
+      if (bloecke.length > 1) {
+        doc.text('Spaltenblock ' + (blockIndex + 1) + ' von ' + bloecke.length, doc.rand.links, doc.y, { size: 7.5, color: FARBE.grau });
+        doc.y += 5;
+      }
+      var x0 = doc.rand.links, gesamt = linksBreite + block.length * spaltenBreite;
+      var kopfTexte = block.map(function (s) { return s.funktion || s.schlNr || '–'; });
+      var maxText = 0;
+      kopfTexte.forEach(function (tx) { var w = doc.textBreite(tx, 7, true); if (w > maxText) maxText = w; });
+      var unterZeilen = 7.2;    /* Menge + Schl.Nr */
+      var kopfHoehe = Math.min(60, Math.max(24, maxText + 6 + unterZeilen));
+
+      function kopfZeichnen() {
+        doc.platzPruefen(kopfHoehe + 3 * zeilenHoehe);
+        var y = doc.y;
+        doc.rechteck(x0, y, gesamt, kopfHoehe, { fill: FARBE.kopfBg, stroke: FARBE.linie, width: 0.3 });
+        var lx = x0;
+        linke.forEach(function (l) {
+          doc.text(l.t, lx + 1.5, y + kopfHoehe - unterZeilen - 5.2, { size: 6.6, bold: true });
+          lx += l.w;
+          doc.linie(lx, y + kopfHoehe - unterZeilen - 6.5, lx, y + kopfHoehe, { color: FARBE.linie, width: 0.25 });
+        });
+        doc.text('Funktion', x0 + linksBreite - 1.5, y + kopfHoehe - unterZeilen - 10.5, { size: 6, color: FARBE.grau, align: 'right' });
+        doc.text('Menge', x0 + linksBreite - 1.5, y + kopfHoehe - unterZeilen + 0.3, { size: 6, color: FARBE.grau, align: 'right' });
+        doc.text('Schl.Nr', x0 + linksBreite - 1.5, y + kopfHoehe - 3.5, { size: 6, color: FARBE.grau, align: 'right' });
+        block.forEach(function (s, i) {
+          var cx = x0 + linksBreite + i * spaltenBreite;
+          doc.linie(cx, y, cx, y + kopfHoehe, { color: FARBE.linie, width: 0.25 });
+          var text = doc.kuerzen(kopfTexte[i], kopfHoehe - unterZeilen - 3, 7, true);
+          doc.textRotiert(text, cx + spaltenBreite / 2 + 2.4, y + kopfHoehe - unterZeilen - 1.5, { size: 7, bold: true });
+          if (s.menge > 0) doc.text(String(s.menge), cx + spaltenBreite / 2, y + kopfHoehe - unterZeilen + 0.3, { size: 5.6, align: 'center', color: FARBE.grau });
+          doc.text(doc.kuerzen(String(s.schlNr || ''), spaltenBreite - 0.8, 6, true), cx + spaltenBreite / 2, y + kopfHoehe - 3.5, { size: 6, align: 'center', bold: true });
+        });
+        doc.linie(x0 + linksBreite, y, x0 + linksBreite, y + kopfHoehe, { color: FARBE.linie, width: 0.4 });
+        doc.linie(x0 + linksBreite, y + kopfHoehe - unterZeilen, x0 + gesamt, y + kopfHoehe - unterZeilen, { color: FARBE.linie, width: 0.2 });
+        doc.linie(x0 + linksBreite, y + kopfHoehe - 3.6, x0 + gesamt, y + kopfHoehe - 3.6, { color: FARBE.linie, width: 0.2 });
+        doc.y = y + kopfHoehe;
+      }
+      kopfZeichnen();
+      var bereich = null, zebra = 0;
+      plan.zeilen.forEach(function (z, index) {
+        if (z.bereich !== bereich) {
+          bereich = z.bereich;
+          if (doc.platzPruefen(zeilenHoehe * 3)) { kopfZeichnen(); }
+          var gy = doc.y;
+          doc.rechteck(x0, gy, gesamt, 5, { fill: '#dce6f2', stroke: FARBE.linie, width: 0.25 });
+          doc.text(doc.kuerzen(bereich, gesamt - 6, 7.6, true), x0 + 2, gy + 0.9, { size: 7.6, bold: true, color: FARBE.akzent });
+          doc.y = gy + 5; zebra = 0;
+        }
+        if (doc.platzPruefen(zeilenHoehe)) { kopfZeichnen(); zebra = 0; }
+        var y = doc.y;
+        if (zebra % 2 === 1) doc.rechteck(x0, y, gesamt, zeilenHoehe, { fill: FARBE.zebraBg });
+        var lx = x0;
+        linke.forEach(function (l) {
+          var text = doc.kuerzen(l.f(z, index), l.w - 2.5, 6.8, !!l.bold);
+          var tx = l.align === 'center' ? lx + l.w / 2 : (l.align === 'right' ? lx + l.w - 1.2 : lx + 1.2);
+          doc.text(text, tx, y + 1.2, { size: 6.8, bold: !!l.bold, align: l.align || 'left', color: z.mitlaeufer && l.t !== 'Zyl.Nr.' ? FARBE.grau : FARBE.text });
+          lx += l.w;
+        });
+        var raster = [];
+        block.forEach(function (s, i) {
+          var cx = x0 + linksBreite + i * spaltenBreite;
+          raster.push([cx, y, cx, y + zeilenHoehe]);
+          var zeichen = z.zellen[s.id] || '';
+          if (zeichen) {
+            var farbe = zeichen === 'O' ? FARBE.warn : (zeichen === 'X' ? FARBE.akzent : '#2e7d32');
+            doc.text(zeichen, cx + spaltenBreite / 2, y + 0.9, { size: 8, bold: true, align: 'center', color: farbe });
+          }
+        });
+        raster.push([x0, y + zeilenHoehe, x0 + gesamt, y + zeilenHoehe]);
+        doc.linienGruppe(raster, { color: FARBE.linieHell, width: 0.15 });
+        doc.linie(x0 + linksBreite, y, x0 + linksBreite, y + zeilenHoehe, { color: FARBE.linie, width: 0.4 });
+        doc.y = y + zeilenHoehe;
+        zebra++;
+      });
+      doc.y += 3;
+    });
+
+    /* Legende */
+    doc.platzPruefen(22);
+    doc.y += 2;
+    doc.text('Legende', doc.rand.links, doc.y, { size: 9, bold: true, color: FARBE.akzent });
+    doc.y += 5;
+    var legendeTexte = [['X', 'Schlüssel der Spalte sperrt den Zylinder'], ['I', 'Eigenschlüssel der Tür gehört zur Gruppe der Spalte'],
+      ['Z', 'Zentralzylinder: alle Eigenschlüssel der Gruppe sperren'], ['M', 'Mitschließung: die Gruppe sperrt diesen Zylinder mit eigenem Schlüssel mit'],
+      ['O', 'vorgeplant (Reserve): vorbereitet, sperrt noch nicht']];
+    legendeTexte.forEach(function (l) {
+      doc.text(l[0], doc.rand.links, doc.y, { size: 8, bold: true, color: FARBE.akzent });
+      doc.text(l[1], doc.rand.links + 5, doc.y, { size: 7.5, color: FARBE.grau });
+      doc.y += 4;
+    });
+    doc.textBlock('ESL = Stückzahl der Eigenschlüssel je Zylinder (leer: kein Eigenschlüssel, 0: vorgeplant). Zyl.Nr. = Türnummer; gleichschließende Türen tragen die Nummer ihrer Haupttür mit .1, .2 … ' +
+      'Menge = Stück je Schlüsselspalte; bei einer Gruppe die Schlüssel der Mitglieder ohne eigene Tür.', doc.rand.links, doc.y, b, { size: 7, color: FARBE.grau, maxLines: 3 });
+    doc.y += 8;
+    if (plan.hinweise.length) {
+      doc.textBlock('Hinweise: ' + plan.hinweise.join(' '), doc.rand.links, doc.y, b, { size: 7, color: FARBE.warn, maxLines: 4 });
+      doc.y += 8;
+    }
+    return doc;
+  }
+
+  /* =========================================================================
    * 3) MATERIALLISTE / STÜCKLISTE
    * ====================================================================== */
   function materialliste(projekt, einstellungen, optionen) {
@@ -1247,6 +1399,7 @@
 
   global.Reports = {
     tuerliste: tuerliste,
+    europlan: europlan,
     schliessplan: schliessplan,
     materialliste: materialliste,
     pruefprotokoll: pruefprotokoll,

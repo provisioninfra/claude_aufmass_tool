@@ -63,7 +63,7 @@ Alle Antworten sind JSON. Fehler kommen als `{ "code": "…", "message": "…", 
 | Methode und Weg | Rechte | Antwort |
 | --- | --- | --- |
 | `GET /projekte` | lesen | `{ marke, projekte: [ { id, kunde, objekt, anlagenNr, version, geaendertAm, geaendertVon, geloescht, zustaendige } ], antworten }` |
-| `GET /projekte/{id}` | lesen | `{ id, version, geaendertAm, geaendertVon, geloescht, zustaendige, daten }` - `daten` ist das vollständige Aufmaß ohne Bilddaten |
+| `GET /projekte/{id}` | lesen | `{ id, version, geaendertAm, geaendertVon, geloescht, zustaendige, daten }` - `daten` ist das vollständige Aufmaß ohne Bilddaten. Die Matrix `daten.matrix` führt je `tuerId|spaltenId` einen der Werte `ja`, `zeit`, `temp`, `sperr`, `plan` (vorgeplant); Türen tragen `gleichschliessendMit` (Kennung der Haupttür) und `produktcode` |
 | `PUT /projekte/{id}` | schreiben, zuständig | Körper `{ daten, basisVersion }`. Stimmt `basisVersion` mit der Version auf dem Server überein, wird gespeichert und die neue Fassung zurückgegeben. Sonst **409 `konflikt`** mit `data.server` = Serverstand zum Zusammenführen. `basisVersion: 0` legt ein neues Aufmaß an |
 | `DELETE /projekte/{id}` | schreiben, zuständig | legt das Aufmaß in den Papierkorb (`geloescht`) |
 | `PUT /projekte/{id}/zustaendige` | schreiben, zuständig | Körper `{ benutzer: [ids] }` |
@@ -134,7 +134,7 @@ claude mcp add aufmass \
   -- node ~/aufmass-anbindung/aufmass-mcp.js
 ```
 
-Der Server meldet 17 Werkzeuge: `zugang_pruefen`, `projekte_auflisten`, `projekt_lesen`,
+Der Server meldet 17 Werkzeuge (seit 1.5.0 liest `schliessplan_lesen` mit `darstellung: "euro"` den Europlan, `berechtigung_setzen` kennt `plan` (vorgeplant) und `tuer_aendern` setzt `gleichschliessendMit` per Türnummer): `zugang_pruefen`, `projekte_auflisten`, `projekt_lesen`,
 `projekt_anlegen`, `stammdaten_aendern`, `gliederung_lesen`, `gliederung_anlegen`,
 `tueren_auflisten`, `tuer_lesen`, `tuer_anlegen`, `tuer_aendern`, `tuer_loeschen`,
 `schliessplan_lesen`, `spalte_anlegen`, `berechtigung_setzen`, `bericht_erzeugen`,

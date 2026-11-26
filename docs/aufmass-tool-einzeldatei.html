@@ -1163,13 +1163,60 @@ body.stift .zahl-knopf { min-width: 56px; }
   .modus-leiste .diktat-start .wort { display: none; }
 }
 
+/* --- Umschalter Kreuzschließplan | Europlan ------------------------------ */
+.segmente { display: inline-flex; border: 1px solid var(--rand); border-radius: 999px; overflow: hidden; background: var(--flaeche-2); }
+.segmente .segment { border: 0; border-radius: 0; background: transparent; min-height: var(--tap); padding: 8px 16px; font-weight: 600; color: var(--text-schwach); }
+.segmente .segment + .segment { border-left: 1px solid var(--rand); }
+.segmente .segment.aktiv { background: var(--hausfarbe); color: var(--auf-hausfarbe); }
+.segmente .segment:hover:not(.aktiv) { color: var(--akzent); background: var(--akzent-bg); }
+
+/* --- Europlan: Zylinderzeilen mit Zyl.Nr., Stk., ESL, Type ------------------ */
+table.matrix.europlan th.ecke { min-width: 0; max-width: none; position: sticky; left: 0; z-index: 6; text-align: left; font-size: 12px; color: var(--text-zart); vertical-align: bottom; }
+table.matrix.europlan thead th.links { position: sticky; top: calc(var(--kopfhoehe) + 26px); background: var(--flaeche-3); font-size: 11.5px; font-weight: 600; color: var(--text-schwach);
+  padding: 6px 8px; text-align: left; white-space: nowrap; border-right: 1px solid var(--rand-zart); z-index: 4; }
+table.matrix.europlan thead tr.funktion th.spaltenkopf { height: var(--kopfhoehe); }
+table.matrix.europlan thead th.menge, table.matrix.europlan thead th.schlnr { position: sticky; background: var(--flaeche-3); font-size: 11.5px; text-align: center; min-width: 40px; width: 40px; max-width: 40px;
+  padding: 4px 0; border-right: 1px solid var(--rand-zart); z-index: 4; }
+table.matrix.europlan thead th.menge { top: var(--kopfhoehe); color: var(--text-zart); font-weight: 500; }
+table.matrix.europlan thead th.schlnr { top: calc(var(--kopfhoehe) + 26px); font-weight: 700; color: var(--text); }
+table.matrix.europlan thead th.links.zp { left: 0; }
+table.matrix.europlan tbody td.links { padding: 6px 8px; font-size: 13px; white-space: nowrap; border-right: 1px solid var(--rand-zart); background: var(--flaeche); }
+table.matrix.europlan tbody td.links.zp { position: sticky; left: 0; z-index: 3; color: var(--text-zart); font-size: 11.5px; }
+table.matrix.europlan tbody td.links.nr { font-weight: 700; }
+table.matrix.europlan tbody td.links.raum { color: var(--text-schwach); max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+table.matrix.europlan tbody td.links.stk, table.matrix.europlan tbody td.links.esl, table.matrix.europlan tbody td.links.zyl { text-align: center; min-width: 54px; }
+table.matrix.europlan tbody td.links.esl:empty::before { content: '–'; color: var(--text-zart); }
+table.matrix.europlan tbody td.links.zyl { font-weight: 700; color: var(--akzent); }
+table.matrix.europlan tbody td.links.zyl.gleich { color: var(--text-schwach); font-weight: 600; }
+table.matrix.europlan tbody td.links.type { color: var(--text-schwach); font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+table.matrix.europlan tbody td.links.klickbar { cursor: pointer; }
+table.matrix.europlan tbody td.links.klickbar:hover { background: var(--akzent-bg); }
+table.matrix.europlan tr.mitlaeufer td.links { color: var(--text-zart); }
+table.matrix.europlan td.zelle { min-width: 40px; width: 40px; height: 44px; font-size: 14px; }
+table.matrix.europlan td.zelle.euro-x { background: var(--hausfarbe-flaeche); }
+table.matrix.europlan td.zelle.euro-i { background: rgba(31,122,61,.14); color: var(--gruen); }
+table.matrix.europlan td.zelle.euro-z { background: var(--akzent-flaeche); }
+table.matrix.europlan td.zelle.euro-m { background: rgba(31,122,61,.08); color: var(--akzent); }
+table.matrix.europlan td.zelle.euro-o { background: rgba(179,114,30,.12); color: var(--gelb); }
+table.matrix.europlan tr.gruppenzeile td { position: static; }
+table.matrix.europlan tr.gruppenzeile td::before { content: ''; }
+table.matrix td.zelle.gesetzt-plan { background: rgba(179,114,30,.12); color: var(--gelb); }
+table.matrix td.tuername .gleich { font-size: 11.5px; color: var(--akzent); }
+
+/* Auswahl mit großen Knöpfen (Zeichen im Europlan, Gleichschließung) */
+.wahl-liste { display: flex; flex-direction: column; gap: 8px; }
+.wahl-liste .wahl { display: flex; align-items: center; gap: 12px; text-align: left; padding: 10px 14px; min-height: 52px; width: 100%; }
+.wahl-liste .wahl b { font-size: 18px; min-width: 28px; text-align: center; color: var(--akzent); }
+.wahl-liste .wahl span { font-size: 14px; color: var(--text-schwach); white-space: normal; }
+.wahl-liste .wahl.aktiv { border-color: var(--hausfarbe); background: var(--hausfarbe-flaeche); }
+
 </style>
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiByb2xlPSJpbWciIGFyaWEtbGFiZWw9IkF1Zm1hw58tVG9vbCI+CiAgPHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSIxMDQiIGZpbGw9IiMwMjA5MmIiLz4KICA8IS0tIFTDvHJibGF0dCAtLT4KICA8cmVjdCB4PSIxMTIiIHk9Ijk2IiB3aWR0aD0iMTk2IiBoZWlnaHQ9IjMyMCIgcng9IjEwIiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMjIiLz4KICA8IS0tIFp5bGluZGVyIC8gU2NobMO8c3NlbGxvY2ggaW4gZGVyIEhhdXNmYXJiZSAtLT4KICA8Y2lyY2xlIGN4PSIyNjIiIGN5PSIyNTIiIHI9IjIwIiBmaWxsPSIjZmNjOTFkIi8+CiAgPHJlY3QgeD0iMjUzIiB5PSIyNjIiIHdpZHRoPSIxOCIgaGVpZ2h0PSI0MiIgcng9IjYiIGZpbGw9IiNmY2M5MWQiLz4KICA8IS0tIE1hw59wZmVpbCByZWNodHMgLS0+CiAgPHBhdGggZD0iTTM2OCAxMjAgdjI3MiIgc3Ryb2tlPSIjZmNjOTFkIiBzdHJva2Utd2lkdGg9IjE2IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KICA8cGF0aCBkPSJNMzQ4IDE0NiBsMjAgLTI2IGwyMCAyNiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmNjOTFkIiBzdHJva2Utd2lkdGg9IjE2IgogICAgICAgIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgogIDxwYXRoIGQ9Ik0zNDggMzY2IGwyMCAyNiBsMjAgLTI2IiBmaWxsPSJub25lIiBzdHJva2U9IiNmY2M5MWQiIHN0cm9rZS13aWR0aD0iMTYiCiAgICAgICAgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPgo=" type="image/svg+xml">
 <link rel="apple-touch-icon" sizes="180x180" href="data:image/png;base64,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">
 <link rel="icon" type="image/png" sizes="192x192" href="data:image/png;base64,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">
 <!-- Eigenständige Fassung: enthält Programm und Gestaltung vollständig.
      Kann lokal gespeichert und ohne Internetverbindung geöffnet werden.
-     Erzeugt am 2026-11-23 -->
+     Erzeugt am 2026-11-26 -->
 </head>
 <body>
 <div id="app">
@@ -1640,7 +1687,10 @@ body.stift .zahl-knopf { min-width: 56px; }
     { id: 'ja',    zeichen: 'X',  label: 'berechtigt' },
     { id: 'zeit',  zeichen: 'Z',  label: 'berechtigt, zeitbeschränkt' },
     { id: 'temp',  zeichen: 'T',  label: 'temporär / befristet' },
-    { id: 'sperr', zeichen: '–',  label: 'ausdrücklich gesperrt' }
+    { id: 'sperr', zeichen: '–',  label: 'ausdrücklich gesperrt' },
+    /* Reserve: der Zylinder ist für diesen Schlüssel vorbereitet, der Schlüssel
+       sperrt aber (noch) nicht - im Europlan das O, beim Hersteller „vorgeplant“. */
+    { id: 'plan',  zeichen: 'O',  label: 'vorgeplant (Reserve)' }
   ];
 
   /* --- Hilfsfunktionen ---------------------------------------------------- */
@@ -1803,6 +1853,7 @@ body.stift .zahl-knopf { min-width: 56px; }
       systemMechanik: '',         // bei 'mechanik' und 'hybrid'
       systemElektronik: '',       // bei 'elektronik' und 'hybrid'
       systemDetail: '',           // Freitext zur Anlage
+      oberflaeche: '',            // Oberfläche der Zylinder (z. B. NI, MS) - Kopf des Europlans
 
       aufmassDatum: heute(),
       bemerkung: '',
@@ -1925,6 +1976,9 @@ body.stift .zahl-knopf { min-width: 56px; }
       zylinderAusfuehrung: [],    // Zusatzfunktionen, mehrere möglich
       zylinderKnaufseite: '',     // nur bei Knaufzylinder
       zylinderSkgStufe: '',       // nur, wenn die Ausführung „SKG“ gewählt ist
+      gleichschliessendMit: '',   // Kennung der Tür, mit der diese Tür gleichschließend ist ('' = eigene Schließung)
+      produktcode: '',            // Type / Produktcode für den Europlan; leer = aus den Zylinderangaben gebildet
+      eigenschluesselVorgeplant: false, // Eigenschlüssel vorgeplant, aber keine Schlüssel bestellt (ESL 0)
 
       beschlagBauform: '',
       beschlagBestueckung: '',
@@ -2338,6 +2392,130 @@ body.stift .zahl-knopf { min-width: 56px; }
     if (!wert || wert === 'nein') { delete projekt.matrix[key]; }
     else { projekt.matrix[key] = wert; }
     return projekt;
+  }
+
+  /* --- Gleichschließung ---------------------------------------------------
+   * Türen mit gleicher Schließung hängen an einer Haupttür: Die Zylindernummer
+   * ist die Türnummer der Haupttür, die Mitläufer bekommen .1, .2 und so weiter.
+   * Ihre Berechtigungen sind immer identisch - das Werkzeug hält sie gleich. */
+  function basisTuer(projekt, tuer) {
+    var t = typeof tuer === 'string' ? tuerVon(projekt, tuer) : tuer;
+    var gesehen = {};
+    while (t && t.gleichschliessendMit) {
+      if (gesehen[t.id]) break;        /* Kreis: hier abbrechen */
+      gesehen[t.id] = true;
+      var weiter = tuerVon(projekt, t.gleichschliessendMit);
+      if (!weiter) break;
+      t = weiter;
+    }
+    return t || null;
+  }
+  function tuerVon(projekt, id) {
+    if (!projekt || !id) return null;
+    var liste = projekt.tueren || [];
+    for (var i = 0; i < liste.length; i++) { if (liste[i] && liste[i].id === id) return liste[i]; }
+    return null;
+  }
+  /* Alle Türen einer Schließung, die Haupttür zuerst, die Mitläufer in Türreihenfolge. */
+  function schliessungsTueren(projekt, tuer) {
+    var basis = basisTuer(projekt, tuer);
+    if (!basis) return [];
+    var aus = [basis];
+    (projekt.tueren || []).forEach(function (t) {
+      if (t && t.id !== basis.id && basisTuer(projekt, t) === basis) aus.push(t);
+    });
+    return aus;
+  }
+  function istMitlaeufer(projekt, tuer) {
+    var basis = basisTuer(projekt, tuer);
+    return !!(basis && tuer && basis.id !== tuer.id);
+  }
+  function zylinderNummer(projekt, tuer) {
+    var basis = basisTuer(projekt, tuer);
+    if (!basis) return '';
+    var nummer = String(basis.nummer || '').trim() || '?';
+    if (basis.id === tuer.id) return nummer;
+    var mitlaeufer = schliessungsTueren(projekt, basis).slice(1);
+    var index = 0;
+    for (var i = 0; i < mitlaeufer.length; i++) { if (mitlaeufer[i].id === tuer.id) { index = i + 1; break; } }
+    return nummer + '.' + (index || mitlaeufer.length + 1);
+  }
+  /* Tür an eine Schließung hängen (basisId) oder lösen (''). Mitläufer der
+   * Tür wandern mit. Kreise sind ausgeschlossen: Die Basis darf nicht zur
+   * eigenen Schließung gehören. Die Kreuze der Haupttür werden übernommen. */
+  function gleichschliessendSetzen(projekt, tuerId, basisId) {
+    var t = tuerVon(projekt, tuerId);
+    if (!t) return false;
+    if (!basisId) { t.gleichschliessendMit = ''; return true; }
+    var basis = basisTuer(projekt, basisId);
+    if (!basis || basis.id === t.id) return false;
+    /* Gehört die Basis zur Schließung dieser Tür, entstünde ein Kreis */
+    var eigene = schliessungsTueren(projekt, t);
+    for (var i = 0; i < eigene.length; i++) { if (eigene[i].id === basis.id) return false; }
+    t.gleichschliessendMit = basis.id;
+    gleichschliessungAngleichen(projekt);
+    return true;
+  }
+  /* Verweise prüfen, Kreise lösen und die Kreuze jeder Schließung von der
+   * Haupttür auf alle Mitläufer übertragen. */
+  function gleichschliessungAngleichen(projekt) {
+    var tueren = projekt.tueren || [];
+    tueren.forEach(function (t) {
+      if (!t) return;
+      if (t.gleichschliessendMit && (t.gleichschliessendMit === t.id || !tuerVon(projekt, t.gleichschliessendMit))) t.gleichschliessendMit = '';
+    });
+    /* Kreise: Wer über seine Kette nicht bei einer Tür ohne Verweis landet, wird gelöst */
+    tueren.forEach(function (t) {
+      if (!t || !t.gleichschliessendMit) return;
+      var gesehen = {}, x = t;
+      while (x && x.gleichschliessendMit) {
+        if (gesehen[x.id]) { t.gleichschliessendMit = ''; return; }
+        gesehen[x.id] = true;
+        x = tuerVon(projekt, x.gleichschliessendMit);
+      }
+    });
+    (projekt.schliessungen || []).forEach(function (s) {
+      tueren.forEach(function (t) {
+        if (!t || !t.gleichschliessendMit) return;
+        var basis = basisTuer(projekt, t);
+        if (!basis || basis.id === t.id) return;
+        setBerechtigung(projekt, t.id, s.id, getBerechtigung(projekt, basis.id, s.id));
+      });
+    });
+    return projekt;
+  }
+  /* Berechtigung für eine ganze Schließung setzen - Haupttür und Mitläufer. */
+  function berechtigungSetzenVerbund(projekt, tuerId, schliessungId, wert) {
+    schliessungsTueren(projekt, tuerId).forEach(function (t) { setBerechtigung(projekt, t.id, schliessungId, wert); });
+    return projekt;
+  }
+  /* Zählt ein Wert als Sperrberechtigung? (zeit/temp ja; sperr und plan nein) */
+  function istBerechtigt(wert) { return wert === 'ja' || wert === 'zeit' || wert === 'temp'; }
+
+  /* Type / Produktcode einer Tür für den Europlan: von Hand eingetragen oder
+   * aus Bauform, Längen und Ausführungen gebildet (z. B. „DZ 31/36 BSZ“). */
+  var BAUFORM_KURZ = {
+    'Doppelzylinder': 'DZ', 'Halbzylinder': 'HZ', 'Knaufzylinder': 'KZ', 'Doppelknaufzylinder': 'DKZ',
+    'Hebelzylinder': 'HEB', 'Möbelzylinder': 'MZ', 'Vorhangschloss / Bügelschloss': 'VHS',
+    'Briefkastenzylinder': 'BKZ', 'Schaltzylinder': 'SZ', 'Rundzylinder': 'RZ', 'Blindzylinder': 'BLZ',
+    'Motorzylinder EVVA EMZY': 'EMZY'
+  };
+  function produktcode(projekt, tuer) {
+    if (!tuer) return '';
+    if (tuer.produktcode) return String(tuer.produktcode);
+    if (tuer.brauchtZylinder === false) return '';
+    var teile = [];
+    var bauform = String(tuer.zylinderBauform || '');
+    if (bauform) teile.push(BAUFORM_KURZ[bauform] || bauform.replace(/\s*\(.*\)\s*/, '').slice(0, 4).toUpperCase());
+    var a = String(tuer.masseAussen || '').trim(), i2 = String(tuer.masseInnen || '').trim();
+    if (a || i2) teile.push((a || '?') + '/' + (i2 || '?'));
+    (tuer.zylinderAusfuehrung || []).forEach(function (x) {
+      var kurz = String(x || '').replace(/\s*\(.*\)\s*/, '').trim();
+      if (kurz === 'gleichschließend') return;
+      if (kurz) teile.push(kurz.length > 12 ? kurz.slice(0, 12) : kurz);
+    });
+    if (tuer.zylinderKnaufseite) teile.push(String(tuer.zylinderKnaufseite).replace('Knauf ', 'Kn. '));
+    return teile.join(' ');
   }
 
   /* Entfernt Matrixeinträge, deren Tür oder Schließung gelöscht wurde. */
@@ -3812,6 +3990,7 @@ body.stift .zahl-knopf { min-width: 56px; }
     gliederungEntwirren(out);
 
     matrixAufraeumen(out);
+    gleichschliessungAngleichen(out);
     return out;
   }
 
@@ -3862,6 +4041,16 @@ body.stift .zahl-knopf { min-width: 56px; }
     getBerechtigung: getBerechtigung,
     setBerechtigung: setBerechtigung,
     matrixAufraeumen: matrixAufraeumen,
+    tuerVon: tuerVon,
+    basisTuer: basisTuer,
+    schliessungsTueren: schliessungsTueren,
+    istMitlaeufer: istMitlaeufer,
+    zylinderNummer: zylinderNummer,
+    gleichschliessendSetzen: gleichschliessendSetzen,
+    gleichschliessungAngleichen: gleichschliessungAngleichen,
+    berechtigungSetzenVerbund: berechtigungSetzenVerbund,
+    istBerechtigt: istBerechtigt,
+    produktcode: produktcode,
     strukturPfad: strukturPfad,
     knotenMitUnter: knotenMitUnter,
     tuerenUnter: tuerenUnter,
@@ -3891,6 +4080,704 @@ body.stift .zahl-knopf { min-width: 56px; }
   };
 
   if (typeof module !== 'undefined' && module.exports) { module.exports = global.Model; }
+})(typeof window !== 'undefined' ? window : globalThis);
+
+
+/* ==== js/europlan.js ==== */
+/* =============================================================================
+ * europlan.js — Der Schließplan in der Schreibweise der Hersteller
+ *
+ * Der Kreuzschließplan (model.js: Spalten × Türen, Werte ja/zeit/temp/sperr/
+ * plan) bleibt die einzige Wahrheit. Der Europlan ist eine zweite Sicht
+ * darauf, wie sie EVVA, Winkhaus und die Fachhändler im Bestellformular
+ * verwenden:
+ *
+ *   X  übergeordneter Schlüssel (Spalte) sperrt diesen Zylinder (Zeile)
+ *   I  Einzelschließung: der Eigenschlüssel dieser Tür gehört zur Gruppe der Spalte
+ *   Z  Zentralzylinder: alle Eigenschlüssel der Gruppe sperren ihn
+ *   M  Mitschließung: ein Zylinder mit eigenem Schlüssel, den die Gruppe mitsperrt
+ *   O  vorgeplant (Reserve): vorbereitet, sperrt noch nicht
+ *
+ * Zuordnung zum Werkzeug: Schließungen und nicht faltbare Mitarbeiter sind
+ * X-Spalten, Gruppen sind I/Z/M-Spalten. Ein Mitarbeiter ist „Inhaber“ einer
+ * Schließung, wenn seine eigene Spalte genau diese eine Schließung sperrt;
+ * sein I steht an der Haupttür in jeder Gruppenspalte, der er angehört, seine
+ * Medienzahl ist die ESL (Eigenschlüssel-Stückzahl). Eigenschlüssel ohne
+ * Person sind Einzelschließungen (EZ) und erscheinen nur als ESL.
+ *
+ * Gleichschließend: Mitläufer tragen die Zylindernummer der Haupttür mit .1,
+ * .2 … und zeigen nie ein I - der Eigenschlüssel wird an der Haupttür geführt.
+ * ========================================================================== */
+(function (global) {
+  'use strict';
+  var M = global.Model, K = global.Katalog;
+
+  var ZEICHEN = ['X', 'I', 'Z', 'M', 'O'];
+  var ZEICHEN_TEXT = {
+    X: 'sperrt (Schlüssel der Spalte sperrt diesen Zylinder)',
+    I: 'Eigenschlüssel dieser Tür gehört zur Gruppe',
+    Z: 'Zentralzylinder: alle Schlüssel der Gruppe sperren',
+    M: 'Mitschließung: die Gruppe sperrt diesen Zylinder mit eigenem Schlüssel mit',
+    O: 'vorgeplant (Reserve): vorbereitet, sperrt noch nicht'
+  };
+
+  function istGruppe(s) { return s && s.art === 'gruppe'; }
+
+  /* --- Analyse: Inhaber, faltbare Spalten, Schließungen ------------------- */
+  function analyse(p) {
+    M.spaltenAngleichen(p);
+    var spalten = M.spaltenSortiert(p);
+    var tueren = (p.tueren || []).filter(Boolean);
+    var basisVon = {}, basen = [], basisIds = {};
+    tueren.forEach(function (t) {
+      var b = M.basisTuer(p, t) || t;
+      basisVon[t.id] = b;
+      if (!basisIds[b.id]) { basisIds[b.id] = true; basen.push(b); }
+    });
+    function wert(b, s) { return M.getBerechtigung(p, b.id, s.id); }
+
+    var gruppenSpalten = spalten.filter(istGruppe);
+    var inhaber = {};        /* basisId -> [{ m, spalte, gruppen }] - faltbare Inhaber (I in der Gruppenspalte) */
+    var eigentuemer = {};    /* basisId -> [{ m, spalte, gruppen }] - alle Mitarbeiter, deren Spalte genau diese Schließung sperrt */
+    var heimVon = {};        /* Spaltenkennung eines Mitarbeiters -> seine Schließung (Haupttür) */
+    var gefaltet = {};       /* Spaltenkennung -> true, wenn die Spalte im Europlan nicht erscheint */
+    var ezJeBasis = {};      /* basisId -> [EZ-Schließungen] */
+    var hinweise = [];
+
+    spalten.forEach(function (s) {
+      if (s.art === 'mitarbeiter') {
+        var m = M.mitarbeiterVon(p, s.mitarbeiterId);
+        if (!m) return;
+        var berechtigt = basen.filter(function (b) { return M.istBerechtigt(wert(b, s)); });
+        var sonst = basen.filter(function (b) { var w = wert(b, s); return w === 'plan' || w === 'sperr'; });
+        var gruppen = gruppenSpalten.filter(function (g) { return (m.gruppen || []).indexOf(g.gruppeId) !== -1; });
+        if (berechtigt.length === 1 && !sonst.length) {
+          var b = berechtigt[0];
+          heimVon[s.id] = b;
+          (eigentuemer[b.id] = eigentuemer[b.id] || []).push({ m: m, spalte: s, gruppen: gruppen });
+          if (gruppen.length) {
+            var konflikt = gruppen.some(function (g) { return wert(b, g) !== 'nein'; });
+            if (!konflikt) {
+              gefaltet[s.id] = true;
+              (inhaber[b.id] = inhaber[b.id] || []).push({ m: m, spalte: s, gruppen: gruppen });
+              return;
+            }
+            hinweise.push('„' + (m.name || s.kuerzel) + '“: Die eigene Tür wird auch von seiner Gruppe gesperrt - er steht deshalb als eigene Spalte im Plan.');
+          } else {
+            hinweise.push('„' + (m.name || s.kuerzel) + '“ gehört keiner Gruppe mit Spalte an - sein Schlüssel steht als eigene Spalte im Plan.');
+          }
+        }
+      } else if (s.art === 'schliessung' && s.typ === 'ez') {
+        var ber = basen.filter(function (b) { return M.istBerechtigt(wert(b, s)); });
+        var son = basen.filter(function (b) { var w = wert(b, s); return w === 'plan' || w === 'sperr'; });
+        if (ber.length === 1 && !son.length) {
+          gefaltet[s.id] = true;
+          (ezJeBasis[ber[0].id] = ezJeBasis[ber[0].id] || []).push(s);
+        }
+      }
+    });
+    return { spalten: spalten, tueren: tueren, basen: basen, basisVon: basisVon, gruppenSpalten: gruppenSpalten,
+             inhaber: inhaber, eigentuemer: eigentuemer, heimVon: heimVon, gefaltet: gefaltet, ezJeBasis: ezJeBasis, hinweise: hinweise, wert: wert };
+  }
+
+  /* Hat ein Mitarbeiter eine eigene Spalte im Plan? */
+  function eigeneSpalte(p, m) {
+    return (p.schliessungen || []).filter(function (s) { return s.art === 'mitarbeiter' && s.mitarbeiterId === m.id; })[0] || null;
+  }
+
+  /* Menge einer Gruppenspalte: die Medien der Mitglieder ohne eigene Spalte -
+   * sie bekommen reine Gruppenschlüssel (sperren nur Z und M der Gruppe). */
+  function gruppenMenge(p, g) {
+    return M.gruppenMitglieder(p, g.gruppeId).filter(function (m) { return !eigeneSpalte(p, m); })
+      .reduce(function (sum, m) { return sum + M.mitarbeiterMedienAnzahl(m); }, 0);
+  }
+
+  function eslVon(p, a, basis) {
+    var summe = 0, da = false;
+    (a.inhaber[basis.id] || []).forEach(function (i) { summe += M.mitarbeiterMedienAnzahl(i.m); da = true; });
+    (a.ezJeBasis[basis.id] || []).forEach(function (s) { summe += M.medienAnzahl(p, s); da = true; });
+    if (da) return summe;
+    return basis.eigenschluesselVorgeplant ? 0 : null;
+  }
+
+  /* --- Der Europlan ------------------------------------------------------- */
+  function europlan(p) {
+    var a = analyse(p);
+    var spalten = a.spalten.filter(function (s) { return !a.gefaltet[s.id]; }).map(function (s) {
+      var gruppe = istGruppe(s);
+      var heim = a.heimVon[s.id];
+      return {
+        id: s.id, spalte: s, art: gruppe ? 'gruppe' : 'schluessel',
+        schlNr: heim ? M.zylinderNummer(p, heim) : (s.kuerzel || ''), funktion: s.bezeichnung || '',
+        menge: gruppe ? gruppenMenge(p, s) : M.medienAnzahl(p, s),
+        mitglieder: gruppe ? M.gruppenMitglieder(p, s.gruppeId) : M.spaltenMitglieder(p, s)
+      };
+    });
+    var zeilen = [];
+    M.tuerenGruppiert(p).forEach(function (g) {
+      g.tueren.forEach(function (t) {
+        var basis = a.basisVon[t.id] || t;
+        var mitlaeufer = basis.id !== t.id;
+        var inh = a.inhaber[basis.id] || [];
+        var zellen = {};
+        spalten.forEach(function (sp) {
+          var w = M.getBerechtigung(p, t.id, sp.id), z = '';
+          if (sp.art === 'gruppe') {
+            if (M.istBerechtigt(w)) z = (inh.length || (a.ezJeBasis[basis.id] || []).length) ? 'M' : 'Z';
+            else if (w === 'plan') z = 'O';
+            else if (!mitlaeufer && inh.some(function (i) { return i.gruppen.some(function (gg) { return gg.id === sp.id; }); })) z = 'I';
+          } else {
+            if (M.istBerechtigt(w)) z = 'X';
+            else if (w === 'plan') z = 'O';
+          }
+          zellen[sp.id] = z;
+        });
+        zeilen.push({
+          tuer: t, basis: basis, mitlaeufer: mitlaeufer, bereich: g.titel,
+          zylNr: M.zylinderNummer(p, t), stk: parseInt(t.anzahl, 10) || 1,
+          esl: mitlaeufer ? null : eslVon(p, a, basis),
+          inhaber: inh, eigenschluessel: a.ezJeBasis[basis.id] || [],
+          produktcode: M.produktcode(p, t), zellen: zellen
+        });
+      });
+    });
+    return { spalten: spalten, zeilen: zeilen, hinweise: a.hinweise, analyse: a };
+  }
+
+  /* --- Der Kreuzschließplan als Schlüsselliste („oldschool“) ---------------
+   * Jeder Schlüssel eine Spalte, Gruppen aufgelöst in die Schlüssel ihrer
+   * Mitglieder. X, wo der Schlüssel tatsächlich sperrt. */
+  function kreuzplan(p) {
+    var a = analyse(p);
+    var spalten = [];
+    a.spalten.forEach(function (s) {
+      if (s.art === 'schliessung' && !a.gefaltet[s.id]) {
+        spalten.push({ id: s.id, spalte: s, art: 'schluessel', schlNr: s.kuerzel || '', funktion: s.bezeichnung || '',
+                       menge: M.medienAnzahl(p, s), zelle: function (t) { return M.getBerechtigung(p, t.id, s.id); } });
+      }
+    });
+    (p.mitarbeiter || []).forEach(function (m) {
+      var eigene = eigeneSpalte(p, m);
+      var gruppenSp = a.gruppenSpalten.filter(function (g) { return (m.gruppen || []).indexOf(g.gruppeId) !== -1; });
+      if (!eigene && !gruppenSp.length) return;    /* bekommt nichts */
+      var heimTuer = eigene ? (a.heimVon[eigene.id] || null) : null;
+      spalten.push({
+        id: 'ma:' + m.id, mitarbeiter: m, art: 'schluessel',
+        schlNr: heimTuer ? M.zylinderNummer(p, heimTuer) : (eigene && eigene.kuerzel ? eigene.kuerzel : M.kuerzelAus(m.name || '')),
+        funktion: m.name || '', menge: M.mitarbeiterMedienAnzahl(m),
+        zelle: function (t) {
+          var beste = 'nein';
+          var werte = [];
+          if (eigene) werte.push(M.getBerechtigung(p, t.id, eigene.id));
+          gruppenSp.forEach(function (g) { werte.push(M.getBerechtigung(p, t.id, g.id)); });
+          werte.forEach(function (w) {
+            if (M.istBerechtigt(w)) beste = 'ja';
+            else if (w === 'plan' && beste === 'nein') beste = 'plan';
+          });
+          return beste;
+        }
+      });
+    });
+    var zeilen = [];
+    M.tuerenGruppiert(p).forEach(function (g) {
+      g.tueren.forEach(function (t) {
+        var basis = a.basisVon[t.id] || t, mitlaeufer = basis.id !== t.id;
+        var zellen = {};
+        spalten.forEach(function (sp) {
+          var w = sp.zelle(t);
+          zellen[sp.id] = M.istBerechtigt(w) ? 'X' : (w === 'plan' ? 'O' : '');
+        });
+        var ez = a.ezJeBasis[basis.id] || [];
+        var esl = mitlaeufer ? null : (ez.length ? ez.reduce(function (sum, s) { return sum + M.medienAnzahl(p, s); }, 0) : (basis.eigenschluesselVorgeplant ? 0 : null));
+        zeilen.push({ tuer: t, basis: basis, mitlaeufer: mitlaeufer, bereich: g.titel, zylNr: M.zylinderNummer(p, t),
+                      stk: parseInt(t.anzahl, 10) || 1, esl: esl, produktcode: M.produktcode(p, t), zellen: zellen });
+      });
+    });
+    return { spalten: spalten, zeilen: zeilen, hinweise: a.hinweise, analyse: a };
+  }
+
+  /* --- Bearbeiten im Europlan --------------------------------------------- */
+  /* Welche Zeichen sind in dieser Zelle möglich? */
+  function moeglicheZeichen(p, tuerId, spalteId) {
+    var s = (p.schliessungen || []).filter(function (x) { return x.id === spalteId; })[0];
+    var t = M.tuerVon(p, tuerId);
+    if (!s || !t) return [];
+    if (!istGruppe(s)) return ['', 'X', 'O'];
+    return M.istMitlaeufer(p, t) ? ['', 'Z', 'M', 'O'] : ['', 'I', 'Z', 'M', 'O'];
+  }
+
+  /**
+   * Zeichen einer Zelle setzen. Rückgabe { ok, braucht, text }:
+   * braucht === 'inhaber' heißt: Für ein I an einer Tür ohne Inhaber muss
+   * ein Mitarbeiter angelegt werden - optionen.inhaber = { name, anzahl, typ }.
+   */
+  function zelleSetzen(p, tuerId, spalteId, zeichen, optionen) {
+    optionen = optionen || {};
+    var s = (p.schliessungen || []).filter(function (x) { return x.id === spalteId; })[0];
+    var t = M.tuerVon(p, tuerId);
+    if (!s || !t) return { ok: false, text: 'Tür oder Spalte nicht gefunden.' };
+    zeichen = String(zeichen || '').toUpperCase();
+    if (!istGruppe(s)) {
+      M.berechtigungSetzenVerbund(p, t.id, s.id, zeichen === 'X' ? 'ja' : (zeichen === 'O' ? 'plan' : 'nein'));
+      return { ok: true };
+    }
+    var basis = M.basisTuer(p, t) || t;
+    var a = analyse(p);
+    var inh = a.eigentuemer[basis.id] || [];
+    if (zeichen === 'Z' || zeichen === 'M') {
+      M.berechtigungSetzenVerbund(p, t.id, s.id, 'ja');
+      /* Inhaber, die dieser Gruppe angehören, würden I und M in einer Zelle
+         brauchen - sie bleiben Inhaber, verlassen aber diese Gruppe. */
+      inh.forEach(function (i) { i.m.gruppen = (i.m.gruppen || []).filter(function (g) { return g !== s.gruppeId; }); });
+      return { ok: true };
+    }
+    if (zeichen === 'O') { M.berechtigungSetzenVerbund(p, t.id, s.id, 'plan'); return { ok: true }; }
+    if (zeichen === 'I') {
+      if (basis.id !== t.id) return { ok: false, text: 'Der Eigenschlüssel wird an der Haupttür ' + (basis.nummer || '') + ' geführt.' };
+      M.berechtigungSetzenVerbund(p, t.id, s.id, 'nein');
+      if (inh.length) {
+        inh.forEach(function (i) { if ((i.m.gruppen || []).indexOf(s.gruppeId) === -1) i.m.gruppen.push(s.gruppeId); });
+        return { ok: true };
+      }
+      if (!optionen.inhaber) return { ok: false, braucht: 'inhaber' };
+      inhaberAnlegen(p, t, s.gruppeId, optionen.inhaber);
+      return { ok: true };
+    }
+    /* leer */
+    var jetzt = M.getBerechtigung(p, t.id, s.id);
+    if (jetzt !== 'nein') { M.berechtigungSetzenVerbund(p, t.id, s.id, 'nein'); return { ok: true }; }
+    inh.forEach(function (i) { i.m.gruppen = (i.m.gruppen || []).filter(function (g) { return g !== s.gruppeId; }); });
+    return { ok: true };
+  }
+
+  /* Inhaber des Eigenschlüssels einer Tür anlegen: Mitarbeiter mit Medien,
+   * Gruppenzugehörigkeit, eigener Spalte und Berechtigung an der Schließung. */
+  function inhaberAnlegen(p, tuer, gruppeId, angaben) {
+    angaben = angaben || {};
+    var basis = M.basisTuer(p, tuer) || tuer;
+    var anzahl = parseInt(angaben.anzahl, 10);
+    if (!isFinite(anzahl) || anzahl < 1) anzahl = 1;
+    var m = M.neuerMitarbeiter({
+      name: String(angaben.name || ('Inhaber ' + (basis.nummer || basis.bezeichnung || ''))).trim(),
+      funktion: String(angaben.funktion || ''),
+      gruppen: gruppeId ? [gruppeId] : [],
+      medien: [{ typ: String(angaben.typ || ''), anzahl: anzahl }]
+    });
+    p.mitarbeiter.push(m);
+    var s = M.spalteFuer(p, 'mitarbeiter', m.id);
+    s.kuerzel = String(basis.nummer || '').trim() || s.kuerzel;
+    M.berechtigungSetzenVerbund(p, basis.id, s.id, 'ja');
+    return m;
+  }
+
+  /* ESL (Eigenschlüssel-Stückzahl) einer Tür setzen. null = kein Eigenschlüssel,
+   * 0 = vorgeplant. Gibt es Inhaber, wird ihre Medienzahl gesetzt (bei mehreren
+   * der erste, oder optionen.mitarbeiterId); sonst eine Einzelschließung (EZ). */
+  function eslSetzen(p, tuerId, anzahl, optionen) {
+    optionen = optionen || {};
+    var t = M.tuerVon(p, tuerId);
+    if (!t) return { ok: false };
+    var basis = M.basisTuer(p, t) || t;
+    var a = analyse(p);
+    var inh = a.eigentuemer[basis.id] || [], ez = a.ezJeBasis[basis.id] || [];
+    var n = anzahl === null || anzahl === undefined || anzahl === '' ? null : parseInt(anzahl, 10);
+    if (n !== null && (!isFinite(n) || n < 0)) n = 0;
+    var typ = String(optionen.typ || (ez[0] && ez[0].medien[0] && ez[0].medien[0].typ) || '');
+    basis.eigenschluesselVorgeplant = false;
+    if (inh.length) {
+      var ziel = inh.filter(function (i) { return i.m.id === optionen.mitarbeiterId; })[0] || inh[0];
+      if (n === null) { return { ok: false, text: 'Der Eigenschlüssel gehört ' + ziel.m.name + ' - Inhaber in der Mitarbeiterliste entfernen.' }; }
+      if (n === 0) { return { ok: false, text: 'Mit Inhaber ist mindestens ein Schlüssel nötig.' }; }
+      var da = M.medienBereinigen(ziel.m.medien);
+      ziel.m.medien = [{ typ: da[0] ? da[0].typ : typ, anzahl: n }];
+      return { ok: true };
+    }
+    if (n === null || n === 0) {
+      ez.forEach(function (s) { p.schliessungen = p.schliessungen.filter(function (x) { return x.id !== s.id; }); });
+      M.matrixAufraeumen(p);
+      basis.eigenschluesselVorgeplant = (n === 0);
+      return { ok: true };
+    }
+    var s = ez[0];
+    if (!s) {
+      var sort = (p.schliessungen || []).reduce(function (max, x) { return Math.max(max, (x.sort || 0) + 1); }, 0);
+      s = M.neueSchliessung({ typ: 'ez', kuerzel: String(basis.nummer || 'EZ').trim(), bezeichnung: 'Eigenschlüssel ' + (basis.bezeichnung || basis.nummer || ''), sort: sort });
+      p.schliessungen.push(s);
+      M.berechtigungSetzenVerbund(p, basis.id, s.id, 'ja');
+    }
+    s.medien = [{ typ: typ, anzahl: n }];
+    return { ok: true };
+  }
+
+  /* Neue Tür für den Plan - mit laufender Nummer, Raum und Bereich */
+  function tuerAnlegen(p, angaben) {
+    angaben = angaben || {};
+    var t = M.neueTuer({
+      nummer: String(angaben.nummer || M.naechsteLaufendeNummer(p)).trim(),
+      bezeichnung: String(angaben.bezeichnung || '').trim(),
+      strukturId: angaben.strukturId || null,
+      anzahl: parseInt(angaben.anzahl, 10) > 0 ? parseInt(angaben.anzahl, 10) : 1,
+      status: 'offen'
+    });
+    if (M.statusAusPruefung) M.statusAusPruefung(p, t);
+    p.tueren.push(t);
+    return t;
+  }
+
+  /* --- EVVA-Bestellformular: Zellen des Blattes „Plan“ ---------------------
+   * Zeile 1 Funktion, 2 Menge, 3 Schl.Nr (ab Spalte H); Zeile 4 Kopf der
+   * Zylindertabelle; ab Zeile 5 die Zylinder. Genau das Layout der Vorlage. */
+  var SPALTEN_MAX = 96;      /* H bis CX */
+  function spaltenName(n) { var s = ''; while (n > 0) { var r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); } return s; }
+  function mehrzeilig() { return Array.prototype.slice.call(arguments).filter(function (x) { return x !== undefined && x !== null && String(x).trim() !== ''; }).join('\n'); }
+
+  function evvaBlatt(p, einstellungen, art) {
+    einstellungen = einstellungen || {};
+    var plan = art === 'kreuz' ? kreuzplan(p) : europlan(p);
+    var spalten = plan.spalten.slice(0, SPALTEN_MAX);
+    var warnungen = plan.hinweise.slice();
+    if (plan.spalten.length > SPALTEN_MAX) warnungen.push('Das Formular fasst ' + SPALTEN_MAX + ' Schlüsselspalten; ' + (plan.spalten.length - SPALTEN_MAX) + ' weitere wurden nicht übernommen.');
+    if (plan.zeilen.length > 500) warnungen.push('Das Formular fasst 500 Zylinderzeilen; ' + (plan.zeilen.length - 500) + ' weitere wurden nicht übernommen.');
+    var systemName = K && K.systemLabel ? (K.systemLabel(p.systemMechanik) || p.systemMechanik || '') : (p.systemMechanik || '');
+    var besteller = mehrzeilig(einstellungen.firma, einstellungen.firmaZusatz, einstellungen.strasse, [einstellungen.plz, einstellungen.ort].filter(Boolean).join(' '));
+    var besitzer = mehrzeilig(p.kunde, p.ansprechpartner, p.strasse, [p.plz, p.ort].filter(Boolean).join(' '));
+    var datum = p.aufmassDatum ? String(p.aufmassDatum).split('-').reverse().join('.') : '';
+    var z = {};
+    z.G1 = { v: 'Funktion', s: 'fett' };
+    z.B2 = { v: 'Besteller', s: 'fett' }; z.C2 = { v: besteller, s: 'umbruch' };
+    z.D2 = { v: 'Anlage: ', s: 'fett' }; z.F2 = { v: String(p.anlagenNr || '') }; z.G2 = { v: 'Menge', s: 'fett' };
+    z.B3 = { v: 'Besitzer', s: 'fett' }; z.C3 = { v: besitzer, s: 'umbruch' };
+    z.D3 = { v: 'System:\nOberfläche:\nDatum:\nObjekt:', s: 'umbruch' };
+    z.F3 = { v: mehrzeilig(systemName, p.oberflaeche, datum, p.objekt), s: 'umbruch' };
+    z.G3 = { v: 'Schl.Nr', s: 'fett' };
+    ['ZP', 'Tür.Nr.', 'Raumbezeichnung', 'Stk.', 'ESL', 'Type (Produktcode)', 'Zyl.Nr.'].forEach(function (k, i) {
+      z[spaltenName(i + 1) + '4'] = { v: k, s: 'kopf' };
+    });
+    spalten.forEach(function (sp, i) {
+      var c = spaltenName(8 + i);
+      z[c + '1'] = { v: String(sp.funktion || ''), s: 'umbruch' };
+      if (sp.menge > 0) z[c + '2'] = { v: sp.menge };
+      z[c + '3'] = { v: String(sp.schlNr || '').slice(0, 10) };
+    });
+    plan.zeilen.slice(0, 500).forEach(function (zeile, i) {
+      var r = 5 + i;
+      z['A' + r] = { v: i + 1 };
+      z['B' + r] = { v: String(zeile.tuer.nummer || '').slice(0, 10) };
+      z['C' + r] = { v: String(zeile.tuer.bezeichnung || '').slice(0, 20) };
+      z['D' + r] = { v: zeile.stk };
+      if (zeile.esl !== null && zeile.esl !== undefined) z['E' + r] = { v: zeile.esl };
+      if (zeile.produktcode) z['F' + r] = { v: zeile.produktcode };
+      z['G' + r] = { v: String(zeile.zylNr || '').slice(0, 10) };
+      spalten.forEach(function (sp, j) {
+        var zeichen = zeile.zellen[sp.id];
+        if (zeichen) z[spaltenName(8 + j) + r] = { v: zeichen, s: 'mitte' };
+      });
+    });
+    for (var leer = plan.zeilen.length; leer < 500; leer++) z['A' + (5 + leer)] = { v: leer + 1 };
+    return { zellen: z, warnungen: warnungen, anzahlSpalten: spalten.length, anzahlZeilen: plan.zeilen.length, plan: plan };
+  }
+
+  /* Vollständige Arbeitsmappe im EVVA-Layout (für xlsx.js) */
+  function evvaMappe(p, einstellungen, art) {
+    var blatt = evvaBlatt(p, einstellungen, art);
+    var breiten = { A: 3.5, B: 8.1, C: 18.7, D: 4.0, E: 6.7, F: 16.7, G: 8.9, CY: 11.6 };
+    for (var i = 8; i <= 8 + SPALTEN_MAX - 1; i++) breiten[spaltenName(i)] = 2.1;
+    var vorlagen = {
+      A1: { v: 'Mustereinträge', s: 'fett' }, B1: { v: 'System\nDatum\nObjekt', s: 'fettUmbruch' }, C1: { v: 'Anlage', s: 'fett' }, D1: { v: 'Besteller', s: 'fett' }, E1: { v: 'Besitzer', s: 'fett' },
+      B2: { v: '4KS\nNI\n1.2.2017\nHauptbahnhof', s: 'muster' }, C2: { v: '171MU', s: 'muster' }, D2: { v: 'Firma MusterMax\nMax Mustermann\n3100 St.Pölten', s: 'muster' }, E2: { v: 'Wohnhaus\nEVVA GmbH\n1120 Wien\nWienerbergstraße 59-65', s: 'muster' },
+      A6: { v: 'erlaubte Werte', s: 'fett' }, B6: { v: 'mögliche Zeichen Zylindernummer', s: 'fett' }, C6: { v: 'mögliche Zeichen Schlüsselnummer', s: 'fett' }, D6: { v: 'mögliche Zeichen Sperrkombination', s: 'fett' },
+      B7: { v: 'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ.-', s: 'muster' }, C7: { v: 'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ.-', s: 'muster' }, D7: { v: 'XOZIMxozim', s: 'muster' },
+      A10: { v: 'Längen', s: 'fett' }, B10: { v: 'Maximale Länge Türnummer', s: 'fett' }, C10: { v: 'Maximale Länge Schlüsselnummer', s: 'fett' }, D10: { v: 'Maximale Länge Zylindernummer', s: 'fett' }, E10: { v: 'Maximale Länge Raumbezeichnung', s: 'fett' },
+      B11: { v: 10, s: 'muster' }, C11: { v: 10, s: 'muster' }, D11: { v: 10, s: 'muster' }, E11: { v: 20, s: 'muster' }
+    };
+    return {
+      blaetter: [
+        { name: 'Plan', zellen: blatt.zellen, breiten: breiten, hoehen: { 1: 84, 2: 49.5, 3: 60, 4: 10.8 },
+          verbund: ['D2:E2', 'D3:E3'], fixierung: { spalten: 7, zeilen: 4 },
+          validierungen: [
+            { bereich: 'H2:CX' + 2, typ: 'whole', op: 'greaterThanOrEqual', f1: '0', fehler: 'Hier die Anzahl der Schlüssel (als ganze Zahl) eintragen' },
+            { bereich: 'D5:D504', typ: 'whole', op: 'greaterThanOrEqual', f1: '0', fehler: 'Bestellmenge für Zylinder angeben!' },
+            { bereich: 'E5:E504', typ: 'whole', op: 'greaterThanOrEqual', f1: '0', hinweis: 'Wenn "0" Stück ESL bestellt werden, wird die Sperrfunktion für den Eigenschlüssel im Zylinder vorgesehen.\n\nWenn dieses Feld leer gelassen wird gibt es für diesen Zylinder keinen Eigenschlüssel. Nur Zahlenwerte erlaubt!' },
+            { bereich: 'B5:B504', typ: 'textLength', op: 'lessThanOrEqual', f1: 'maxTNr', fehler: 'Hier sind nur 10 Zeichen möglich' },
+            { bereich: 'C5:C504', typ: 'textLength', op: 'lessThanOrEqual', f1: 'maxRaum', fehler: 'Hier sind nur 20 Zeichen möglich!' }
+          ] },
+        { name: 'Vorlagen', zellen: vorlagen, breiten: { A: 3.3, B: 69.3, D: 34.5, E: 34.4, F: 11.4 }, hoehen: { 1: 39.6, 2: 52.8, 6: 37.5, 7: 37.5, 10: 22.5 },
+          verbund: ['A1:A2', 'A6:A7', 'A10:A11'], versteckt: true }
+      ],
+      namen: { maxRaum: 'Vorlagen!$E$11', maxSlNr: 'Vorlagen!$C$11', maxTNr: 'Vorlagen!$B$11', maxZylNr: 'Vorlagen!$D$11',
+               MusterAn: 'Vorlagen!$C$2', MusterBesitzer: 'Vorlagen!$E$2', MusterBesteller: 'Vorlagen!$D$2', MusterSDO: 'Vorlagen!$B$2',
+               SlNrmgl: 'Vorlagen!$C$7', Sperrmgl: 'Vorlagen!$D$7', ZylNrmgl: 'Vorlagen!$B$7' },
+      warnungen: blatt.warnungen, anzahlSpalten: blatt.anzahlSpalten, anzahlZeilen: blatt.anzahlZeilen
+    };
+  }
+
+  /* Dateiname: wie die PDFs, aber .xlsx */
+  function dateiName(p, art) {
+    var basis = global.Reports && global.Reports.dateiName ? global.Reports.dateiName(p, art === 'kreuz' ? 'Kreuzschliessplan-EVVA' : 'Europlan-EVVA') : 'Schliessplan.pdf';
+    return basis.replace(/\.pdf$/i, '.xlsx');
+  }
+
+  /* Lesbare Tabelle (für MCP, Tests und Prüfungen) */
+  function alsText(plan) {
+    var kopf = ['Zyl.Nr', 'Tür', 'ESL'].concat(plan.spalten.map(function (s) { return s.schlNr || '?'; }));
+    var reihen = [kopf];
+    plan.zeilen.forEach(function (z) {
+      reihen.push([z.zylNr, (z.tuer.nummer || '') + ' ' + (z.tuer.bezeichnung || ''), z.esl === null ? '' : String(z.esl)]
+        .concat(plan.spalten.map(function (s) { return z.zellen[s.id] || '·'; })));
+    });
+    var breiten = kopf.map(function (_, i) { return Math.max.apply(null, reihen.map(function (r) { return String(r[i] || '').length; })); });
+    return reihen.map(function (r) { return r.map(function (x, i) { return String(x || '').padEnd(breiten[i]); }).join('  ').trimEnd(); }).join('\n');
+  }
+
+  global.Europlan = {
+    ZEICHEN: ZEICHEN, ZEICHEN_TEXT: ZEICHEN_TEXT, SPALTEN_MAX: SPALTEN_MAX,
+    analyse: analyse, europlan: europlan, kreuzplan: kreuzplan,
+    moeglicheZeichen: moeglicheZeichen, zelleSetzen: zelleSetzen, inhaberAnlegen: inhaberAnlegen,
+    eslSetzen: eslSetzen, tuerAnlegen: tuerAnlegen, gruppenMenge: gruppenMenge, eigeneSpalte: eigeneSpalte,
+    evvaBlatt: evvaBlatt, evvaMappe: evvaMappe, dateiName: dateiName, alsText: alsText, spaltenName: spaltenName
+  };
+  if (typeof module !== 'undefined' && module.exports) { module.exports = global.Europlan; }
+})(typeof window !== 'undefined' ? window : globalThis);
+
+
+/* ==== js/xlsx.js ==== */
+/* =============================================================================
+ * xlsx.js — Ein kleiner Schreiber für Excel-Arbeitsmappen (.xlsx)
+ *
+ * Ohne Fremdbibliothek, damit es auch in der Einzeldatei und ohne Netz
+ * läuft. Eine .xlsx ist ein ZIP mit XML-Dateien; hier wird beides selbst
+ * geschrieben: das ZIP ohne Kompression (Methode „store“, mit CRC-32), die
+ * Blätter mit eingebetteten Zeichenketten (inlineStr), ein paar Formaten,
+ * Spaltenbreiten, Zeilenhöhen, verbundenen Zellen, fixierten Zeilen und
+ * Spalten, versteckten Blättern, Namen und Gültigkeitsregeln.
+ *
+ * Aufruf: XLSX.erzeugen({ blaetter: [{ name, zellen: { A1: { v, s } }, breiten,
+ *         hoehen, verbund, fixierung, versteckt, validierungen }], namen })
+ * liefert ein Uint8Array. Formate (s): fett, kopf, umbruch, fettUmbruch,
+ * mitte, muster.
+ * ========================================================================== */
+(function (global) {
+  'use strict';
+
+  /* --- ZIP (store) ------------------------------------------------------- */
+  var CRC_TABELLE = (function () {
+    var t = new Uint32Array(256);
+    for (var n = 0; n < 256; n++) {
+      var c = n;
+      for (var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      t[n] = c >>> 0;
+    }
+    return t;
+  })();
+  function crc32(bytes) {
+    var c = 0xFFFFFFFF;
+    for (var i = 0; i < bytes.length; i++) c = CRC_TABELLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  }
+  function utf8(text) {
+    if (typeof TextEncoder !== 'undefined') return new TextEncoder().encode(text);
+    var aus = [];
+    for (var i = 0; i < text.length; i++) {
+      var c = text.charCodeAt(i);
+      if (c < 0x80) aus.push(c);
+      else if (c < 0x800) aus.push(0xC0 | (c >> 6), 0x80 | (c & 63));
+      else if (c >= 0xD800 && c < 0xDC00 && i + 1 < text.length) {
+        var d = text.charCodeAt(++i), cp = 0x10000 + ((c - 0xD800) << 10) + (d - 0xDC00);
+        aus.push(0xF0 | (cp >> 18), 0x80 | ((cp >> 12) & 63), 0x80 | ((cp >> 6) & 63), 0x80 | (cp & 63));
+      } else aus.push(0xE0 | (c >> 12), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
+    }
+    return new Uint8Array(aus);
+  }
+  function le16(n) { return [n & 255, (n >> 8) & 255]; }
+  function le32(n) { return [n & 255, (n >> 8) & 255, (n >> 16) & 255, (n >>> 24) & 255]; }
+  function dosZeit() {
+    var d = new Date();
+    var zeit = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
+    var datum = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+    return { zeit: zeit, datum: datum };
+  }
+  function zip(dateien) {
+    var teile = [], zentral = [], versatz = 0, dz = dosZeit();
+    dateien.forEach(function (f) {
+      var name = utf8(f.name), inhalt = typeof f.inhalt === 'string' ? utf8(f.inhalt) : f.inhalt;
+      var crc = crc32(inhalt);
+      var kopf = [].concat([0x50, 0x4B, 3, 4], le16(20), le16(0x0800), le16(0), le16(dz.zeit), le16(dz.datum),
+        le32(crc), le32(inhalt.length), le32(inhalt.length), le16(name.length), le16(0));
+      teile.push(new Uint8Array(kopf), name, inhalt);
+      zentral.push([[].concat([0x50, 0x4B, 1, 2], le16(20), le16(20), le16(0x0800), le16(0), le16(dz.zeit), le16(dz.datum),
+        le32(crc), le32(inhalt.length), le32(inhalt.length), le16(name.length), le16(0), le16(0), le16(0), le16(0),
+        le32(0), le32(versatz)), name]);
+      versatz += kopf.length + name.length + inhalt.length;
+    });
+    var zentralStart = versatz, zentralLaenge = 0;
+    zentral.forEach(function (e) { var k = new Uint8Array(e[0]); teile.push(k, e[1]); zentralLaenge += k.length + e[1].length; });
+    teile.push(new Uint8Array([].concat([0x50, 0x4B, 5, 6], le16(0), le16(0), le16(dateien.length), le16(dateien.length),
+      le32(zentralLaenge), le32(zentralStart), le16(0))));
+    var gesamt = teile.reduce(function (n, t) { return n + t.length; }, 0);
+    var aus = new Uint8Array(gesamt), pos = 0;
+    teile.forEach(function (t) { aus.set(t, pos); pos += t.length; });
+    return aus;
+  }
+
+  /* --- XML-Helfer ---------------------------------------------------------- */
+  function x(text) {
+    return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+  }
+  var FORMATE = ['standard', 'fett', 'kopf', 'umbruch', 'fettUmbruch', 'mitte', 'muster'];
+  function formatIndex(name) { var i = FORMATE.indexOf(name || 'standard'); return i < 0 ? 0 : i; }
+  function spaltenIndex(ref) {
+    var m = /^([A-Z]+)(\d+)$/.exec(ref); if (!m) return null;
+    var n = 0; for (var i = 0; i < m[1].length; i++) n = n * 26 + (m[1].charCodeAt(i) - 64);
+    return { spalte: n, zeile: parseInt(m[2], 10), buchstaben: m[1] };
+  }
+  function spaltenName(n) { var s = ''; while (n > 0) { var r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); } return s; }
+
+  function blattXml(blatt) {
+    var zeilen = {};
+    var maxSpalte = 1, maxZeile = 1;
+    Object.keys(blatt.zellen || {}).forEach(function (ref) {
+      var si = spaltenIndex(ref); if (!si) return;
+      var z = blatt.zellen[ref]; if (z === null || z === undefined) return;
+      (zeilen[si.zeile] = zeilen[si.zeile] || []).push({ ref: ref, spalte: si.spalte, zelle: typeof z === 'object' ? z : { v: z } });
+      if (si.spalte > maxSpalte) maxSpalte = si.spalte;
+      if (si.zeile > maxZeile) maxZeile = si.zeile;
+    });
+    var aus = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+      '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">',
+      '<dimension ref="A1:' + spaltenName(maxSpalte) + maxZeile + '"/>'];
+    var fix = blatt.fixierung;
+    aus.push('<sheetViews><sheetView workbookViewId="0"' + (blatt.erste ? ' tabSelected="1"' : '') + '>');
+    if (fix && (fix.spalten || fix.zeilen)) {
+      var ziel = spaltenName((fix.spalten || 0) + 1) + ((fix.zeilen || 0) + 1);
+      aus.push('<pane' + (fix.spalten ? ' xSplit="' + fix.spalten + '"' : '') + (fix.zeilen ? ' ySplit="' + fix.zeilen + '"' : '') +
+        ' topLeftCell="' + ziel + '" activePane="bottomRight" state="frozen"/>');
+      aus.push('<selection pane="bottomRight" activeCell="' + ziel + '" sqref="' + ziel + '"/>');
+    }
+    aus.push('</sheetView></sheetViews>');
+    aus.push('<sheetFormatPr defaultRowHeight="12.75"/>');
+    var breiten = blatt.breiten || {};
+    var bKeys = Object.keys(breiten).map(function (k) { return { n: spaltenIndex(k + '1').spalte, w: breiten[k] }; }).sort(function (a, b) { return a.n - b.n; });
+    if (bKeys.length) {
+      aus.push('<cols>');
+      bKeys.forEach(function (b) { aus.push('<col min="' + b.n + '" max="' + b.n + '" width="' + (Math.round(b.w * 100) / 100) + '" customWidth="1"/>'); });
+      aus.push('</cols>');
+    }
+    aus.push('<sheetData>');
+    var hoehen = blatt.hoehen || {};
+    var zeilenNummern = Object.keys(zeilen).map(Number);
+    Object.keys(hoehen).forEach(function (h) { if (zeilenNummern.indexOf(Number(h)) === -1) zeilenNummern.push(Number(h)); });
+    zeilenNummern.sort(function (a, b) { return a - b; }).forEach(function (nr) {
+      var h = hoehen[nr];
+      aus.push('<row r="' + nr + '"' + (h ? ' ht="' + h + '" customHeight="1"' : '') + '>');
+      (zeilen[nr] || []).sort(function (a, b) { return a.spalte - b.spalte; }).forEach(function (e) {
+        var z = e.zelle, s = formatIndex(z.s);
+        var attr = ' r="' + e.ref + '"' + (s ? ' s="' + s + '"' : '');
+        if (typeof z.v === 'number' && isFinite(z.v)) aus.push('<c' + attr + '><v>' + z.v + '</v></c>');
+        else if (z.f) aus.push('<c' + attr + '><f>' + x(z.f) + '</f></c>');
+        else if (z.v === null || z.v === undefined || z.v === '') { if (s) aus.push('<c' + attr + '/>'); }
+        else aus.push('<c' + attr + ' t="inlineStr"><is><t xml:space="preserve">' + x(z.v) + '</t></is></c>');
+      });
+      aus.push('</row>');
+    });
+    aus.push('</sheetData>');
+    if (blatt.verbund && blatt.verbund.length) {
+      aus.push('<mergeCells count="' + blatt.verbund.length + '">');
+      blatt.verbund.forEach(function (v) { aus.push('<mergeCell ref="' + x(v) + '"/>'); });
+      aus.push('</mergeCells>');
+    }
+    if (blatt.validierungen && blatt.validierungen.length) {
+      aus.push('<dataValidations count="' + blatt.validierungen.length + '">');
+      blatt.validierungen.forEach(function (v) {
+        aus.push('<dataValidation type="' + x(v.typ) + '"' + (v.op ? ' operator="' + x(v.op) + '"' : '') + ' allowBlank="1" showInputMessage="1" showErrorMessage="1"' +
+          (v.hinweis ? ' prompt="' + x(v.hinweis) + '"' : '') + (v.fehler ? ' error="' + x(v.fehler) + '"' : '') + ' sqref="' + x(v.bereich) + '">' +
+          (v.f1 !== undefined ? '<formula1>' + x(v.f1) + '</formula1>' : '') + (v.f2 !== undefined ? '<formula2>' + x(v.f2) + '</formula2>' : '') + '</dataValidation>');
+      });
+      aus.push('</dataValidations>');
+    }
+    aus.push('<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>');
+    aus.push('</worksheet>');
+    return aus.join('');
+  }
+
+  var STYLES = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+    '<fonts count="2"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font></fonts>' +
+    '<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>' +
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFC0C0C0"/><bgColor indexed="64"/></patternFill></fill>' +
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFFFCC99"/><bgColor indexed="64"/></patternFill></fill></fills>' +
+    '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
+    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+    '<cellXfs count="7">' +
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +                                                                        /* 0 standard */
+    '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +                                                          /* 1 fett */
+    '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' + /* 2 kopf */
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>' +         /* 3 umbruch */
+    '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>' + /* 4 fettUmbruch */
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +  /* 5 mitte */
+    '<xf numFmtId="0" fontId="0" fillId="3" borderId="0" xfId="0" applyFill="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>' + /* 6 muster */
+    '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+
+  function erzeugen(mappe) {
+    var blaetter = (mappe.blaetter || []).map(function (b, i) { b.erste = i === 0; return b; });
+    var dateien = [];
+    dateien.push({ name: '[Content_Types].xml', inhalt: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+      '<Default Extension="xml" ContentType="application/xml"/>' +
+      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+      '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+      blaetter.map(function (b, i) { return '<Override PartName="/xl/worksheets/sheet' + (i + 1) + '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'; }).join('') +
+      '<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>' +
+      '<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>' +
+      '</Types>' });
+    dateien.push({ name: '_rels/.rels', inhalt: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
+      '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>' +
+      '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>' +
+      '</Relationships>' });
+    var jetzt = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
+    dateien.push({ name: 'docProps/core.xml', inhalt: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">' +
+      '<dc:title>' + x(mappe.titel || 'Schließplan') + '</dc:title><dc:creator>' + x(mappe.ersteller || 'Aufmaß-Werkzeug') + '</dc:creator>' +
+      '<dcterms:created xsi:type="dcterms:W3CDTF">' + jetzt + '</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">' + jetzt + '</dcterms:modified>' +
+      '</cp:coreProperties>' });
+    dateien.push({ name: 'docProps/app.xml', inhalt: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>' + x(mappe.ersteller || 'Aufmaß-Werkzeug') + '</Application></Properties>' });
+    var wb = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+      '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">',
+      '<bookViews><workbookView xWindow="0" yWindow="0" windowWidth="20000" windowHeight="10000" activeTab="0"/></bookViews><sheets>'];
+    blaetter.forEach(function (b, i) {
+      wb.push('<sheet name="' + x(b.name || ('Blatt' + (i + 1))) + '" sheetId="' + (i + 1) + '"' + (b.versteckt ? ' state="hidden"' : '') + ' r:id="rId' + (i + 1) + '"/>');
+    });
+    wb.push('</sheets>');
+    var namen = mappe.namen || {};
+    var namenKeys = Object.keys(namen);
+    if (namenKeys.length) {
+      wb.push('<definedNames>');
+      namenKeys.forEach(function (n) { wb.push('<definedName name="' + x(n) + '">' + x(namen[n]) + '</definedName>'); });
+      wb.push('</definedNames>');
+    }
+    wb.push('<calcPr calcId="0"/></workbook>');
+    dateien.push({ name: 'xl/workbook.xml', inhalt: wb.join('') });
+    dateien.push({ name: 'xl/_rels/workbook.xml.rels', inhalt: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      blaetter.map(function (b, i) { return '<Relationship Id="rId' + (i + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' + (i + 1) + '.xml"/>'; }).join('') +
+      '<Relationship Id="rId' + (blaetter.length + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
+      '</Relationships>' });
+    dateien.push({ name: 'xl/styles.xml', inhalt: STYLES });
+    blaetter.forEach(function (b, i) { dateien.push({ name: 'xl/worksheets/sheet' + (i + 1) + '.xml', inhalt: blattXml(b) }); });
+    return zip(dateien);
+  }
+
+  function alsBlob(mappe) {
+    var bytes = erzeugen(mappe);
+    return new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  }
+
+  global.XLSX = { erzeugen: erzeugen, alsBlob: alsBlob, crc32: crc32, spaltenName: spaltenName, MIME: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
+  if (typeof module !== 'undefined' && module.exports) { module.exports = global.XLSX; }
 })(typeof window !== 'undefined' ? window : globalThis);
 
 
@@ -5483,6 +6370,158 @@ body.stift .zahl-knopf { min-width: 56px; }
   }
 
   /* =========================================================================
+   * 2b) EUROPLAN - der Plan in der Schreibweise der Hersteller
+   * Zylinder als Zeilen mit Zyl.Nr., Stk., ESL und Type; Schlüssel als
+   * Spalten mit drei Kopfzeilen (Funktion, Menge, Schl.Nr) und den Zeichen
+   * X, I, Z, M, O. Layout wie das EVVA-Bestellformular.
+   * ====================================================================== */
+  function europlan(projekt, einstellungen, optionen) {
+    optionen = optionen || {};
+    var E = global.Europlan;
+    var doc = new PDF.Doc({
+      format: optionen.format || 'a4', orientation: 'landscape',
+      titel: 'Europlan ' + (projekt.kunde || projekt.name),
+      autor: einstellungen && einstellungen.firma || '',
+      betreff: 'Europlan / Bestellplan der Schließanlage',
+      margin: { oben: 12, unten: 14, links: 10, rechts: 10 }
+    });
+    kopfUndFussSetzen(doc, projekt, einstellungen, 'Europlan / Bestellplan');
+    doc.neueSeite();
+    projektKopfBlock(doc, projekt, einstellungen);
+    freigabeVermerk(doc, projekt);
+    if (!E) { doc.text('Der Europlan steht in dieser Fassung nicht zur Verfügung.', doc.rand.links, doc.y, { size: 10, color: FARBE.grau }); return doc; }
+    var plan = optionen.art === 'kreuz' ? E.kreuzplan(projekt) : E.europlan(projekt);
+    if (!projekt.tueren.length) {
+      doc.text('Für den Europlan wird mindestens eine Tür benötigt.', doc.rand.links, doc.y, { size: 10, color: FARBE.grau });
+      return doc;
+    }
+    var systemName = K.systemLabel ? (K.systemLabel(projekt.systemMechanik) || projekt.systemMechanik || '') : '';
+    var kopfText = ['Anlage: ' + (projekt.anlagenNr || '–'), 'System: ' + (systemName || '–'), 'Oberfläche: ' + (projekt.oberflaeche || '–'),
+                    'Datum: ' + (projekt.aufmassDatum ? datumDe(projekt.aufmassDatum) : '–'), 'Objekt: ' + (projekt.objekt || '–')].join('    ');
+    doc.text(kopfText, doc.rand.links, doc.y, { size: 7.5, color: FARBE.grau });
+    doc.y += 5;
+
+    var b = doc.inhaltsBreite();
+    var linke = [
+      { t: 'ZP', w: 7, f: function (z, i) { return String(i + 1); }, align: 'right' },
+      { t: 'Tür.Nr.', w: 16, f: function (z) { return z.tuer.nummer || ''; }, bold: true },
+      { t: 'Raumbezeichnung', w: 40, f: function (z) { return z.tuer.bezeichnung || ''; } },
+      { t: 'Stk.', w: 8, f: function (z) { return String(z.stk); }, align: 'center' },
+      { t: 'ESL', w: 8, f: function (z) { return z.esl === null || z.esl === undefined ? '' : String(z.esl); }, align: 'center' },
+      { t: 'Type (Produktcode)', w: 30, f: function (z) { return z.produktcode || ''; } },
+      { t: 'Zyl.Nr.', w: 14, f: function (z) { return z.zylNr || ''; }, bold: true, align: 'center' }
+    ];
+    var linksBreite = linke.reduce(function (s, l) { return s + l.w; }, 0);
+    var spaltenBreite = optionen.spaltenBreite || 7.2;
+    var proSeite = Math.max(1, Math.floor((b - linksBreite) / spaltenBreite));
+    var bloecke = [];
+    for (var i = 0; i < plan.spalten.length; i += proSeite) bloecke.push(plan.spalten.slice(i, i + proSeite));
+    if (!bloecke.length) bloecke.push([]);
+    var zeilenHoehe = 5.4;
+
+    bloecke.forEach(function (block, blockIndex) {
+      if (blockIndex > 0) { doc.neueSeite(); doc.y += 2; }
+      if (bloecke.length > 1) {
+        doc.text('Spaltenblock ' + (blockIndex + 1) + ' von ' + bloecke.length, doc.rand.links, doc.y, { size: 7.5, color: FARBE.grau });
+        doc.y += 5;
+      }
+      var x0 = doc.rand.links, gesamt = linksBreite + block.length * spaltenBreite;
+      var kopfTexte = block.map(function (s) { return s.funktion || s.schlNr || '–'; });
+      var maxText = 0;
+      kopfTexte.forEach(function (tx) { var w = doc.textBreite(tx, 7, true); if (w > maxText) maxText = w; });
+      var unterZeilen = 7.2;    /* Menge + Schl.Nr */
+      var kopfHoehe = Math.min(60, Math.max(24, maxText + 6 + unterZeilen));
+
+      function kopfZeichnen() {
+        doc.platzPruefen(kopfHoehe + 3 * zeilenHoehe);
+        var y = doc.y;
+        doc.rechteck(x0, y, gesamt, kopfHoehe, { fill: FARBE.kopfBg, stroke: FARBE.linie, width: 0.3 });
+        var lx = x0;
+        linke.forEach(function (l) {
+          doc.text(l.t, lx + 1.5, y + kopfHoehe - unterZeilen - 5.2, { size: 6.6, bold: true });
+          lx += l.w;
+          doc.linie(lx, y + kopfHoehe - unterZeilen - 6.5, lx, y + kopfHoehe, { color: FARBE.linie, width: 0.25 });
+        });
+        doc.text('Funktion', x0 + linksBreite - 1.5, y + kopfHoehe - unterZeilen - 10.5, { size: 6, color: FARBE.grau, align: 'right' });
+        doc.text('Menge', x0 + linksBreite - 1.5, y + kopfHoehe - unterZeilen + 0.3, { size: 6, color: FARBE.grau, align: 'right' });
+        doc.text('Schl.Nr', x0 + linksBreite - 1.5, y + kopfHoehe - 3.5, { size: 6, color: FARBE.grau, align: 'right' });
+        block.forEach(function (s, i) {
+          var cx = x0 + linksBreite + i * spaltenBreite;
+          doc.linie(cx, y, cx, y + kopfHoehe, { color: FARBE.linie, width: 0.25 });
+          var text = doc.kuerzen(kopfTexte[i], kopfHoehe - unterZeilen - 3, 7, true);
+          doc.textRotiert(text, cx + spaltenBreite / 2 + 2.4, y + kopfHoehe - unterZeilen - 1.5, { size: 7, bold: true });
+          if (s.menge > 0) doc.text(String(s.menge), cx + spaltenBreite / 2, y + kopfHoehe - unterZeilen + 0.3, { size: 5.6, align: 'center', color: FARBE.grau });
+          doc.text(doc.kuerzen(String(s.schlNr || ''), spaltenBreite - 0.8, 6, true), cx + spaltenBreite / 2, y + kopfHoehe - 3.5, { size: 6, align: 'center', bold: true });
+        });
+        doc.linie(x0 + linksBreite, y, x0 + linksBreite, y + kopfHoehe, { color: FARBE.linie, width: 0.4 });
+        doc.linie(x0 + linksBreite, y + kopfHoehe - unterZeilen, x0 + gesamt, y + kopfHoehe - unterZeilen, { color: FARBE.linie, width: 0.2 });
+        doc.linie(x0 + linksBreite, y + kopfHoehe - 3.6, x0 + gesamt, y + kopfHoehe - 3.6, { color: FARBE.linie, width: 0.2 });
+        doc.y = y + kopfHoehe;
+      }
+      kopfZeichnen();
+      var bereich = null, zebra = 0;
+      plan.zeilen.forEach(function (z, index) {
+        if (z.bereich !== bereich) {
+          bereich = z.bereich;
+          if (doc.platzPruefen(zeilenHoehe * 3)) { kopfZeichnen(); }
+          var gy = doc.y;
+          doc.rechteck(x0, gy, gesamt, 5, { fill: '#dce6f2', stroke: FARBE.linie, width: 0.25 });
+          doc.text(doc.kuerzen(bereich, gesamt - 6, 7.6, true), x0 + 2, gy + 0.9, { size: 7.6, bold: true, color: FARBE.akzent });
+          doc.y = gy + 5; zebra = 0;
+        }
+        if (doc.platzPruefen(zeilenHoehe)) { kopfZeichnen(); zebra = 0; }
+        var y = doc.y;
+        if (zebra % 2 === 1) doc.rechteck(x0, y, gesamt, zeilenHoehe, { fill: FARBE.zebraBg });
+        var lx = x0;
+        linke.forEach(function (l) {
+          var text = doc.kuerzen(l.f(z, index), l.w - 2.5, 6.8, !!l.bold);
+          var tx = l.align === 'center' ? lx + l.w / 2 : (l.align === 'right' ? lx + l.w - 1.2 : lx + 1.2);
+          doc.text(text, tx, y + 1.2, { size: 6.8, bold: !!l.bold, align: l.align || 'left', color: z.mitlaeufer && l.t !== 'Zyl.Nr.' ? FARBE.grau : FARBE.text });
+          lx += l.w;
+        });
+        var raster = [];
+        block.forEach(function (s, i) {
+          var cx = x0 + linksBreite + i * spaltenBreite;
+          raster.push([cx, y, cx, y + zeilenHoehe]);
+          var zeichen = z.zellen[s.id] || '';
+          if (zeichen) {
+            var farbe = zeichen === 'O' ? FARBE.warn : (zeichen === 'X' ? FARBE.akzent : '#2e7d32');
+            doc.text(zeichen, cx + spaltenBreite / 2, y + 0.9, { size: 8, bold: true, align: 'center', color: farbe });
+          }
+        });
+        raster.push([x0, y + zeilenHoehe, x0 + gesamt, y + zeilenHoehe]);
+        doc.linienGruppe(raster, { color: FARBE.linieHell, width: 0.15 });
+        doc.linie(x0 + linksBreite, y, x0 + linksBreite, y + zeilenHoehe, { color: FARBE.linie, width: 0.4 });
+        doc.y = y + zeilenHoehe;
+        zebra++;
+      });
+      doc.y += 3;
+    });
+
+    /* Legende */
+    doc.platzPruefen(22);
+    doc.y += 2;
+    doc.text('Legende', doc.rand.links, doc.y, { size: 9, bold: true, color: FARBE.akzent });
+    doc.y += 5;
+    var legendeTexte = [['X', 'Schlüssel der Spalte sperrt den Zylinder'], ['I', 'Eigenschlüssel der Tür gehört zur Gruppe der Spalte'],
+      ['Z', 'Zentralzylinder: alle Eigenschlüssel der Gruppe sperren'], ['M', 'Mitschließung: die Gruppe sperrt diesen Zylinder mit eigenem Schlüssel mit'],
+      ['O', 'vorgeplant (Reserve): vorbereitet, sperrt noch nicht']];
+    legendeTexte.forEach(function (l) {
+      doc.text(l[0], doc.rand.links, doc.y, { size: 8, bold: true, color: FARBE.akzent });
+      doc.text(l[1], doc.rand.links + 5, doc.y, { size: 7.5, color: FARBE.grau });
+      doc.y += 4;
+    });
+    doc.textBlock('ESL = Stückzahl der Eigenschlüssel je Zylinder (leer: kein Eigenschlüssel, 0: vorgeplant). Zyl.Nr. = Türnummer; gleichschließende Türen tragen die Nummer ihrer Haupttür mit .1, .2 … ' +
+      'Menge = Stück je Schlüsselspalte; bei einer Gruppe die Schlüssel der Mitglieder ohne eigene Tür.', doc.rand.links, doc.y, b, { size: 7, color: FARBE.grau, maxLines: 3 });
+    doc.y += 8;
+    if (plan.hinweise.length) {
+      doc.textBlock('Hinweise: ' + plan.hinweise.join(' '), doc.rand.links, doc.y, b, { size: 7, color: FARBE.warn, maxLines: 4 });
+      doc.y += 8;
+    }
+    return doc;
+  }
+
+  /* =========================================================================
    * 3) MATERIALLISTE / STÜCKLISTE
    * ====================================================================== */
   function materialliste(projekt, einstellungen, optionen) {
@@ -5786,6 +6825,7 @@ body.stift .zahl-knopf { min-width: 56px; }
 
   global.Reports = {
     tuerliste: tuerliste,
+    europlan: europlan,
     schliessplan: schliessplan,
     materialliste: materialliste,
     pruefprotokoll: pruefprotokoll,
@@ -6465,8 +7505,8 @@ body.stift .zahl-knopf { min-width: 56px; }
 
   var FORMAT = 2;
   /* Zeichen je Berechtigungsstufe - ein Zeichen pro Zelle hält die Daten klein */
-  var WERTE = ['nein', 'ja', 'zeit', 'temp', 'sperr'];
-  var ZEICHEN = ['0', '1', '2', '3', '4'];
+  var WERTE = ['nein', 'ja', 'zeit', 'temp', 'sperr', 'plan'];
+  var ZEICHEN = ['0', '1', '2', '3', '4', '5'];
   var NEU_ID = /^neu-[a-z0-9]{1,12}$/;
   var ID = /^[A-Za-z0-9_-]{1,64}$/;
 
@@ -8353,7 +9393,7 @@ body.stift .zahl-knopf { min-width: 56px; }
      Anmeldeseite und in der Abgleich-Übersicht, damit man auf jedem Gerät
      in einer Sekunde sieht, welcher Stand dort läuft. Muss mit FASSUNG in
      sw.js übereinstimmen - der Prüflauf achtet darauf. */
-  var FASSUNG = '1.4.0';
+  var FASSUNG = '1.5.0';
 
   /* =========================================================================
    * DOM-Hilfsmittel
@@ -9518,7 +10558,8 @@ body.stift .zahl-knopf { min-width: 56px; }
         A.textFeld(p, 'strasse', 'Straße und Hausnummer'),
         A.textFeld(p, 'plz', 'PLZ', { inputmode: 'numeric' }),
         A.textFeld(p, 'ort', 'Ort'),
-        A.textFeld(p, 'anlagenNr', 'Anlagen-Nr. / Schließanlagen-Nr.')
+        A.textFeld(p, 'anlagenNr', 'Anlagen-Nr. / Schließanlagen-Nr.'),
+        A.textFeld(p, 'oberflaeche', 'Oberfläche der Zylinder <span class="einheit">(für den Europlan, z. B. NI = Nickel, MS = Messing)</span>', { platzhalter: 'z. B. NI' })
       ])
     ]));
 
@@ -11768,6 +12809,359 @@ body.stift .zahl-knopf { min-width: 56px; }
 })(typeof window !== 'undefined' ? window : globalThis);
 
 
+/* ==== js/views-europlan.js ==== */
+/* =============================================================================
+ * views-europlan.js — Der Schließplan in der Schreibweise der Hersteller
+ *
+ * Zweite Sicht auf denselben Plan (Modell in europlan.js): Zeilen sind
+ * Zylinder mit Zyl.Nr., Stückzahl, ESL und Type, Spalten die übergeordneten
+ * Schlüssel (X) und die Gruppen (I/Z/M). Jede Änderung hier schreibt in den
+ * Kreuzschließplan - beide Ansichten zeigen immer denselben Stand.
+ * ========================================================================== */
+(function (global) {
+  'use strict';
+  var A = global.AppKern, K = global.Katalog, M = global.Model, Store = global.Store;
+  var el = A.el, Zustand = A.Zustand;
+
+  function E() { return global.Europlan; }
+
+  var ZEICHEN_KLASSE = { X: 'euro-x', I: 'euro-i', Z: 'euro-z', M: 'euro-m', O: 'euro-o' };
+
+  function merken(beschreibung) { A.schrittMerken(beschreibung); }
+  function fertig() { A.alsGeaendertMarkieren(); A.speichern(); }
+
+  /* --- kleine Dialoge ------------------------------------------------------ */
+  function zahlDialog(titel, text, wert, optionen, beiWert) {
+    optionen = optionen || {};
+    var o = { wert: wert === null || wert === undefined ? '' : wert };
+    var inhalt = el('div', {}, [
+      text ? el('p', { class: 'hinweis', text: text }) : null,
+      A.zahlFeld(o, 'wert', optionen.beschriftung || 'Anzahl', { min: optionen.min || 0, max: optionen.max || 999, vorgabe: optionen.vorgabe })
+    ]);
+    var dlg = A.dialogOeffnen({ titel: titel, inhalt: inhalt, klein: true, knoepfe: [
+      optionen.leerText ? { text: optionen.leerText, aktion: function (schliessen) { beiWert(null); schliessen(); return false; } } : null,
+      { fuellen: true }, { text: 'Abbrechen' },
+      { text: 'Übernehmen', klasse: 'haupt', aktion: function (schliessen) {
+        var n = parseInt(o.wert, 10);
+        if (!isFinite(n)) { A.toast('Bitte eine Zahl eintragen.', 'fehler'); return false; }
+        beiWert(n); schliessen(); return false;
+      } }
+    ].filter(Boolean) });
+    setTimeout(function () { var f = dlg.kasten.querySelector('input'); if (f) { f.focus(); f.select(); } }, 60);
+  }
+
+  function textDialog(titel, text, wert, beschriftung, beiWert) {
+    var o = { wert: wert || '' };
+    var inhalt = el('div', {}, [ text ? el('p', { class: 'hinweis', text: text }) : null, A.textFeld(o, 'wert', beschriftung || 'Text') ]);
+    var dlg = A.dialogOeffnen({ titel: titel, inhalt: inhalt, klein: true, knoepfe: [
+      { fuellen: true }, { text: 'Abbrechen' },
+      { text: 'Übernehmen', klasse: 'haupt', aktion: function (schliessen) { beiWert(String(o.wert || '').trim()); schliessen(); return false; } }
+    ] });
+    setTimeout(function () { var f = dlg.kasten.querySelector('input'); if (f) { f.focus(); f.select(); } }, 60);
+  }
+
+  /* Auswahl aus wenigen Möglichkeiten - große Knöpfe, für den Finger */
+  function wahlDialog(titel, text, moeglichkeiten, beiWahl) {
+    var liste = el('div', { class: 'wahl-liste' });
+    moeglichkeiten.forEach(function (m) {
+      liste.appendChild(el('button', { type: 'button', class: 'wahl' + (m.aktiv ? ' aktiv' : '') + (m.klasse ? ' ' + m.klasse : ''), onclick: function () { dlg.schliessen(); beiWahl(m.wert, m); } }, [
+        el('b', { text: m.zeichen === '' ? '·' : (m.zeichen !== undefined ? m.zeichen : m.text) }),
+        el('span', { text: m.zeichen !== undefined ? m.text : (m.untertitel || '') })
+      ]));
+    });
+    var dlg = A.dialogOeffnen({ titel: titel, inhalt: el('div', {}, [ text ? el('p', { class: 'hinweis', text: text }) : null, liste ]), klein: true, knoepfe: [{ fuellen: true }, { text: 'Abbrechen' }] });
+    return dlg;
+  }
+
+  /* Inhaber des Eigenschlüssels anlegen: Name, Stückzahl, Art des Mediums */
+  function inhaberDialog(p, tuer, beiFertig) {
+    var arten = M.identmedienAuswahl(p, (Zustand.einstellungen && Zustand.einstellungen.eigeneSysteme) || []);
+    var o = { name: String(tuer.bezeichnung || tuer.nummer || ''), anzahl: 3, typ: arten[0] || '' };
+    var inhalt = el('div', {}, [
+      el('p', { class: 'hinweis', text: 'Tür ' + (tuer.nummer || '') + ' ' + (tuer.bezeichnung || '') + ' bekommt einen Eigenschlüssel. Wer erhält ihn, und wie viele Stück? Der Inhaber erscheint als Mitarbeiter mit eigener Spalte im Kreuzschließplan.' }),
+      el('div', { class: 'raster' }, [
+        A.textFeld(o, 'name', 'Inhaber (Name)', { platzhalter: 'z. B. Mieter Wohnung 3', autocapitalize: 'words' }),
+        A.zahlFeld(o, 'anzahl', 'Stückzahl Schlüssel (ESL)', { min: 1, max: 999, vorgabe: 3 }),
+        arten.length ? A.auswahlFeld(o, 'typ', 'Art des Mediums', arten, { leerText: '– noch offen –' }) : A.textFeld(o, 'typ', 'Art des Mediums', { platzhalter: 'z. B. Schlüssel' })
+      ])
+    ]);
+    var dlg = A.dialogOeffnen({ titel: 'Eigenschlüssel vergeben', inhalt: inhalt, knoepfe: [
+      { fuellen: true }, { text: 'Abbrechen' },
+      { text: 'Anlegen', klasse: 'haupt', aktion: function (schliessen) {
+        if (!String(o.name || '').trim()) { A.toast('Bitte einen Namen eintragen.', 'fehler'); return false; }
+        beiFertig({ name: o.name, anzahl: o.anzahl, typ: o.typ }); schliessen(); return false;
+      } }
+    ] });
+    setTimeout(function () { var f = dlg.kasten.querySelector('input'); if (f) { f.focus(); f.select(); } }, 60);
+  }
+
+  /* --- Der Umschalter zwischen den beiden Sichten -------------------------- */
+  function darstellung() {
+    if (!Zustand.planDarstellung) {
+      var gemerkt = '';
+      try { gemerkt = global.localStorage ? (global.localStorage.getItem('aufmass.planDarstellung') || '') : ''; } catch (e) { gemerkt = ''; }
+      Zustand.planDarstellung = gemerkt === 'euro' ? 'euro' : 'kreuz';
+    }
+    return Zustand.planDarstellung;
+  }
+  function darstellungSetzen(wert) {
+    Zustand.planDarstellung = wert === 'euro' ? 'euro' : 'kreuz';
+    try { if (global.localStorage) global.localStorage.setItem('aufmass.planDarstellung', Zustand.planDarstellung); } catch (e) {}
+  }
+  function schalter(neuZeichnen) {
+    var jetzt = darstellung();
+    function knopf(wert, text) {
+      return el('button', { type: 'button', class: 'segment' + (jetzt === wert ? ' aktiv' : ''), 'aria-pressed': jetzt === wert ? 'true' : 'false',
+        'data-darstellung': wert, text: text, onclick: function () { if (darstellung() === wert) return; darstellungSetzen(wert); neuZeichnen(); } });
+    }
+    return el('div', { class: 'segmente plan-schalter', role: 'group', 'aria-label': 'Darstellung des Schließplans' }, [
+      knopf('kreuz', 'Kreuzschließplan'), knopf('euro', 'Europlan')
+    ]);
+  }
+
+  /* --- Excel im EVVA-Formular --------------------------------------------- */
+  function excelExport(art) {
+    var p = Zustand.projekt;
+    if (!p) { A.toast('Kein Aufmaß geöffnet.', 'fehler'); return; }
+    var X = global.XLSX;
+    if (!X || !E()) { A.toast('Die Excel-Ausgabe steht in dieser Fassung nicht zur Verfügung.', 'fehler'); return; }
+    var mappe, name;
+    try {
+      mappe = E().evvaMappe(p, Zustand.einstellungen || {}, art);
+      mappe.titel = (art === 'kreuz' ? 'Kreuzschließplan ' : 'Europlan ') + (p.kunde || p.name || '');
+      name = E().dateiName(p, art);
+    } catch (fehler) { console.error(fehler); A.toast('Excel-Ausgabe fehlgeschlagen: ' + fehler.message, 'fehler'); return; }
+    Store.dateiHerunterladen(X.alsBlob(mappe), name, X.MIME).then(function (stand) {
+      if (stand === 'abgelehnt') { A.toast('Speichern abgebrochen.'); return; }
+      A.toast('EVVA-Formular erzeugt: ' + name + ' (' + mappe.anzahlZeilen + ' Zylinder, ' + mappe.anzahlSpalten + ' Schlüsselspalten)' +
+              (mappe.warnungen.length ? ' – ' + mappe.warnungen.join(' ') : ''), mappe.warnungen.length ? 'fehler' : 'ok');
+    }).catch(function (fehler) { A.toast(fehler.message || 'Speichern fehlgeschlagen.', 'fehler'); });
+  }
+
+  /* --- Die Ansicht ---------------------------------------------------------- */
+  function zeichnen(seite, p, neuZeichnen) {
+    var VPers = global.ViewsPersonen, VPlan = global.ViewsPlan;
+    var plan = E().europlan(p);
+
+    seite.appendChild(el('p', { class: 'hinweis', text:
+      'Zeilen sind die Zylinder, Spalten die übergeordneten Schlüssel (X) und die Gruppen der Eigenschlüssel (I = gehört zur Gruppe, ' +
+      'Z = Zentralzylinder, M = Mitschließung, O = vorgeplant). Zyl.Nr. ist die Türnummer; gleichschließende Türen hängen an ihrer Haupttür (.1, .2 …). ' +
+      'Alles, was Sie hier setzen, steht sofort auch im Kreuzschließplan.' }));
+
+    seite.appendChild(el('div', { class: 'knopfleiste', style: { marginBottom: '12px' } }, [
+      el('button', { class: 'haupt', text: '+ Tür / Zylinder', onclick: function () { tuerDialog(p, neuZeichnen); } }),
+      el('button', { text: '+ Schlüssel (X-Spalte)', title: 'Übergeordneter Schlüssel: Schließung mit Rang im Plan', onclick: function () { VPlan.schliessungBearbeiten(null, neuZeichnen); } }),
+      el('button', { text: '+ Gruppe (I/Z-Spalte)', title: 'Gruppe von Eigenschlüsseln, z. B. alle Mieter', onclick: function () { VPers.gruppeBearbeiten(null, neuZeichnen); } }),
+      el('button', { text: 'Excel (EVVA-Formular)', title: 'Europlan als EVVA-Bestellformular (.xlsx)', onclick: function () { excelExport('euro'); } })
+    ]));
+
+    var hinweisKnoten = el('div');
+    seite.appendChild(hinweisKnoten);
+    function hinweiseZeichnen() {
+      A.leeren(hinweisKnoten);
+      if (plan.hinweise.length) {
+        hinweisKnoten.appendChild(el('div', { class: 'meldung info' }, el('div', {}, plan.hinweise.map(function (h) { return el('div', { text: '• ' + h }); }))));
+      }
+    }
+    hinweiseZeichnen();
+
+    if (!p.tueren.length) {
+      seite.appendChild(el('div', { class: 'leer' }, [
+        el('h3', { text: 'Noch keine Zylinder im Plan' }),
+        el('p', { text: 'Legen Sie Türen über „+ Tür / Zylinder“ an oder erfassen Sie sie im Aufmaß. Jede Tür ist eine Zeile des Plans.' })
+      ]));
+      seite.appendChild(VPers.listenKarte(neuZeichnen));
+      return;
+    }
+
+    var rahmen = el('div', { class: 'matrix-rahmen europlan-rahmen' });
+    var rollLage = { x: 0, y: 0 };
+    seite.appendChild(rahmen);
+
+    function tabelleZeichnen() {
+      plan = E().europlan(p);
+      hinweiseZeichnen();
+      A.leeren(rahmen);
+      rahmen.appendChild(tabelleBauen(plan));
+      rahmen.scrollLeft = rollLage.x; rahmen.scrollTop = rollLage.y;
+    }
+    function aendern(beschreibung, aktion) {
+      rollLage = { x: rahmen.scrollLeft, y: rahmen.scrollTop };
+      merken(beschreibung);
+      var e = aktion();
+      fertig();
+      tabelleZeichnen();
+      return e;
+    }
+
+    function tabelleBauen(plan) {
+      var tabelle = el('table', { class: 'matrix europlan' });
+      var linke = [
+        { k: 'zp', t: 'ZP', tip: 'laufende Zeile' }, { k: 'nr', t: 'Tür.Nr.' }, { k: 'raum', t: 'Raumbezeichnung' },
+        { k: 'stk', t: 'Stk.', tip: 'Bestellmenge Zylinder' }, { k: 'esl', t: 'ESL', tip: 'Eigenschlüssel: Stückzahl (leer = kein Eigenschlüssel, 0 = vorgeplant)' },
+        { k: 'type', t: 'Type (Produktcode)' }, { k: 'zyl', t: 'Zyl.Nr.', tip: 'Zylindernummer = Türnummer; gleichschließend .1, .2 …' }
+      ];
+      var kopf1 = el('tr', { class: 'funktion' }), kopf2 = el('tr', { class: 'menge' }), kopf3 = el('tr', { class: 'schlnr' });
+      kopf1.appendChild(el('th', { class: 'ecke', colspan: linke.length, rowspan: 2, text: 'Funktion / Menge / Schl.Nr →' }));
+      linke.forEach(function (l) { kopf3.appendChild(el('th', { class: 'links ' + l.k, text: l.t, title: l.tip || '' })); });
+      var laengster = plan.spalten.reduce(function (max, s) { return Math.max(max, String(s.funktion || '').length); }, 0);
+      tabelle.style.setProperty('--kopfhoehe', Math.min(200, Math.max(70, laengster * 7.2 + 30)) + 'px');
+      plan.spalten.forEach(function (sp) {
+        var s = sp.spalte;
+        var titel = sp.funktion || sp.schlNr || '–';
+        kopf1.appendChild(el('th', { class: 'spaltenkopf art-' + s.art, title: titel + ' · antippen: Spalte bearbeiten', onclick: function () {
+            if (sp.art === 'gruppe') { var g = M.gruppeVon(p, s.gruppeId); if (g) VPers.gruppeBearbeiten(g, neuZeichnen); }
+            else VPlan.schliessungBearbeiten(s, neuZeichnen);
+          }, style: { cursor: 'pointer' } }, [
+          el('span', { class: 'dreh', text: titel }),
+          el('span', { class: 'art', text: sp.art === 'gruppe' ? 'Gruppe' : (s.art === 'mitarbeiter' ? 'Mitarb.' : (s.typ ? String(s.typ).toUpperCase() : '')) })
+        ]));
+        kopf2.appendChild(el('th', { class: 'menge', text: sp.menge > 0 ? String(sp.menge) : '', title: sp.art === 'gruppe' ? 'Stück Gruppenschlüssel (Mitglieder ohne eigene Tür)' : 'Stück Schlüssel' }));
+        kopf3.appendChild(el('th', { class: 'schlnr', text: sp.schlNr || '', title: 'Schlüsselnummer' }));
+      });
+      tabelle.appendChild(el('thead', {}, [kopf1, kopf2, kopf3]));
+
+      var koerper = el('tbody');
+      var bereich = null, lfd = 0;
+      plan.zeilen.forEach(function (z) {
+        if (z.bereich !== bereich) {
+          bereich = z.bereich;
+          koerper.appendChild(el('tr', { class: 'gruppenzeile' }, [el('td', { colspan: linke.length + plan.spalten.length, text: bereich })]));
+        }
+        var t = z.tuer; lfd++;
+        var zeile = el('tr', { class: z.mitlaeufer ? 'mitlaeufer' : '' });
+        zeile.appendChild(el('td', { class: 'links zp', text: String(lfd) }));
+        zeile.appendChild(el('td', { class: 'links nr klickbar', text: t.nummer || '—', title: 'Tür bearbeiten', onclick: function () { global.ViewsTueren.tuerBearbeiten(t, neuZeichnen); } }));
+        zeile.appendChild(el('td', { class: 'links raum klickbar', text: t.bezeichnung || '', title: 'Tür bearbeiten', onclick: function () { global.ViewsTueren.tuerBearbeiten(t, neuZeichnen); } }));
+        zeile.appendChild(el('td', { class: 'links stk klickbar', text: String(z.stk), title: 'Stückzahl ändern', onclick: function () {
+          zahlDialog('Stückzahl Zylinder', 'Wie viele baugleiche Zylinder für ' + (t.nummer || t.bezeichnung) + '?', z.stk, { min: 1, max: 999, vorgabe: 1 }, function (n) {
+            aendern('Stückzahl ' + (t.nummer || t.bezeichnung), function () { t.anzahl = Math.max(1, n || 1); });
+          });
+        } }));
+        var eslText = z.esl === null ? '' : String(z.esl);
+        zeile.appendChild(el('td', { class: 'links esl' + (z.mitlaeufer ? '' : ' klickbar'), text: eslText,
+          title: z.mitlaeufer ? 'Eigenschlüssel wird an der Haupttür ' + (z.basis.nummer || '') + ' geführt' : (z.inhaber.length ? 'Eigenschlüssel von ' + z.inhaber.map(function (i) { return i.m.name; }).join(', ') : 'Eigenschlüssel ohne Inhaber'),
+          onclick: function () { if (!z.mitlaeufer) eslDialog(p, z, aendern); } }));
+        zeile.appendChild(el('td', { class: 'links type klickbar', text: z.produktcode || '', title: 'Type / Produktcode ändern (leer = aus den Zylinderangaben)', onclick: function () {
+          textDialog('Type / Produktcode', 'Leer lassen, dann wird der Code aus Bauform, Längen und Ausführung der Tür gebildet: ' + (M.produktcode(p, Object.assign({}, t, { produktcode: '' })) || '–'), t.produktcode, 'Produktcode', function (w) {
+            aendern('Produktcode ' + (t.nummer || t.bezeichnung), function () { t.produktcode = w; });
+          });
+        } }));
+        zeile.appendChild(el('td', { class: 'links zyl klickbar' + (z.mitlaeufer ? ' gleich' : ''), text: z.zylNr, title: 'Gleichschließung festlegen', onclick: function () { zylDialog(p, t, aendern); } }));
+
+        plan.spalten.forEach(function (sp) {
+          var zeichen = z.zellen[sp.id] || '';
+          var zelle = el('td', { class: 'zelle' + (zeichen ? ' ' + ZEICHEN_KLASSE[zeichen] : ''), text: zeichen, title: (t.nummer || '') + ' / ' + (sp.schlNr || sp.funktion),
+            onclick: function () { zelleAntippen(p, z, sp, zeichen, aendern); } });
+          zeile.appendChild(zelle);
+        });
+        koerper.appendChild(zeile);
+      });
+      tabelle.appendChild(koerper);
+      return tabelle;
+    }
+    tabelleZeichnen();
+
+    var legende = el('div', { class: 'matrix-legende' });
+    [['X', 'sperrt'], ['I', 'Eigenschlüssel gehört zur Gruppe'], ['Z', 'Zentralzylinder (alle der Gruppe)'], ['M', 'Mitschließung'], ['O', 'vorgeplant']].forEach(function (x) {
+      legende.appendChild(el('span', {}, [el('b', { text: x[0] }), x[1]]));
+    });
+    legende.appendChild(el('span', { text: 'Zelle antippen: Zeichen wählen · Zyl.Nr. antippen: gleichschließend · ESL antippen: Eigenschlüssel' }));
+    seite.appendChild(legende);
+    seite.appendChild(VPers.listenKarte(neuZeichnen));
+  }
+
+  /* --- Zellen bearbeiten --------------------------------------------------- */
+  function zelleAntippen(p, z, sp, zeichen, aendern) {
+    var t = z.tuer;
+    if (sp.art !== 'gruppe') {
+      var folge = ['', 'X', 'O'];
+      var naechst = folge[(folge.indexOf(zeichen) + 1) % folge.length];
+      aendern('Europlan: ' + (t.nummer || t.bezeichnung) + ' / ' + (sp.schlNr || sp.funktion), function () { return E().zelleSetzen(p, t.id, sp.id, naechst); });
+      return;
+    }
+    var moeglich = E().moeglicheZeichen(p, t.id, sp.id);
+    var texte = {
+      '': z.mitlaeufer ? 'keine Berechtigung der Gruppe' : (zeichen === 'I' ? 'Eigenschlüssel aus der Gruppe nehmen' : 'keine Berechtigung der Gruppe'),
+      I: 'Eigenschlüssel dieser Tür gehört zur Gruppe' + (z.inhaber.length ? ' (' + z.inhaber.map(function (i) { return i.m.name; }).join(', ') + ')' : ' – Inhaber wird angelegt'),
+      Z: 'Zentralzylinder: alle Schlüssel der Gruppe sperren',
+      M: 'Mitschließung: die Gruppe sperrt diesen Zylinder zusätzlich mit',
+      O: 'vorgeplant (Reserve): vorbereitet, sperrt noch nicht'
+    };
+    wahlDialog((t.nummer || '') + ' ' + (t.bezeichnung || '') + ' × ' + (sp.funktion || sp.schlNr), z.mitlaeufer ? 'Gleichschließend mit ' + (z.basis.nummer || '') + ': Der Eigenschlüssel wird dort geführt.' : null,
+      moeglich.map(function (m) { return { wert: m, zeichen: m, text: texte[m] || '', aktiv: m === zeichen }; }),
+      function (wahl) {
+        var e = aendern('Europlan: ' + (t.nummer || t.bezeichnung) + ' / ' + (sp.schlNr || sp.funktion), function () { return E().zelleSetzen(p, t.id, sp.id, wahl); });
+        if (e && e.braucht === 'inhaber') {
+          inhaberDialog(p, t, function (angaben) {
+            aendern('Eigenschlüssel ' + (t.nummer || t.bezeichnung), function () { return E().zelleSetzen(p, t.id, sp.id, 'I', { inhaber: angaben }); });
+            A.toast('Eigenschlüssel vergeben: ' + angaben.name, 'ok');
+          });
+        } else if (e && e.ok === false && e.text) {
+          A.toast(e.text, 'fehler');
+        }
+      });
+  }
+
+  function eslDialog(p, z, aendern) {
+    var t = z.tuer;
+    var wer = z.inhaber.length ? ('Inhaber: ' + z.inhaber.map(function (i) { return i.m.name + ' (' + M.mitarbeiterMedienAnzahl(i.m) + '×)'; }).join(', ')) : 'Ohne Inhaber: Der Eigenschlüssel wird als Einzelschließung geführt.';
+    zahlDialog('Eigenschlüssel ' + (t.nummer || '') + ' ' + (t.bezeichnung || ''), wer + ' Stückzahl der Eigenschlüssel; 0 heißt vorgeplant ohne Schlüssel.', z.esl, { min: 0, max: 999, vorgabe: 3, beschriftung: 'Stückzahl (ESL)', leerText: z.inhaber.length ? null : 'Kein Eigenschlüssel' }, function (n) {
+      var e = aendern('ESL ' + (t.nummer || t.bezeichnung), function () { return E().eslSetzen(p, t.id, n); });
+      if (e && e.ok === false && e.text) A.toast(e.text, 'fehler');
+    });
+  }
+
+  function zylDialog(p, t, aendern) {
+    var basis = M.basisTuer(p, t) || t;
+    var eigene = M.schliessungsTueren(p, t).map(function (x) { return x.id; });
+    var kandidaten = p.tueren.filter(function (x) { return eigene.indexOf(x.id) === -1 && !M.istMitlaeufer(p, x); });
+    var moeglichkeiten = [{ wert: '', text: 'Eigene Schließung (Zyl.Nr. ' + (t.nummer || '?') + ')', untertitel: t.gleichschliessendMit ? 'Verbindung lösen' : 'wie bisher', aktiv: !t.gleichschliessendMit }];
+    kandidaten.forEach(function (k) {
+      moeglichkeiten.push({ wert: k.id, text: 'Gleichschließend mit ' + (k.nummer || '?') + ' ' + (k.bezeichnung || ''), untertitel: 'Zyl.Nr. wird ' + (k.nummer || '?') + '.' + (M.schliessungsTueren(p, k).length), aktiv: basis.id === k.id && basis.id !== t.id });
+    });
+    if (!kandidaten.length && !t.gleichschliessendMit) { A.toast('Es gibt keine andere Tür, mit der diese gleichschließend sein könnte.'); return; }
+    wahlDialog('Zylindernummer ' + (t.nummer || ''), 'Gleichschließende Türen haben denselben Schlüssel: Ihre Berechtigungen werden automatisch gleich gehalten, die Zyl.Nr. bekommt .1, .2 …', moeglichkeiten, function (wahl) {
+      aendern('Gleichschließung ' + (t.nummer || t.bezeichnung), function () {
+        if (!M.gleichschliessendSetzen(p, t.id, wahl)) A.toast('Diese Verbindung ist nicht möglich.', 'fehler');
+      });
+    });
+  }
+
+  /* Neue Tür für den Plan: Nummer, Raum, Bereich, Stückzahl */
+  function tuerDialog(p, neuZeichnen) {
+    var VT = global.ViewsTueren;
+    var o = { nummer: M.naechsteLaufendeNummer(p), bezeichnung: '', strukturId: '', anzahl: 1 };
+    var optionen = VT && VT.strukturOptionen ? VT.strukturOptionen(p) : [];
+    var inhalt = el('div', {}, [
+      el('p', { class: 'hinweis', text: 'Die Tür entsteht im Aufmaß mit offenen Pflichtangaben; Maße und Bauform tragen Sie später im Türformular nach.' }),
+      el('div', { class: 'raster' }, [
+        A.textFeld(o, 'nummer', 'Tür.Nr.'),
+        A.textFeld(o, 'bezeichnung', 'Raumbezeichnung', { platzhalter: 'z. B. Wohnung 3', autocapitalize: 'sentences' }),
+        optionen.length ? A.auswahlFeld(o, 'strukturId', 'Bereich', optionen, { leerText: '– ohne Zuordnung –' }) : null,
+        A.zahlFeld(o, 'anzahl', 'Stückzahl', { min: 1, max: 999, vorgabe: 1 })
+      ])
+    ]);
+    var dlg = A.dialogOeffnen({ titel: 'Neue Tür / neuer Zylinder', inhalt: inhalt, knoepfe: [
+      { fuellen: true }, { text: 'Abbrechen' },
+      { text: 'Anlegen & nächste', klasse: 'weiter', aktion: function (schliessen) { if (!anlegen()) return false; schliessen(); setTimeout(function () { tuerDialog(p, neuZeichnen); }, 60); return false; } },
+      { text: 'Anlegen', klasse: 'haupt', aktion: function (schliessen) { if (!anlegen()) return false; schliessen(); return false; } }
+    ] });
+    function anlegen() {
+      if (!String(o.bezeichnung || '').trim() && !String(o.nummer || '').trim()) { A.toast('Bitte Nummer oder Raum eintragen.', 'fehler'); return false; }
+      merken('Tür ' + (o.nummer || o.bezeichnung) + ' angelegt');
+      E().tuerAnlegen(p, { nummer: o.nummer, bezeichnung: o.bezeichnung, strukturId: o.strukturId || null, anzahl: o.anzahl });
+      fertig(); neuZeichnen();
+      A.toast('Tür ' + (o.nummer || o.bezeichnung) + ' angelegt.', 'ok');
+      return true;
+    }
+    setTimeout(function () { var f = dlg.kasten.querySelector('input'); if (f) { f.focus(); f.select(); } }, 60);
+  }
+
+  global.ViewsEuroplan = { zeichnen: zeichnen, schalter: schalter, darstellung: darstellung, darstellungSetzen: darstellungSetzen, excelExport: excelExport, tuerDialog: tuerDialog };
+})(typeof window !== 'undefined' ? window : globalThis);
+
+
 /* ==== js/views-plan.js ==== */
 /* =============================================================================
  * views-plan.js — Kreuzschließplan, Kundenfreigabe, Export und Einstellungen
@@ -11791,12 +13185,20 @@ body.stift .zahl-knopf { min-width: 56px; }
     var seite = el('div', { class: 'seite breit' });
     behaelter.appendChild(seite);
 
-    seite.appendChild(el('div', { class: 'zeile-verteilt', style: { marginBottom: '12px' } }, [
+    var VEuro = global.ViewsEuroplan;
+    var euro = !!(VEuro && VEuro.darstellung() === 'euro');
+    seite.appendChild(el('div', { class: 'zeile-verteilt', style: { marginBottom: '8px' } }, [
       el('div', { class: 'fuellen' }, [
-        el('h1', { text: 'Kreuzschließplan / Zutrittsmatrix' }),
-        el('p', { class: 'hinweis', text: 'Zeilen sind die aufgemessenen Türen, Spalten die Gruppen, Mitarbeiter und Schließungen. ' +
+        el('h1', { text: euro ? 'Europlan / Bestellplan' : 'Kreuzschließplan / Zutrittsmatrix' }),
+        euro ? null : el('p', { class: 'hinweis', text: 'Zeilen sind die aufgemessenen Türen, Spalten die Gruppen, Mitarbeiter und Schließungen. ' +
           'Zelle antippen schaltet die Berechtigung weiter. Spaltenkopf zwei Sekunden gedrückt halten und ziehen verschiebt die Spalte samt Kreuzen.' })
       ]),
+      VEuro ? VEuro.schalter(neuZeichnen) : null
+    ]));
+    if (euro) { VEuro.zeichnen(seite, p, neuZeichnen); return; }
+
+    seite.appendChild(el('div', { class: 'zeile-verteilt', style: { marginBottom: '12px' } }, [
+      el('div', { class: 'fuellen' }),
       el('button', { class: 'haupt', text: 'Blanko-Plan erzeugen',
         onclick: function () { blankoDialog(neuZeichnen); } }),
       el('button', { text: '+ Spalte',
@@ -11808,7 +13210,9 @@ body.stift .zahl-knopf { min-width: 56px; }
         onclick: function () { freigabeDialog(neuZeichnen); } }),
       el('button', { text: '← Rückmeldung',
         title: 'Rückmeldung des Kunden einlesen',
-        onclick: function () { antwortDialog(neuZeichnen); } })
+        onclick: function () { antwortDialog(neuZeichnen); } }),
+      VEuro ? el('button', { text: 'Excel (EVVA-Formular)', title: 'Kreuzschließplan als EVVA-Bestellformular (.xlsx): jeder Schlüssel eine Spalte',
+        onclick: function () { VEuro.excelExport('kreuz'); } }) : null
     ]));
 
     /* Wartet zu diesem Aufmaß eine Kundenrückmeldung vom Server? */
@@ -12114,23 +13518,31 @@ body.stift .zahl-knopf { min-width: 56px; }
             : null,
           el('span', { class: 'nr', text: t.nummer || '—' }),
           el('span', { class: 'bez', text: t.bezeichnung || '' }),
-          (parseInt(t.anzahl, 10) || 1) > 1 ? el('span', { class: 'zart', text: '  (' + t.anzahl + '×)' }) : null
+          (parseInt(t.anzahl, 10) || 1) > 1 ? el('span', { class: 'zart', text: '  (' + t.anzahl + '×)' }) : null,
+          M.istMitlaeufer(p, t) ? el('span', { class: 'zart gleich', title: 'gleichschließend mit Tür ' + (M.basisTuer(p, t).nummer || ''), text: '  = ' + M.zylinderNummer(p, t) }) : null
         ]));
         schliessungen.forEach(function (s) {
           var wert = M.getBerechtigung(p, t.id, s.id);
           var zelle = el('td', {
             class: 'zelle' + (wert !== 'nein' ? ' gesetzt-' + wert : ''),
             text: K.berechtigungZeichen(wert),
-            title: t.nummer + ' / ' + (s.kuerzel || s.bezeichnung),
+            'data-tuer': t.id, 'data-spalte': s.id,
+            title: t.nummer + ' / ' + (s.kuerzel || s.bezeichnung) + (M.istMitlaeufer(p, t) ? ' · gleichschließend mit ' + (M.basisTuer(p, t).nummer || '') : ''),
             onclick: function () {
               if (entfernenAn.wert || ziehen) return;   /* im Entfernen-Modus nicht schalten */
               A.schrittMerken('Berechtigung: ' + (t.nummer || t.bezeichnung) +
                               ' / ' + (s.kuerzel || s.bezeichnung));
               var jetzt = M.getBerechtigung(p, t.id, s.id);
               var naechst = ZELL_FOLGE[(ZELL_FOLGE.indexOf(jetzt) + 1) % ZELL_FOLGE.length];
-              M.setBerechtigung(p, t.id, s.id, naechst);
+              M.berechtigungSetzenVerbund(p, t.id, s.id, naechst);
               zelle.textContent = K.berechtigungZeichen(naechst);
               zelle.className = 'zelle' + (naechst !== 'nein' ? ' gesetzt-' + naechst : '');
+              /* Gleichschließende Türen zeigen sofort dasselbe Kreuz */
+              M.schliessungsTueren(p, t).forEach(function (x) {
+                if (x.id === t.id) return;
+                var andere = tabelle.querySelector('td.zelle[data-tuer="' + x.id + '"][data-spalte="' + s.id + '"]');
+                if (andere) { andere.textContent = K.berechtigungZeichen(naechst); andere.className = 'zelle' + (naechst !== 'nein' ? ' gesetzt-' + naechst : ''); }
+              });
               A.alsGeaendertMarkieren();
               summenAktualisieren();
             }
@@ -12157,7 +13569,7 @@ body.stift .zahl-knopf { min-width: 56px; }
         var summe = 0;
         p.tueren.forEach(function (t) {
           var w = M.getBerechtigung(p, t.id, e.schliessung.id);
-          if (w !== 'nein' && w !== 'sperr') summe += (parseInt(t.anzahl, 10) || 1);
+          if (M.istBerechtigt(w)) summe += (parseInt(t.anzahl, 10) || 1);
         });
         e.knoten.textContent = String(summe);
       });
@@ -12186,7 +13598,7 @@ body.stift .zahl-knopf { min-width: 56px; }
     seite.appendChild(VPers.listenKarte(neuZeichnen));
   }
 
-  function sammelAktion(schliessungen, wert, neuZeichnen) {
+  function sammelAktion(schliessungen, wert, neuZeichnen) {   /* Mitläufer folgen über gleichschliessungAngleichen beim Neuzeichnen */
     var p = Zustand.projekt;
     var auswahl = el('select');
     schliessungen.forEach(function (s) {
@@ -13112,6 +14524,9 @@ body.stift .zahl-knopf { min-width: 56px; }
         exportKarte('Kreuzschließplan',
           'Zutrittsmatrix Türen × Schließungen im Querformat, inklusive Legende und Schließungsübersicht.',
           function () { pdfErzeugen(function () { return Reports.schliessplan(p, eins); }, 'Kreuzschliessplan'); }),
+        Reports.europlan ? exportKarte('Europlan',
+          'Der Plan in der Schreibweise der Hersteller: Zylinder mit Zyl.Nr., ESL und Type, Schlüssel als Spalten mit X, I, Z, M und O.',
+          function () { pdfErzeugen(function () { return Reports.europlan(p, eins); }, 'Europlan'); }) : null,
         exportKarte('Materialliste',
           'Bestellgrundlage, gegliedert nach Gewerk und Hersteller. Jede Bauteilart mit ' +
           'ihren eigenen Maßspalten; Artikelnummer und Preis bleiben zum Ausfüllen frei.',
@@ -13123,6 +14538,20 @@ body.stift .zahl-knopf { min-width: 56px; }
           function () { pdfErzeugen(function () { return Reports.pruefprotokoll(p, eins); }, 'Pruefprotokoll'); })
       ])
     ]));
+
+    /* --- EVVA-Bestellformular (Excel) --- */
+    if (global.ViewsEuroplan && global.XLSX) {
+      seite.appendChild(el('div', { class: 'karte' }, [
+        el('h2', { text: 'EVVA-Bestellformular (Excel)' }),
+        el('p', { class: 'hinweis', text: 'Der Schließplan im Layout des EVVA-Formulars: Kopf mit Besteller, Besitzer, Anlage und System, ' +
+          'Zeilen 1 bis 3 mit Funktion, Menge und Schlüsselnummer, ab Zeile 5 die Zylinder mit Tür.Nr., Raum, Stk., ESL, Type und Zyl.Nr. ' +
+          'Die Datei lässt sich in Excel öffnen und direkt an den Fachhändler oder zu EVVA geben.' }),
+        el('div', { class: 'knopfleiste' }, [
+          el('button', { class: 'haupt', text: 'Europlan (X, I, Z, M)', onclick: function () { global.ViewsEuroplan.excelExport('euro'); } }),
+          el('button', { text: 'Kreuzschließplan (jeder Schlüssel eine Spalte)', onclick: function () { global.ViewsEuroplan.excelExport('kreuz'); } })
+        ])
+      ]));
+    }
 
     /* --- Datenaustausch --- */
     seite.appendChild(el('div', { class: 'karte' }, [

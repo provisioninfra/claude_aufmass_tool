@@ -21,8 +21,8 @@
 
   var FORMAT = 2;
   /* Zeichen je Berechtigungsstufe - ein Zeichen pro Zelle hält die Daten klein */
-  var WERTE = ['nein', 'ja', 'zeit', 'temp', 'sperr'];
-  var ZEICHEN = ['0', '1', '2', '3', '4'];
+  var WERTE = ['nein', 'ja', 'zeit', 'temp', 'sperr', 'plan'];
+  var ZEICHEN = ['0', '1', '2', '3', '4', '5'];
   var NEU_ID = /^neu-[a-z0-9]{1,12}$/;
   var ID = /^[A-Za-z0-9_-]{1,64}$/;
 

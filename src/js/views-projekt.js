@@ -636,7 +636,8 @@
         A.textFeld(p, 'strasse', 'Straße und Hausnummer'),
         A.textFeld(p, 'plz', 'PLZ', { inputmode: 'numeric' }),
         A.textFeld(p, 'ort', 'Ort'),
-        A.textFeld(p, 'anlagenNr', 'Anlagen-Nr. / Schließanlagen-Nr.')
+        A.textFeld(p, 'anlagenNr', 'Anlagen-Nr. / Schließanlagen-Nr.'),
+        A.textFeld(p, 'oberflaeche', 'Oberfläche der Zylinder <span class="einheit">(für den Europlan, z. B. NI = Nickel, MS = Messing)</span>', { platzhalter: 'z. B. NI' })
       ])
     ]));
 

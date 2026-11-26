@@ -20,12 +20,20 @@
     var seite = el('div', { class: 'seite breit' });
     behaelter.appendChild(seite);
 
-    seite.appendChild(el('div', { class: 'zeile-verteilt', style: { marginBottom: '12px' } }, [
+    var VEuro = global.ViewsEuroplan;
+    var euro = !!(VEuro && VEuro.darstellung() === 'euro');
+    seite.appendChild(el('div', { class: 'zeile-verteilt', style: { marginBottom: '8px' } }, [
       el('div', { class: 'fuellen' }, [
-        el('h1', { text: 'Kreuzschließplan / Zutrittsmatrix' }),
-        el('p', { class: 'hinweis', text: 'Zeilen sind die aufgemessenen Türen, Spalten die Gruppen, Mitarbeiter und Schließungen. ' +
+        el('h1', { text: euro ? 'Europlan / Bestellplan' : 'Kreuzschließplan / Zutrittsmatrix' }),
+        euro ? null : el('p', { class: 'hinweis', text: 'Zeilen sind die aufgemessenen Türen, Spalten die Gruppen, Mitarbeiter und Schließungen. ' +
           'Zelle antippen schaltet die Berechtigung weiter. Spaltenkopf zwei Sekunden gedrückt halten und ziehen verschiebt die Spalte samt Kreuzen.' })
       ]),
+      VEuro ? VEuro.schalter(neuZeichnen) : null
+    ]));
+    if (euro) { VEuro.zeichnen(seite, p, neuZeichnen); return; }
+
+    seite.appendChild(el('div', { class: 'zeile-verteilt', style: { marginBottom: '12px' } }, [
+      el('div', { class: 'fuellen' }),
       el('button', { class: 'haupt', text: 'Blanko-Plan erzeugen',
         onclick: function () { blankoDialog(neuZeichnen); } }),
       el('button', { text: '+ Spalte',
@@ -37,7 +45,9 @@
         onclick: function () { freigabeDialog(neuZeichnen); } }),
       el('button', { text: '← Rückmeldung',
         title: 'Rückmeldung des Kunden einlesen',
-        onclick: function () { antwortDialog(neuZeichnen); } })
+        onclick: function () { antwortDialog(neuZeichnen); } }),
+      VEuro ? el('button', { text: 'Excel (EVVA-Formular)', title: 'Kreuzschließplan als EVVA-Bestellformular (.xlsx): jeder Schlüssel eine Spalte',
+        onclick: function () { VEuro.excelExport('kreuz'); } }) : null
     ]));
 
     /* Wartet zu diesem Aufmaß eine Kundenrückmeldung vom Server? */
@@ -343,23 +353,31 @@
             : null,
           el('span', { class: 'nr', text: t.nummer || '—' }),
           el('span', { class: 'bez', text: t.bezeichnung || '' }),
-          (parseInt(t.anzahl, 10) || 1) > 1 ? el('span', { class: 'zart', text: '  (' + t.anzahl + '×)' }) : null
+          (parseInt(t.anzahl, 10) || 1) > 1 ? el('span', { class: 'zart', text: '  (' + t.anzahl + '×)' }) : null,
+          M.istMitlaeufer(p, t) ? el('span', { class: 'zart gleich', title: 'gleichschließend mit Tür ' + (M.basisTuer(p, t).nummer || ''), text: '  = ' + M.zylinderNummer(p, t) }) : null
         ]));
         schliessungen.forEach(function (s) {
           var wert = M.getBerechtigung(p, t.id, s.id);
           var zelle = el('td', {
             class: 'zelle' + (wert !== 'nein' ? ' gesetzt-' + wert : ''),
             text: K.berechtigungZeichen(wert),
-            title: t.nummer + ' / ' + (s.kuerzel || s.bezeichnung),
+            'data-tuer': t.id, 'data-spalte': s.id,
+            title: t.nummer + ' / ' + (s.kuerzel || s.bezeichnung) + (M.istMitlaeufer(p, t) ? ' · gleichschließend mit ' + (M.basisTuer(p, t).nummer || '') : ''),
             onclick: function () {
               if (entfernenAn.wert || ziehen) return;   /* im Entfernen-Modus nicht schalten */
               A.schrittMerken('Berechtigung: ' + (t.nummer || t.bezeichnung) +
                               ' / ' + (s.kuerzel || s.bezeichnung));
               var jetzt = M.getBerechtigung(p, t.id, s.id);
               var naechst = ZELL_FOLGE[(ZELL_FOLGE.indexOf(jetzt) + 1) % ZELL_FOLGE.length];
-              M.setBerechtigung(p, t.id, s.id, naechst);
+              M.berechtigungSetzenVerbund(p, t.id, s.id, naechst);
               zelle.textContent = K.berechtigungZeichen(naechst);
               zelle.className = 'zelle' + (naechst !== 'nein' ? ' gesetzt-' + naechst : '');
+              /* Gleichschließende Türen zeigen sofort dasselbe Kreuz */
+              M.schliessungsTueren(p, t).forEach(function (x) {
+                if (x.id === t.id) return;
+                var andere = tabelle.querySelector('td.zelle[data-tuer="' + x.id + '"][data-spalte="' + s.id + '"]');
+                if (andere) { andere.textContent = K.berechtigungZeichen(naechst); andere.className = 'zelle' + (naechst !== 'nein' ? ' gesetzt-' + naechst : ''); }
+              });
               A.alsGeaendertMarkieren();
               summenAktualisieren();
             }
@@ -386,7 +404,7 @@
         var summe = 0;
         p.tueren.forEach(function (t) {
           var w = M.getBerechtigung(p, t.id, e.schliessung.id);
-          if (w !== 'nein' && w !== 'sperr') summe += (parseInt(t.anzahl, 10) || 1);
+          if (M.istBerechtigt(w)) summe += (parseInt(t.anzahl, 10) || 1);
         });
         e.knoten.textContent = String(summe);
       });
@@ -415,7 +433,7 @@
     seite.appendChild(VPers.listenKarte(neuZeichnen));
   }
 
-  function sammelAktion(schliessungen, wert, neuZeichnen) {
+  function sammelAktion(schliessungen, wert, neuZeichnen) {   /* Mitläufer folgen über gleichschliessungAngleichen beim Neuzeichnen */
     var p = Zustand.projekt;
     var auswahl = el('select');
     schliessungen.forEach(function (s) {
@@ -1341,6 +1359,9 @@
         exportKarte('Kreuzschließplan',
           'Zutrittsmatrix Türen × Schließungen im Querformat, inklusive Legende und Schließungsübersicht.',
           function () { pdfErzeugen(function () { return Reports.schliessplan(p, eins); }, 'Kreuzschliessplan'); }),
+        Reports.europlan ? exportKarte('Europlan',
+          'Der Plan in der Schreibweise der Hersteller: Zylinder mit Zyl.Nr., ESL und Type, Schlüssel als Spalten mit X, I, Z, M und O.',
+          function () { pdfErzeugen(function () { return Reports.europlan(p, eins); }, 'Europlan'); }) : null,
         exportKarte('Materialliste',
           'Bestellgrundlage, gegliedert nach Gewerk und Hersteller. Jede Bauteilart mit ' +
           'ihren eigenen Maßspalten; Artikelnummer und Preis bleiben zum Ausfüllen frei.',
@@ -1352,6 +1373,20 @@
           function () { pdfErzeugen(function () { return Reports.pruefprotokoll(p, eins); }, 'Pruefprotokoll'); })
       ])
     ]));
+
+    /* --- EVVA-Bestellformular (Excel) --- */
+    if (global.ViewsEuroplan && global.XLSX) {
+      seite.appendChild(el('div', { class: 'karte' }, [
+        el('h2', { text: 'EVVA-Bestellformular (Excel)' }),
+        el('p', { class: 'hinweis', text: 'Der Schließplan im Layout des EVVA-Formulars: Kopf mit Besteller, Besitzer, Anlage und System, ' +
+          'Zeilen 1 bis 3 mit Funktion, Menge und Schlüsselnummer, ab Zeile 5 die Zylinder mit Tür.Nr., Raum, Stk., ESL, Type und Zyl.Nr. ' +
+          'Die Datei lässt sich in Excel öffnen und direkt an den Fachhändler oder zu EVVA geben.' }),
+        el('div', { class: 'knopfleiste' }, [
+          el('button', { class: 'haupt', text: 'Europlan (X, I, Z, M)', onclick: function () { global.ViewsEuroplan.excelExport('euro'); } }),
+          el('button', { text: 'Kreuzschließplan (jeder Schlüssel eine Spalte)', onclick: function () { global.ViewsEuroplan.excelExport('kreuz'); } })
+        ])
+      ]));
+    }
 
     /* --- Datenaustausch --- */
     seite.appendChild(el('div', { class: 'karte' }, [

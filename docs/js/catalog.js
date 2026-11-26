@@ -458,7 +458,10 @@
     { id: 'ja',    zeichen: 'X',  label: 'berechtigt' },
     { id: 'zeit',  zeichen: 'Z',  label: 'berechtigt, zeitbeschränkt' },
     { id: 'temp',  zeichen: 'T',  label: 'temporär / befristet' },
-    { id: 'sperr', zeichen: '–',  label: 'ausdrücklich gesperrt' }
+    { id: 'sperr', zeichen: '–',  label: 'ausdrücklich gesperrt' },
+    /* Reserve: der Zylinder ist für diesen Schlüssel vorbereitet, der Schlüssel
+       sperrt aber (noch) nicht - im Europlan das O, beim Hersteller „vorgeplant“. */
+    { id: 'plan',  zeichen: 'O',  label: 'vorgeplant (Reserve)' }
   ];
 
   /* --- Hilfsfunktionen ---------------------------------------------------- */

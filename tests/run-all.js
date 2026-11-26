@@ -34,6 +34,8 @@ const reihen = [
   ['Angriffsproben',   'test-angriffe.js'],
   ['Härtung',          'test-haertung.js'],
   ['API & Claude Code','test-api.js'],
+  ['Europlan (Modell)', 'test-europlan-modell.js'],
+  ['Europlan (Browser)', 'test-europlan.js'],
   ['Gleichlauf PHP↔JS','test-gleichlauf.js'],
   ['Offline-Betrieb', 'test-offline-pwa.js'],
   ['Aktualisierung',  'test-aktualisierung.js'],

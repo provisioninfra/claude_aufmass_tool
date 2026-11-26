@@ -26,7 +26,7 @@ const NAMEN = ['Frau Dr. Schäfer', 'Herr Özdemir', 'Müller & Söhne', "O'Brie
   'Zoë Łukasz', 'Иван Петров', '山田 太郎', 'Herr <b>Fett</b>', 'Anna;Berta,Clara', '  mit Rand  ',
   'Name\twith\ttab', 'x'.repeat(130), 'Emoji 🙂 Name', 'Reinigung GmbH & Co. KG', 'a'];
 const MEDIEN = ['', 'Transponder', 'Karte', 'Schlüssel', 'Smartphone (App)', 'y'.repeat(70)];
-const WERTE = ['nein', 'nein', 'nein', 'nein', 'ja', 'ja', 'zeit', 'temp', 'sperr'];
+const WERTE = ['nein', 'nein', 'nein', 'nein', 'ja', 'ja', 'zeit', 'temp', 'sperr', 'plan'];
 const HEIKEL = /[\t ]|x{130}|🙂|y{70}/;
 
 function zufallsProjekt() {

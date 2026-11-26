@@ -2,8 +2,40 @@
 
 Diese Anleitung gilt, wenn das Werkzeug **schon läuft**: Plugin
 „Aufmaß-Abgleich“ in WordPress, Ordner `aufmasstool` auf dem Webspace,
-Geräte angemeldet. Sie bringt beides auf den Stand **1.4.0** – Plugin
+Geräte angemeldet. Sie bringt beides auf den Stand **1.5.0** – Plugin
 und Werkzeug tragen dieselbe Fassungsnummer.
+
+**Was 1.5.0 bringt** (gegenüber 1.4.0) – Europlan und EVVA-Bestellformular
+
+- **Zweite Ansicht unter Schließplan:** Ein Umschalter wechselt zwischen
+  *Kreuzschließplan* und *Europlan*, der Schreibweise der Hersteller.
+  Zeilen sind die Zylinder mit Zyl.Nr., Stk., ESL (Stückzahl der
+  Eigenschlüssel) und Type (Produktcode), Spalten die übergeordneten
+  Schlüssel (X) und die Gruppen der Eigenschlüssel (I = gehört zur Gruppe,
+  Z = Zentralzylinder, M = Mitschließung, O = vorgeplant). Beide Ansichten
+  zeigen denselben Plan: Was in der einen gesetzt wird, steht sofort in
+  der anderen. Die gewählte Ansicht bleibt je Gerät gemerkt.
+- **Bearbeiten im Europlan:** Zellen antippen (X/O in Schlüsselspalten,
+  I/Z/M/O in Gruppenspalten), ein I an einer Tür ohne Inhaber legt den
+  Inhaber mit Stückzahl an, ESL und Stk. antippen, Type überschreiben,
+  neue Türen und Spalten direkt aus dem Plan.
+- **Gleichschließung:** Die Zyl.Nr. ist die Türnummer. Türen mit gleicher
+  Schließung hängen an ihrer Haupttür (Zyl.Nr. antippen) und bekommen .1,
+  .2 …; ihre Berechtigungen hält das Werkzeug in beiden Ansichten
+  automatisch gleich.
+- **EVVA-Bestellformular als Excel:** Unter *Export* und im Schließplan
+  gibt es den Plan als .xlsx genau im Layout des EVVA-Formulars, wahlweise
+  als Europlan oder als Kreuzschließplan (jeder Schlüssel eine Spalte).
+  Ohne Fremdbibliothek, auch ohne Netz. Dazu der **Europlan als PDF**.
+- **Neuer Wert „vorgeplant“ (O):** Eine Berechtigung lässt sich als
+  Reserve vormerken; sie zählt nirgends als Sperrberechtigung. Die
+  Kundenseite zeigt den Wert, vergeben kann der Kunde ihn nicht.
+- **Stammdaten:** neues Feld *Oberfläche der Zylinder* (NI, MS …) für den
+  Formularkopf.
+- Wer schon 1.4.0 einsetzt: Plugin ersetzen (die Kundenfreigabe kennt den
+  Wert „vorgeplant“) und Ordner `aufmasstool` tauschen (Schritt 3), Cache
+  leeren. Claude Code: Paket neu laden, es bringt `schliessplan_lesen`
+  mit Europlan-Darstellung.
 
 **Was 1.4.0 bringt** (gegenüber 1.3.2) – Schnittstelle für Programme und
 Claude Code
@@ -177,7 +209,7 @@ Vorlage, Freigabe) – das erledigt WordPress beim ersten Aufruf von selbst
 4. Das Plugin bleibt dabei aktiv. Beim ersten Aufruf danach ergänzt es die
    Tabelle und übernimmt die Umschreibregel für den Kurzlink.
 
-**Prüfen:** *Plugins* öffnen – bei „Aufmaß-Abgleich“ muss **1.4.0**
+**Prüfen:** *Plugins* öffnen – bei „Aufmaß-Abgleich“ muss **1.5.0**
 stehen. In der Zugangsliste gibt es jetzt die Spalte **„Schlüssel“**. Unter *Einstellungen → Aufmaß-Abgleich* muss neben der
 Organisationsdomäne die neuen Zeilen **„Neue Zugänge“** und **„Herkunft
 der Aufrufe“** erscheinen, weiter unten der Abschnitt **„Tür einsprechen
@@ -248,7 +280,7 @@ vorbei – und meldet sich dann:
   starten**. Der speichert und schließt zuerst; es geht nichts verloren.
 
 Unter *Einstellungen → Über dieses Werkzeug* steht, welche Fassung auf
-dem Gerät läuft (jetzt **1.4.0**), und ein Knopf **Auf neue Fassung
+dem Gerät läuft (jetzt **1.5.0**), und ein Knopf **Auf neue Fassung
 prüfen** stößt die Prüfung sofort an. Ein Gerät, das gerade ohne Netz
 ist, arbeitet mit der alten Fassung weiter, bis es wieder online war –
 auch das ist in Ordnung, die Aufmaße gleichen sich wie gewohnt ab.
@@ -311,10 +343,11 @@ zu ändern: Das übernimmt die Umschreibregel des Plugins auf jeden Fall.
 
 1. `https://www.provision-infra.de/aufmasstool/` öffnen. Die Anmeldeseite
    mit dem Google-Knopf muss erscheinen; ganz unten steht die
-   Werkzeug-Fassung 1.4.0. Anmelden. Oben rechts steht danach
+   Werkzeug-Fassung 1.5.0. Anmelden. Oben rechts steht danach
    **„Abgeglichen“**, und unter *Einstellungen → Über dieses Werkzeug*
    stehen die Fassung des Werkzeugs und die des Server-Plugins (beide
-   1.4.0). Darüber steht die neue Karte **„Zugang für Programme und
+   1.5.0). Unter *Schließplan* steht oben rechts der Umschalter
+   **Kreuzschließplan | Europlan**. Darüber steht die neue Karte **„Zugang für Programme und
    Claude Code“**; ein Probeschlüssel lässt sich dort erzeugen und gleich
    wieder widerrufen.
 2. Ein bestehendes Aufmaß öffnen → **Schließplan**. Unter der Matrix

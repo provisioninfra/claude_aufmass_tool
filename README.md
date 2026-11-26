@@ -33,8 +33,14 @@ Es gibt es in zwei Fassungen:
   berechtigt), ein einzelner Mitarbeiter oder eine Schließung mit Rang im
   Plan; die Mitarbeiter- und Gruppenlisten stehen unter der Matrix. Spalten
   lassen sich mit einem langen Druck auf den Kopf greifen und verschieben
+* **Europlan** – derselbe Plan in der Schreibweise der Hersteller, per
+  Umschalter neben dem Kreuzschließplan: Zylinder mit Zyl.Nr., Stk., ESL
+  und Type, Schlüssel als Spalten mit X, I, Z, M und O. Beide Ansichten
+  sind bearbeitbar und immer synchron; gleichschließende Türen tragen die
+  Nummer ihrer Haupttür mit .1, .2. Dazu das **EVVA-Bestellformular als
+  Excel**, wahlweise als Europlan oder als Kreuzschließplan
 * **PDF-Ausgaben** auf Knopfdruck: Türliste (kompakt und ausführlich),
-  Kreuzschließplan, Materialliste, Prüfprotokoll
+  Kreuzschließplan, Europlan, Materialliste, Prüfprotokoll
 * **Projektdatei** zum Austausch zwischen iPad und Büro-Rechner
 * **Gemeinsame Ablage** (nur in der Fassung für den eigenen Webserver) –
   alle Aufmaße auf allen Geräten, Zuständigkeiten je Aufmaß, Zusammenführen
@@ -684,6 +690,8 @@ src/
   css/app.css             Gestaltung (Touch-tauglich, heller und dunkler Modus)
   js/catalog.js           Fachlicher Stammdaten-Katalog (Systeme, Zylinder, …)
   js/model.js             Datenmodell, Migration, Plausibilitätsprüfung
+  js/europlan.js          Europlan: Faltung des Kreuzplans (X/I/Z/M/O), Bearbeitung, EVVA-Formular
+  js/xlsx.js              Eigener Schreiber für Excel-Arbeitsmappen (.xlsx, ohne Fremdbibliothek)
   js/pdf.js               Eigener PDF-Writer (ohne Fremdbibliothek)
   js/reports.js           Die vier PDF-Ausgaben
   js/store.js             Speicherung (IndexedDB), Export/Import, Fotos
@@ -693,7 +701,7 @@ src/
   freigabe.html           Seite, die der Kunde über den Link öffnet
                           (Kurzlink über den Server oder Daten im Anker)
   js/app.js               Grundgerüst der Oberfläche, Autospeicherung
-  js/views-*.js           Die einzelnen Ansichten
+  js/views-*.js           Die einzelnen Ansichten (views-europlan.js: die Europlan-Ansicht)
   js/main.js              Navigation und Start
   sw.js                   Offline-Bereitstellung
 tools/build.js            Erzeugt die eigenständige Einzeldatei
@@ -767,6 +775,8 @@ Die Testreihen prüfen:
 | `test-diktat.js` | Tür einsprechen gegen einen echten PHP-Server mit OpenAI-Attrappe: Vorschlag, Berichtigung, Übernahme, Serie mit „neue Tür“, Fehlerpfade |
 | `test-abgleich.js` / `test-abgleich-offen.js` | zwei Geräte, ein Aufmaß, echter Serverteil: Zusammenführen, Konflikte, ohne Netz, Fotos - und der Fall, dass eine fremde Änderung eintrifft, während hier getippt wird |
 | `test-angriffe.js` | Angriffsproben gegen die Schnittstelle: gefälschte Ausweise, Cookies, Kurzlink-Raten, Drosseln, Fotos mit falschem Inhalt, fehlendes Kopffeld, Riesen- und Tief-JSON, Bauplan-Schlüssel, gleichzeitiges Speichern |
+| `test-europlan-modell.js` | Europlan im Modell gegen die vier EVVA-Trainingspläne (HS- und Z-Anlage, je Euro- und Kreuzplan): Faltung in beide Richtungen zellgenau, Bearbeitungsschritte, Gleichschließung, ESL, Produktcode, Arbeitsmappe |
+| `test-europlan.js` | Europlan im Browser: Umschalten, Bearbeiten mit Wirkung im Kreuzplan und zurück, Inhaber anlegen, Gleichschließung, EVVA-Excel entpackt und zellgenau geprüft, Europlan-PDF |
 | `test-api.js` | Schnittstelle für Programme gegen den echten PHP-Code: Zugangsschlüssel erzeugen, Rechte lesen/schreiben, Widerrufen, Bibliothek mit Zusammenführung bei 409, MCP-Server als Kindprozess (alle Werkzeuge, Fehlerpfade, Leseschlüssel), Kommandozeile, Drossel |
 | `test-haertung.js` | fremde Daten im Werkzeug: Import mit Skript-Namen, Kreisen in der Gliederung, falschen Bilddaten und Bauplan-Schlüsseln; PDF mit bösen Texten; Kundenseite; Riesendatei; Meldungen über Dialogen; Schutzdatei des Ordners |
 

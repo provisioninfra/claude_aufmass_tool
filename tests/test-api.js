@@ -273,6 +273,11 @@ const werte = l => (l || []).map(x => (x && typeof x === 'object') ? (x.id !== u
     }
     const bz = await mcp.werkzeug('bericht_erzeugen', { projektId: pid, art: 'tuerliste', modus: 'detail', pfad: path.join(ARBEIT, 'eigen', 'liste.pdf') });
     p(!bz.fehler && fs.existsSync(path.join(ARBEIT, 'eigen', 'liste.pdf')), 'bericht_erzeugen mit Zieldatei (Ordner wird angelegt)', bz.text);
+    const euro = await mcp.werkzeug('schliessplan_lesen', { projektId: pid, darstellung: 'euro' });
+    p(!euro.fehler && /Zyl\.Nr/.test(euro.text) && /Eigenschlüssel gehört zur Gruppe/.test(euro.text), 'schliessplan_lesen darstellung euro liefert den Europlan', euro.text.slice(0, 160));
+    const planGesetzt = await mcp.werkzeug('berechtigung_setzen', { projektId: pid, nummer: nr1, spalte: 'HS', wert: 'plan' });
+    plan = (await mcp.werkzeug('schliessplan_lesen', { projektId: pid })).text;
+    p(!planGesetzt.fehler && /O/.test(zeile(nr1)), 'berechtigung_setzen plan zeigt O im Kreuzplan', zeile(nr1));
     const kl = (await mcp.werkzeug('katalog_lesen')).text;
     p(/zylinderBauform: Zylinder-Bauform \[/.test(kl) && /## Berechtigungen/.test(kl) && /## Stammdaten/.test(kl), 'katalog_lesen: Felder mit Werten, Stammdaten, Berechtigungen', kl.slice(0, 200));
     p(/## Schließsysteme/.test((await mcp.werkzeug('katalog_lesen', { bereich: 'systeme' })).text), 'katalog_lesen systeme');

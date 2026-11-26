@@ -48,6 +48,7 @@
       systemMechanik: '',         // bei 'mechanik' und 'hybrid'
       systemElektronik: '',       // bei 'elektronik' und 'hybrid'
       systemDetail: '',           // Freitext zur Anlage
+      oberflaeche: '',            // Oberfläche der Zylinder (z. B. NI, MS) - Kopf des Europlans
 
       aufmassDatum: heute(),
       bemerkung: '',
@@ -170,6 +171,9 @@
       zylinderAusfuehrung: [],    // Zusatzfunktionen, mehrere möglich
       zylinderKnaufseite: '',     // nur bei Knaufzylinder
       zylinderSkgStufe: '',       // nur, wenn die Ausführung „SKG“ gewählt ist
+      gleichschliessendMit: '',   // Kennung der Tür, mit der diese Tür gleichschließend ist ('' = eigene Schließung)
+      produktcode: '',            // Type / Produktcode für den Europlan; leer = aus den Zylinderangaben gebildet
+      eigenschluesselVorgeplant: false, // Eigenschlüssel vorgeplant, aber keine Schlüssel bestellt (ESL 0)
 
       beschlagBauform: '',
       beschlagBestueckung: '',
@@ -583,6 +587,130 @@
     if (!wert || wert === 'nein') { delete projekt.matrix[key]; }
     else { projekt.matrix[key] = wert; }
     return projekt;
+  }
+
+  /* --- Gleichschließung ---------------------------------------------------
+   * Türen mit gleicher Schließung hängen an einer Haupttür: Die Zylindernummer
+   * ist die Türnummer der Haupttür, die Mitläufer bekommen .1, .2 und so weiter.
+   * Ihre Berechtigungen sind immer identisch - das Werkzeug hält sie gleich. */
+  function basisTuer(projekt, tuer) {
+    var t = typeof tuer === 'string' ? tuerVon(projekt, tuer) : tuer;
+    var gesehen = {};
+    while (t && t.gleichschliessendMit) {
+      if (gesehen[t.id]) break;        /* Kreis: hier abbrechen */
+      gesehen[t.id] = true;
+      var weiter = tuerVon(projekt, t.gleichschliessendMit);
+      if (!weiter) break;
+      t = weiter;
+    }
+    return t || null;
+  }
+  function tuerVon(projekt, id) {
+    if (!projekt || !id) return null;
+    var liste = projekt.tueren || [];
+    for (var i = 0; i < liste.length; i++) { if (liste[i] && liste[i].id === id) return liste[i]; }
+    return null;
+  }
+  /* Alle Türen einer Schließung, die Haupttür zuerst, die Mitläufer in Türreihenfolge. */
+  function schliessungsTueren(projekt, tuer) {
+    var basis = basisTuer(projekt, tuer);
+    if (!basis) return [];
+    var aus = [basis];
+    (projekt.tueren || []).forEach(function (t) {
+      if (t && t.id !== basis.id && basisTuer(projekt, t) === basis) aus.push(t);
+    });
+    return aus;
+  }
+  function istMitlaeufer(projekt, tuer) {
+    var basis = basisTuer(projekt, tuer);
+    return !!(basis && tuer && basis.id !== tuer.id);
+  }
+  function zylinderNummer(projekt, tuer) {
+    var basis = basisTuer(projekt, tuer);
+    if (!basis) return '';
+    var nummer = String(basis.nummer || '').trim() || '?';
+    if (basis.id === tuer.id) return nummer;
+    var mitlaeufer = schliessungsTueren(projekt, basis).slice(1);
+    var index = 0;
+    for (var i = 0; i < mitlaeufer.length; i++) { if (mitlaeufer[i].id === tuer.id) { index = i + 1; break; } }
+    return nummer + '.' + (index || mitlaeufer.length + 1);
+  }
+  /* Tür an eine Schließung hängen (basisId) oder lösen (''). Mitläufer der
+   * Tür wandern mit. Kreise sind ausgeschlossen: Die Basis darf nicht zur
+   * eigenen Schließung gehören. Die Kreuze der Haupttür werden übernommen. */
+  function gleichschliessendSetzen(projekt, tuerId, basisId) {
+    var t = tuerVon(projekt, tuerId);
+    if (!t) return false;
+    if (!basisId) { t.gleichschliessendMit = ''; return true; }
+    var basis = basisTuer(projekt, basisId);
+    if (!basis || basis.id === t.id) return false;
+    /* Gehört die Basis zur Schließung dieser Tür, entstünde ein Kreis */
+    var eigene = schliessungsTueren(projekt, t);
+    for (var i = 0; i < eigene.length; i++) { if (eigene[i].id === basis.id) return false; }
+    t.gleichschliessendMit = basis.id;
+    gleichschliessungAngleichen(projekt);
+    return true;
+  }
+  /* Verweise prüfen, Kreise lösen und die Kreuze jeder Schließung von der
+   * Haupttür auf alle Mitläufer übertragen. */
+  function gleichschliessungAngleichen(projekt) {
+    var tueren = projekt.tueren || [];
+    tueren.forEach(function (t) {
+      if (!t) return;
+      if (t.gleichschliessendMit && (t.gleichschliessendMit === t.id || !tuerVon(projekt, t.gleichschliessendMit))) t.gleichschliessendMit = '';
+    });
+    /* Kreise: Wer über seine Kette nicht bei einer Tür ohne Verweis landet, wird gelöst */
+    tueren.forEach(function (t) {
+      if (!t || !t.gleichschliessendMit) return;
+      var gesehen = {}, x = t;
+      while (x && x.gleichschliessendMit) {
+        if (gesehen[x.id]) { t.gleichschliessendMit = ''; return; }
+        gesehen[x.id] = true;
+        x = tuerVon(projekt, x.gleichschliessendMit);
+      }
+    });
+    (projekt.schliessungen || []).forEach(function (s) {
+      tueren.forEach(function (t) {
+        if (!t || !t.gleichschliessendMit) return;
+        var basis = basisTuer(projekt, t);
+        if (!basis || basis.id === t.id) return;
+        setBerechtigung(projekt, t.id, s.id, getBerechtigung(projekt, basis.id, s.id));
+      });
+    });
+    return projekt;
+  }
+  /* Berechtigung für eine ganze Schließung setzen - Haupttür und Mitläufer. */
+  function berechtigungSetzenVerbund(projekt, tuerId, schliessungId, wert) {
+    schliessungsTueren(projekt, tuerId).forEach(function (t) { setBerechtigung(projekt, t.id, schliessungId, wert); });
+    return projekt;
+  }
+  /* Zählt ein Wert als Sperrberechtigung? (zeit/temp ja; sperr und plan nein) */
+  function istBerechtigt(wert) { return wert === 'ja' || wert === 'zeit' || wert === 'temp'; }
+
+  /* Type / Produktcode einer Tür für den Europlan: von Hand eingetragen oder
+   * aus Bauform, Längen und Ausführungen gebildet (z. B. „DZ 31/36 BSZ“). */
+  var BAUFORM_KURZ = {
+    'Doppelzylinder': 'DZ', 'Halbzylinder': 'HZ', 'Knaufzylinder': 'KZ', 'Doppelknaufzylinder': 'DKZ',
+    'Hebelzylinder': 'HEB', 'Möbelzylinder': 'MZ', 'Vorhangschloss / Bügelschloss': 'VHS',
+    'Briefkastenzylinder': 'BKZ', 'Schaltzylinder': 'SZ', 'Rundzylinder': 'RZ', 'Blindzylinder': 'BLZ',
+    'Motorzylinder EVVA EMZY': 'EMZY'
+  };
+  function produktcode(projekt, tuer) {
+    if (!tuer) return '';
+    if (tuer.produktcode) return String(tuer.produktcode);
+    if (tuer.brauchtZylinder === false) return '';
+    var teile = [];
+    var bauform = String(tuer.zylinderBauform || '');
+    if (bauform) teile.push(BAUFORM_KURZ[bauform] || bauform.replace(/\s*\(.*\)\s*/, '').slice(0, 4).toUpperCase());
+    var a = String(tuer.masseAussen || '').trim(), i2 = String(tuer.masseInnen || '').trim();
+    if (a || i2) teile.push((a || '?') + '/' + (i2 || '?'));
+    (tuer.zylinderAusfuehrung || []).forEach(function (x) {
+      var kurz = String(x || '').replace(/\s*\(.*\)\s*/, '').trim();
+      if (kurz === 'gleichschließend') return;
+      if (kurz) teile.push(kurz.length > 12 ? kurz.slice(0, 12) : kurz);
+    });
+    if (tuer.zylinderKnaufseite) teile.push(String(tuer.zylinderKnaufseite).replace('Knauf ', 'Kn. '));
+    return teile.join(' ');
   }
 
   /* Entfernt Matrixeinträge, deren Tür oder Schließung gelöscht wurde. */
@@ -2057,6 +2185,7 @@
     gliederungEntwirren(out);
 
     matrixAufraeumen(out);
+    gleichschliessungAngleichen(out);
     return out;
   }
 
@@ -2107,6 +2236,16 @@
     getBerechtigung: getBerechtigung,
     setBerechtigung: setBerechtigung,
     matrixAufraeumen: matrixAufraeumen,
+    tuerVon: tuerVon,
+    basisTuer: basisTuer,
+    schliessungsTueren: schliessungsTueren,
+    istMitlaeufer: istMitlaeufer,
+    zylinderNummer: zylinderNummer,
+    gleichschliessendSetzen: gleichschliessendSetzen,
+    gleichschliessungAngleichen: gleichschliessungAngleichen,
+    berechtigungSetzenVerbund: berechtigungSetzenVerbund,
+    istBerechtigt: istBerechtigt,
+    produktcode: produktcode,
     strukturPfad: strukturPfad,
     knotenMitUnter: knotenMitUnter,
     tuerenUnter: tuerenUnter,
