@@ -285,14 +285,15 @@
     var texte = {
       '': z.mitlaeufer ? 'keine Berechtigung der Gruppe' : (zeichen === 'I' ? 'Eigenschlüssel aus der Gruppe nehmen' : 'keine Berechtigung der Gruppe'),
       I: 'Eigenschlüssel dieser Tür gehört zur Gruppe' + (z.inhaber.length ? ' (' + z.inhaber.map(function (i) { return i.m.name; }).join(', ') + ')' : ' – Inhaber wird angelegt'),
-      Z: 'Zentralzylinder: alle Schlüssel der Gruppe sperren',
-      M: 'Mitschließung: die Gruppe sperrt diesen Zylinder zusätzlich mit',
+      Z: 'Zentralzylinder: alle Schlüssel der Gruppe sperren' + (z.inhaber.some(function (i) { return i.gruppen.some(function (gg) { return gg.id === sp.id; }); }) ? ' - der Inhaber (' + z.inhaber.map(function (i) { return i.m.name; }).join(', ') + ') bekommt eine eigene Spalte' : ''),
+      M: 'Mitschließung: die Gruppe sperrt diesen Zylinder mit eigenem Schlüssel zusätzlich mit',
       O: 'vorgeplant (Reserve): vorbereitet, sperrt noch nicht'
     };
     wahlDialog((t.nummer || '') + ' ' + (t.bezeichnung || '') + ' × ' + (sp.funktion || sp.schlNr), z.mitlaeufer ? 'Gleichschließend mit ' + (z.basis.nummer || '') + ': Der Eigenschlüssel wird dort geführt.' : null,
       moeglich.map(function (m) { return { wert: m, zeichen: m, text: texte[m] || '', aktiv: m === zeichen }; }),
       function (wahl) {
         var e = aendern('Europlan: ' + (t.nummer || t.bezeichnung) + ' / ' + (sp.schlNr || sp.funktion), function () { return E().zelleSetzen(p, t.id, sp.id, wahl); });
+        if (e && e.ok && e.hinweis) A.toast(e.hinweis, 'ok');
         if (e && e.braucht === 'inhaber') {
           inhaberDialog(p, t, function (angaben) {
             aendern('Eigenschlüssel ' + (t.nummer || t.bezeichnung), function () { return E().zelleSetzen(p, t.id, sp.id, 'I', { inhaber: angaben }); });

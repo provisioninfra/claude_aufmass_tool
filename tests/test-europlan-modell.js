@@ -177,7 +177,7 @@ console.log('\n== Bearbeiten im Europlan: ein Plan entsteht von Hand ==');
   p(pr.tueren.length === 4 && typeof w1.status === 'string' && M.pflichtfelder(pr, w1).length > 0, 'vier Türen angelegt, mit offenen Pflichtangaben');
   const g = M.neueGruppe({ name: 'Mieter' }); pr.gruppen.push(g); const gs = M.spalteFuer(pr, 'gruppe', g.id); gs.kuerzel = 'Z';
   const hs = M.neueSchliessung({ kuerzel: 'HS', bezeichnung: 'Hauptschlüssel', typ: 'hs', medien: [{ typ: 'Schlüssel', anzahl: 2 }] }); pr.schliessungen.push(hs);
-  p(E.moeglicheZeichen(pr, w1.id, hs.id).join('') === 'XO' && E.moeglicheZeichen(pr, w1.id, gs.id).join('') === 'IZMO', 'mögliche Zeichen: X/O in Schlüsselspalten, I/Z/M/O in Gruppenspalten');
+  p(E.moeglicheZeichen(pr, w1.id, hs.id).join('') === 'XO' && E.moeglicheZeichen(pr, w1.id, gs.id).join('') === 'IZO', 'mögliche Zeichen: X/O in Schlüsselspalten, I/Z/O in Gruppenspalten (M nur, wo die Tür einen fremden Eigenschlüssel hat)');
   pr.tueren.forEach(t => E.zelleSetzen(pr, t.id, hs.id, 'X'));
   const braucht = E.zelleSetzen(pr, w1.id, gs.id, 'I');
   p(braucht.ok === false && braucht.braucht === 'inhaber', 'I an einer Tür ohne Inhaber verlangt einen Inhaber');
@@ -216,6 +216,87 @@ console.log('\n== Bearbeiten im Europlan: ein Plan entsteht von Hand ==');
   const geloest = M.migriere(kreis);
   p(!geloest.tueren.some(t => M.basisTuer(geloest, t) === null) && M.zylinderNummer(geloest, geloest.tueren[1]).indexOf('.') === -1 || true, 'ein Kreis in der Gleichschließung wird aufgelöst');
   p(M.produktcode(pr, M.neueTuer({ zylinderBauform: 'Halbzylinder', masseAussen: '10', masseInnen: '31' })) === 'HZ 10/31' && M.produktcode(pr, M.neueTuer({ produktcode: '27/36 BSZ' })) === '27/36 BSZ', 'Produktcode aus Bauform und Längen, Überschreibung gewinnt');
+}
+
+console.log('\n== Kreuze im Kreuzschließplan kommen vollständig im Europlan an ==');
+{
+  function bau() {
+    const pr = M.neuesProjekt('Kopplung');
+    const g = M.neueGruppe({ name: 'Mieter' }); pr.gruppen.push(g);
+    const gs = M.spalteFuer(pr, 'gruppe', g.id); gs.kuerzel = 'Z';
+    const hs = M.neueSchliessung({ kuerzel: 'HS', bezeichnung: 'Hauptschlüssel', typ: 'hs', medien: [{ typ: 'Schlüssel', anzahl: 3 }] }); pr.schliessungen.push(hs);
+    const tueren = {};
+    ['Haustür', 'Wohnung 1', 'Wohnung 2', 'Wohnung 3', 'Waschküche', 'Keller 1'].forEach((n, i) => { const tt = M.neueTuer({ nummer: String(i + 1), bezeichnung: n }); pr.tueren.push(tt); tueren[n] = tt; });
+    const mieter = {};
+    [1, 2, 3].forEach(i => {
+      const m = M.neuerMitarbeiter({ name: 'Mieter ' + i, gruppen: [g.id], medien: [{ typ: 'Schlüssel', anzahl: 3 }] }); pr.mitarbeiter.push(m);
+      const s = M.spalteFuer(pr, 'mitarbeiter', m.id);
+      M.berechtigungSetzenVerbund(pr, tueren['Wohnung ' + i].id, s.id, 'ja');
+      mieter[i] = { m, s };
+    });
+    pr.tueren.forEach(tt => M.berechtigungSetzenVerbund(pr, tt.id, hs.id, 'ja'));
+    M.berechtigungSetzenVerbund(pr, tueren['Haustür'].id, gs.id, 'ja');
+    M.gleichschliessendSetzen(pr, tueren['Keller 1'].id, tueren['Wohnung 1'].id);
+    return { pr, g, gs, hs, tueren, mieter };
+  }
+  const zeileVon = (e, bez) => e.zeilen.filter(x => x.tuer.bezeichnung === bez)[0];
+  const spalteVon = (e, schlNr) => e.spalten.filter(s => s.schlNr === schlNr)[0];
+
+  /* A: Ausgangslage */
+  const A = bau(); let e = E.europlan(A.pr);
+  p(e.spalten.map(s => s.schlNr).join(',') === 'HS,Z' && zeileVon(e, 'Haustür').zellen[A.gs.id] === 'Z' && [1, 2, 3].every(i => zeileVon(e, 'Wohnung ' + i).zellen[A.gs.id] === 'I' && zeileVon(e, 'Wohnung ' + i).esl === 3)
+    && zeileVon(e, 'Keller 1').zylNr === '2.1' && zeileVon(e, 'Keller 1').zellen[A.gs.id] === '' && zeileVon(e, 'Keller 1').esl === null,
+    'Ausgangslage: HS und Z, I mit ESL 3 an den Wohnungen, Keller als 2.1 ohne I', e.spalten.map(s => s.schlNr).join(','));
+
+  /* B: Gruppenkreuz an einer Tür ohne Eigenschlüssel -> Z */
+  const B = bau(); M.berechtigungSetzenVerbund(B.pr, B.tueren['Waschküche'].id, B.gs.id, 'ja'); e = E.europlan(B.pr);
+  p(zeileVon(e, 'Waschküche').zellen[B.gs.id] === 'Z' && e.spalten.length === 2, 'Gruppenkreuz an der Waschküche: Z, keine neue Spalte');
+
+  /* C: Gruppenkreuz an einer Wohnung mit Inhaber -> der Inhaber wird eigene Spalte, mit Haustür */
+  const C = bau(); M.berechtigungSetzenVerbund(C.pr, C.tueren['Wohnung 3'].id, C.gs.id, 'ja'); e = E.europlan(C.pr);
+  const sp4 = spalteVon(e, '4');
+  p(!!sp4 && sp4.spalte.art === 'mitarbeiter' && sp4.menge === 3, 'Gruppenkreuz an Wohnung 3: Mieter 3 steht als eigene Spalte „4“ mit 3 Schlüsseln', e.spalten.map(s => s.schlNr).join(','));
+  p(sp4 && zeileVon(e, 'Haustür').zellen[sp4.id] === 'X' && zeileVon(e, 'Wohnung 3').zellen[sp4.id] === 'X' && zeileVon(e, 'Wohnung 1').zellen[sp4.id] === '',
+    'seine Spalte zeigt die Haustür (über die Gruppe) und Wohnung 3 - vorher fehlte die Haustür', sp4 && e.zeilen.map(z => z.zellen[sp4.id] || '·').join(''));
+  p(zeileVon(e, 'Wohnung 3').zellen[C.gs.id] === 'Z' && zeileVon(e, 'Wohnung 3').esl === null, 'die Gruppe sperrt Wohnung 3 als Z (der Eigenschlüssel steht in seiner Spalte)');
+  p(e.hinweise.some(h => /Mieter 3/.test(h) && /mit allem, was seine Gruppe sperrt/.test(h)), 'der Hinweis erklärt es', e.hinweise.join(' | '));
+  const kC = E.kreuzplan(C.pr); const k4 = kC.spalten.filter(s => s.mitarbeiter && s.mitarbeiter.name === 'Mieter 3')[0];
+  p(k4 && kC.zeilen.map(z => z.zellen[k4.id] || '·').join('') === e.zeilen.map(z => z.zellen[sp4.id] || '·').join(''), 'Schlüsselliste und Europlan nennen für Mieter 3 dieselben Zylinder');
+
+  /* D: Mitarbeiter mit zwei Türen -> eigene Spalte samt Haustür */
+  const D = bau(); M.berechtigungSetzenVerbund(D.pr, D.tueren['Waschküche'].id, D.mieter[2].s.id, 'ja'); e = E.europlan(D.pr);
+  const spM2 = e.spalten.filter(s => s.spalte.art === 'mitarbeiter')[0];
+  p(spM2 && zeileVon(e, 'Haustür').zellen[spM2.id] === 'X' && zeileVon(e, 'Wohnung 2').zellen[spM2.id] === 'X' && zeileVon(e, 'Waschküche').zellen[spM2.id] === 'X' && zeileVon(e, 'Wohnung 3').zellen[spM2.id] === '',
+    'Mieter 2 mit zwei Türen: seine Spalte zeigt Haustür, Wohnung 2 und Waschküche', spM2 && e.zeilen.map(z => z.zellen[spM2.id] || '·').join(''));
+  p(spalteVon(e, 'Z').menge === 0 && spM2.menge === 3, 'seine Schlüssel zählen in seiner Spalte, nicht bei der Gruppe');
+  /* vorgeplant über die Gruppe erscheint in seiner Spalte als O */
+  M.berechtigungSetzenVerbund(D.pr, D.tueren['Keller 1'].id, D.gs.id, 'plan'); e = E.europlan(D.pr);
+  p(zeileVon(e, 'Keller 1').zellen[spM2.id] === 'O' && zeileVon(e, 'Wohnung 1').zellen[spM2.id] === 'O', 'eine Vorplanung der Gruppe steht in seiner Spalte als O (an Wohnung 1 und ihrem Keller)');
+
+  /* E: Z oder M im Europlan an einer Tür mit Inhaber nimmt ihm nicht die Gruppe */
+  const E1 = bau();
+  const r = E.zelleSetzen(E1.pr, E1.tueren['Wohnung 3'].id, E1.gs.id, 'M');
+  p(r.ok && /Mieter 3/.test(r.hinweis || '') && E1.mieter[3].m.gruppen.indexOf(E1.g.id) !== -1, 'M an Wohnung 3: Mieter 3 bleibt in der Gruppe, der Hinweis sagt, dass er eine eigene Spalte bekommt', JSON.stringify(r));
+  e = E.europlan(E1.pr); const sp4b = spalteVon(e, '4');
+  p(sp4b && zeileVon(e, 'Haustür').zellen[sp4b.id] === 'X' && zeileVon(e, 'Wohnung 3').zellen[E1.gs.id] === 'Z', 'danach: eigene Spalte mit Haustür, die Gruppe sperrt Wohnung 3');
+  const kE = E.kreuzplan(E1.pr); const kE4 = kE.spalten.filter(s => s.mitarbeiter && s.mitarbeiter.name === 'Mieter 3')[0];
+  p(kE4 && kE.zeilen.filter(z => z.tuer.bezeichnung === 'Haustür')[0].zellen[kE4.id] === 'X', 'sein Schlüssel sperrt die Haustür weiterhin (vorher ging sie still verloren)');
+  /* zurück auf leer: der Inhaber ist wieder gefaltet, I steht da */
+  p(E.zelleSetzen(E1.pr, E1.tueren['Wohnung 3'].id, E1.gs.id, '').ok && E.europlan(E1.pr).spalten.length === 2 && zeileVon(E.europlan(E1.pr), 'Wohnung 3').zellen[E1.gs.id] === 'I', 'leer an Wohnung 3: die Extraspalte verschwindet, I steht wieder da');
+
+  /* F: angebotenes Zeichen = gezeichnetes Zeichen */
+  const F1 = bau();
+  p(E.moeglicheZeichen(F1.pr, F1.tueren['Waschküche'].id, F1.gs.id).join('') === 'IZO', 'ohne Eigenschlüssel wird Z angeboten');
+  p(E.eslSetzen(F1.pr, F1.tueren['Waschküche'].id, 2, { typ: 'Schlüssel' }).ok && E.moeglicheZeichen(F1.pr, F1.tueren['Waschküche'].id, F1.gs.id).join('') === 'IMO', 'mit Einzelschließung (ESL ohne Person) wird M angeboten');
+  M.berechtigungSetzenVerbund(F1.pr, F1.tueren['Waschküche'].id, F1.gs.id, 'ja'); e = E.europlan(F1.pr);
+  p(zeileVon(e, 'Waschküche').zellen[F1.gs.id] === 'M' && zeileVon(e, 'Waschküche').esl === 2, 'und so steht es dann auch da: M mit ESL 2');
+  p(E.moeglicheZeichen(F1.pr, F1.tueren['Keller 1'].id, F1.gs.id).join('') === 'ZO', 'am Mitläufer: kein I, Z (sein Eigenschlüssel gehört zu dieser Gruppe)');
+  /* Eigenschlüssel einer anderen Gruppe an der Tür -> M */
+  const g2 = M.neueGruppe({ name: 'Hausmeister' }); F1.pr.gruppen.push(g2); const g2s = M.spalteFuer(F1.pr, 'gruppe', g2.id);
+  const hm = M.neuerMitarbeiter({ name: 'Herr Hausmeister', gruppen: [g2.id], medien: [{ typ: 'Schlüssel', anzahl: 1 }] }); F1.pr.mitarbeiter.push(hm);
+  M.berechtigungSetzenVerbund(F1.pr, F1.tueren['Wohnung 2'].id, M.spalteFuer(F1.pr, 'mitarbeiter', hm.id).id, 'ja');
+  p(E.moeglicheZeichen(F1.pr, F1.tueren['Wohnung 2'].id, F1.gs.id).join('') === 'IMO', 'ein Eigenschlüssel einer anderen Gruppe an der Tür: M wird angeboten', E.moeglicheZeichen(F1.pr, F1.tueren['Wohnung 2'].id, F1.gs.id).join(''));
+  void g2s;
 }
 
 console.log('\n' + ok + ' ok, ' + fehler + ' Fehler');

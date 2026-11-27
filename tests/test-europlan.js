@@ -125,7 +125,7 @@ function zellen(sheetXml) {
     await (await zelle('Keller 2', 2)).click();
     await page.waitForSelector(DLG + ' .wahl-liste');
     const wahlen = await page.$$eval(DLG + ' .wahl-liste .wahl b', n => n.map(x => x.textContent.trim()));
-    pruefe(wahlen.join('') === '·ZMO', 'am gleichschließenden Keller gibt es kein I: ' + wahlen.join(' '), wahlen.join(''));
+    pruefe(wahlen.join('') === '·ZO', 'am gleichschließenden Keller gibt es kein I, und Z statt M (kein fremder Eigenschlüssel): ' + wahlen.join(' '), wahlen.join(''));
     await page.click(DLG + ' .fuss button:has-text("Abbrechen")');
     /* Z an einer Wohnung setzen: Zentralzylinder, Inhaber verlässt die Gruppe → eigene Spalte */
     await (await zelle('Wohnung 3', 2)).click();
@@ -133,9 +133,11 @@ function zellen(sheetXml) {
     await page.click(DLG + ' .wahl-liste .wahl:has(b:text-is("Z"))');
     await page.waitForTimeout(300);
     const w3 = await zeile('Wohnung 3');
-    pruefe(w3[8] === 'M' || w3[8] === 'Z', 'Wohnung 3 wird von der Gruppe gesperrt: ' + w3[8], w3.join('|'));
+    pruefe(w3[8] === 'Z', 'Wohnung 3 wird von der Gruppe gesperrt: ' + w3[8], w3.join('|'));
     const kopf2 = await page.$$eval('table.matrix.europlan thead tr.schlnr th', n => n.map(x => x.textContent.trim()));
     pruefe(kopf2.length === 10 && kopf2[9] === '4', 'der Mieter von Wohnung 3 steht jetzt als eigene Spalte (Schl.Nr. 4 = seine Zyl.Nr.)', kopf2.join('|'));
+    pruefe((await zeile('Haustür'))[9] === 'X' && w3[9] === 'X', 'seine Spalte zeigt die Haustür (über die Gruppe) und Wohnung 3', (await zeile('Haustür')).join('|'));
+    pruefe((await page.evaluate(() => { const p = window.AppKern.Zustand.projekt; const m = p.mitarbeiter.filter(x => /Whg\. 3/.test(x.name))[0]; return m && m.gruppen.length; })) === 1, 'der Mieter bleibt in seiner Gruppe');
     pruefe(/eigene Spalte/.test(await page.textContent('.seite')), 'mit Hinweis in der Ansicht');
     /* zurück: leer → Gruppe sperrt nicht mehr; dann I → Inhaber wieder in die Gruppe */
     await (await zelle('Wohnung 3', 2)).click(); await page.waitForSelector(DLG + ' .wahl-liste');
@@ -204,6 +206,32 @@ function zellen(sheetXml) {
     await page.click('.plan-schalter button[data-darstellung="euro"]');
     await page.waitForSelector('table.matrix.europlan');
     pruefe((await zeile('Keller 15'))[7] === 'X' && (await zeile('Wohnung 15'))[7] === 'X', 'und im Europlan steht das X an beiden');
+
+    console.log('\n== Ein Gruppenkreuz im Kreuzschließplan kommt vollständig im Europlan an ==');
+    await page.click('.plan-schalter button[data-darstellung="kreuz"]');
+    await page.waitForSelector('table.matrix:not(.europlan)');
+    const koepfe2 = await page.$$eval('table.matrix th.spaltenkopf .dreh', n => n.map(x => x.textContent.trim()));
+    const iZ = koepfe2.findIndex(k => /Mieter/.test(k) && !/Whg/.test(k));
+    pruefe(iZ >= 0, 'die Gruppenspalte „Mieter“ steht im Kreuzplan', koepfe2.join('|'));
+    /* Die Gruppe darf jetzt auch Wohnung 2 sperren - deren Mieter hat einen Eigenschlüssel */
+    await (await page.$$('table.matrix tbody tr:has(td.tuername:has-text("Wohnung 2")) td.zelle'))[iZ].click();
+    await page.waitForTimeout(200);
+    pruefe((await kreuzZeile('Wohnung 2'))[iZ] === 'X', 'das Kreuz steht im Kreuzplan');
+    await page.click('.plan-schalter button[data-darstellung="euro"]');
+    await page.waitForSelector('table.matrix.europlan');
+    const w2e = await zeile('Wohnung 2');
+    const kopf3 = await page.$$eval('table.matrix.europlan thead tr.schlnr th', n => n.map(x => x.textContent.trim()));
+    const iNeu = kopf3.indexOf(w2e[1]);
+    pruefe(w2e[8] === 'Z', 'im Europlan sperrt die Gruppe Wohnung 2 (Z)', w2e.join('|'));
+    pruefe(iNeu > 8, 'der Mieter von Wohnung 2 steht als eigene Spalte mit seiner Zyl.Nr. ' + w2e[1], kopf3.join('|'));
+    pruefe(iNeu > 8 && (await zeile('Haustür'))[iNeu] === 'X' && w2e[iNeu] === 'X' && (await zeile('Wohnung 1'))[iNeu] === '',
+      'seine Spalte zeigt Haustür und Wohnung 2 - der Schlüssel sperrt beides', (await zeile('Haustür')).join('|'));
+    pruefe(/mit allem, was seine Gruppe sperrt/.test(await page.textContent('.seite')), 'der Hinweis in der Ansicht erklärt die eigene Spalte');
+    /* zurück auf den Ausgangsstand, damit das Formular unten dem Trainingsplan entspricht */
+    await page.evaluate(() => { const p = window.AppKern.Zustand.projekt, M = window.Model; const t = p.tueren.filter(x => x.bezeichnung === 'Wohnung 2')[0]; const s = p.schliessungen.filter(x => x.art === 'gruppe')[0]; M.berechtigungSetzenVerbund(p, t.id, s.id, 'nein'); window.AppKern.speichern(); });
+    await page.click('.plan-schalter button[data-darstellung="kreuz"]'); await page.waitForSelector('table.matrix:not(.europlan)');
+    await page.click('.plan-schalter button[data-darstellung="euro"]'); await page.waitForSelector('table.matrix.europlan');
+    pruefe((await zeile('Wohnung 2'))[8] === 'I' && (await page.$$eval('table.matrix.europlan thead tr.schlnr th', n => n.length)) === kopf3.length - 1, 'ohne das Gruppenkreuz ist der Mieter wieder gefaltet (I)');
 
     console.log('\n== EVVA-Formular (Excel) ==');
     const dateien = await page.evaluate(async () => {

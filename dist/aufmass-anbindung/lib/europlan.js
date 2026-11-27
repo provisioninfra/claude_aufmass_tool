@@ -21,6 +21,11 @@
  *
  * Gleichschließend: Mitläufer tragen die Zylindernummer der Haupttür mit .1,
  * .2 … und zeigen nie ein I - der Eigenschlüssel wird an der Haupttür geführt.
+ *
+ * Steht ein Mitarbeiter als eigene X-Spalte im Plan (mehr als eine Tür, oder
+ * seine Tür wird auch von seiner Gruppe gesperrt), zeigt seine Spalte alles,
+ * was sein Schlüssel sperrt: die eigenen Kreuze UND die Zentralzylinder (Z/M)
+ * seiner Gruppen. Sonst bestellte der Hersteller einen Schlüssel ohne Haustür.
  * ========================================================================== */
 (function (global) {
   'use strict';
@@ -83,7 +88,7 @@
               (inhaber[b.id] = inhaber[b.id] || []).push({ m: m, spalte: s, gruppen: gruppen });
               return;
             }
-            hinweise.push('„' + (m.name || s.kuerzel) + '“: Die eigene Tür wird auch von seiner Gruppe gesperrt - er steht deshalb als eigene Spalte im Plan.');
+            hinweise.push('„' + (m.name || s.kuerzel) + '“: Die eigene Tür wird auch von seiner Gruppe gesperrt - er steht deshalb als eigene Spalte im Plan, mit allem, was seine Gruppe sperrt.');
           } else {
             hinweise.push('„' + (m.name || s.kuerzel) + '“ gehört keiner Gruppe mit Spalte an - sein Schlüssel steht als eigene Spalte im Plan.');
           }
@@ -104,6 +109,21 @@
   /* Hat ein Mitarbeiter eine eigene Spalte im Plan? */
   function eigeneSpalte(p, m) {
     return (p.schliessungen || []).filter(function (s) { return s.art === 'mitarbeiter' && s.mitarbeiterId === m.id; })[0] || null;
+  }
+
+  /* Was sperrt der Schlüssel eines Mitarbeiters an einer Tür? Die eigene Spalte
+     und die Spalten seiner Gruppen zusammen: berechtigt, wenn eine es ist;
+     vorgeplant, wenn eine es ist und keine berechtigt; sonst der eigene Wert. */
+  function schluesselWert(p, a, m, eigene, t) {
+    var werte = [];
+    if (eigene) werte.push(M.getBerechtigung(p, t.id, eigene.id));
+    a.gruppenSpalten.forEach(function (g) { if ((m.gruppen || []).indexOf(g.gruppeId) !== -1) werte.push(M.getBerechtigung(p, t.id, g.id)); });
+    var beste = werte[0] || 'nein';
+    werte.forEach(function (w) {
+      if (M.istBerechtigt(w)) { if (!M.istBerechtigt(beste)) beste = w; }
+      else if (w === 'plan' && !M.istBerechtigt(beste)) beste = 'plan';
+    });
+    return beste;
   }
 
   /* Menge einer Gruppenspalte: die Medien der Mitglieder ohne eigene Spalte -
@@ -145,6 +165,12 @@
         var zellen = Object.create(null);
         spalten.forEach(function (sp) {
           var w = M.getBerechtigung(p, t.id, sp.id), z = '';
+          /* Eigene Spalte eines Gruppenmitglieds: sein Schlüssel sperrt auch die
+             Zentralzylinder seiner Gruppen - die Spalte muss sie zeigen */
+          if (sp.spalte.art === 'mitarbeiter') {
+            var mitarbeiter = M.mitarbeiterVon(p, sp.spalte.mitarbeiterId);
+            if (mitarbeiter) w = schluesselWert(p, a, mitarbeiter, sp.spalte, t);
+          }
           if (sp.art === 'gruppe') {
             if (M.istBerechtigt(w)) z = (inh.length || (a.ezJeBasis[basis.id] || []).length) ? 'M' : 'Z';
             else if (w === 'plan') z = 'O';
@@ -191,17 +217,7 @@
         id: 'ma:' + m.id, mitarbeiter: m, art: 'schluessel',
         schlNr: (heimTuer && M.zylinderNummer(p, heimTuer)) || (eigene && eigene.kuerzel) || M.kuerzelAus(m.name || ''),
         funktion: m.name || '', menge: M.mitarbeiterMedienAnzahl(m),
-        zelle: function (t) {
-          var beste = 'nein';
-          var werte = [];
-          if (eigene) werte.push(M.getBerechtigung(p, t.id, eigene.id));
-          gruppenSp.forEach(function (g) { werte.push(M.getBerechtigung(p, t.id, g.id)); });
-          werte.forEach(function (w) {
-            if (M.istBerechtigt(w)) beste = 'ja';
-            else if (w === 'plan' && beste === 'nein') beste = 'plan';
-          });
-          return beste;
-        }
+        zelle: function (t) { return schluesselWert(p, a, m, eigene, t); }
       });
     });
     var zeilen = [];
@@ -229,7 +245,20 @@
     var t = M.tuerVon(p, tuerId);
     if (!s || !t) return [];
     if (!istGruppe(s)) return ['', 'X', 'O'];
-    return M.istMitlaeufer(p, t) ? ['', 'Z', 'M', 'O'] : ['', 'I', 'Z', 'M', 'O'];
+    /* Sperrt die Gruppe diese Tür, steht da M, wenn die Tür einen Eigenschlüssel
+       hat, der nicht zu dieser Gruppe gehört (oder eine Einzelschließung) -
+       sonst Z. Ein Inhaber aus dieser Gruppe bekommt dann eine eigene Spalte. */
+    var zm = gruppeSperrt(p, t, s);
+    return M.istMitlaeufer(p, t) ? ['', zm, 'O'] : ['', 'I', zm, 'O'];
+  }
+
+  /* Welches Zeichen zeigt eine Gruppenspalte, wenn die Gruppe diese Tür sperrt? */
+  function gruppeSperrt(p, t, s) {
+    var a = analyse(p);
+    var basis = M.basisTuer(p, t) || t;
+    var fremdeInhaber = (a.eigentuemer[basis.id] || []).filter(function (i) { return (i.m.gruppen || []).indexOf(s.gruppeId) === -1 && i.gruppen.length; });
+    var ez = a.ezJeBasis[basis.id] || [];
+    return (fremdeInhaber.length || ez.length) ? 'M' : 'Z';
   }
 
   /**
@@ -252,9 +281,16 @@
     var inh = a.eigentuemer[basis.id] || [];
     if (zeichen === 'Z' || zeichen === 'M') {
       M.berechtigungSetzenVerbund(p, t.id, s.id, 'ja');
-      /* Inhaber, die dieser Gruppe angehören, würden I und M in einer Zelle
-         brauchen - sie bleiben Inhaber, verlassen aber diese Gruppe. */
-      inh.forEach(function (i) { i.m.gruppen = (i.m.gruppen || []).filter(function (g) { return g !== s.gruppeId; }); });
+      /* Inhaber, die dieser Gruppe angehören, würden I und Z in einer Zelle
+         brauchen. Sie bleiben in der Gruppe (ihr Schlüssel sperrt weiter die
+         Zentralzylinder) und stehen als eigene Spalte im Plan - die zeigt
+         dann alles, was ihr Schlüssel sperrt. Vorher verließen sie die Gruppe
+         und verloren still die Haustür. */
+      var eigeneInhaber = inh.filter(function (i) { return (i.m.gruppen || []).indexOf(s.gruppeId) !== -1; });
+      if (eigeneInhaber.length) {
+        return { ok: true, hinweis: eigeneInhaber.map(function (i) { return i.m.name; }).join(', ') +
+          ' behält den Eigenschlüssel und steht jetzt als eigene Spalte im Plan - mit allem, was die Gruppe sperrt. Die Gruppe sperrt diese Tür mit (' + gruppeSperrt(p, t, s) + ').' };
+      }
       return { ok: true };
     }
     if (zeichen === 'O') { M.berechtigungSetzenVerbund(p, t.id, s.id, 'plan'); return { ok: true }; }

@@ -2,10 +2,34 @@
 
 Diese Anleitung gilt, wenn das Werkzeug **schon läuft**: Plugin
 „Aufmaß-Abgleich“ in WordPress, Ordner `aufmasstool` auf dem Webspace,
-Geräte angemeldet. Sie bringt beides auf den Stand **1.5.3** – Plugin
+Geräte angemeldet. Sie bringt beides auf den Stand **1.5.4** – Plugin
 und Werkzeug tragen dieselbe Fassungsnummer.
 
-**Was 1.5.3 bringt** (gegenüber 1.5.2) – Kundenfreigabe und Rückmeldung
+**Was 1.5.4 bringt** (gegenüber 1.5.3) – Kopplung Kreuzschließplan ↔
+Europlan geprüft und korrigiert
+
+- **Eigene Schlüsselspalten im Europlan zeigen alles, was der Schlüssel
+  sperrt.** Steht ein Mitarbeiter als eigene X-Spalte im Europlan (weil
+  sein Schlüssel mehr als eine Tür sperrt oder weil seine Tür auch von
+  seiner Gruppe gesperrt wird), zeigt die Spalte jetzt auch die
+  Zentralzylinder seiner Gruppen, zum Beispiel die Haustür. Vorher stand in
+  seiner Spalte nur das eigene Kreuz; nach dem EVVA-Formular wäre ein
+  Schlüssel ohne Haustür bestellt worden. Die Schlüsselliste
+  (Kreuzschließplan als Excel) war schon richtig; Europlan, Europlan-PDF,
+  EVVA-Europlan-Formular und die Anbindung für Claude Code sind jetzt
+  gleich.
+- **Z oder M im Europlan an einer Tür mit Eigenschlüssel** nimmt dem
+  Inhaber nicht mehr die Gruppe. Vorher verließ er die Gruppe und verlor
+  damit still die Haustür; jetzt bleibt er Mitglied, bekommt eine eigene
+  Spalte mit allem, was die Gruppe sperrt, und eine Meldung sagt es.
+- **Das angebotene Zeichen ist das, das danach dasteht:** In einer
+  Gruppenspalte wird Z angeboten, wo kein fremder Eigenschlüssel an der
+  Tür ist, und M, wo einer ist (oder eine Einzelschließung). Vorher stand
+  nach einem gewählten M oft ein Z.
+- Die Hinweise unter dem Europlan erklären, warum ein Schlüssel als eigene
+  Spalte steht, und dass diese Spalte alles zeigt, was seine Gruppe sperrt.
+
+**Was 1.5.3 brachte** (gegenüber 1.5.2) – Kundenfreigabe und Rückmeldung
 von Anfang bis Ende geprüft und geglättet
 
 - **Rückmeldung einlesen - nichts geht verloren, nichts kommt doppelt:**
@@ -360,7 +384,7 @@ Vorlage, Freigabe) – das erledigt WordPress beim ersten Aufruf von selbst
 4. Das Plugin bleibt dabei aktiv. Beim ersten Aufruf danach ergänzt es die
    Tabelle und übernimmt die Umschreibregel für den Kurzlink.
 
-**Prüfen:** *Plugins* öffnen – bei „Aufmaß-Abgleich“ muss **1.5.3**
+**Prüfen:** *Plugins* öffnen – bei „Aufmaß-Abgleich“ muss **1.5.4**
 stehen. In der Zugangsliste gibt es jetzt die Spalte **„Schlüssel“**. Unter *Einstellungen → Aufmaß-Abgleich* muss neben der
 Organisationsdomäne die neuen Zeilen **„Neue Zugänge“** und **„Herkunft
 der Aufrufe“** erscheinen, weiter unten der Abschnitt **„Tür einsprechen
@@ -431,7 +455,7 @@ vorbei – und meldet sich dann:
   starten**. Der speichert und schließt zuerst; es geht nichts verloren.
 
 Unter *Einstellungen → Über dieses Werkzeug* steht, welche Fassung auf
-dem Gerät läuft (jetzt **1.5.3**), und ein Knopf **Auf neue Fassung
+dem Gerät läuft (jetzt **1.5.4**), und ein Knopf **Auf neue Fassung
 prüfen** stößt die Prüfung sofort an. Ein Gerät, das gerade ohne Netz
 ist, arbeitet mit der alten Fassung weiter, bis es wieder online war –
 auch das ist in Ordnung, die Aufmaße gleichen sich wie gewohnt ab.
@@ -494,10 +518,10 @@ zu ändern: Das übernimmt die Umschreibregel des Plugins auf jeden Fall.
 
 1. `https://www.provision-infra.de/aufmasstool/` öffnen. Die Anmeldeseite
    mit dem Google-Knopf muss erscheinen; ganz unten steht die
-   Werkzeug-Fassung 1.5.3. Anmelden. Oben rechts steht danach
+   Werkzeug-Fassung 1.5.4. Anmelden. Oben rechts steht danach
    **„Abgeglichen“**, und unter *Einstellungen → Über dieses Werkzeug*
    stehen die Fassung des Werkzeugs und die des Server-Plugins (beide
-   1.5.3). Unter *Schließplan* steht oben rechts der Umschalter
+   1.5.4). Unter *Schließplan* steht oben rechts der Umschalter
    **Kreuzschließplan | Europlan**. Darüber steht die neue Karte **„Zugang für Programme und
    Claude Code“**; ein Probeschlüssel lässt sich dort erzeugen und gleich
    wieder widerrufen.

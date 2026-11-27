@@ -25,7 +25,7 @@ const M = require(path.join(LIB, 'model.js'));
 const Z = require(path.join(LIB, 'zusammenfuehren.js'));
 
 const WEG = '/wp-json/aufmass/v1';
-const FASSUNG = '1.5.3';
+const FASSUNG = '1.5.4';
 
 class AufmassFehler extends Error {
   constructor(meldung, status, code, daten) { super(meldung); this.status = status || 0; this.code = code || ''; this.daten = daten || null; }

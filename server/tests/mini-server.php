@@ -107,7 +107,7 @@ if ($rest === '/start' && $art === 'GET') {
         $aus['pipedrive'] = Aufmass_Pipedrive::eingerichtet();
         $aus['pipedriveHost'] = $aus['pipedrive'] ? Aufmass_Pipedrive::host_anzeige() : '';
         $aus['diktat'] = Aufmass_Diktat::eingerichtet();
-        $aus['version'] = '1.5.3-test';
+        $aus['version'] = '1.5.4-test';
     }
     raus($aus);
 }
@@ -130,7 +130,7 @@ if ($rest === '/ich' && $art === 'GET') {
     $b = benutzerOderRaus();
     raus(array('benutzer' => $b, 'marke' => Aufmass_Datenbank::marke(),
         'zugang' => Aufmass_Anmeldung::ueber_schluessel() ? 'schluessel' : 'sitzung',
-        'schluessel' => Aufmass_Anmeldung::schluessel_beschreibung(), 'version' => '1.5.3-test'));
+        'schluessel' => Aufmass_Anmeldung::schluessel_beschreibung(), 'version' => '1.5.4-test'));
 }
 /* --- Zugangsschlüssel --- */
 if ($rest === '/schluessel' && $art === 'GET') {
