@@ -19,8 +19,9 @@
  * Medienzahl ist die ESL (Eigenschlüssel-Stückzahl). Eigenschlüssel ohne
  * Person sind Einzelschließungen (EZ) und erscheinen nur als ESL.
  *
- * Gleichschließend: Mitläufer tragen die Zylindernummer der Haupttür mit .1,
- * .2 … und zeigen nie ein I - der Eigenschlüssel wird an der Haupttür geführt.
+ * Gleichschließend: Mitläufer tragen dieselbe Zylindernummer wie die Haupttür
+ * (so bezeichnet das EVVA-Formular eine Schließung) und zeigen nie ein I - der
+ * Eigenschlüssel wird an der Haupttür geführt.
  *
  * Steht ein Mitarbeiter als eigene X-Spalte im Plan (mehr als eine Tür, oder
  * seine Tür wird auch von seiner Gruppe gesperrt), zeigt seine Spalte alles,

@@ -2,10 +2,31 @@
 
 Diese Anleitung gilt, wenn das Werkzeug **schon läuft**: Plugin
 „Aufmaß-Abgleich“ in WordPress, Ordner `aufmasstool` auf dem Webspace,
-Geräte angemeldet. Sie bringt beides auf den Stand **1.5.4** – Plugin
+Geräte angemeldet. Sie bringt beides auf den Stand **1.5.5** – Plugin
 und Werkzeug tragen dieselbe Fassungsnummer.
 
-**Was 1.5.4 bringt** (gegenüber 1.5.3) – Kopplung Kreuzschließplan ↔
+**Was 1.5.5 bringt** (gegenüber 1.5.4) – Zylindernummern wie im
+EVVA-Formular
+
+- **Gleichschließende Zylinder tragen dieselbe Zyl.Nr.** Im EVVA-Formular
+  bezeichnet die Zyl.Nr. die Schließung: Alle Zylinder mit derselben Nummer
+  haben denselben Schlüssel (im Trainingsplan Wohnung 1 und Keller 1 beide
+  „1“, Haustür, Müll und Fahrräder alle „Z“). Bisher schrieb das Werkzeug
+  für Mitläufer „2.1“, „2.2“ – für den Hersteller eine andere Nummer und
+  damit womöglich eine eigene Schließung. Jetzt tragen Haupttür und
+  Mitläufer dieselbe Nummer (die Türnummer der Haupttür), im Europlan, im
+  Europlan-PDF, im EVVA-Formular, in der Schlüsselnummer der Mieter
+  (Schl.Nr. = Zyl.Nr. der Wohnung) und in der Anbindung. Im
+  Kreuzschließplan steht neben einer gleichschließenden Tür weiterhin
+  „= 2“, und im Europlan erkennt man Mitläufer an der grauen Zeile; die
+  Berechtigungen beider Türen bleiben wie bisher automatisch gleich.
+- Die Zeichen des Europlans bleiben: X (übergeordneter Schlüssel sperrt),
+  I (Einzelschließung, der Eigenschlüssel gehört zur Gruppe), Z
+  (Zentralzylinder), M (Mitschließung), O (vorgeplant) – wie in der
+  Gültigkeitsliste des EVVA-Formulars und den Schließplan-Beispielen von
+  Winkhaus.
+
+**Was 1.5.4 brachte** (gegenüber 1.5.3) – Kopplung Kreuzschließplan ↔
 Europlan geprüft und korrigiert
 
 - **Eigene Schlüsselspalten im Europlan zeigen alles, was der Schlüssel
@@ -384,7 +405,7 @@ Vorlage, Freigabe) – das erledigt WordPress beim ersten Aufruf von selbst
 4. Das Plugin bleibt dabei aktiv. Beim ersten Aufruf danach ergänzt es die
    Tabelle und übernimmt die Umschreibregel für den Kurzlink.
 
-**Prüfen:** *Plugins* öffnen – bei „Aufmaß-Abgleich“ muss **1.5.4**
+**Prüfen:** *Plugins* öffnen – bei „Aufmaß-Abgleich“ muss **1.5.5**
 stehen. In der Zugangsliste gibt es jetzt die Spalte **„Schlüssel“**. Unter *Einstellungen → Aufmaß-Abgleich* muss neben der
 Organisationsdomäne die neuen Zeilen **„Neue Zugänge“** und **„Herkunft
 der Aufrufe“** erscheinen, weiter unten der Abschnitt **„Tür einsprechen
@@ -455,7 +476,7 @@ vorbei – und meldet sich dann:
   starten**. Der speichert und schließt zuerst; es geht nichts verloren.
 
 Unter *Einstellungen → Über dieses Werkzeug* steht, welche Fassung auf
-dem Gerät läuft (jetzt **1.5.4**), und ein Knopf **Auf neue Fassung
+dem Gerät läuft (jetzt **1.5.5**), und ein Knopf **Auf neue Fassung
 prüfen** stößt die Prüfung sofort an. Ein Gerät, das gerade ohne Netz
 ist, arbeitet mit der alten Fassung weiter, bis es wieder online war –
 auch das ist in Ordnung, die Aufmaße gleichen sich wie gewohnt ab.
@@ -518,10 +539,10 @@ zu ändern: Das übernimmt die Umschreibregel des Plugins auf jeden Fall.
 
 1. `https://www.provision-infra.de/aufmasstool/` öffnen. Die Anmeldeseite
    mit dem Google-Knopf muss erscheinen; ganz unten steht die
-   Werkzeug-Fassung 1.5.4. Anmelden. Oben rechts steht danach
+   Werkzeug-Fassung 1.5.5. Anmelden. Oben rechts steht danach
    **„Abgeglichen“**, und unter *Einstellungen → Über dieses Werkzeug*
    stehen die Fassung des Werkzeugs und die des Server-Plugins (beide
-   1.5.4). Unter *Schließplan* steht oben rechts der Umschalter
+   1.5.5). Unter *Schließplan* steht oben rechts der Umschalter
    **Kreuzschließplan | Europlan**. Darüber steht die neue Karte **„Zugang für Programme und
    Claude Code“**; ein Probeschlüssel lässt sich dort erzeugen und gleich
    wieder widerrufen.

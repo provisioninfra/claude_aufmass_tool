@@ -640,18 +640,16 @@
     var basis = basisTuer(projekt, tuer);
     return !!(basis && tuer && basis.id !== tuer.id);
   }
+  /* Die Zylindernummer bezeichnet die Schließung: Gleichschließende Zylinder
+   * (Haupttür und Mitläufer) tragen dieselbe Nummer - so liest sie der
+   * Hersteller (im EVVA-Formular haben alle Zylinder mit derselben Zyl.Nr.
+   * denselben Schlüssel). Die Nummer ist die Türnummer der Haupttür. */
   function zylinderNummer(projekt, tuer) {
     var basis = basisTuer(projekt, tuer);
     if (!basis) return '';
     /* Ohne Türnummer gibt es keine Zylindernummer. Ein „?“ wäre im
        Bestellformular ein unzulässiges Zeichen. */
-    var nummer = String(basis.nummer || '').trim();
-    if (!nummer) return '';
-    if (basis.id === tuer.id) return nummer;
-    var mitlaeufer = schliessungsTueren(projekt, basis).slice(1);
-    var index = 0;
-    for (var i = 0; i < mitlaeufer.length; i++) { if (mitlaeufer[i].id === tuer.id) { index = i + 1; break; } }
-    return nummer + '.' + (index || mitlaeufer.length + 1);
+    return String(basis.nummer || '').trim();
   }
   /* Tür an eine Schließung hängen (basisId) oder lösen (''). Mitläufer der
    * Tür wandern mit. Kreise sind ausgeschlossen: Die Basis darf nicht zur
@@ -682,13 +680,7 @@
     var basis = basisTuer(projekt, basisId);
     if (!basis) return '';
     /* Ohne Türnummer gibt es keine Zylindernummer, auch nicht als Vorschau */
-    var nummer = String(basis.nummer || '').trim();
-    if (!nummer) return '';
-    var mitlaeufer = schliessungsTueren(projekt, basis).slice(1).filter(function (x) { return x.id !== tuer.id; });
-    var reihen = (projekt.tueren || []).filter(function (x) { return x.id === tuer.id || mitlaeufer.some(function (m) { return m.id === x.id; }); });
-    var index = 0;
-    for (var i = 0; i < reihen.length; i++) { if (reihen[i].id === tuer.id) { index = i + 1; break; } }
-    return nummer + '.' + (index || reihen.length);
+    return String(basis.nummer || '').trim();
   }
   /* Ein Kürzel, das es im Plan noch nicht gibt: sonst mit a, b, c … */
   function kuerzelEindeutig(projekt, wunsch, ausnahmeId) {

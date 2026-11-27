@@ -98,11 +98,11 @@ function zellen(sheetXml) {
     const w1 = await zeile('Wohnung 1');
     pruefe(w1.slice(1).join('|') === '2|Wohnung 1|1|3|DZ 31/36|2|X|I', 'Wohnung 1: ESL 3, Zyl.Nr. 2, X und I', w1.join('|'));
     const k1 = await zeile('Keller 1');
-    pruefe(k1.slice(1).join('|') === '16|Keller 1|1||DZ 31/36|2.1|X|', 'Keller 1: gleichschließend, Zyl.Nr. 2.1, keine ESL, kein I', k1.join('|'));
+    pruefe(k1.slice(1).join('|') === '16|Keller 1|1||DZ 31/36|2|X|', 'Keller 1: gleichschließend, dieselbe Zyl.Nr. 2 wie Wohnung 2, keine ESL, kein I', k1.join('|'));
     const elt = await zeile('ELT');
     pruefe(elt[4] === '2' && elt[7] === 'X' && elt[8] === '', 'ELT: ESL 2 (Einzelschließung ohne Spalte)', elt.join('|'));
     const muell = await zeile('Müll');
-    pruefe(muell[6] === '1.1' && muell[8] === 'Z', 'Müll: Zyl.Nr. 1.1 (gleichschließend mit der Haustür), Z', muell.join('|'));
+    pruefe(muell[6] === '1' && muell[8] === 'Z', 'Müll: Zyl.Nr. 1 (gleichschließend mit der Haustür, dieselbe Nummer), Z', muell.join('|'));
     if (BILDER) await page.screenshot({ path: path.join(BILDER, 'europlan-1-ansicht.png') });
     await page.reload({ waitUntil: 'load' });
     await ersteProjektOeffnen(page, 10000);
@@ -185,7 +185,7 @@ function zellen(sheetXml) {
     await page.waitForSelector(DLG + ' .wahl-liste');
     await page.click(DLG + ' .wahl-liste .wahl:has-text("Wohnung 15")'); await page.waitForTimeout(400);
     const k15 = await zeile('Keller 15');
-    pruefe(k15[6] === w15b[1] + '.1' && k15[4] === '' && k15[8] === '', 'Keller 15 ist gleichschließend: Zyl.Nr. ' + w15b[1] + '.1, keine ESL, kein I', k15.join('|'));
+    pruefe(k15[6] === w15b[1] && k15[4] === '' && k15[8] === '', 'Keller 15 ist gleichschließend: dieselbe Zyl.Nr. ' + w15b[1] + ', keine ESL, kein I', k15.join('|'));
     pruefe(await page.evaluate(() => { const p = window.AppKern.Zustand.projekt, M = window.Model; const a = p.tueren.filter(x => x.bezeichnung === 'Wohnung 15')[0], b = p.tueren.filter(x => x.bezeichnung === 'Keller 15')[0]; return p.schliessungen.every(s => M.getBerechtigung(p, a.id, s.id) === M.getBerechtigung(p, b.id, s.id)); }), 'beide Türen haben dieselben Berechtigungen');
     if (BILDER) await page.screenshot({ path: path.join(BILDER, 'europlan-2-bearbeitet.png') });
 
@@ -197,7 +197,7 @@ function zellen(sheetXml) {
     pruefe(koepfe.some(k => /Mieter Whg\. 15/.test(k)), 'der neue Mieter hat eine Spalte im Kreuzplan', koepfe.join('|'));
     const iKeller = koepfe.findIndex(k => /Mieter Whg\. 15/.test(k));
     pruefe((await kreuzZeile('Keller 15'))[iKeller] === 'X' && (await kreuzZeile('Wohnung 15'))[iKeller] === 'X', 'Wohnung 15 und Keller 15 tragen sein Kreuz');
-    pruefe(/= .*\.1/.test(await page.$eval('table.matrix tbody tr:has(td.tuername:has-text("Keller 15")) td.tuername', n => n.textContent)), 'der Keller zeigt seine Zylindernummer mit .1');
+    pruefe(new RegExp('= ' + w15b[1] + '\\b').test(await page.$eval('table.matrix tbody tr:has(td.tuername:has-text("Keller 15")) td.tuername', n => n.textContent)), 'der Keller zeigt im Kreuzplan die Zyl.Nr. seiner Haupttür');
     /* Im Kreuzplan ein Kreuz an der Wohnung 15 für HS setzen: der Keller zieht mit */
     const iHS = koepfe.findIndex(k => /^HS/.test(k));
     await (await page.$$('table.matrix tbody tr:has(td.tuername:has-text("Wohnung 15")) td.zelle'))[iHS].click();
@@ -257,7 +257,7 @@ function zellen(sheetXml) {
     pruefe(ez.H1 === 'Hauptschlüssel' && ez.H2 === 3 && ez.H3 === 'HS' && ez.I3 === 'Z' && ez.I1 === 'Mieter', 'Schlüsselspalten: Funktion, Menge, Schl.Nr', JSON.stringify([ez.H1, ez.H2, ez.H3, ez.I1, ez.I3]));
     pruefe(ez.A5 === 1 && ez.B5 === '1' && ez.C5 === 'Haustür' && ez.D5 === 1 && ez.G5 === '1' && ez.H5 === 'X' && ez.I5 === 'Z', 'Zeile 5 Haustür wie im Trainingsplan', JSON.stringify([ez.A5, ez.B5, ez.C5, ez.D5, ez.G5, ez.H5, ez.I5]));
     pruefe(ez.C6 === 'Wohnung 1' && ez.E6 === 3 && ez.F6 === 'DZ 31/36' && ez.G6 === '2' && ez.H6 === 'X' && ez.I6 === 'I', 'Zeile 6 Wohnung 1: ESL 3, Type, Zyl.Nr., X, I', JSON.stringify([ez.C6, ez.E6, ez.F6, ez.G6, ez.H6, ez.I6]));
-    pruefe(ez.C20 === 'Keller 1' && ez.E20 === undefined && ez.G20 === '2.1' && ez.I20 === undefined, 'Zeile 20 Keller 1: gleichschließend 2.1 ohne ESL und ohne I', JSON.stringify([ez.C20, ez.E20, ez.G20, ez.I20]));
+    pruefe(ez.C20 === 'Keller 1' && ez.E20 === undefined && ez.G20 === '2' && ez.G6 === '2' && ez.I20 === undefined, 'Zeile 20 Keller 1: gleichschließend mit derselben Zyl.Nr. 2 wie Wohnung 1, ohne ESL und ohne I', JSON.stringify([ez.C20, ez.E20, ez.G20, ez.I20]));
     pruefe(ez.A504 === 500 && ez.C504 === undefined, 'Zeilenpositionen bis 500 wie in der Vorlage');
     pruefe(/state="hidden"/.test(euroTeile['xl/workbook.xml']) && /definedName name="Sperrmgl"/.test(euroTeile['xl/workbook.xml']), 'verstecktes Blatt „Vorlagen“ und die Namen der Vorlage');
     const kreuzTeile = entpacken(Buffer.from(dateien[1].b64, 'base64'));

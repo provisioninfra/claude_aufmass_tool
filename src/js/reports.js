@@ -1191,7 +1191,7 @@
     var legendeTexte = [['X', 'Schlüssel der Spalte sperrt den Zylinder'], ['I', 'Eigenschlüssel der Tür gehört zur Gruppe der Spalte'],
       ['Z', 'Zentralzylinder: alle Eigenschlüssel der Gruppe sperren'], ['M', 'Mitschließung: die Gruppe sperrt diesen Zylinder mit eigenem Schlüssel mit'],
       ['O', 'vorgeplant (Reserve): vorbereitet, sperrt noch nicht']];
-    var eslText = 'ESL = Stückzahl der Eigenschlüssel je Zylinder (leer: kein Eigenschlüssel, 0: vorgeplant). Zyl.Nr. = Türnummer; gleichschließende Türen tragen die Nummer ihrer Haupttür mit .1, .2 … ' +
+    var eslText = 'ESL = Stückzahl der Eigenschlüssel je Zylinder (leer: kein Eigenschlüssel, 0: vorgeplant). Zyl.Nr. = Türnummer der Haupttür; gleichschließende Türen tragen dieselbe Zyl.Nr. ' +
       'Menge = Stück je Schlüsselspalte; bei einer Gruppe die Schlüssel der Mitglieder ohne eigene Tür.';
     var hinweisText = plan.hinweise.length ? 'Hinweise: ' + plan.hinweise.join(' ') : '';
     var legendeHoehe = 2 + 5 + legendeTexte.length * 4 + doc.blockHoehe(eslText, b, { size: 7 }) + 3 +

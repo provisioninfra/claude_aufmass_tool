@@ -145,7 +145,7 @@
 
     seite.appendChild(el('p', { class: 'hinweis', text:
       'Zeilen sind die Zylinder, Spalten die übergeordneten Schlüssel (X) und die Gruppen der Eigenschlüssel (I = gehört zur Gruppe, ' +
-      'Z = Zentralzylinder, M = Mitschließung, O = vorgeplant). Zyl.Nr. ist die Türnummer; gleichschließende Türen hängen an ihrer Haupttür (.1, .2 …). ' +
+      'Z = Zentralzylinder, M = Mitschließung, O = vorgeplant). Zyl.Nr. ist die Türnummer; gleichschließende Türen tragen dieselbe Zyl.Nr. wie ihre Haupttür. ' +
       'Alles, was Sie hier setzen, steht sofort auch im Kreuzschließplan.' }));
 
     seite.appendChild(el('div', { class: 'werkzeugleiste links', style: { marginBottom: '12px' } }, [
@@ -200,7 +200,7 @@
       var linke = [
         { k: 'zp', t: 'ZP', tip: 'laufende Zeile' }, { k: 'nr', t: 'Tür.Nr.' }, { k: 'raum', t: 'Raumbezeichnung' },
         { k: 'stk', t: 'Stk.', tip: 'Bestellmenge Zylinder' }, { k: 'esl', t: 'ESL', tip: 'Eigenschlüssel: Stückzahl (leer = kein Eigenschlüssel, 0 = vorgeplant)' },
-        { k: 'type', t: 'Type (Produktcode)' }, { k: 'zyl', t: 'Zyl.Nr.', tip: 'Zylindernummer = Türnummer; gleichschließend .1, .2 …' }
+        { k: 'type', t: 'Type (Produktcode)' }, { k: 'zyl', t: 'Zyl.Nr.', tip: 'Zylindernummer = Türnummer der Haupttür; gleichschließende Zylinder tragen dieselbe Nummer' }
       ];
       var kopf1 = el('tr', { class: 'funktion' }), kopf2 = el('tr', { class: 'menge' }), kopf3 = el('tr', { class: 'schlnr' });
       kopf1.appendChild(el('th', { class: 'ecke', colspan: linke.length, rowspan: 2, text: 'Funktion / Menge / Schl.Nr →' }));
@@ -248,7 +248,8 @@
             aendern('Produktcode ' + (t.nummer || t.bezeichnung), function () { t.produktcode = w; });
           });
         } }));
-        zeile.appendChild(el('td', { class: 'links zyl klickbar' + (z.mitlaeufer ? ' gleich' : ''), text: z.zylNr, title: 'Gleichschließung festlegen', onclick: function () { zylDialog(p, t, aendern); } }));
+        zeile.appendChild(el('td', { class: 'links zyl klickbar' + (z.mitlaeufer ? ' gleich' : ''), text: z.zylNr,
+        title: z.mitlaeufer ? 'Gleichschließend mit Tür ' + (z.basis.nummer || '') + ' (dieselbe Zyl.Nr.) · antippen: Gleichschließung ändern' : 'Gleichschließung festlegen', onclick: function () { zylDialog(p, t, aendern); } }));
 
         plan.spalten.forEach(function (sp) {
           var zeichen = z.zellen[sp.id] || '';
@@ -323,7 +324,7 @@
       moeglichkeiten.push({ wert: k.id, text: 'Gleichschließend mit ' + (k.nummer || '?') + ' ' + (k.bezeichnung || ''), untertitel: 'Zyl.Nr. wird ' + M.zylinderNummerVorschau(p, t, k.id), aktiv: basis.id === k.id && basis.id !== t.id });
     });
     if (!kandidaten.length && !t.gleichschliessendMit) { A.toast('Es gibt keine andere Tür, mit der diese gleichschließend sein könnte.'); return; }
-    wahlDialog('Zylindernummer ' + (t.nummer || ''), 'Gleichschließende Türen haben denselben Schlüssel: Ihre Berechtigungen werden automatisch gleich gehalten, die Zyl.Nr. bekommt .1, .2 …', moeglichkeiten, function (wahl) {
+    wahlDialog('Zylindernummer ' + (t.nummer || ''), 'Gleichschließende Türen haben denselben Schlüssel: Ihre Berechtigungen werden automatisch gleich gehalten, und sie tragen dieselbe Zyl.Nr. wie die Haupttür.', moeglichkeiten, function (wahl) {
       aendern('Gleichschließung ' + (t.nummer || t.bezeichnung), function () {
         if (!M.gleichschliessendSetzen(p, t.id, wahl)) A.toast('Diese Verbindung ist nicht möglich.', 'fehler');
       });

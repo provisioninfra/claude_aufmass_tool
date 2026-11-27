@@ -2625,18 +2625,16 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
     var basis = basisTuer(projekt, tuer);
     return !!(basis && tuer && basis.id !== tuer.id);
   }
+  /* Die Zylindernummer bezeichnet die Schließung: Gleichschließende Zylinder
+   * (Haupttür und Mitläufer) tragen dieselbe Nummer - so liest sie der
+   * Hersteller (im EVVA-Formular haben alle Zylinder mit derselben Zyl.Nr.
+   * denselben Schlüssel). Die Nummer ist die Türnummer der Haupttür. */
   function zylinderNummer(projekt, tuer) {
     var basis = basisTuer(projekt, tuer);
     if (!basis) return '';
     /* Ohne Türnummer gibt es keine Zylindernummer. Ein „?“ wäre im
        Bestellformular ein unzulässiges Zeichen. */
-    var nummer = String(basis.nummer || '').trim();
-    if (!nummer) return '';
-    if (basis.id === tuer.id) return nummer;
-    var mitlaeufer = schliessungsTueren(projekt, basis).slice(1);
-    var index = 0;
-    for (var i = 0; i < mitlaeufer.length; i++) { if (mitlaeufer[i].id === tuer.id) { index = i + 1; break; } }
-    return nummer + '.' + (index || mitlaeufer.length + 1);
+    return String(basis.nummer || '').trim();
   }
   /* Tür an eine Schließung hängen (basisId) oder lösen (''). Mitläufer der
    * Tür wandern mit. Kreise sind ausgeschlossen: Die Basis darf nicht zur
@@ -2667,13 +2665,7 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
     var basis = basisTuer(projekt, basisId);
     if (!basis) return '';
     /* Ohne Türnummer gibt es keine Zylindernummer, auch nicht als Vorschau */
-    var nummer = String(basis.nummer || '').trim();
-    if (!nummer) return '';
-    var mitlaeufer = schliessungsTueren(projekt, basis).slice(1).filter(function (x) { return x.id !== tuer.id; });
-    var reihen = (projekt.tueren || []).filter(function (x) { return x.id === tuer.id || mitlaeufer.some(function (m) { return m.id === x.id; }); });
-    var index = 0;
-    for (var i = 0; i < reihen.length; i++) { if (reihen[i].id === tuer.id) { index = i + 1; break; } }
-    return nummer + '.' + (index || reihen.length);
+    return String(basis.nummer || '').trim();
   }
   /* Ein Kürzel, das es im Plan noch nicht gibt: sonst mit a, b, c … */
   function kuerzelEindeutig(projekt, wunsch, ausnahmeId) {
@@ -4448,8 +4440,9 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
  * Medienzahl ist die ESL (Eigenschlüssel-Stückzahl). Eigenschlüssel ohne
  * Person sind Einzelschließungen (EZ) und erscheinen nur als ESL.
  *
- * Gleichschließend: Mitläufer tragen die Zylindernummer der Haupttür mit .1,
- * .2 … und zeigen nie ein I - der Eigenschlüssel wird an der Haupttür geführt.
+ * Gleichschließend: Mitläufer tragen dieselbe Zylindernummer wie die Haupttür
+ * (so bezeichnet das EVVA-Formular eine Schließung) und zeigen nie ein I - der
+ * Eigenschlüssel wird an der Haupttür geführt.
  *
  * Steht ein Mitarbeiter als eigene X-Spalte im Plan (mehr als eine Tür, oder
  * seine Tür wird auch von seiner Gruppe gesperrt), zeigt seine Spalte alles,
@@ -7228,7 +7221,7 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
     var legendeTexte = [['X', 'Schlüssel der Spalte sperrt den Zylinder'], ['I', 'Eigenschlüssel der Tür gehört zur Gruppe der Spalte'],
       ['Z', 'Zentralzylinder: alle Eigenschlüssel der Gruppe sperren'], ['M', 'Mitschließung: die Gruppe sperrt diesen Zylinder mit eigenem Schlüssel mit'],
       ['O', 'vorgeplant (Reserve): vorbereitet, sperrt noch nicht']];
-    var eslText = 'ESL = Stückzahl der Eigenschlüssel je Zylinder (leer: kein Eigenschlüssel, 0: vorgeplant). Zyl.Nr. = Türnummer; gleichschließende Türen tragen die Nummer ihrer Haupttür mit .1, .2 … ' +
+    var eslText = 'ESL = Stückzahl der Eigenschlüssel je Zylinder (leer: kein Eigenschlüssel, 0: vorgeplant). Zyl.Nr. = Türnummer der Haupttür; gleichschließende Türen tragen dieselbe Zyl.Nr. ' +
       'Menge = Stück je Schlüsselspalte; bei einer Gruppe die Schlüssel der Mitglieder ohne eigene Tür.';
     var hinweisText = plan.hinweise.length ? 'Hinweise: ' + plan.hinweise.join(' ') : '';
     var legendeHoehe = 2 + 5 + legendeTexte.length * 4 + doc.blockHoehe(eslText, b, { size: 7 }) + 3 +
@@ -10417,7 +10410,7 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
      Anmeldeseite und in der Abgleich-Übersicht, damit man auf jedem Gerät
      in einer Sekunde sieht, welcher Stand dort läuft. Muss mit FASSUNG in
      sw.js übereinstimmen - der Prüflauf achtet darauf. */
-  var FASSUNG = '1.5.4';
+  var FASSUNG = '1.5.5';
 
   /* =========================================================================
    * DOM-Hilfsmittel
@@ -14119,7 +14112,7 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
 
     seite.appendChild(el('p', { class: 'hinweis', text:
       'Zeilen sind die Zylinder, Spalten die übergeordneten Schlüssel (X) und die Gruppen der Eigenschlüssel (I = gehört zur Gruppe, ' +
-      'Z = Zentralzylinder, M = Mitschließung, O = vorgeplant). Zyl.Nr. ist die Türnummer; gleichschließende Türen hängen an ihrer Haupttür (.1, .2 …). ' +
+      'Z = Zentralzylinder, M = Mitschließung, O = vorgeplant). Zyl.Nr. ist die Türnummer; gleichschließende Türen tragen dieselbe Zyl.Nr. wie ihre Haupttür. ' +
       'Alles, was Sie hier setzen, steht sofort auch im Kreuzschließplan.' }));
 
     seite.appendChild(el('div', { class: 'werkzeugleiste links', style: { marginBottom: '12px' } }, [
@@ -14174,7 +14167,7 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
       var linke = [
         { k: 'zp', t: 'ZP', tip: 'laufende Zeile' }, { k: 'nr', t: 'Tür.Nr.' }, { k: 'raum', t: 'Raumbezeichnung' },
         { k: 'stk', t: 'Stk.', tip: 'Bestellmenge Zylinder' }, { k: 'esl', t: 'ESL', tip: 'Eigenschlüssel: Stückzahl (leer = kein Eigenschlüssel, 0 = vorgeplant)' },
-        { k: 'type', t: 'Type (Produktcode)' }, { k: 'zyl', t: 'Zyl.Nr.', tip: 'Zylindernummer = Türnummer; gleichschließend .1, .2 …' }
+        { k: 'type', t: 'Type (Produktcode)' }, { k: 'zyl', t: 'Zyl.Nr.', tip: 'Zylindernummer = Türnummer der Haupttür; gleichschließende Zylinder tragen dieselbe Nummer' }
       ];
       var kopf1 = el('tr', { class: 'funktion' }), kopf2 = el('tr', { class: 'menge' }), kopf3 = el('tr', { class: 'schlnr' });
       kopf1.appendChild(el('th', { class: 'ecke', colspan: linke.length, rowspan: 2, text: 'Funktion / Menge / Schl.Nr →' }));
@@ -14222,7 +14215,8 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
             aendern('Produktcode ' + (t.nummer || t.bezeichnung), function () { t.produktcode = w; });
           });
         } }));
-        zeile.appendChild(el('td', { class: 'links zyl klickbar' + (z.mitlaeufer ? ' gleich' : ''), text: z.zylNr, title: 'Gleichschließung festlegen', onclick: function () { zylDialog(p, t, aendern); } }));
+        zeile.appendChild(el('td', { class: 'links zyl klickbar' + (z.mitlaeufer ? ' gleich' : ''), text: z.zylNr,
+        title: z.mitlaeufer ? 'Gleichschließend mit Tür ' + (z.basis.nummer || '') + ' (dieselbe Zyl.Nr.) · antippen: Gleichschließung ändern' : 'Gleichschließung festlegen', onclick: function () { zylDialog(p, t, aendern); } }));
 
         plan.spalten.forEach(function (sp) {
           var zeichen = z.zellen[sp.id] || '';
@@ -14297,7 +14291,7 @@ table.matrix tr.gruppenzeile .gruppen-titel { position: sticky; left: 0; display
       moeglichkeiten.push({ wert: k.id, text: 'Gleichschließend mit ' + (k.nummer || '?') + ' ' + (k.bezeichnung || ''), untertitel: 'Zyl.Nr. wird ' + M.zylinderNummerVorschau(p, t, k.id), aktiv: basis.id === k.id && basis.id !== t.id });
     });
     if (!kandidaten.length && !t.gleichschliessendMit) { A.toast('Es gibt keine andere Tür, mit der diese gleichschließend sein könnte.'); return; }
-    wahlDialog('Zylindernummer ' + (t.nummer || ''), 'Gleichschließende Türen haben denselben Schlüssel: Ihre Berechtigungen werden automatisch gleich gehalten, die Zyl.Nr. bekommt .1, .2 …', moeglichkeiten, function (wahl) {
+    wahlDialog('Zylindernummer ' + (t.nummer || ''), 'Gleichschließende Türen haben denselben Schlüssel: Ihre Berechtigungen werden automatisch gleich gehalten, und sie tragen dieselbe Zyl.Nr. wie die Haupttür.', moeglichkeiten, function (wahl) {
       aendern('Gleichschließung ' + (t.nummer || t.bezeichnung), function () {
         if (!M.gleichschliessendSetzen(p, t.id, wahl)) A.toast('Diese Verbindung ist nicht möglich.', 'fehler');
       });

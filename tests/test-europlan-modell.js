@@ -72,9 +72,14 @@ for (const art of ['HS', 'Z']) {
   const mengeZ = e.spalten.filter(s => s.schlNr === 'Z')[0].menge;
   p(mengeZ === 0, 'die Gruppenspalte hat keine reinen Gruppenschlüssel (alle Mieter haben eine eigene Tür)', mengeZ);
   const keller3 = e.zeilen.filter(z => z.tuer.bezeichnung === 'Keller 3')[0], wohnung3 = e.zeilen.filter(z => z.tuer.bezeichnung === 'Wohnung 3')[0];
-  p(keller3.mitlaeufer && keller3.zylNr === wohnung3.zylNr + '.1' && keller3.esl === null, 'Keller 3 ist gleichschließend zu Wohnung 3: Zyl.Nr. ' + wohnung3.zylNr + '.1, keine ESL', keller3.zylNr);
+  p(keller3.mitlaeufer && keller3.zylNr === wohnung3.zylNr && keller3.esl === null, 'Keller 3 ist gleichschließend zu Wohnung 3: dieselbe Zyl.Nr. ' + wohnung3.zylNr + ', keine ESL', keller3.zylNr);
   const zentral = e.zeilen.filter(z => ['Müll', 'Fahrräder'].indexOf(z.tuer.bezeichnung) !== -1);
-  p(zentral.every(z => z.mitlaeufer && /^1\.[12]$/.test(z.zylNr)), 'Müll und Fahrräder hängen als 1.1 und 1.2 an der Haustür (Zyl.Nr. = Türnummer)', zentral.map(z => z.zylNr).join(','));
+  p(zentral.every(z => z.mitlaeufer && z.zylNr === '1'), 'Müll und Fahrräder tragen die Zyl.Nr. der Haustür (1) - wie „Z“ im Trainingsplan', zentral.map(z => z.zylNr).join(','));
+  /* Zyl.Nr. als Bezeichnung der Schließung: gleiche Nummer genau dann, wenn der Trainingsplan dieselbe Zyl.Nr. nennt */
+  const klassenSoll = {}, klassenIst = {};
+  fxE.zeilen.forEach((z, zi) => { (klassenSoll[z.zylNr] = klassenSoll[z.zylNr] || []).push(zi); const n = e.zeilen[zi].zylNr; (klassenIst[n] = klassenIst[n] || []).push(zi); });
+  const soll = Object.values(klassenSoll).map(x => x.join('-')).sort().join('|'), ist = Object.values(klassenIst).map(x => x.join('-')).sort().join('|');
+  p(soll === ist, 'gleiche Zyl.Nr. im Werkzeug genau dort, wo der Trainingsplan dieselbe Zyl.Nr. hat (Z, 1 bis 14, T)', ist);
 
   console.log('\n== ' + art + '-Anlage: Modell → Kreuzplan (jeder Schlüssel eine Spalte) ==');
   const kp = E.kreuzplan(pr);
@@ -187,7 +192,7 @@ console.log('\n== Bearbeiten im Europlan: ein Plan entsteht von Hand ==');
   const m1 = pr.mitarbeiter.filter(m => m.name === 'Familie Eins')[0];
   p(m1 && m1.gruppen.indexOf(g.id) !== -1 && M.mitarbeiterMedienAnzahl(m1) === 3 && E.eigeneSpalte(pr, m1), 'der Inhaber ist Gruppenmitglied, hat 3 Medien und eine eigene Spalte');
   p(M.getBerechtigung(pr, w1.id, E.eigeneSpalte(pr, m1).id) === 'ja' && M.getBerechtigung(pr, w1.id, gs.id) === 'nein', 'im Kreuzplan: eigene Spalte ja, Gruppenspalte nein');
-  p(M.gleichschliessendSetzen(pr, k1.id, w1.id) && M.zylinderNummer(pr, k1) === '2.1', 'Keller 1 gleichschließend mit Wohnung 1: Zyl.Nr. 2.1');
+  p(M.gleichschliessendSetzen(pr, k1.id, w1.id) && M.zylinderNummer(pr, k1) === '2' && M.zylinderNummerVorschau(pr, k1, w1.id) === '2', 'Keller 1 gleichschließend mit Wohnung 1: dieselbe Zyl.Nr. 2');
   p(M.getBerechtigung(pr, k1.id, E.eigeneSpalte(pr, m1).id) === 'ja' && M.getBerechtigung(pr, k1.id, hs.id) === 'ja', 'der Keller übernimmt die Kreuze der Wohnung');
   let e = E.europlan(pr);
   const z = (bez) => e.zeilen.filter(x => x.tuer.bezeichnung === bez)[0];
@@ -206,7 +211,7 @@ console.log('\n== Bearbeiten im Europlan: ein Plan entsteht von Hand ==');
   e = E.europlan(pr);
   p(e.hinweise.length === 1 && /Familie Zwei/.test(e.hinweise[0]) && e.spalten.some(s => s.spalte.art === 'mitarbeiter'), 'ohne Gruppe steht der Schlüssel als eigene Spalte, mit Hinweis');
   const text = E.alsText(e);
-  p(/Zyl\.Nr/.test(text) && /2\.1/.test(text), 'Textdarstellung enthält die Zylindernummern');
+  p(/Zyl\.Nr/.test(text) && /Keller 1/.test(text), 'Textdarstellung enthält die Zylindernummern');
   /* Rückfahrkarte: Migration hält alles zusammen */
   const kopie = M.migriere(JSON.parse(JSON.stringify(pr)));
   p(kopie.tueren[3].gleichschliessendMit === w1.id && M.getBerechtigung(kopie, k1.id, hs.id) === 'ja', 'migriere behält Gleichschließung und gleicht Kreuze an');
@@ -245,8 +250,8 @@ console.log('\n== Kreuze im Kreuzschließplan kommen vollständig im Europlan an
   /* A: Ausgangslage */
   const A = bau(); let e = E.europlan(A.pr);
   p(e.spalten.map(s => s.schlNr).join(',') === 'HS,Z' && zeileVon(e, 'Haustür').zellen[A.gs.id] === 'Z' && [1, 2, 3].every(i => zeileVon(e, 'Wohnung ' + i).zellen[A.gs.id] === 'I' && zeileVon(e, 'Wohnung ' + i).esl === 3)
-    && zeileVon(e, 'Keller 1').zylNr === '2.1' && zeileVon(e, 'Keller 1').zellen[A.gs.id] === '' && zeileVon(e, 'Keller 1').esl === null,
-    'Ausgangslage: HS und Z, I mit ESL 3 an den Wohnungen, Keller als 2.1 ohne I', e.spalten.map(s => s.schlNr).join(','));
+    && zeileVon(e, 'Keller 1').zylNr === '2' && zeileVon(e, 'Keller 1').mitlaeufer && zeileVon(e, 'Keller 1').zellen[A.gs.id] === '' && zeileVon(e, 'Keller 1').esl === null,
+    'Ausgangslage: HS und Z, I mit ESL 3 an den Wohnungen, Keller mit derselben Zyl.Nr. 2 ohne I', e.spalten.map(s => s.schlNr).join(','));
 
   /* B: Gruppenkreuz an einer Tür ohne Eigenschlüssel -> Z */
   const B = bau(); M.berechtigungSetzenVerbund(B.pr, B.tueren['Waschküche'].id, B.gs.id, 'ja'); e = E.europlan(B.pr);

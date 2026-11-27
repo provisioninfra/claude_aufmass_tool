@@ -37,8 +37,8 @@ Es gibt es in zwei Fassungen:
 * **Europlan** – derselbe Plan in der Schreibweise der Hersteller, per
   Umschalter neben dem Kreuzschließplan: Zylinder mit Zyl.Nr., Stk., ESL
   und Type, Schlüssel als Spalten mit X, I, Z, M und O. Beide Ansichten
-  sind bearbeitbar und immer synchron; gleichschließende Türen tragen die
-  Nummer ihrer Haupttür mit .1, .2. Dazu das **EVVA-Bestellformular als
+  sind bearbeitbar und immer synchron; gleichschließende Türen tragen
+  dieselbe Zyl.Nr. wie ihre Haupttür. Dazu das **EVVA-Bestellformular als
   Excel**, wahlweise als Europlan oder als Kreuzschließplan
 * **PDF-Ausgaben** auf Knopfdruck: Türliste (kompakt und ausführlich),
   Kreuzschließplan, Europlan, Materialliste, Prüfprotokoll
