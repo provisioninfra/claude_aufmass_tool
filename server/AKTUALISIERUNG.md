@@ -25,6 +25,10 @@ EVVA-Formular
   (Zentralzylinder), M (Mitschließung), O (vorgeplant) – wie in der
   Gültigkeitsliste des EVVA-Formulars und den Schließplan-Beispielen von
   Winkhaus.
+- **Kein Fokussprung beim Öffnen eines Dialogs:** Wer direkt nach dem
+  Öffnen schon in ein Feld tippt, behält den Fokus dort. Vorher sprang er
+  kurz danach ins erste Feld, und die restlichen Zeichen landeten zum
+  Beispiel in der Tür-Nr. statt in der Bezeichnung.
 
 **Was 1.5.4 brachte** (gegenüber 1.5.3) – Kopplung Kreuzschließplan ↔
 Europlan geprüft und korrigiert

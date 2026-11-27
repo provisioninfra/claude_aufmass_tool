@@ -213,6 +213,10 @@
     var erstesFeld = kasten.querySelector('input:not([type=file]), select, textarea');
     setTimeout(function () {
       if (!kasten.isConnected) return;
+      /* Hat der Benutzer inzwischen selbst ein Feld im Dialog gewählt und
+         tippt schon, bleibt der Fokus dort - sonst landeten die weiteren
+         Zeichen im ersten Feld. */
+      if (document.activeElement && document.activeElement !== kasten && kasten.contains(document.activeElement)) return;
       if (erstesFeld && !('ontouchstart' in window)) erstesFeld.focus();
       else { try { kasten.focus({ preventScroll: true }); } catch (e3) { /* ältere Browser */ } }
     }, 60);
