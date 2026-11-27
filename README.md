@@ -12,7 +12,8 @@ Es gibt es in zwei Fassungen:
   mit Anmeldung über das Google-Konto der Organisation. Alle Aufmaße stehen
   auf allen Geräten zur Verfügung und gleichen sich von selbst ab – auch
   diese Fassung arbeitet ohne Netz weiter und holt später nach.
-  Einrichtung: [server/EINRICHTUNG.md](server/EINRICHTUNG.md)
+  Einrichtung: [INSTALLATION.md](INSTALLATION.md) (Schritt für Schritt für alle Teile)
+  und [server/EINRICHTUNG.md](server/EINRICHTUNG.md) (Hintergründe)
 
 ## Was das Werkzeug kann
 
