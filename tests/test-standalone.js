@@ -40,7 +40,7 @@ function pruefe(b, t, i) { if (b) { ok++; console.log('  OK   ' + t); } else { f
         masseAussen: '30', masseInnen: '35', status: 'aufgemessen'
       }));
     }
-    const s = window.Model.neueSchliessung({ kuerzel: 'GHS', bezeichnung: 'General', typ: 'ghs', anzahlMedien: 2 });
+    const s = window.Model.neueSchliessung({ kuerzel: 'GHS', bezeichnung: 'General', typ: 'ghs', medien: [{ typ: '', anzahl: 2 }] });
     p.schliessungen.push(s);
     p.tueren.forEach(t => window.Model.setBerechtigung(p, t.id, s.id, 'ja'));
     await window.Store.projektSpeichern(p);

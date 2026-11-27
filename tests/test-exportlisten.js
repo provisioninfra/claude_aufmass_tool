@@ -125,7 +125,8 @@ pruefe(kuerzel.length === new Set(kuerzel).size, 'kein Kürzel doppelt vergeben'
 
 /* --- 8. Blanko-Plan erzeugt keine Doppelungen --- */
 const blanko = baueTestprojekt();
-M.blankoSchliessplan(blanko, { proBereich: true, vorhandeneErsetzen: true });
+blanko.schliessungen = []; blanko.matrix = {};
+M.blankoSchliessplan(blanko, { ghs: true, proGruppe: true, proMitarbeiter: true });
 const bk = blanko.schliessungen.map(s => s.kuerzel);
 pruefe(bk.length === new Set(bk).size, 'Blanko-Plan vergibt eindeutige Kürzel', bk.join(', '));
 const matrixSchluessel = Object.keys(blanko.matrix);
@@ -133,10 +134,12 @@ pruefe(matrixSchluessel.length === new Set(matrixSchluessel).size,
   'Blanko-Plan setzt jede Berechtigung nur einmal');
 /* Zweimal anwenden darf nicht verdoppeln */
 const vorher = blanko.schliessungen.length;
-M.blankoSchliessplan(blanko, { proBereich: true, vorhandeneErsetzen: true });
+M.blankoSchliessplan(blanko, { ghs: true, proGruppe: true, proMitarbeiter: true });
 pruefe(blanko.schliessungen.length === vorher,
-  'erneutes Erzeugen mit "ersetzen" verdoppelt nichts',
+  'erneutes Erzeugen verdoppelt nichts - vorhandene Spalten werden erkannt',
   vorher + ' -> ' + blanko.schliessungen.length);
+pruefe(vorher === 1 + blanko.gruppen.length + blanko.mitarbeiter.length,
+  'GHS plus je eine Spalte für jede Gruppe und jeden Mitarbeiter', String(vorher));
 
 /* --- 9. Materialliste als Dokument: Spalten und Leerfelder --------------- */
 console.log('\n== Materialliste als Bestelldokument ==');
@@ -183,6 +186,16 @@ pruefe(bestellteil.indexOf('Kommission') !== -1,
   'die Bestellangaben nennen das Bestellzeichen');
 pruefe(!/Ansprechpartner vor Ort/.test(bestellteil),
   'Angaben aus dem Dokumentenkopf werden unten nicht wiederholt');
+
+console.log('\n== Gesamtlänge ohne Gleitkomma-Rest ==');
+{
+  const p2 = JSON.parse(JSON.stringify(p));
+  const z = p2.tueren.find(t => t.brauchtZylinder) || p2.tueren[0];
+  z.brauchtZylinder = true; z.masseAussen = '35.1'; z.masseInnen = '40.2';
+  const text = JSON.stringify(M.materialliste(p2));
+  pruefe(!/\d\.\d{5,}/.test(text), 'eine Summe wie 35,1 + 40,2 erscheint gerundet (75.3)', (text.match(/\d+\.\d{5,}/) || [''])[0]);
+  pruefe(text.indexOf('75.3') !== -1, 'und steht als 75.3 in der Liste');
+}
 
 console.log(`\nErgebnis Exportlisten: ${ok} ok, ${fehler} Fehler`);
 process.exit(fehler ? 1 : 0);

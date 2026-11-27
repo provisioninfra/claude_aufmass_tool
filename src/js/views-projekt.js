@@ -14,8 +14,10 @@
     return p(d.getDate()) + '.' + p(d.getMonth() + 1) + '.' + d.getFullYear();
   }
   function kb(bytes) {
-    if (bytes > 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + ' MB';
-    return Math.round(bytes / 1024) + ' KB';
+    var zahl = function (x) { return x.toLocaleString('de-DE', { maximumFractionDigits: 1 }); };
+    if (bytes > 1024 * 1024 * 1024) return zahl(bytes / 1024 / 1024 / 1024) + ' GB';
+    if (bytes > 1024 * 1024) return zahl(bytes / 1024 / 1024) + ' MB';
+    return Math.round(bytes / 1024).toLocaleString('de-DE') + ' KB';
   }
 
   /* =========================================================================
@@ -85,7 +87,7 @@
                 var klon = Store.projektKlonen(p);
                 Store.projektSpeichern(klon).then(function () {
                   A.toast('Projekt kopiert.', 'ok'); neuLaden();
-                });
+                }).catch(function (f) { A.toast('Kopieren fehlgeschlagen: ' + ((f && f.message) || 'Speicher nicht erreichbar.'), 'fehler'); });
               } }),
             el('button', { class: 'klein gefahr', text: 'Löschen',
               onclick: function () {
@@ -104,7 +106,7 @@
                         try { global.Abgleich.projektGeloescht(p.id); } catch (e2) {}
                       }
                       A.toast('Projekt gelöscht.'); neuLaden();
-                    });
+                    }).catch(function (f) { A.toast('Löschen fehlgeschlagen: ' + ((f && f.message) || 'Speicher nicht erreichbar.'), 'fehler'); });
                   });
               } })
           ])
@@ -138,7 +140,7 @@
         titel: 'Pipedrive ist noch nicht verbunden', klein: true,
         inhalt: el('div', {}, [
           el('p', { class: 'hinweis', style: { marginTop: '0' },
-            text: 'Hinterlegen Sie zuerst unter Einstellungen den Zugriffsschlüssel aus Pipedrive - ' +
+            text: 'Hinterlegen Sie zuerst unter Einstellungen den Zugriffsschlüssel aus Pipedrive – ' +
                   'oder lassen Sie ihn in WordPress hinterlegen, dann braucht kein Gerät einen. ' +
                   'Danach lassen sich Aufmaße direkt aus einem Deal anlegen.' })
         ]),
@@ -492,10 +494,18 @@
 
   function importDialog(neuLaden) {
     var dateiEingabe = el('input', {
-      type: 'file', accept: '.json,application/json',
+      type: 'file', accept: '.json,application/json', class: 'versteckt',
       onchange: function (e) {
         var datei = e.target.files && e.target.files[0];
         if (!datei) return;
+        /* Eine Aufmaß-Datei mit Fotos ist einige Megabyte groß - nicht
+           hunderte. Eine Riesendatei liefe sonst erst durch den ganzen
+           Speicher, bevor sie als unlesbar gemeldet würde. */
+        if (datei.size > Store.IMPORT_MAX) {
+          A.toast('Die Datei ist zu groß für einen Import (über ' + Math.round(Store.IMPORT_MAX / 1048576) + ' MB).', 'fehler');
+          e.target.value = '';
+          return;
+        }
         var leser = new FileReader();
         leser.onerror = function () { A.toast('Die Datei konnte nicht gelesen werden.', 'fehler'); };
         leser.onload = function () {
@@ -503,22 +513,81 @@
           try { ergebnis = Store.importParsen(leser.result); }
           catch (fehler) { A.toast(fehler.message, 'fehler'); return; }
           Store.alleProjekte().then(function (vorhandene) {
+            /* Eine Sicherung („Alle Projekte sichern“) bringt mehrere
+               Projekte mit: alle einlesen, Vorhandenes nur auf Nachfrage
+               überschreiben, sonst als Kopie daneben legen. */
+            if (ergebnis.sicherung) {
+              var ids = {};
+              vorhandene.forEach(function (v) { ids[v.id] = v; });
+              var doppelt = ergebnis.projekte.filter(function (x) { return ids[x.id]; }).length;
+              var frage = doppelt
+                ? Promise.resolve(null).then(function () {
+                    return A.bestaetigen('Sicherung einlesen',
+                      ergebnis.projekte.length + ' Projekte in der Sicherung, davon ' + doppelt +
+                      ' bereits auf diesem Gerät. Sollen die vorhandenen überschrieben werden? ' +
+                      'Andernfalls werden sie als Kopie angelegt.', 'Überschreiben');
+                  })
+                : Promise.resolve(false);
+              frage.then(function (ueberschreiben) {
+                var reihe = Promise.resolve();
+                ergebnis.projekte.forEach(function (projekt) {
+                  var zuSpeichern = (ids[projekt.id] && !ueberschreiben)
+                    ? Store.projektKlonen(projekt, (projekt.name || 'Import') + ' (Sicherung)') : projekt;
+                  reihe = reihe.then(function () { return Store.projektSpeichern(zuSpeichern); });
+                });
+                return reihe;
+              }).then(function () {
+                A.toast(ergebnis.projekte.length + ' Projekte aus der Sicherung eingelesen.', 'ok');
+                dlg.schliessen(); neuLaden();
+              }).catch(function (fehler) { A.toast(fehler.message || 'Einlesen fehlgeschlagen.', 'fehler'); });
+              return;
+            }
             var gleich = vorhandene.filter(function (v) { return v.id === ergebnis.projekt.id; })[0];
             var fortsetzen = function (projekt) {
               Store.projektSpeichern(projekt).then(function () {
                 A.projektOeffnenIntern(projekt, 'tueren');
                 A.toast('Projekt importiert: ' + projekt.tueren.length + ' Türen.', 'ok');
                 dlg.schliessen(); neuLaden();
-              });
+              }).catch(function (f) { A.toast('Import fehlgeschlagen: ' + ((f && f.message) || 'Speicher nicht erreichbar.'), 'fehler'); });
+            };
+            /* Dasselbe Aufmaß liegt schon hier: nur die Gliederung aus der
+               Datei ergänzen (Standorte, Gebäude, Bereiche, die hier fehlen -
+               Türen und alles andere bleiben, wie sie sind). So kommt eine
+               verlorene Gliederung aus einer Sicherung zurück. */
+            var nurGliederung = function () {
+              Store.projektLaden(gleich.id).then(function (vorhanden) {
+                if (!vorhanden) throw new Error('Das vorhandene Projekt ließ sich nicht laden.');
+                var anzahl = M.gliederungUebernehmen(vorhanden, ergebnis.projekt);
+                if (!anzahl) { A.toast('Die Gliederung aus der Datei ist hier schon vollständig vorhanden.', 'warn'); return; }
+                return Store.projektSpeichern(vorhanden).then(function () {
+                  var geladen = M.migriere(vorhanden);
+                  geladen.id = vorhanden.id;
+                  A.projektOeffnenIntern(geladen, 'struktur');
+                  A.toast(anzahl + (anzahl === 1 ? ' Eintrag' : ' Einträge') + ' der Gliederung übernommen – Türen unverändert.', 'ok');
+                  dlg.schliessen(); neuLaden();
+                });
+              }).catch(function (f) { A.toast(f.message || 'Übernahme fehlgeschlagen.', 'fehler'); });
             };
             if (gleich) {
-              A.bestaetigen('Projekt bereits vorhanden',
-                'Ein Projekt mit derselben Kennung existiert bereits („' + (gleich.kunde || gleich.name) +
-                '“). Soll es überschrieben werden? Andernfalls wird eine Kopie angelegt.',
-                'Überschreiben').then(function (ueberschreiben) {
-                  fortsetzen(ueberschreiben ? ergebnis.projekt
-                    : Store.projektKlonen(ergebnis.projekt, (ergebnis.projekt.name || 'Import') + ' (Import)'));
-                });
+              A.dialogOeffnen({
+                titel: 'Projekt bereits vorhanden', klein: true,
+                inhalt: el('div', {}, [
+                  el('p', { style: { marginTop: '0' }, text: 'Ein Projekt mit derselben Kennung existiert bereits („' +
+                    (gleich.kunde || gleich.name) + '“).' }),
+                  el('p', { class: 'zart', text: '„Nur Gliederung übernehmen“ ergänzt im vorhandenen Projekt die Standorte, ' +
+                    'Gebäude und Bereiche aus der Datei, die hier fehlen – Türen und alles andere bleiben unverändert. ' +
+                    'So lässt sich eine verlorene Gliederung aus einer Sicherung zurückholen. „Überschreiben“ ersetzt ' +
+                    'das ganze Projekt durch die Datei.' })
+                ]),
+                knoepfe: [
+                  { text: 'Abbrechen' },
+                  { fuellen: true },
+                  { text: 'Nur Gliederung übernehmen', klasse: 'weiter', aktion: function () { nurGliederung(); } },
+                  { text: 'Als Kopie anlegen', aktion: function () {
+                    fortsetzen(Store.projektKlonen(ergebnis.projekt, (ergebnis.projekt.name || 'Import') + ' (Import)')); } },
+                  { text: 'Überschreiben', klasse: 'gefahr', aktion: function () { fortsetzen(ergebnis.projekt); } }
+                ]
+              });
             } else { fortsetzen(ergebnis.projekt); }
           });
         };
@@ -554,7 +623,7 @@
           'Deal-Nr. ' + p.pipedrive.dealId +
           (p.pipedrive.dealTitel ? ('  ·  ' + p.pipedrive.dealTitel) : '') +
           (p.pipedrive.orgId ? ('  ·  Organisation ' + p.pipedrive.orgId) : '') }),
-        p.pipedrive.dealLink ? el('div', { style: { marginTop: '8px' } },
+        /^https:\/\/[a-z0-9.-]+\.pipedrive\.com\//i.test(p.pipedrive.dealLink || '') ? el('div', { style: { marginTop: '8px' } },
           el('a', { class: 'knopf klein', href: p.pipedrive.dealLink, target: '_blank',
                     rel: 'noopener noreferrer', text: 'Deal in Pipedrive öffnen ↗' })) : null
       ])));
@@ -569,7 +638,8 @@
         A.textFeld(p, 'strasse', 'Straße und Hausnummer'),
         A.textFeld(p, 'plz', 'PLZ', { inputmode: 'numeric' }),
         A.textFeld(p, 'ort', 'Ort'),
-        A.textFeld(p, 'anlagenNr', 'Anlagen-Nr. / Schließanlagen-Nr.')
+        A.textFeld(p, 'anlagenNr', 'Anlagen-Nr. / Schließanlagen-Nr.'),
+        A.textFeld(p, 'oberflaeche', 'Oberfläche der Zylinder <span class="einheit">(Europlan)</span>', { platzhalter: 'z. B. NI = Nickel, MS = Messing' })
       ])
     ]));
 
@@ -715,6 +785,33 @@
       el('button', { class: 'haupt', text: '+ Standort',
         onclick: function () { knotenAnlegen('standort', null, neuZeichnen); } })
     ]));
+
+    /* Türen, deren Bereich es nicht mehr gibt: Die Gliederung ist auf
+       anderem Weg verschwunden (etwa durch einen Abgleich), die Türen
+       sind vollständig. Die fehlenden Bereiche lassen sich unter denselben
+       Kennungen wieder anlegen - dann hängen die Türen wieder daran. */
+    var verwaist = M.verwaisteBereiche(p);
+    if (verwaist.length) {
+      var betroffen = verwaist.reduce(function (n, v) { return n + v.tueren.length; }, 0);
+      seite.appendChild(el('div', { class: 'meldung warn verwaist-hinweis' }, el('div', {}, [
+        el('b', { text: 'Gliederung fehlt: ' }),
+        betroffen + (betroffen === 1 ? ' Tür verweist' : ' Türen verweisen') + ' auf ' + verwaist.length +
+          (verwaist.length === 1 ? ' Bereich, den' : ' Bereiche, die') + ' es in der Gliederung nicht mehr gibt – ' +
+          'etwa nach einem Abgleich, bei dem die Gliederung verloren ging. Die Türen selbst sind vollständig. ' +
+          '„Bereiche wiederherstellen“ legt die fehlenden Bereiche unter einem neuen Standort wieder an; die Türen hängen ' +
+          'dann wieder daran, und die Einträge lassen sich umbenennen. Liegt eine Sicherung von vorher vor, lässt sich ' +
+          'stattdessen auf der Projektübersicht über „Projekt importieren“ nur die Gliederung aus ihr übernehmen.',
+        el('div', { class: 'knopfleiste', style: { marginTop: '8px' } }, [
+          el('button', { class: 'klein haupt', text: 'Bereiche wiederherstellen', onclick: function () {
+            A.schrittMerken('Bereiche wiederhergestellt');
+            var neu = M.bereicheWiederherstellen(p);
+            A.alsGeaendertMarkieren();
+            A.toast(neu.length + ' Einträge angelegt – bitte umbenennen. Alle Türen hängen wieder an ihrem Bereich.', 'ok');
+            neuZeichnen();
+          } })
+        ])
+      ])));
+    }
 
     var wurzeln = M.kinderVon(p, null);
     if (!wurzeln.length) {
@@ -887,8 +984,9 @@
     return M.tuerenUnter(Zustand.projekt, knotenId).length;
   }
 
-  function knotenZeichnen(knoten, neuZeichnen) {
+  function knotenZeichnen(knoten, neuZeichnen, tiefe) {
     var p = Zustand.projekt;
+    tiefe = tiefe || 0;
     var kinder = M.kinderVon(p, knoten.id);
     var konfig = EBENEN[knoten.ebene] || EBENEN.bereich;
     var anzahl = tuerenImKnoten(knoten.id);
@@ -956,9 +1054,11 @@
       ])
     ]);
 
-    if (kinder.length) {
+    /* Tiefer als zwölf Ebenen gliedert niemand - eine solche Tiefe kann
+       nur ein Kreis in fremden Daten sein, und der wird nicht gezeichnet. */
+    if (kinder.length && tiefe < 12) {
       var unterliste = el('ul');
-      kinder.forEach(function (k) { unterliste.appendChild(knotenZeichnen(k, neuZeichnen)); });
+      kinder.forEach(function (k) { unterliste.appendChild(knotenZeichnen(k, neuZeichnen, tiefe + 1)); });
       eintrag.appendChild(unterliste);
     }
     return eintrag;

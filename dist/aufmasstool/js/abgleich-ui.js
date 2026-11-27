@@ -50,7 +50,7 @@
       if (!da || !global.google || !global.google.accounts) {
         A.leeren(platz);
         platz.appendChild(el('p', { class: 'meldung warn', text:
-          'Die Anmeldeseite von Google ist nicht erreichbar. Ohne Netz ist das normal - '
+          'Die Anmeldeseite von Google ist nicht erreichbar. Ohne Netz ist das normal – '
           + 'das Werkzeug arbeitet weiter, der Abgleich holt später nach.' }));
         return;
       }
@@ -221,59 +221,19 @@
   function zusammenfassung(a) {
     var n = a.antwortAnzahl || 0, m = a.antwortListen || 0;
     var teile = [n + (n === 1 ? ' Berechtigung' : ' Berechtigungen')];
-    if (m) { teile.push(m + (m === 1 ? ' Inhaberliste' : ' Inhaberlisten')); }
+    if (m) { teile.push(m + (m === 1 ? ' Liste bzw. neue Spalte' : ' Listen bzw. neue Spalten')); }
+    if (a.freigabe && a.freigabe.name) {
+      teile.push(a.freigabe.art === 'nachtraeglich' ? 'verbindliche Freigabe des vorgelegten Plans' : 'mit verbindlicher Freigabe');
+    }
     return teile.join(', ');
   }
 
-  function wertText(w) {
-    var K = global.Katalog;
-    var zeichen = K && K.berechtigungZeichen ? K.berechtigungZeichen(w) : '';
-    var namen = { nein: 'keine Berechtigung', ja: 'berechtigt', zeit: 'zeitlich begrenzt', temp: 'vorübergehend', sperr: 'gesperrt' };
-    return (zeichen ? zeichen + '  ' : '') + (namen[w] || w || '–');
-  }
-
+  /* Der Bericht über eine Rückmeldung wird gemeinsam mit dem Rückschlüssel-Weg
+     im Schließplan gezeichnet (views-plan.js) - eine Darstellung für beide Wege. */
   function berichtZeichnen(ziel, b) {
+    if (global.ViewsPlan && global.ViewsPlan.berichtZeichnen) { return global.ViewsPlan.berichtZeichnen(ziel, b); }
     A.leeren(ziel);
-    var zellen = b.aenderungen.filter(function (x) { return !x.personen; });
-    var listen = b.aenderungen.filter(function (x) { return x.personen; });
-    if (!zellen.length && !listen.length) {
-      ziel.appendChild(el('div', { class: 'meldung warn' }, el('div', { text:
-        'Diese Rückmeldung enthält keine Änderungen gegenüber dem aktuellen Stand des Aufmaßes'
-        + (b.uebersprungen || b.personenUebersprungen ? ' – ' + ((b.uebersprungen || 0) + (b.personenUebersprungen || 0))
-          + ' Einträge betreffen Türen oder Schließungen, die es nicht mehr gibt.' : '.') })));
-      return;
-    }
-    if (zellen.length) {
-      ziel.appendChild(el('h3', { text: zellen.length + (zellen.length === 1 ? ' Berechtigung' : ' Berechtigungen') }));
-      var tabelle = el('table');
-      tabelle.appendChild(el('thead', {}, el('tr', {}, [
-        el('th', { text: 'Tür' }), el('th', { text: 'Schließung' }), el('th', { text: 'Bisher' }), el('th', { text: 'Neu' })
-      ])));
-      var koerper = el('tbody');
-      zellen.forEach(function (x) {
-        koerper.appendChild(el('tr', {}, [
-          el('td', { text: x.tuer || '–' }), el('td', { text: x.schliessung || '–' }),
-          el('td', { text: wertText(x.vorher) }), el('td', { class: 'neu', text: wertText(x.nachher) })
-        ]));
-      });
-      tabelle.appendChild(koerper);
-      ziel.appendChild(tabelle);
-    }
-    if (listen.length) {
-      ziel.appendChild(el('h3', { text: listen.length + (listen.length === 1 ? ' Inhaberliste' : ' Inhaberlisten') }));
-      listen.forEach(function (x) {
-        ziel.appendChild(el('div', { class: 'liste' }, [
-          el('b', { text: x.schliessung || '–' }),
-          el('span', { class: 'zart', text: '  ' + x.vorher + ' → ' + x.nachher + (x.nachher === 1 ? ' Person' : ' Personen') }),
-          el('div', { class: 'namen', text: (x.namen || []).join(', ') || 'niemand' })
-        ]));
-      });
-    }
-    if (b.uebersprungen || b.personenUebersprungen) {
-      ziel.appendChild(el('p', { class: 'hinweis', text:
-        ((b.uebersprungen || 0) + (b.personenUebersprungen || 0)) + ' Einträge betreffen Türen oder Schließungen, '
-        + 'die es im Aufmaß nicht mehr gibt - sie werden übersprungen.' }));
-    }
+    ziel.appendChild(el('p', { text: global.Freigabe.berichtText(b) + '.' }));
   }
 
   function antwortDialog(eintrag, beiFertig) {
@@ -291,7 +251,7 @@
     inhalt.appendChild(bericht);
     inhalt.appendChild(el('p', { class: 'hinweis', text:
       'Am Aufmaß ändert sich erst etwas, wenn Sie unten auf „Übernehmen“ tippen. '
-      + '„Verwerfen“ legt die Rückmeldung ab, ohne sie zu übernehmen - der Kunde kann jederzeit erneut übertragen.' }));
+      + '„Verwerfen“ legt die Rückmeldung ab, ohne sie zu übernehmen – der Kunde kann jederzeit erneut übertragen.' }));
 
     var laeuft = false;
     function fertig(schliessen, text) {
@@ -326,9 +286,7 @@
           if (laeuft) { return false; }
           laeuft = true;
           Abgleich.antwortUebernehmen(eintrag.code).then(function (b) {
-            var text = b.uebernommen + (b.uebernommen === 1 ? ' Berechtigung' : ' Berechtigungen') + ' übernommen';
-            if (b.personenListen) { text += ', ' + b.personenListen + (b.personenListen === 1 ? ' Inhaberliste' : ' Inhaberlisten') + ' aktualisiert'; }
-            fertig(schliessen, text + '.');
+            fertig(schliessen, global.Freigabe.berichtText(b) + '.');
           }).catch(function (f) {
             laeuft = false;
             A.toast(fehlerText(f, 'Die Übernahme ist gescheitert.'), 'fehler');
@@ -354,7 +312,7 @@
     liste.forEach(function (a) {
       kasten.appendChild(el('div', { class: 'zeile-verteilt', style: { width: '100%', gap: '10px' } }, [
         el('div', { class: 'fuellen' }, [
-          el('b', { text: 'Rückmeldung des Kunden liegt vor' }),
+          el('b', { text: (a.freigabe && a.freigabe.name) ? 'Verbindliche Freigabe des Kunden liegt vor' : 'Rückmeldung des Kunden liegt vor' }),
           el('div', { style: { fontSize: '13px', marginTop: '2px' },
             text: 'von ' + (a.antwortName || 'dem Kunden') + ' am ' + datum(a.antwortAm) + '  ·  ' + zusammenfassung(a) })
         ]),
@@ -402,8 +360,9 @@
     var inhalt = el('div', {}, [
       el('p', {}, [
         'Dieses Aufmaß wurde auch von ', el('b', { text: satz.wer }),
-        ' geändert. Alles Übrige wurde bereits zusammengeführt – nur bei diesen ',
-        el('b', { text: String(satz.konflikte.length) }),
+        ' geändert. Alles Übrige wurde bereits zusammengeführt – nur bei ',
+        satz.konflikte.length === 1 ? 'dieser ' : 'diesen ',
+        el('b', { text: satz.konflikte.length === 1 ? 'einen' : String(satz.konflikte.length) }),
         satz.konflikte.length === 1 ? ' Angabe' : ' Angaben',
         ' wurde beidseitig etwas anderes eingetragen.'
       ]),
@@ -428,6 +387,8 @@
             Abgleich.konfliktAufloesen(satz.projektId, wahl).then(function () {
               A.toast('Zusammengeführt.', 'ok');
               if (neuZeichnen) { neuZeichnen(); }
+            }).catch(function (f) {
+              A.toast('Zusammenführen fehlgeschlagen: ' + ((f && f.message) || 'unbekannter Fehler') + '. Die Rückfrage bleibt bestehen.', 'fehler');
             });
           } }
       ]
@@ -512,6 +473,185 @@
   }
 
   /* ---------------------------------------------------------------- */
+  /* Zugangsschlüssel für Programme und Claude Code                    */
+  /* ---------------------------------------------------------------- */
+  var ANBINDUNG_DATEI = 'aufmass-anbindung.zip';
+
+  function basisAdresse() {
+    var b = Abgleich.basis ? Abgleich.basis() : '';
+    if (!b && /^https?:/.test(location.protocol)) { b = location.origin; }
+    return b || 'https://www.provision-infra.de';
+  }
+
+  function kopierKnopf(text, beschriftung) {
+    var knopf = el('button', { class: 'klein', text: beschriftung || 'Kopieren', onclick: function () {
+      var fertig = function () { knopf.textContent = 'Kopiert ✓'; setTimeout(function () { knopf.textContent = beschriftung || 'Kopieren'; }, 2500); };
+      var vonHand = function () { knopf.textContent = 'Bitte von Hand markieren'; };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(fertig).catch(vonHand);
+      } else {
+        var hilf = el('textarea', { style: { position: 'absolute', left: '-9999px' } }); hilf.value = text;
+        document.body.appendChild(hilf); hilf.select();
+        try { document.execCommand('copy'); fertig(); } catch (e) { vonHand(); }
+        document.body.removeChild(hilf);
+      }
+    } });
+    return knopf;
+  }
+
+  function befehlKasten(ueberschrift, text) {
+    return el('div', { style: { marginTop: '10px' } }, [
+      el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' } }, [
+        el('b', { text: ueberschrift }), kopierKnopf(text)
+      ]),
+      el('pre', { class: 'befehl-kasten', text: text })
+    ]);
+  }
+
+  /* Der Schlüssel wird genau einmal gezeigt - danach kennt ihn nur noch, wer ihn kopiert hat. */
+  function schluesselZeigen(e, beiFertig) {
+    var geheim = e.schluessel, eintrag = e.eintrag || {};
+    var basis = basisAdresse();
+    var mcpBefehl = 'claude mcp add aufmass --env AUFMASS_URL=' + basis + ' --env AUFMASS_SCHLUESSEL=' + geheim
+      + ' -- node ~/aufmass-anbindung/aufmass-mcp.js';
+    var curlBefehl = 'curl -H "Authorization: Bearer ' + geheim + '" ' + basis + '/wp-json/aufmass/v1/projekte';
+    var feld = el('input', { type: 'text', class: 'kurzlink-feld', readonly: true, value: geheim, 'aria-label': 'Zugangsschlüssel',
+      onclick: function () { feld.select(); } });
+    var inhalt = el('div', {}, [
+      el('div', { class: 'meldung warn' }, el('div', {}, [
+        el('b', { text: 'Dieser Schlüssel wird nur jetzt angezeigt.' }),
+        el('div', { style: { marginTop: '4px', fontSize: '13.5px' }, text:
+          'Kopieren Sie ihn und bewahren Sie ihn wie ein Passwort auf. Er arbeitet in Ihrem Namen und '
+          + (eintrag.rechte === 'schreiben' ? 'darf Aufmaße lesen und ändern. ' : 'darf Aufmaße nur lesen. ')
+          + 'Geht er verloren, widerrufen Sie ihn hier und erzeugen einen neuen.' })
+      ])),
+      el('div', { style: { display: 'flex', gap: '8px', alignItems: 'center', marginTop: '10px' } }, [feld, kopierKnopf(geheim)]),
+      el('p', { class: 'zart', style: { marginTop: '6px' }, text: '„' + (eintrag.name || 'Zugangsschlüssel') + '“ · '
+        + (eintrag.rechte === 'schreiben' ? 'lesen und schreiben' : 'nur lesen') + ' · gültig bis ' + datum(eintrag.gueltigBis) }),
+      el('h3', { style: { marginTop: '16px', marginBottom: '4px' }, text: 'Claude Code anbinden' }),
+      el('ol', { style: { paddingLeft: '20px', margin: '6px 0', fontSize: '14px', lineHeight: '1.45' } }, [
+        el('li', { text: 'Das Paket „Anbindung“ herunterladen (Knopf in der Karte) und entpacken, z. B. in den Ordner aufmass-anbindung im Benutzerverzeichnis. Node.js 18 oder neuer muss vorhanden sein.' }),
+        el('li', { text: 'Den folgenden Befehl im Terminal ausführen – den Pfad am Ende ggf. an den Ordner anpassen.' }),
+        el('li', { text: 'In Claude Code dann einfach fragen: „Welche Aufmaße gibt es?“ oder „Lege im Aufmaß Ibsen eine Tür im Erdgeschoss an.“' })
+      ]),
+      befehlKasten('Befehl für Claude Code', mcpBefehl),
+      befehlKasten('Beispiel für eigene Skripte (curl)', curlBefehl)
+    ]);
+    A.dialogOeffnen({
+      titel: 'Neuer Zugangsschlüssel', inhalt: inhalt,
+      knoepfe: [{ fuellen: true }, { text: 'Fertig', klasse: 'haupt' }],
+      beimSchliessen: beiFertig
+    });
+    setTimeout(function () { try { feld.focus(); feld.select(); } catch (e) {} }, 50);
+  }
+
+  function schluesselDialog(beiFertig) {
+    var name = el('input', { type: 'text', value: 'Claude Code', maxlength: '120', placeholder: 'z. B. Claude Code am Arbeitsplatz' });
+    var rechte = el('select', {}, [
+      el('option', { value: 'schreiben', text: 'Lesen und schreiben (Aufmaße anlegen und ändern)' }),
+      el('option', { value: 'lesen', text: 'Nur lesen' })
+    ]);
+    var tage = el('select', {}, [
+      el('option', { value: '30', text: '30 Tage' }),
+      el('option', { value: '90', text: '90 Tage' }),
+      el('option', { value: '365', text: '1 Jahr' }),
+      el('option', { value: '730', text: '2 Jahre (Höchstdauer)' })
+    ]);
+    tage.value = '365';
+    var inhalt = el('div', {}, [
+      el('p', { class: 'hinweis', text: 'Der Schlüssel gilt für Sie persönlich: Alles, was ein Programm damit tut, geschieht in Ihrem Namen und unterliegt Ihren Zuständigkeiten. Er lässt sich hier jederzeit widerrufen.' }),
+      A.feld('Name', name), A.feld('Rechte', rechte), A.feld('Gültig für', tage)
+    ]);
+    var laeuft = false;
+    A.dialogOeffnen({
+      titel: 'Zugangsschlüssel erzeugen', inhalt: inhalt,
+      knoepfe: [
+        { text: 'Abbrechen' }, { fuellen: true },
+        { text: 'Erzeugen', klasse: 'haupt', schliesst: false, aktion: function (schliessen) {
+          if (laeuft) { return false; }
+          laeuft = true;
+          Abgleich.schluesselErzeugen(name.value.trim(), rechte.value, parseInt(tage.value, 10)).then(function (e) {
+            schliessen();
+            schluesselZeigen(e, beiFertig);
+          }).catch(function (f) {
+            laeuft = false;
+            A.toast(fehlerText(f, 'Der Schlüssel ließ sich nicht erzeugen.'), 'fehler');
+          });
+          return false;
+        } }
+      ]
+    });
+    setTimeout(function () { try { name.focus(); name.select(); } catch (e) {} }, 50);
+  }
+
+  function schluesselKarte() {
+    var z = Abgleich.zustand();
+    if (!z.angemeldet) { return null; }
+
+    var karte = el('div', { class: 'karte', id: 'karte-schluessel' });
+    karte.appendChild(el('h2', { style: { marginTop: '0' }, text: 'Zugang für Programme und Claude Code' }));
+    karte.appendChild(el('p', { class: 'hinweis', text:
+      'Mit einem Zugangsschlüssel arbeiten Programme ohne Browser-Anmeldung mit der gemeinsamen Ablage: '
+      + 'Claude Code über den mitgelieferten MCP-Server, eigene Skripte über die Schnittstelle. '
+      + 'Jeder Schlüssel gehört einer Person, hat ein Ablaufdatum und kann hier widerrufen werden.' }));
+    var liste = el('div', { class: 'schluessel-liste' });
+    karte.appendChild(liste);
+    var knoepfe = el('div', { class: 'knopfleiste', style: { marginTop: '10px' } });
+    knoepfe.appendChild(el('button', { class: 'haupt', text: '+ Neuen Schlüssel erzeugen', onclick: function () { schluesselDialog(laden); } }));
+    if (/^https?:/.test(location.protocol)) {
+      knoepfe.appendChild(el('a', { class: 'knopf klein', href: ANBINDUNG_DATEI, download: ANBINDUNG_DATEI, text: 'Anbindung herunterladen (ZIP)' }));
+    }
+    karte.appendChild(knoepfe);
+
+    function laden() {
+      A.leeren(liste);
+      liste.appendChild(el('p', { class: 'zart', text: 'Wird geladen …' }));
+      Abgleich.schluesselListe().then(function (eintraege) {
+        A.leeren(liste);
+        if (!eintraege.length) {
+          liste.appendChild(el('p', { class: 'zart', text: 'Noch kein Schlüssel vorhanden.' }));
+          return;
+        }
+        var tabelle = el('table', { class: 'tabelle schlicht schluessel-tabelle' });
+        tabelle.appendChild(el('thead', {}, el('tr', {}, [
+          el('th', { text: 'Name' }), el('th', { text: 'Rechte' }), el('th', { text: 'Gültig bis' }), el('th', { text: 'Zuletzt genutzt' }), el('th', { text: '' })
+        ])));
+        var koerper = el('tbody');
+        eintraege.forEach(function (s) {
+          koerper.appendChild(el('tr', { class: s.abgelaufen ? 'abgelaufen' : '' }, [
+            el('td', { class: 'name' }, [el('b', { text: s.name || 'Zugangsschlüssel' }), s.abgelaufen ? el('span', { class: 'marke-pille gelb', style: { marginLeft: '6px' }, text: 'abgelaufen' }) : null]),
+            el('td', { 'data-label': 'Rechte', text: s.rechte === 'schreiben' ? 'lesen und schreiben' : 'nur lesen' }),
+            el('td', { 'data-label': 'Gültig bis', text: datum(s.gueltigBis) }),
+            el('td', { 'data-label': 'Zuletzt genutzt', text: s.zuletztAm ? datum(s.zuletztAm) : 'noch nie' }),
+            el('td', { class: 'aktion' }, el('button', { class: 'klein gefahr', text: 'Widerrufen', onclick: function () {
+              A.bestaetigen('Schlüssel „' + (s.name || 'Zugangsschlüssel') + '“ widerrufen?',
+                'Programme, die diesen Schlüssel verwenden, verlieren sofort den Zugang. Das lässt sich nicht rückgängig machen.',
+                'Widerrufen').then(function (ja) {
+                if (!ja) { return; }
+                Abgleich.schluesselWiderrufen(s.id).then(function () {
+                  A.toast('Schlüssel widerrufen.', 'ok'); laden();
+                }).catch(function (f) {
+                  A.toast(fehlerText(f, 'Der Schlüssel ließ sich nicht widerrufen.'), 'fehler');
+                  if (f && f.status === 404) { laden(); }
+                });
+              });
+            } }))
+          ]));
+        });
+        tabelle.appendChild(koerper);
+        liste.appendChild(tabelle);
+      }).catch(function (f) {
+        A.leeren(liste);
+        liste.appendChild(el('p', { class: 'zart', text: f && f.status === 403
+          ? 'Schlüssel lassen sich nur in einer Browsersitzung verwalten.'
+          : 'Die Schlüssel sind gerade nicht abrufbar.' }));
+      });
+    }
+    laden();
+    return karte;
+  }
+
+  /* ---------------------------------------------------------------- */
   /* Einhängen                                                         */
   /* ---------------------------------------------------------------- */
   function starten(zeichnen) {
@@ -573,6 +713,7 @@
     antwortDialog: antwortDialog,
     antwortenHinweis: antwortenHinweis,
     zustaendigeKarte: zustaendigeKarte,
+    schluesselKarte: schluesselKarte,
     uebersichtZeigen: uebersichtZeigen
   };
 })(window);

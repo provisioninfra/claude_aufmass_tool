@@ -29,6 +29,11 @@ class Aufmass_Verschluesselung {
     }
 
     /** Liefert eine Zeichenkette für die Datenbank, oder null wenn kein Schlüssel. */
+    /** Sieht der Wert aus wie eine Ablage aus verschluesseln()? */
+    public static function ist_chiffre($wert) {
+        return (bool) preg_match('#^(s1|o1):[A-Za-z0-9+/=]+$#', (string) $wert);
+    }
+
     public static function verschluesseln($klartext) {
         $k = self::schluessel();
         if ($k === null) { return null; }

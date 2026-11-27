@@ -30,7 +30,11 @@
   /** Speichern, schließen, neu laden - in dieser Reihenfolge. */
   function neuStarten() {
     var schliessen = (A && typeof A.projektSchliessen === 'function') ? A.projektSchliessen() : Promise.resolve();
-    return schliessen.catch(function () {}).then(function () { global.location.reload(); });
+    return schliessen.then(function () { global.location.reload(); }, function (f) {
+      /* Nicht gespeichert: dann auch kein Neustart - der käme einem Datenverlust gleich */
+      if (A && A.toast) { A.toast((f && f.message) || 'Das Aufmaß konnte nicht gespeichert werden - kein Neustart.', 'fehler'); }
+      return false;
+    });
   }
 
   /** Von Hand nachsehen, ob der Server eine neue Fassung hat. */

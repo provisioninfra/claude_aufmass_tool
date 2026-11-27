@@ -16,13 +16,16 @@ foreach ($eingabe as $fall) {
     $e['datenOk'] = true;
     $e['matrix'] = Aufmass_Freigaben::entpacken($sauber['m']);
     $e['maske'] = Aufmass_Freigaben::entpacken($sauber['e']);
+    $e['rechte'] = $sauber['r'];
     $e['s'] = $sauber['s'];
     $a = Aufmass_Freigaben::antwort_pruefen($sauber, $fall['antwort']);
     if (is_wp_error($a)) {
         $e['ok'] = false; $e['code'] = $a->get_error_code(); $e['meldung'] = $a->get_error_message();
     } else {
         $e['ok'] = true; $e['a'] = $a['antwort']['a']; $e['anzahl'] = $a['anzahl']; $e['listen'] = $a['listen'];
-        $e['p'] = isset($a['antwort']['p']) ? $a['antwort']['p'] : null;
+        foreach (array('ma', 'max', 'gr', 'grx', 'n', 'fr') as $k) {
+            $e[$k] = isset($a['antwort'][$k]) ? $a['antwort'][$k] : null;
+        }
     }
     $aus[] = $e;
 }

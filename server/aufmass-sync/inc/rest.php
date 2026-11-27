@@ -69,6 +69,13 @@ class Aufmass_Rest {
            bewusst OHNE Anmeldung erreichbar - der Kunde hat kein Konto. Der
            Code im Weg ist dort der Ausweis; die Drosselung und die Prüfung
            der Antwort gegen die Freigabe stehen in freigaben.php. */
+        /* Tür einsprechen: Tonaufnahme (multipart, Feld „ton“) oder schon
+           erkannter Text, dazu das Feldschema des Werkzeugs. Nur für
+           Angemeldete und nur mit dem eigenen Kopffeld. */
+        register_rest_route(self::RAUM, '/diktat', array(
+            'methods' => 'POST', 'callback' => array(__CLASS__, 'diktat'),
+            'permission_callback' => array(__CLASS__, 'angemeldet_schreibend')
+        ));
         register_rest_route(self::RAUM, '/freigaben', array(
             array('methods' => 'GET', 'callback' => array(__CLASS__, 'freigaben_liste'),
                   'permission_callback' => array(__CLASS__, 'angemeldet')),
@@ -83,9 +90,31 @@ class Aufmass_Rest {
             'methods' => 'POST', 'callback' => array(__CLASS__, 'freigabe_antwort'),
             'permission_callback' => array(__CLASS__, 'schreibschutz')
         ));
+        /* Verbindliche Freigabe des vorgelegten Plans - vom Kunden, ohne Konto */
+        register_rest_route(self::RAUM, '/freigaben/(?P<code>[A-Za-z0-9]{6,16})/freigeben', array(
+            'methods' => 'POST', 'callback' => array(__CLASS__, 'freigabe_freigeben'),
+            'permission_callback' => array(__CLASS__, 'schreibschutz')
+        ));
+        /* Den aktuellen Plan zur verbindlichen Freigabe vorlegen - von den Zuständigen */
+        register_rest_route(self::RAUM, '/freigaben/(?P<code>[A-Za-z0-9]{6,16})/vorlegen', array(
+            'methods' => 'POST', 'callback' => array(__CLASS__, 'freigabe_vorlegen'),
+            'permission_callback' => array(__CLASS__, 'angemeldet_schreibend')
+        ));
         register_rest_route(self::RAUM, '/freigaben/(?P<code>[A-Za-z0-9]{6,16})/(?P<aktion>uebernommen|verwerfen|zurueckziehen)', array(
             'methods' => 'POST', 'callback' => array(__CLASS__, 'freigabe_aktion'),
             'permission_callback' => array(__CLASS__, 'angemeldet_schreibend')
+        ));
+        /* Zugangsschlüssel für Programme: nur in einer Browsersitzung zu
+           verwalten, nie über einen Schlüssel selbst. */
+        register_rest_route(self::RAUM, '/schluessel', array(
+            array('methods' => 'GET', 'callback' => array(__CLASS__, 'schluessel_liste'),
+                  'permission_callback' => array(__CLASS__, 'angemeldet_sitzung')),
+            array('methods' => 'POST', 'callback' => array(__CLASS__, 'schluessel_erzeugen'),
+                  'permission_callback' => array(__CLASS__, 'angemeldet_sitzung'))
+        ));
+        register_rest_route(self::RAUM, '/schluessel/(?P<id>[0-9a-f]{16})', array(
+            'methods' => 'DELETE', 'callback' => array(__CLASS__, 'schluessel_widerrufen'),
+            'permission_callback' => array(__CLASS__, 'angemeldet_sitzung')
         ));
         register_rest_route(self::RAUM, '/fotos/(?P<id>[A-Za-z0-9_-]{1,64})', array(
             array('methods' => 'GET', 'callback' => array(__CLASS__, 'foto_holen'),
@@ -112,9 +141,31 @@ class Aufmass_Rest {
     }
 
     public static function angemeldet_schreibend($anfrage) {
+        $b = self::angemeldet();
+        if (is_wp_error($b)) { return $b; }
+        if (Aufmass_Anmeldung::ueber_schluessel()) {
+            /* Ein Schlüssel ist kein Cookie: Kein fremder Browser kann ihn
+               ungefragt mitschicken, das Kopffeld ist entbehrlich. Dafür
+               zählt seine eigene Grenze. */
+            if (!Aufmass_Anmeldung::schreiben_erlaubt()) {
+                return new WP_Error('nur_lesen', 'Dieser Zugangsschlüssel darf nur lesen.', array('status' => 403));
+            }
+            return true;
+        }
+        return self::schreibschutz($anfrage);
+    }
+
+    /** Nur eine Browsersitzung - für das Verwalten der Zugangsschlüssel. */
+    public static function angemeldet_sitzung($anfrage) {
         $schutz = self::schreibschutz($anfrage);
         if (is_wp_error($schutz)) { return $schutz; }
-        return self::angemeldet();
+        $b = self::angemeldet();
+        if (is_wp_error($b)) { return $b; }
+        if (Aufmass_Anmeldung::ueber_schluessel()) {
+            return new WP_Error('nur_sitzung',
+                'Zugangsschlüssel werden nur in einer angemeldeten Browsersitzung verwaltet.', array('status' => 403));
+        }
+        return true;
     }
 
     /* ---------------------------------------------------------------- */
@@ -146,6 +197,7 @@ class Aufmass_Rest {
             /* Nur OB Pipedrive eingerichtet ist und wo - nie der Schlüssel. */
             $aus['pipedrive'] = Aufmass_Pipedrive::eingerichtet();
             $aus['pipedriveHost'] = $aus['pipedrive'] ? Aufmass_Pipedrive::host_anzeige() : '';
+            $aus['diktat'] = Aufmass_Diktat::eingerichtet();
             $aus['version'] = AUFMASS_VERSION;
         }
         return self::antwort($aus);
@@ -156,8 +208,19 @@ class Aufmass_Rest {
         return is_wp_error($e) ? $e : self::antwort($e);
     }
 
+    public static function diktat($anfrage) {
+        $dateien = $anfrage->get_file_params();
+        $e = Aufmass_Diktat::verarbeiten(array(
+            'ton' => (is_array($dateien) && isset($dateien['ton'])) ? $dateien['ton'] : null,
+            'text' => self::text_param($anfrage, 'text'),
+            'felder' => $anfrage->get_param('felder'),
+            'woerter' => $anfrage->get_param('woerter')
+        ), Aufmass_Anmeldung::aktueller_benutzer());
+        return is_wp_error($e) ? $e : self::antwort($e);
+    }
+
     public static function anmelden($anfrage) {
-        $token = (string) $anfrage->get_param('token');
+        $token = self::text_param($anfrage, 'token');
         if ($token === '') {
             return new WP_Error('kein_ausweis', 'Es wurde kein Google-Ausweis übergeben.', array('status' => 400));
         }
@@ -174,8 +237,30 @@ class Aufmass_Rest {
     public static function ich() {
         return self::antwort(array(
             'benutzer' => Aufmass_Anmeldung::aktueller_benutzer(),
-            'marke' => Aufmass_Datenbank::marke()
+            'marke' => Aufmass_Datenbank::marke(),
+            /* Womit die Anfrage ausgewiesen ist - ein Programm prüft so,
+               ob sein Schlüssel gilt und was er darf. */
+            'zugang' => Aufmass_Anmeldung::ueber_schluessel() ? 'schluessel' : 'sitzung',
+            'schluessel' => Aufmass_Anmeldung::schluessel_beschreibung(),
+            'version' => AUFMASS_VERSION
         ));
+    }
+
+    /* --- Zugangsschlüssel ------------------------------------------- */
+    public static function schluessel_liste() {
+        $b = Aufmass_Anmeldung::aktueller_benutzer();
+        return self::antwort(array('schluessel' => Aufmass_Schluessel::liste($b['id'])));
+    }
+
+    public static function schluessel_erzeugen($anfrage) {
+        $e = Aufmass_Schluessel::erzeugen(Aufmass_Anmeldung::aktueller_benutzer(),
+            self::text_param($anfrage, 'name'), self::text_param($anfrage, 'rechte'), self::zahl_param($anfrage, 'tage'));
+        return is_wp_error($e) ? $e : self::antwort($e);
+    }
+
+    public static function schluessel_widerrufen($anfrage) {
+        $e = Aufmass_Schluessel::widerrufen(self::pfad($anfrage, 'id'), Aufmass_Anmeldung::aktueller_benutzer());
+        return is_wp_error($e) ? $e : self::antwort($e);
     }
 
     public static function benutzer() {
@@ -186,11 +271,12 @@ class Aufmass_Rest {
     }
 
     public static function liste($anfrage) {
-        $d = Aufmass_Projekte::liste((string) $anfrage->get_param('seit'));
+        $d = Aufmass_Projekte::liste(self::text_param($anfrage, 'seit'));
         /* Mit jedem Abgleich mitgeben, ob Pipedrive hier eingerichtet ist -
            ein neu hinterlegter Schlüssel wirkt so ohne Neuladen. */
         $d['pipedrive'] = Aufmass_Pipedrive::eingerichtet();
         $d['pipedriveHost'] = $d['pipedrive'] ? Aufmass_Pipedrive::host_anzeige() : '';
+        $d['diktat'] = Aufmass_Diktat::eingerichtet();
         /* Kundenrückmeldungen, die auf diese Person warten: immer vollständig,
            nicht als Unterschied seit der Marke. So kann keine verloren gehen,
            und was übernommen wurde, verschwindet von selbst aus der Liste. */
@@ -200,24 +286,45 @@ class Aufmass_Rest {
 
     /* --- Kundenfreigabe ------------------------------------------------ */
     public static function freigaben_liste($anfrage) {
-        $projekt = (string) $anfrage->get_param('projekt');
+        $projekt = self::text_param($anfrage, 'projekt');
         if ($projekt === '') {
             return new WP_Error('projekt_fehlt', 'Für welches Aufmaß?', array('status' => 400));
         }
-        return self::antwort(array('freigaben' => Aufmass_Freigaben::liste($projekt)));
+        return self::antwort(array('freigaben' => Aufmass_Freigaben::liste($projekt, Aufmass_Anmeldung::aktueller_benutzer())));
     }
 
     public static function freigabe_anlegen($anfrage) {
         $e = Aufmass_Freigaben::anlegen(
-            (string) $anfrage->get_param('projektId'),
+            self::text_param($anfrage, 'projektId'),
             $anfrage->get_param('daten'),
-            (string) $anfrage->get_param('seite'),
+            self::text_param($anfrage, 'seite'),
+            Aufmass_Anmeldung::aktueller_benutzer(),
+            !empty($anfrage->get_param('vorlegen')));
+        return is_wp_error($e) ? $e : self::antwort($e);
+    }
+
+    public static function freigabe_vorlegen($anfrage) {
+        $e = Aufmass_Freigaben::vorlegen(
+            self::pfad($anfrage, 'code'),
+            $anfrage->get_param('daten'),
             Aufmass_Anmeldung::aktueller_benutzer());
+        return is_wp_error($e) ? $e : self::antwort(array('freigabe' => $e));
+    }
+
+    public static function freigabe_freigeben($anfrage) {
+        if (strlen((string) $anfrage->get_body()) > Aufmass_Freigaben::KOERPER_MAX) {
+            return new WP_Error('zu_gross', 'Die Anfrage ist zu umfangreich.', array('status' => 413));
+        }
+        $e = Aufmass_Freigaben::freigeben(
+            self::pfad($anfrage, 'code'),
+            self::text_param($anfrage, 'name'),
+            self::text_param($anfrage, 'funktion'),
+            self::text_param($anfrage, 'anmerkung'));
         return is_wp_error($e) ? $e : self::antwort($e);
     }
 
     public static function freigabe_oeffentlich($anfrage) {
-        $e = Aufmass_Freigaben::oeffentlich($anfrage['code']);
+        $e = Aufmass_Freigaben::oeffentlich(self::pfad($anfrage, 'code'));
         return is_wp_error($e) ? $e : self::antwort($e);
     }
 
@@ -228,27 +335,53 @@ class Aufmass_Rest {
             return new WP_Error('zu_gross', 'Die Rückmeldung ist zu umfangreich.', array('status' => 413));
         }
         $e = Aufmass_Freigaben::antwort_annehmen(
-            $anfrage['code'],
+            self::pfad($anfrage, 'code'),
             $anfrage->get_param('antwort'),
-            (string) $anfrage->get_param('name'),
-            (string) $anfrage->get_param('anmerkung'));
+            self::text_param($anfrage, 'name'),
+            self::text_param($anfrage, 'anmerkung'));
         return is_wp_error($e) ? $e : self::antwort($e);
     }
 
     public static function freigabe_aktion($anfrage) {
         $b = Aufmass_Anmeldung::aktueller_benutzer();
-        $nr = (int) $anfrage->get_param('antwortNr');
-        switch ($anfrage['aktion']) {
-            case 'uebernommen':   $e = Aufmass_Freigaben::uebernommen_markieren($anfrage['code'], $nr, $b); break;
-            case 'verwerfen':     $e = Aufmass_Freigaben::verwerfen($anfrage['code'], $nr, $b); break;
-            case 'zurueckziehen': $e = Aufmass_Freigaben::zurueckziehen($anfrage['code'], $b); break;
+        $nr = self::zahl_param($anfrage, 'antwortNr');
+        switch (self::pfad($anfrage, 'aktion')) {
+            case 'uebernommen':   $e = Aufmass_Freigaben::uebernommen_markieren(self::pfad($anfrage, 'code'), $nr, $b); break;
+            case 'verwerfen':     $e = Aufmass_Freigaben::verwerfen(self::pfad($anfrage, 'code'), $nr, $b); break;
+            case 'zurueckziehen': $e = Aufmass_Freigaben::zurueckziehen(self::pfad($anfrage, 'code'), $b); break;
             default: $e = new WP_Error('unbekannt', 'Unbekannte Aktion.', array('status' => 404));
         }
         return is_wp_error($e) ? $e : self::antwort(array('freigabe' => $e));
     }
 
+    /* Kennungen aus der ADRESSE lesen, nicht aus dem Körper: WordPress lässt
+       einen JSON-Körper die Routenparameter überschreiben; so könnte eine
+       Kennung die Prüfung des Routenmusters umgehen. (Die Attrappe der
+       Prüfläufe kennt keine getrennten Adressparameter - dort gilt der
+       gemeinsame Wert.) */
+    private static function pfad($anfrage, $name) {
+        if (is_object($anfrage) && method_exists($anfrage, 'get_url_params')) {
+            $u = $anfrage->get_url_params();
+            if (is_array($u) && isset($u[$name])) { return is_scalar($u[$name]) ? (string) $u[$name] : ''; }
+        }
+        return isset($anfrage[$name]) && is_scalar($anfrage[$name]) ? (string) $anfrage[$name] : '';
+    }
+
+    /* Parameter aus Körper oder Adresse: nur Skalare werden Text bzw. Zahl.
+       Ein Array an einer Textstelle wäre sonst eine PHP-Warnung („Array to
+       string conversion“) - unter strenger Fehlerbehandlung ein Abbruch
+       statt einer sauberen Ablehnung. */
+    private static function text_param($anfrage, $name) {
+        $w = $anfrage->get_param($name);
+        return is_scalar($w) ? (string) $w : '';
+    }
+    private static function zahl_param($anfrage, $name) {
+        $w = $anfrage->get_param($name);
+        return is_scalar($w) ? (int) $w : 0;
+    }
+
     public static function laden($anfrage) {
-        $p = Aufmass_Projekte::laden($anfrage['id']);
+        $p = Aufmass_Projekte::laden(self::pfad($anfrage, 'id'));
         if (!$p) {
             return new WP_Error('unbekannt', 'Dieses Aufmaß gibt es hier nicht.', array('status' => 404));
         }
@@ -260,32 +393,32 @@ class Aufmass_Rest {
         $daten = $anfrage->get_param('daten');
         $basis = $anfrage->get_param('basisVersion');
 
-        $e = Aufmass_Projekte::speichern($anfrage['id'], $daten, $basis, $benutzer);
+        $e = Aufmass_Projekte::speichern(self::pfad($anfrage, 'id'), $daten, $basis, $benutzer);
         if (is_wp_error($e)) { return $e; }
 
         /* Fotos, die nicht mehr vorkommen, mitnehmen. */
-        Aufmass_Fotos::verwaiste_aufraeumen($anfrage['id'], is_array($daten) ? $daten : array());
+        Aufmass_Fotos::verwaiste_aufraeumen(self::pfad($anfrage, 'id'), is_array($daten) ? $daten : array());
         return self::antwort($e);
     }
 
     public static function loeschen($anfrage) {
-        $e = Aufmass_Projekte::loeschen($anfrage['id'], Aufmass_Anmeldung::aktueller_benutzer());
+        $e = Aufmass_Projekte::loeschen(self::pfad($anfrage, 'id'), Aufmass_Anmeldung::aktueller_benutzer());
         return is_wp_error($e) ? $e : self::antwort($e);
     }
 
     public static function zustaendige($anfrage) {
         $ids = $anfrage->get_param('benutzer');
-        $e = Aufmass_Projekte::zustaendige_setzen($anfrage['id'], is_array($ids) ? $ids : array(),
+        $e = Aufmass_Projekte::zustaendige_setzen(self::pfad($anfrage, 'id'), is_array($ids) ? $ids : array(),
             Aufmass_Anmeldung::aktueller_benutzer());
         return is_wp_error($e) ? $e : self::antwort(array('zustaendige' => $e));
     }
 
     public static function fotoliste($anfrage) {
-        return self::antwort(array('fotos' => Aufmass_Fotos::vorhandene($anfrage['id'])));
+        return self::antwort(array('fotos' => Aufmass_Fotos::vorhandene(self::pfad($anfrage, 'id'))));
     }
 
     public static function foto_holen($anfrage) {
-        $f = Aufmass_Fotos::holen($anfrage['id']);
+        $f = Aufmass_Fotos::holen(self::pfad($anfrage, 'id'));
         if (!$f) {
             return new WP_Error('unbekannt', 'Dieses Foto gibt es hier nicht.', array('status' => 404));
         }
@@ -301,7 +434,7 @@ class Aufmass_Rest {
 
     public static function foto_ablegen($anfrage) {
         $benutzer = Aufmass_Anmeldung::aktueller_benutzer();
-        $projekt_id = (string) $anfrage->get_param('projekt');
+        $projekt_id = self::text_param($anfrage, 'projekt');
         if ($projekt_id === '') {
             return new WP_Error('kein_projekt', 'Zu welchem Aufmaß gehört das Foto?', array('status' => 400));
         }
@@ -309,10 +442,13 @@ class Aufmass_Rest {
         $darf = Aufmass_Projekte::darf_aendern($projekt_id, $benutzer);
         if (is_wp_error($darf)) { return $darf; }
 
+        /* Nur der Typ selbst zählt - ein Browser oder Proxy hängt gern
+           „; charset=…“ an, das ist kein anderes Format. */
+        $typ = strtolower(trim((string) strtok((string) ($anfrage->get_header('content-type') ?: 'image/jpeg'), ';')));
         $e = Aufmass_Fotos::speichern(
-            $anfrage['id'], $projekt_id, (string) $anfrage->get_param('tuer'),
+            self::pfad($anfrage, 'id'), $projekt_id, self::text_param($anfrage, 'tuer'),
             $anfrage->get_body(),
-            (string) ($anfrage->get_header('content-type') ?: 'image/jpeg'),
+            $typ,
             $benutzer);
         return is_wp_error($e) ? $e : self::antwort($e);
     }

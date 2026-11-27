@@ -230,12 +230,46 @@ function token($paar, $zusatz = array()) {
         'iss' => 'https://accounts.google.com', 'aud' => '111-abc.apps.googleusercontent.com',
         'sub' => 'u-neu', 'email' => 'neu@provision-infra.de', 'email_verified' => true,
         'hd' => 'provision-infra.de', 'name' => 'Neue Person',
-        'iat' => time() - 10, 'exp' => time() + 3600), $zusatz)));
+        'iat' => time() - 10, 'exp' => time() + 3600,
+        /* Jeder Ausweis anders - wie bei Google, wo kein Ausweis dem anderen gleicht */
+        'nonce' => bin2hex(random_bytes(6))), $zusatz)));
     openssl_sign($kopf . '.' . $inhalt, $sig, $paar, OPENSSL_ALGO_SHA256);
     return $kopf . '.' . $inhalt . '.' . b64t($sig);
 }
 
 $_COOKIE = array();
+/* Ohne Organisationsdomäne ist die Anmeldung gesperrt */
+update_option('aufmass_domaene', '');
+$e = Aufmass_Anmeldung::anmelden(token($paar));
+pruefe(is_wp_error($e) && $e->get_error_code() === 'nicht_eingerichtet' && stripos($e->get_error_message(), 'domäne') !== false,
+    'ohne Organisationsdomäne wird niemand angemeldet - auch kein Konto der Organisation', fehlertext($e));
+update_option('aufmass_domaene', 'provision-infra.de');
+/* Derselbe Ausweis gilt genau einmal */
+$selbe = token($paar);
+$e1 = Aufmass_Anmeldung::anmelden($selbe);
+$e2 = Aufmass_Anmeldung::anmelden($selbe);
+pruefe(!is_wp_error($e1) && is_wp_error($e2) && $e2->get_error_code() === 'anmeldung_abgelehnt' && strpos($e2->get_error_message(), 'bereits verwendet') !== false,
+    'derselbe Ausweis gilt nur einmal - ein mitgelesener Ausweis eröffnet keine zweite Sitzung', fehlertext($e2));
+Aufmass_Anmeldung::abmelden();
+$_COOKIE = array();
+/* Ein alter Ausweis wird abgelehnt, auch wenn er noch nicht abgelaufen ist */
+$e = Aufmass_Anmeldung::anmelden(token($paar, array('iat' => time() - 1200)));
+pruefe(is_wp_error($e) && strpos($e->get_error_message(), 'zu alt') !== false, 'ein 20 Minuten alter Ausweis wird abgelehnt', fehlertext($e));
+/* Neue Konten erst nach Freigabe - wenn so eingestellt */
+update_option('aufmass_neue_freigeben', '1');
+$e = Aufmass_Anmeldung::anmelden(token($paar, array('sub' => 'u-wartet', 'email' => 'wartet@provision-infra.de', 'name' => 'W. Wartet')));
+pruefe(is_wp_error($e) && $e->get_error_code() === 'freigabe_noetig' && $e->get_error_data()['status'] === 403,
+    'mit der Einstellung „erst freigeben“ bekommt ein neues Konto keine Sitzung, sondern den Hinweis', fehlertext($e));
+pruefe((int) $wpdb->get_var("SELECT aktiv FROM wp_aufmass_benutzer WHERE id = 'u-wartet'") === 0 && empty($_COOKIE['aufmass_sitzung']),
+    'der Zugang ist angelegt, aber gesperrt - und es gibt kein Cookie');
+$e = Aufmass_Anmeldung::anmelden(token($paar, array('sub' => 'u-wartet', 'email' => 'wartet@provision-infra.de')));
+pruefe(is_wp_error($e) && $e->get_error_code() === 'gesperrt', 'ein zweiter Versuch meldet: gesperrt oder noch nicht freigegeben', fehlertext($e));
+$wpdb->update('wp_aufmass_benutzer', array('aktiv' => 1), array('id' => 'u-wartet'));
+$e = Aufmass_Anmeldung::anmelden(token($paar, array('sub' => 'u-wartet', 'email' => 'wartet@provision-infra.de')));
+pruefe(!is_wp_error($e) && $e['benutzer']['id'] === 'u-wartet', 'nach der Freigabe geht die Anmeldung', fehlertext($e));
+Aufmass_Anmeldung::abmelden();
+$_COOKIE = array();
+update_option('aufmass_neue_freigeben', '0');
 $e = Aufmass_Anmeldung::anmelden(token($paar));
 pruefe(!is_wp_error($e) && $e['benutzer']['id'] === 'u-neu', 'die Anmeldung legt den Benutzer an', fehlertext($e));
 pruefe($e['benutzer']['rolle'] === 'mitarbeit', 'ein weiterer Benutzer bekommt nur Mitarbeit', $e['benutzer']['rolle']);
@@ -383,6 +417,25 @@ $html = seite_rendern();
 pruefe(strpos($html, 'Nur ein gesperrter Zugang') !== false, 'eine erfundene Kennung wird abgewiesen');
 $_POST = array();
 
+echo "\n== Einstellungsseite: Herkunft der Aufrufe ==\n";
+$_SERVER['REMOTE_ADDR'] = '203.0.113.44';
+unset($_SERVER['HTTP_X_FORWARDED_FOR']);
+$html = seite_rendern();
+pruefe(strpos($html, 'Herkunft der Aufrufe') !== false && strpos($html, '<code>203.0.113.44</code>') !== false, 'die Seite zeigt, von welcher Adresse der Aufruf kommt');
+pruefe(preg_match('/name="aufmass_hinter_proxy" value="1"(?![^>]*checked)/', $html) === 1, 'der Haken „hinter Proxy“ ist aus');
+$_SERVER['REMOTE_ADDR'] = '10.0.0.1';
+$_SERVER['HTTP_X_FORWARDED_FOR'] = '203.0.113.45';
+$html = seite_rendern();
+pruefe(strpos($html, '<code>203.0.113.45</code>') !== false && strpos($html, 'weitergereicht') !== false && strpos($html, 'X-Forwarded-For: 203.0.113.45') !== false,
+    'hinter einem internen Proxy nennt sie die weitergereichte Adresse und das Kopffeld');
+$_SERVER['HTTP_X_FORWARDED_FOR'] = "203.0.113.46\r\n<script>alert(1)</script>";
+$html = seite_rendern();
+pruefe(strpos($html, '<script>alert(1)</script>') === false && strpos($html, '&lt;script&gt;') !== false, 'ein bösartiges Kopffeld landet nicht als HTML auf der Seite');
+unset($_SERVER['HTTP_X_FORWARDED_FOR']);
+$html = seite_rendern();
+pruefe(strpos($html, 'interne Adresse ohne Kopffeld') !== false, 'eine interne Adresse ohne Kopffeld wird als Problem benannt');
+pruefe(preg_match('/Warning|Notice|Deprecated|Fatal/', $html) === 0, 'auch diese Zeile entsteht ohne PHP-Meldungen');
+
 echo "\n== Erfundene Kennungen ==\n";
 /* Ohne Existenzprüfung griffe die Regel "herrenlos darf jeder übernehmen"
    auch für eine frei erfundene Kennung. */
@@ -425,6 +478,43 @@ pruefe($rueckwaerts === 0, 'jetzt() läuft über ' . $n . ' Aufrufe und zwei Sek
 $m = Aufmass_Datenbank::marke(); $j = Aufmass_Datenbank::jetzt();
 pruefe(abs(strtotime(substr($m, 0, 19)) - strtotime(substr($j, 0, 19))) <= 1, 'marke() und jetzt() zeigen dieselbe Uhr');
 pruefe(preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}$/', $j) === 1, 'jetzt() hat immer sechs Nachkommastellen', $j);
+
+echo "\n== Marke vom Gerät: Bruchteil läuft nie auf sieben Stellen über ==\n";
+$z = Aufmass_Datenbank::marke_zu_zeit('2026-03-01T10:00:09.9999996Z');
+pruefe(preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}$/', $z) === 1, 'sechs Nachkommastellen, auch bei 0,9999996', $z);
+pruefe($z === '2026-03-01 10:00:07.999999', 'Spanne abgezogen, Bruchteil abgeschnitten', $z);
+pruefe(Aufmass_Datenbank::marke_zu_zeit('2026-03-01T10:00:09Z') === '2026-03-01 10:00:07.000000', 'ohne Bruchteil: .000000');
+pruefe(Aufmass_Datenbank::marke_zu_zeit('Unsinn') === '1970-01-01 00:00:00.000000', 'Unlesbares ergibt den Anfang der Zeit');
+
+echo "\n== Zwei Geräte legen gleichzeitig dasselbe Aufmaß an ==\n";
+/* Das zweite Gerät hat beim Lesen noch keine Zeile gesehen, sein Einfügen
+   scheitert aber am Schlüssel: Das muss ein Konflikt mit Serverstand sein,
+   kein stilles „gespeichert“ mit fremden Daten. */
+class WPDB_Blind extends WPDB_Attrappe {
+    public $blind = '';
+    public function get_row($sql, $art = ARRAY_A) {
+        if ($this->blind !== '' && strpos($sql, "id = '" . $this->blind . "'") !== false) { $this->blind = ''; return null; }
+        return parent::get_row($sql, $art);
+    }
+}
+$wpdbAlt = $GLOBALS['wpdb'];
+$GLOBALS['wpdb'] = new WPDB_Blind();
+$geraetA = test_benutzer('u-ga', 'Gerät A');
+$geraetB = test_benutzer('u-gb', 'Gerät B');
+$erst = Aufmass_Projekte::speichern('prj-race', mappe(array('id' => 'prj-race', 'kunde' => 'Erstes Gerät')), 0, $geraetA);
+pruefe(!is_wp_error($erst) && (int) $erst['version'] === 1, 'das erste Gerät legt an', fehlertext($erst));
+$GLOBALS['wpdb']->blind = 'prj-race';
+$zweit = Aufmass_Projekte::speichern('prj-race', mappe(array('id' => 'prj-race', 'kunde' => 'Zweites Gerät')), 0, $geraetB);
+$zweitDaten = is_wp_error($zweit) ? $zweit->get_error_data() : array();
+pruefe(is_wp_error($zweit) && isset($zweitDaten['status']) && $zweitDaten['status'] === 409, 'das zweite bekommt einen Konflikt (409), kein „gespeichert“', fehlertext($zweit));
+$server = is_wp_error($zweit) ? $zweit->get_error_data() : array();
+pruefe(isset($server['server']['daten']['kunde']) && $server['server']['daten']['kunde'] === 'Erstes Gerät' && (int) $server['server']['version'] === 1,
+    'mit dem Serverstand des ersten Geräts zum Zusammenführen', json_encode(isset($server['server']) ? array($server['server']['version'], $server['server']['daten']['kunde']) : $server));
+$nachher = Aufmass_Projekte::laden('prj-race');
+pruefe($nachher['daten']['kunde'] === 'Erstes Gerät' && (int) $nachher['version'] === 1, 'der Serverstand ist unverändert');
+$zust = Aufmass_Projekte::zustaendige_von('prj-race');
+pruefe(count($zust) === 1 && $zust[0]['id'] === 'u-ga', 'zuständig ist nur, wer wirklich angelegt hat', json_encode($zust));
+$GLOBALS['wpdb'] = $wpdbAlt;
 
 echo "\nErgebnis Server: $ok ok, $fehler Fehler\n";
 exit($fehler ? 1 : 0);

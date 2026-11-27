@@ -34,6 +34,7 @@ class Aufmass_Datenbank {
         $fotos = self::tabelle('fotos');
         $sitzungen = self::tabelle('sitzungen');
         $freigaben = self::tabelle('freigaben');
+        $schluessel = self::tabelle('schluessel');
 
         /* Wer sich anmelden darf. Die Kennung ist Googles unveränderliche
            Benutzerkennung (sub), nicht die Adresse: Eine Adresse kann
@@ -113,7 +114,10 @@ class Aufmass_Datenbank {
         /* Eine Kundenfreigabe: Der Plan liegt hier, der Kunde bekommt nur
            den kurzen Code. Seine Antwort landet in derselben Zeile und
            wartet dort, bis ein Zuständiger sie geprüft und übernommen
-           hat. Die Antwort selbst ist klein - nur die Abweichungen. */
+           hat. Die Antwort selbst ist klein - nur die Abweichungen.
+           Seit Fassung 1.2: die Rechte des Kunden (rechte), die Vorlage
+           zur verbindlichen Freigabe (vorgelegt_am) und die Freigabe
+           selbst (freigabe_*). */
         dbDelta("CREATE TABLE $freigaben (
   code varchar(16) NOT NULL,
   projekt_id varchar(64) NOT NULL,
@@ -133,11 +137,33 @@ class Aufmass_Datenbank {
   uebernommen_nr int(10) unsigned NOT NULL DEFAULT 0,
   uebernommen_am datetime(6) DEFAULT NULL,
   uebernommen_von varchar(64) NOT NULL DEFAULT '',
+  rechte varchar(20) NOT NULL DEFAULT '',
+  vorgelegt_am datetime(6) DEFAULT NULL,
+  freigabe_am datetime(6) DEFAULT NULL,
+  freigabe_name varchar(190) NOT NULL DEFAULT '',
+  freigabe_funktion varchar(190) NOT NULL DEFAULT '',
+  freigabe_art varchar(20) NOT NULL DEFAULT '',
   geaendert_am datetime(6) DEFAULT NULL,
   PRIMARY KEY  (code),
   KEY projekt_id (projekt_id),
   KEY status (status),
   KEY geaendert_am (geaendert_am)
+) $sortierung;");
+
+        /* Zugangsschlüssel für Programme (siehe schluessel.php): nur der
+           Abdruck des Geheimnisses, dazu Grenze, Ablauf und letzte Nutzung. */
+        dbDelta("CREATE TABLE $schluessel (
+  id varchar(32) NOT NULL,
+  benutzer_id varchar(64) NOT NULL,
+  name varchar(120) NOT NULL DEFAULT '',
+  pruefwert varchar(128) NOT NULL DEFAULT '',
+  rechte varchar(20) NOT NULL DEFAULT 'lesen',
+  aktiv tinyint(1) NOT NULL DEFAULT 1,
+  erstellt_am datetime(6) DEFAULT NULL,
+  gueltig_bis datetime(6) DEFAULT NULL,
+  zuletzt_am datetime(6) DEFAULT NULL,
+  PRIMARY KEY  (id),
+  KEY benutzer_id (benutzer_id)
 ) $sortierung;");
     }
 
@@ -192,7 +218,11 @@ class Aufmass_Datenbank {
         $genau = $zeit + $bruch - self::SPANNE;
         if ($genau < 0) { return '1970-01-01 00:00:00.000000'; }
         $sekunden = (int) floor($genau);
-        return gmdate('Y-m-d H:i:s', $sekunden)
-            . '.' . str_pad((string) (int) round(($genau - $sekunden) * 1000000), 6, '0', STR_PAD_LEFT);
+        /* Abschneiden statt runden - wie in uhr(): 0,9999996 s gerundet gäbe
+           „.1000000“, eine siebenstellige, ungültige Zeitangabe. */
+        $mikro = (int) (($genau - $sekunden) * 1000000);
+        if ($mikro > 999999) { $mikro = 999999; }
+        if ($mikro < 0) { $mikro = 0; }
+        return gmdate('Y-m-d H:i:s', $sekunden) . '.' . sprintf('%06d', $mikro);
     }
 }

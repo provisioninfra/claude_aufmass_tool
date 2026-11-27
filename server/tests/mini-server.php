@@ -31,15 +31,38 @@ function fehler($e) {
     if (count($d)) { $antwort['data'] = $d; }
     raus($antwort, $status);
 }
-/* Jede schreibende Anfrage braucht das eigene Kopffeld - wie im Plugin. */
+/* Jede schreibende Anfrage braucht das eigene Kopffeld - wie im Plugin.
+   Kommt sie über einen Zugangsschlüssel, zählt statt des Kopffelds die
+   Grenze des Schlüssels (lesen / schreiben). */
 function kopffeldPruefen() {
+    if (Aufmass_Anmeldung::aktueller_benutzer() && Aufmass_Anmeldung::ueber_schluessel()) {
+        if (!Aufmass_Anmeldung::schreiben_erlaubt()) {
+            raus(array('code' => 'nur_lesen', 'message' => 'Dieser Zugangsschlüssel darf nur lesen.'), 403);
+        }
+        return;
+    }
     if (empty($_SERVER['HTTP_X_AUFMASS_ABGLEICH'])) {
         raus(array('code' => 'kopffeld_fehlt', 'message' => 'Diese Anfrage kam nicht vom Aufmaß-Werkzeug.'), 400);
     }
 }
 function benutzerOderRaus() {
     $b = Aufmass_Anmeldung::aktueller_benutzer();
-    if (!$b) { raus(array('code' => 'nicht_angemeldet', 'message' => 'Bitte anmelden.'), 401); }
+    if (!$b) {
+        $e = Aufmass_Anmeldung::verlangt();   /* nennt bei einem falschen Schlüssel den Grund */
+        if (is_wp_error($e)) { fehler($e); }
+        raus(array('code' => 'nicht_angemeldet', 'message' => 'Bitte anmelden.'), 401);
+    }
+    return $b;
+}
+/* Nur eine Browsersitzung: zum Verwalten der Schlüssel. */
+function sitzungOderRaus() {
+    if (empty($_SERVER['HTTP_X_AUFMASS_ABGLEICH'])) {
+        raus(array('code' => 'kopffeld_fehlt', 'message' => 'Diese Anfrage kam nicht vom Aufmaß-Werkzeug.'), 400);
+    }
+    $b = benutzerOderRaus();
+    if (Aufmass_Anmeldung::ueber_schluessel()) {
+        raus(array('code' => 'nur_sitzung', 'message' => 'Zugangsschlüssel werden nur in einer angemeldeten Browsersitzung verwaltet.'), 403);
+    }
     return $b;
 }
 
@@ -83,7 +106,8 @@ if ($rest === '/start' && $art === 'GET') {
     if ($b) {
         $aus['pipedrive'] = Aufmass_Pipedrive::eingerichtet();
         $aus['pipedriveHost'] = $aus['pipedrive'] ? Aufmass_Pipedrive::host_anzeige() : '';
-        $aus['version'] = '1.0.0-test';
+        $aus['diktat'] = Aufmass_Diktat::eingerichtet();
+        $aus['version'] = '1.5.5-test';
     }
     raus($aus);
 }
@@ -103,7 +127,28 @@ if ($rest === '/abmelden' && $art === 'POST') {
     kopffeldPruefen(); Aufmass_Anmeldung::abmelden(); raus(array('ok' => true));
 }
 if ($rest === '/ich' && $art === 'GET') {
-    raus(array('benutzer' => benutzerOderRaus(), 'marke' => Aufmass_Datenbank::marke()));
+    $b = benutzerOderRaus();
+    raus(array('benutzer' => $b, 'marke' => Aufmass_Datenbank::marke(),
+        'zugang' => Aufmass_Anmeldung::ueber_schluessel() ? 'schluessel' : 'sitzung',
+        'schluessel' => Aufmass_Anmeldung::schluessel_beschreibung(), 'version' => '1.5.5-test'));
+}
+/* --- Zugangsschlüssel --- */
+if ($rest === '/schluessel' && $art === 'GET') {
+    $b = sitzungOderRaus();
+    raus(array('schluessel' => Aufmass_Schluessel::liste($b['id'])));
+}
+if ($rest === '/schluessel' && $art === 'POST') {
+    $b = sitzungOderRaus();
+    $e = Aufmass_Schluessel::erzeugen($b, isset($json['name']) ? $json['name'] : '',
+        isset($json['rechte']) ? $json['rechte'] : '', isset($json['tage']) ? (int) $json['tage'] : 0);
+    if (is_wp_error($e)) { fehler($e); }
+    raus($e);
+}
+if (preg_match('#^/schluessel/([0-9a-f]{16})$#', $rest, $t) && $art === 'DELETE') {
+    $b = sitzungOderRaus();
+    $e = Aufmass_Schluessel::widerrufen($t[1], $b);
+    if (is_wp_error($e)) { fehler($e); }
+    raus($e);
 }
 if ($rest === '/benutzer' && $art === 'GET') {
     benutzerOderRaus();
@@ -116,20 +161,52 @@ if ($rest === '/projekte' && $art === 'GET') {
     $d = Aufmass_Projekte::liste(isset($_GET['seit']) ? $_GET['seit'] : '');
     $d['pipedrive'] = Aufmass_Pipedrive::eingerichtet();
     $d['pipedriveHost'] = $d['pipedrive'] ? Aufmass_Pipedrive::host_anzeige() : '';
+    $d['diktat'] = Aufmass_Diktat::eingerichtet();
     $d['antworten'] = Aufmass_Freigaben::offene_fuer($b);
     raus($d);
 }
+/* --- Tür einsprechen --- */
+if ($rest === '/diktat' && $art === 'POST') {
+    kopffeldPruefen();
+    $b = benutzerOderRaus();
+    $e = Aufmass_Diktat::verarbeiten(array(
+        'ton' => isset($_FILES['ton']) ? $_FILES['ton'] : null,
+        'text' => isset($_POST['text']) ? $_POST['text'] : '',
+        'felder' => isset($_POST['felder']) ? $_POST['felder'] : null,
+        'woerter' => isset($_POST['woerter']) ? $_POST['woerter'] : null), $b);
+    if (is_wp_error($e)) { fehler($e); }
+    raus($e);
+}
 /* --- Kundenfreigabe --- */
 if ($rest === '/freigaben' && $art === 'GET') {
-    benutzerOderRaus();
+    /* wie rest.php: mit dem angemeldeten Benutzer - Nicht-Zuständige sehen nur den Stand, keinen Code */
+    $b = benutzerOderRaus();
     if (empty($_GET['projekt'])) { raus(array('code' => 'projekt_fehlt', 'message' => 'Für welches Aufmaß?'), 400); }
-    raus(array('freigaben' => Aufmass_Freigaben::liste($_GET['projekt'])));
+    raus(array('freigaben' => Aufmass_Freigaben::liste($_GET['projekt'], $b)));
 }
 if ($rest === '/freigaben' && $art === 'POST') {
     kopffeldPruefen();
     $b = benutzerOderRaus();
     $e = Aufmass_Freigaben::anlegen(isset($json['projektId']) ? $json['projektId'] : '',
-        isset($json['daten']) ? $json['daten'] : null, isset($json['seite']) ? $json['seite'] : '', $b);
+        isset($json['daten']) ? $json['daten'] : null, isset($json['seite']) ? $json['seite'] : '', $b,
+        !empty($json['vorlegen']));
+    if (is_wp_error($e)) { fehler($e); }
+    raus($e);
+}
+if (preg_match('#^/freigaben/([A-Za-z0-9]{6,16})/vorlegen$#', $rest, $t) && $art === 'POST') {
+    kopffeldPruefen();
+    $b = benutzerOderRaus();
+    $e = Aufmass_Freigaben::vorlegen($t[1], isset($json['daten']) ? $json['daten'] : null, $b);
+    if (is_wp_error($e)) { fehler($e); }
+    raus(array('freigabe' => $e));
+}
+if (preg_match('#^/freigaben/([A-Za-z0-9]{6,16})/freigeben$#', $rest, $t) && $art === 'POST') {
+    kopffeldPruefen();
+    if (strlen($koerper) > Aufmass_Freigaben::KOERPER_MAX) {
+        raus(array('code' => 'zu_gross', 'message' => 'Die Anfrage ist zu umfangreich.'), 413);
+    }
+    $e = Aufmass_Freigaben::freigeben($t[1], isset($json['name']) ? $json['name'] : '',
+        isset($json['funktion']) ? $json['funktion'] : '', isset($json['anmerkung']) ? $json['anmerkung'] : '');
     if (is_wp_error($e)) { fehler($e); }
     raus($e);
 }
@@ -200,8 +277,11 @@ if (preg_match('#^/fotos/([A-Za-z0-9_-]{1,64})$#', $rest, $t)) {
         $f = Aufmass_Fotos::holen($id);
         if (!$f) { raus(array('code' => 'unbekannt', 'message' => 'Foto nicht gefunden.'), 404); }
         http_response_code(200);
+        /* Dieselben Kopfzeilen wie Aufmass_Rest::foto_holen im Plugin */
         header('Content-Type: ' . $f['mime']);
         header('Content-Length: ' . $f['groesse']);
+        header('X-Content-Type-Options: nosniff');
+        header('Content-Disposition: inline');
         readfile($f['pfad']);
         exit;
     }

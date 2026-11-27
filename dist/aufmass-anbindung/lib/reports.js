@@ -1,0 +1,1548 @@
+/* =============================================================================
+ * reports.js — PDF-Ausgaben: Türliste, Kreuzschließplan, Materialliste
+ * ========================================================================== */
+(function (global) {
+  'use strict';
+
+  var K = global.Katalog;
+  var M = global.Model;
+  var PDF = global.PDF;
+
+  /* Farben auf dem Papier. Sie folgen bewusst nicht der dunklen Darstellung
+   * des Bildschirms - gedruckt wird auf Weiß. Gegenstück zum Farbblock in
+   * src/css/app.css; die Hausfarbe steht dort und hier (siehe den Wegweiser
+   * "HAUSFARBE ÄNDERN" am Anfang der CSS). */
+  var FARBE = {
+    text:      '#0a1637',     /* Marken-Navy */
+    grau:      '#46557f',
+    hellgrau:  '#7985a3',
+    linie:     '#b4c2da',
+    linieHell: '#dde4f0',
+    kopfBg:    '#e7ecf8',
+    zebraBg:   '#f4f7fc',
+    akzent:    '#14306e',     /* Überschriften und Linien */
+    /* Gold trägt auf dem Bildschirm die Hauptaktionen. Auf Papier steht es
+     * nur als schmaler Streifen unter dem Seitenkopf: Schrift in Gold wäre
+     * auf Weiß kaum zu lesen. */
+    hausfarbe: '#fcc91d',
+    warn:      '#95560a',
+    fehler:    '#a32020'
+  };
+
+  function txt(v) { return (v === null || v === undefined || v === '') ? '' : String(v); }
+  function plural(n, ein, viele) { return n + ' ' + (n === 1 ? ein : viele); }
+  /* Anzahl einer Tür: ganze Zahl ab 1, auch wenn im Datensatz etwas anderes steht */
+  function anzahlVon(t) { return Math.max(1, parseInt(t && t.anzahl, 10) || 1); }
+  /* Maße mit Dezimalkomma ausgeben, wie sie auf deutschem Papier erwartet werden */
+  function massText(v) {
+    v = txt(v);
+    return /^-?\d+\.\d+$/.test(v) ? v.replace('.', ',') : v;
+  }
+  /* Kategorie nur ausgeben, wenn sie nicht schon in der Bezeichnung steckt. */
+  function kategorieZusatz(t) {
+    if (!t.kategorie) return '';
+    var bez = String(t.bezeichnung || '').toLowerCase();
+    var kat = String(t.kategorie).toLowerCase();
+    if (bez.indexOf(kat) !== -1) return '';
+    var ersterTeil = kat.split(/[\/(]/)[0].trim();
+    if (ersterTeil.length > 3 && bez.indexOf(ersterTeil) !== -1) return '';
+    return t.kategorie;
+  }
+  function datumDe(iso) {
+    if (!iso) return '';
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+    return m ? (m[3] + '.' + m[2] + '.' + m[1]) : iso;
+  }
+  function jetztDe() {
+    var d = new Date();
+    function p(n) { return (n < 10 ? '0' : '') + n; }
+    return p(d.getDate()) + '.' + p(d.getMonth() + 1) + '.' + d.getFullYear() +
+           ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+  function dateiName(projekt, suffix) {
+    projekt = projekt || {};
+    var basis = (projekt.kunde || projekt.name || 'Aufmass').replace(/[^\wäöüÄÖÜß \-]/g, '').trim();
+    var objekt = (projekt.objekt || '').replace(/[^\wäöüÄÖÜß \-]/g, '').trim();
+    var teile = [basis];
+    if (objekt) teile.push(objekt);
+    teile.push(suffix);
+    teile.push(M.heute());
+    return teile.join('_').replace(/\s+/g, '-') + '.pdf';
+  }
+
+  /* =========================================================================
+   * Gemeinsamer Seitenkopf / Seitenfuß
+   * ====================================================================== */
+  function kopfUndFussSetzen(doc, projekt, einstellungen, dokumentTitel) {
+    einstellungen = einstellungen || {};
+    var logoId = einstellungen.logoDataUrl ? doc.bildRegistrieren(einstellungen.logoDataUrl) : null;
+
+    doc.onSeitenkopf = function (d) {
+      var x = d.rand.links, y = d.rand.oben;
+      var rechts = d.breite - d.rand.rechts;
+      var textX = x;
+
+      if (logoId) {
+        var gezeichnet = d.bild(logoId, x, y, 32, 14);
+        if (gezeichnet) textX = x + gezeichnet.breite + 5;
+      }
+
+      d.text(dokumentTitel, textX, y, { size: 13, bold: true, color: FARBE.akzent });
+      /* Breite des Firmenblocks rechts dynamisch bestimmen, damit die
+         Objektzeile auf schmalen Hochformatseiten nicht unnötig kürzt. */
+      var firmaBreite = 0;
+      [einstellungen.firma, einstellungen.firmaZusatz, einstellungen.firmaTelefon,
+       einstellungen.firmaEmail].forEach(function (z, i) {
+        if (!z) return;
+        var w = d.textBreite(z, 7.2, i === 0);
+        if (w > firmaBreite) firmaBreite = w;
+      });
+      firmaBreite = Math.min(firmaBreite, 62);
+      var titelBreite = Math.max(30, rechts - textX - firmaBreite - 5);
+
+      var zeile2 = [];
+      if (projekt.kunde) zeile2.push(projekt.kunde);
+      if (projekt.objekt) zeile2.push(projekt.objekt);
+      d.text(d.kuerzen(zeile2.join('  |  '), titelBreite, 8.5, false), textX, y + 5.6,
+             { size: 8.5, color: FARBE.grau });
+      var zeile3 = [];
+      if (projekt.anlagenNr) zeile3.push('Anlagen-Nr. ' + projekt.anlagenNr);
+      if (projekt.strasse || projekt.ort) {
+        zeile3.push([projekt.strasse, [projekt.plz, projekt.ort].filter(Boolean).join(' ')]
+          .filter(Boolean).join(', '));
+      }
+      if (zeile3.length) {
+        d.text(d.kuerzen(zeile3.join('  |  '), titelBreite, 7.5, false), textX, y + 10.2,
+               { size: 7.5, color: FARBE.hellgrau });
+      }
+
+      /* Firmenblock rechts */
+      var firma = [];
+      if (einstellungen.firma) firma.push(einstellungen.firma);
+      if (einstellungen.firmaZusatz) firma.push(einstellungen.firmaZusatz);
+      if (einstellungen.firmaTelefon) firma.push(einstellungen.firmaTelefon);
+      if (einstellungen.firmaEmail) firma.push(einstellungen.firmaEmail);
+      firma.slice(0, 4).forEach(function (z, i) {
+        d.text(d.kuerzen(z, firmaBreite + 2, 7.2, i === 0), rechts, y + i * 3.6, {
+          size: 7.2, align: 'right', bold: i === 0, color: i === 0 ? FARBE.text : FARBE.hellgrau
+        });
+      });
+
+      /* Kopflinie in Navy, darunter ein kurzer goldener Streifen - dieselbe
+       * Aufteilung wie auf der Website, nur auf Papier übersetzt. */
+      var trennY = y + 15;
+      d.linie(x, trennY, rechts, trennY, { color: FARBE.akzent, width: 0.5 });
+      d.linie(x, trennY + 0.9, x + 26, trennY + 0.9, { color: FARBE.hausfarbe, width: 1.4 });
+      d.y = trennY + 5;
+    };
+
+    /* Der Stand wird einmal gebildet: Alle Seiten tragen dieselbe Uhrzeit,
+       auch wenn die Minute während der Erzeugung wechselt. */
+    var stand = jetztDe();
+    doc.onSeitenfuss = function (d, nr, gesamt) {
+      var y = d.hoehe - d.rand.unten + 3;
+      var rechts = d.breite - d.rand.rechts;
+      d.linie(d.rand.links, y, rechts, y, { color: FARBE.linieHell, width: 0.2 });
+      var links = [];
+      if (einstellungen.firma) links.push(einstellungen.firma);
+      links.push('Aufmaß ' + datumDe(projekt.aufmassDatum));
+      if (projekt.bearbeiter) links.push(projekt.bearbeiter);
+      /* Rechter Text zuerst messen; der linke bekommt den Rest mit Abstand */
+      var rechtsText = 'Stand ' + stand + '   Seite ' + nr + ' / ' + gesamt;
+      var rechtsBreite = d.textBreite(rechtsText, 7, false);
+      d.text(d.kuerzen(links.join('  ·  '), d.inhaltsBreite() - rechtsBreite - 4, 7, false),
+             d.rand.links, y + 1.5, { size: 7, color: FARBE.hellgrau });
+      d.text(rechtsText, rechts, y + 1.5, { size: 7, align: 'right', color: FARBE.hellgrau });
+    };
+  }
+
+  /* Deckblatt-Datenblock für alle Reports */
+  function projektKopfBlock(doc, projekt, einstellungen) {
+    var x = doc.rand.links, b = doc.inhaltsBreite();
+    var spalte = b / 3;
+    var felder = [
+      ['Kunde', projekt.kunde],
+      ['Objekt', projekt.objekt],
+      ['Adresse', [projekt.strasse, [projekt.plz, projekt.ort].filter(Boolean).join(' ')].filter(Boolean).join(', ')],
+      ['Ansprechpartner', projekt.ansprechpartner],
+      ['Telefon', projekt.telefon],
+      ['E-Mail', projekt.email],
+      ['Anlagen-Nr.', projekt.anlagenNr],
+      ['Kunden-Nr.', projekt.kundenNr],
+      ['Aufmaßdatum', datumDe(projekt.aufmassDatum)],
+      ['Bearbeiter', projekt.bearbeiter],
+      ['Art der Anlage', (K.ANLAGENART.filter(function (a) { return a.id === projekt.anlagenart; })[0] || {}).label || ''],
+      ['Mechanisches System', projekt.systemMechanik ? K.systemLabel(projekt.systemMechanik, einstellungen && einstellungen.eigeneSysteme) : ''],
+      ['Elektronisches System', projekt.systemElektronik ? K.systemLabel(projekt.systemElektronik, einstellungen && einstellungen.eigeneSysteme) : ''],
+      ['Detail zur Anlage', projekt.systemDetail]
+    ].filter(function (f) { return txt(f[1]); });
+
+    if (!felder.length) return;
+    /* Zeilenhöhen aus dem längsten Wert der jeweiligen Rasterzeile ableiten,
+       damit lange Kundennamen zweizeilig stehen statt abgeschnitten zu werden. */
+    var zeilenAnzahl = Math.ceil(felder.length / 3);
+    var zeilenHoehen = [];
+    for (var z = 0; z < zeilenAnzahl; z++) {
+      var maxH = 0;
+      for (var sp2 = 0; sp2 < 3; sp2++) {
+        var f2 = felder[z * 3 + sp2];
+        if (!f2) continue;
+        var h = doc.blockHoehe(txt(f2[1]), spalte - 6, { size: 8.5, bold: true, maxLines: 4 });
+        if (h > maxH) maxH = h;
+      }
+      zeilenHoehen.push(Math.max(4.2, maxH) + 4.2);
+    }
+    var hoehe = zeilenHoehen.reduce(function (a, c) { return a + c; }, 0) + 3;
+    doc.platzPruefen(hoehe + 4);
+    var startY = doc.y;
+    doc.rechteck(x, startY, b, hoehe, { fill: FARBE.zebraBg, stroke: FARBE.linieHell });
+    var yOffsets = [], lauf = 2;
+    zeilenHoehen.forEach(function (h2) { yOffsets.push(lauf); lauf += h2; });
+    felder.forEach(function (f, i) {
+      var sp = i % 3, ze = Math.floor(i / 3);
+      var fx = x + sp * spalte + 3, fy = startY + yOffsets[ze];
+      doc.text(f[0], fx, fy, { size: 7, color: FARBE.hellgrau });
+      doc.textBlock(txt(f[1]), fx, fy + 3.4, spalte - 6, { size: 8.5, bold: true, maxLines: 4 });
+    });
+    doc.y = startY + hoehe + 5;
+  }
+
+  /* =========================================================================
+   * Tabellenmaschine mit Seitenumbruch und wiederholtem Tabellenkopf
+   * spalten: [{titel, key|render, breite, align, size, bold, maxLines}]
+   * opt.vorspann: { hoehe, zeichnen } - eine Überschrift des Aufrufers, die
+   * zusammen mit Tabellenkopf und erster Zeile auf die Seite kommt.
+   * ====================================================================== */
+  function tabelle(doc, spalten, zeilen, opt) {
+    opt = opt || {};
+    var x0 = doc.rand.links;
+    var gesamtBreite = spalten.reduce(function (s, c) { return s + c.breite; }, 0);
+    var schrift = opt.size || 7.6;
+    var padX = 1.6, padY = 1.4;
+    var kopfHoehe = opt.headerHeight || 6.5;
+    var gruppenHoehe = 1.5 + 6.4;
+
+    /* Zellinhalte und Zeilenhöhe einer Datenzeile (höchster Zellinhalt) */
+    function zellenVon(zeile) {
+      return spalten.map(function (c) {
+        var wert = c.render ? c.render(zeile) : txt(zeile[c.key]);
+        return { spalte: c, wert: txt(wert) };
+      });
+    }
+    function zeilenHoehe(zellen) {
+      var hoehe = 0;
+      zellen.forEach(function (z) {
+        var h = doc.blockHoehe(z.wert, z.spalte.breite - 2 * padX, {
+          size: z.spalte.size || schrift, bold: z.spalte.bold, maxLines: z.spalte.maxLines || 3
+        });
+        if (h > hoehe) hoehe = h;
+      });
+      return Math.max(5.2, hoehe + 2 * padY);
+    }
+    /* Was ab Zeile i mindestens zusammen auf die Seite muss: die
+       Gruppenzeilen bis zur nächsten Datenzeile und diese Datenzeile. So
+       bleibt keine Gruppen- oder Kopfzeile allein am Seitenende. */
+    function folgeHoehe(i) {
+      var h = 0;
+      for (var j = i; j < zeilen.length; j++) {
+        if (zeilen[j].__gruppe) { h += gruppenHoehe; continue; }
+        return h + zeilenHoehe(zellenVon(zeilen[j]));
+      }
+      return h;
+    }
+
+    function kopfZeichnen(naechsteHoehe) {
+      doc.platzPruefen(Math.min(kopfHoehe + (naechsteHoehe || 8), doc.inhaltsHoehe()));
+      var y = doc.y;
+      doc.rechteck(x0, y, gesamtBreite, kopfHoehe, { fill: FARBE.kopfBg, stroke: FARBE.linie, width: 0.25 });
+      var cx = x0;
+      spalten.forEach(function (c) {
+        var tx = cx + padX;
+        if (c.align === 'center') tx = cx + c.breite / 2;
+        else if (c.align === 'right') tx = cx + c.breite - padX;
+        doc.text(doc.kuerzen(c.titel, c.breite - 2 * padX, 7, true), tx, y + padY + 0.4,
+                 { size: 7, bold: true, align: c.align, color: FARBE.text });
+        cx += c.breite;
+        if (c !== spalten[spalten.length - 1]) {
+          doc.linie(cx, y, cx, y + kopfHoehe, { color: FARBE.linie, width: 0.25 });
+        }
+      });
+      doc.y = y + kopfHoehe;
+    }
+
+    var ersteHoehe = folgeHoehe(0);
+    if (opt.vorspann) {
+      doc.platzPruefen(Math.min(opt.vorspann.hoehe + kopfHoehe + ersteHoehe, doc.inhaltsHoehe()));
+      opt.vorspann.zeichnen();
+    }
+    kopfZeichnen(ersteHoehe);
+    var zebra = 0;
+
+    zeilen.forEach(function (zeile, i) {
+      /* Gruppentrenner: erst zeichnen, wenn auch die erste Datenzeile der
+         Gruppe noch auf die Seite passt. Nach einem Umbruch steht der
+         Tabellenkopf wieder über der Gruppenzeile. */
+      if (zeile.__gruppe) {
+        var noetig = folgeHoehe(i);
+        if (doc.platzPruefen(Math.min(noetig, doc.inhaltsHoehe()))) kopfZeichnen(noetig);
+        var gy = doc.y + 1.5;
+        doc.rechteck(x0, gy, gesamtBreite, 6.4, { fill: '#dce6f2', stroke: FARBE.linie, width: 0.25 });
+        doc.text(doc.kuerzen(zeile.__gruppe, gesamtBreite - 40, 8.2, true), x0 + padX, gy + 1.3,
+                 { size: 8.2, bold: true, color: FARBE.akzent });
+        if (zeile.__gruppeRechts) {
+          doc.text(zeile.__gruppeRechts, x0 + gesamtBreite - padX, gy + 1.5,
+                   { size: 7.2, align: 'right', color: FARBE.grau });
+        }
+        doc.y = gy + 6.4;
+        zebra = 0;
+        return;
+      }
+
+      var zellen = zellenVon(zeile);
+      var hoehe = zeilenHoehe(zellen);
+
+      var umbrochen = doc.platzPruefen(hoehe);
+      if (umbrochen) { kopfZeichnen(hoehe); zebra = 0; }
+
+      var y = doc.y;
+      if (zebra % 2 === 1) {
+        doc.rechteck(x0, y, gesamtBreite, hoehe, { fill: FARBE.zebraBg });
+      }
+      if (zeile.__markierung) {
+        doc.rechteck(x0, y, 1.2, hoehe, { fill: zeile.__markierung });
+      }
+
+      var cx = x0;
+      var trenner = [];
+      zellen.forEach(function (z, i) {
+        var c = z.spalte;
+        var tx = cx + padX, ausrichtung = c.align;
+        var maxB = c.breite - 2 * padX;
+        doc.textBlock(z.wert, tx, y + padY, maxB, {
+          size: c.size || schrift, bold: c.bold, align: ausrichtung,
+          color: c.color || FARBE.text, maxLines: c.maxLines || 3
+        });
+        cx += c.breite;
+        if (i < spalten.length - 1) trenner.push([cx, y, cx, y + hoehe]);
+      });
+      trenner.push([x0, y + hoehe, x0 + gesamtBreite, y + hoehe]);
+      doc.linienGruppe(trenner, { color: FARBE.linieHell, width: 0.2 });
+      doc.y = y + hoehe;
+      zebra++;
+    });
+
+    /* Rahmen links/rechts der letzten Seite */
+    doc.linie(x0, doc.y, x0 + gesamtBreite, doc.y, { color: FARBE.linie, width: 0.3 });
+    return doc.y;
+  }
+
+  /* =========================================================================
+   * 1) TÜRLISTE
+   * modus: 'kompakt' = Tabelle | 'detail' = Datenblatt je Tür
+   * ====================================================================== */
+  function tuerliste(projekt, einstellungen, optionen) {
+    optionen = optionen || {};
+    var modus = optionen.modus || 'kompakt';
+    var mitFotos = optionen.mitFotos !== false;
+    /* Die kompakte Liste ist immer quer: Ihre Spaltenanteile sind für
+       277 mm ausgelegt, im Hochformat zerrissen Köpfe und Nummern. Nur das
+       Datenblatt kennt die Wahl zwischen hoch und quer. */
+    var quer = modus === 'kompakt' ? 'landscape' : (optionen.orientation || 'portrait');
+
+    var doc = new PDF.Doc({
+      format: 'a4', orientation: quer,
+      titel: 'Türliste ' + (projekt.kunde || projekt.name),
+      autor: einstellungen && einstellungen.firma || '',
+      betreff: 'Aufmaß-Türliste',
+      margin: { oben: 12, unten: 14, links: 10, rechts: 10 }
+    });
+    kopfUndFussSetzen(doc, projekt, einstellungen, 'Türliste / Aufmaßprotokoll');
+    doc.neueSeite();
+    projektKopfBlock(doc, projekt, einstellungen);
+
+    var gruppen = M.tuerenGruppiert(projekt);
+    if (!projekt.tueren.length) {
+      doc.text('Für dieses Projekt wurden noch keine Türen erfasst.', doc.rand.links, doc.y,
+               { size: 10, color: FARBE.grau });
+      return doc;
+    }
+
+    if (modus === 'kompakt') {
+      tuerlisteKompakt(doc, projekt, gruppen, einstellungen);
+    } else {
+      tuerlisteDetail(doc, projekt, gruppen, einstellungen, mitFotos);
+    }
+
+    zusammenfassung(doc, projekt, einstellungen);
+    return doc;
+  }
+
+  function zylinderMass(t) {
+    if (!t.masseAussen && !t.masseInnen) return '';
+    return (massText(t.masseAussen) || '–') + ' / ' + (massText(t.masseInnen) || '–');
+  }
+
+  function tuerlisteKompakt(doc, projekt, gruppen, einstellungen) {
+    var b = doc.inhaltsBreite();
+    /* Die Nummernspalte richtet sich nach der breitesten Türnummer (5,2 bis
+       9 Prozent der Breite); was sie mehr braucht, gibt die Bemerkung ab.
+       Noch längere Nummern brechen hinter - / . um, ohne Kürzung. */
+    var nrBreite = 0;
+    projekt.tueren.forEach(function (t) {
+      var w = doc.textBreite(txt(t.nummer), 7.2, true) + 3.6;
+      if (w > nrBreite) nrBreite = w;
+    });
+    var nrAnteil = Math.min(0.09, Math.max(0.052, nrBreite / b));
+    /* Spaltenbreiten als Anteile der verfügbaren Breite (A4 quer: 277 mm) */
+    var anteile = [
+      { titel: 'Nr.',            breite: nrAnteil, maxLines: 6, render: function (t) { return txt(t.nummer); }, bold: true },
+      { titel: 'Bezeichnung / Raum', breite: 0.145, render: function (t) {
+          var zusatz = kategorieZusatz(t);
+          return txt(t.bezeichnung) + (zusatz ? ('\n' + zusatz) : ''); } },
+      { titel: 'Anz.',           breite: 0.032, align: 'center', render: function (t) { return String(anzahlVon(t)); } },
+      { titel: 'Ausführung',     breite: 0.115, render: function (t) {
+          var sid = M.tuerSystemId(projekt, t);
+          var s = sid ? K.systemLabel(sid, einstellungen && einstellungen.eigeneSysteme) : '–';
+          return s + (t.systemNotiz ? ('\n' + t.systemNotiz) : ''); } },
+      { titel: 'Zylinder',       breite: 0.125, render: function (t) {
+          return K.zylinderText(t) || '–'; } },
+      { titel: 'Maß a/i',        breite: 0.055, align: 'center', render: zylinderMass },
+      { titel: 'Beschlag / Drücker', breite: 0.115, render: function (t) {
+          var b = K.beschlagText(t);
+          if (!b) return '–';
+          return b + (t.vierkant ? ('\nVK ' + massText(t.vierkant)) : ''); } },
+      { titel: 'Schloss',        breite: 0.105, render: function (t) {
+          var sch = K.schlossText(t);
+          if (!sch) return '–';
+          var d = [];
+          if (t.dornmass) d.push('DM ' + massText(t.dornmass));
+          if (t.entfernung) d.push('E ' + massText(t.entfernung));
+          return sch + (d.length ? ('\n' + d.join(' / ')) : ''); } },
+      { titel: 'DIN',            breite: 0.045, align: 'center', render: function (t) {
+          return txt(t.dinRichtung).replace('DIN ', ''); } },
+      { titel: 'Bemerkung',      breite: 0.211 - (nrAnteil - 0.052), maxLines: 6, render: function (t) {
+          var n = [];
+          if (t.notiz) n.push(t.notiz);
+          if (t.nacharbeit) n.push('! ' + (t.nacharbeitText || 'Nacharbeit'));
+          return n.join('\n'); } }
+    ];
+    var spalten = anteile.map(function (s) {
+      var c = {}; for (var k in s) c[k] = s[k];
+      c.breite = s.breite * b;
+      return c;
+    });
+
+    var zeilen = [];
+    gruppen.forEach(function (g) {
+      var anz = g.tueren.reduce(function (s, t) { return s + anzahlVon(t); }, 0);
+      zeilen.push({ __gruppe: g.titel,
+        __gruppeRechts: plural(g.tueren.length, 'Position', 'Positionen') + '  ·  ' + plural(anz, 'Tür', 'Türen') });
+      g.tueren.forEach(function (t) {
+        var kopie = Object.create(t);
+        kopie.__markierung = t.nacharbeit ? FARBE.fehler : (K.statusById(t.status).farbe);
+        zeilen.push(kopie);
+      });
+    });
+    tabelle(doc, spalten, zeilen, { size: 7.2 });
+  }
+
+  function tuerlisteDetail(doc, projekt, gruppen, einstellungen, mitFotos) {
+    var b = doc.inhaltsBreite();
+    var x = doc.rand.links;
+
+    gruppen.forEach(function (g) {
+      /* Die Bereichszeile zeichnet das erste Datenblatt der Gruppe als
+         Vorspann, nachdem es seinen eigenen Platz geprüft hat. So bleibt
+         sie nie allein am Seitenende stehen. */
+      var vorspann = { hoehe: 10, zeichnen: function () {
+        doc.rechteck(x, doc.y, b, 7, { fill: '#dce6f2', stroke: FARBE.linie, width: 0.25 });
+        doc.text(doc.kuerzen(g.titel, b - 30, 9.5, true), x + 2, doc.y + 1.6, { size: 9.5, bold: true, color: FARBE.akzent });
+        doc.text(plural(g.tueren.length, 'Tür', 'Türen'), x + b - 2, doc.y + 1.9,
+                 { size: 7.5, align: 'right', color: FARBE.grau });
+        doc.y += 10;
+      } };
+      if (!g.tueren.length) { doc.platzPruefen(16); vorspann.zeichnen(); return; }
+      g.tueren.forEach(function (t, i) {
+        tuerDatenblatt(doc, projekt, t, einstellungen, mitFotos, i === 0 ? vorspann : null);
+      });
+    });
+  }
+
+  function tuerDatenblatt(doc, projekt, t, einstellungen, mitFotos, vorspann) {
+    var x = doc.rand.links, b = doc.inhaltsBreite();
+    var fotos = mitFotos ? (t.fotos || []) : [];
+
+    var felder = [
+      ['System', (function () {
+          var sid = M.tuerSystemId(projekt, t);
+          return sid ? K.systemLabel(sid, einstellungen && einstellungen.eigeneSysteme) : '–';
+        })()],
+      ['Ausführung', (function () {
+          var tech = M.tuerTechnologie(projekt, t);
+          return tech === 'elektronik' ? 'Elektronisch'
+               : tech === 'mechanik' ? 'Mechanisch'
+               : tech === 'hybrid' ? 'Hybrid' : '–';
+        })()],
+      ['Kategorie', t.kategorie, true],
+      ['Anzahl', String(anzahlVon(t))],
+      ['Zylinder', K.zylinderText(t) || (t.brauchtZylinder ? '' : 'kein Zylinder'), true],
+      ['Zylinderlänge außen/innen', zylinderMass(t) ? zylinderMass(t) + ' mm' : ''],
+      ['Beschlag / Drücker', K.beschlagText(t) || (t.brauchtBeschlag ? '' : 'kein Beschlag'), true],
+      ['Beschlag-Optionen', K.beschlagOptionenText(t), true],
+      ['Schloss', K.schlossText(t), true],
+      ['Wandleser', t.brauchtWandleser ? 'ja' : ''],
+      ['Systemkomponenten', (t.komponenten || []).join(', '), true],
+      ['DIN-Richtung', t.dinRichtung],
+      ['Öffnungsrichtung', t.oeffnungsrichtung],
+      ['Türblattstärke', t.tuerblattstaerke ? massText(t.tuerblattstaerke) + ' mm' : ''],
+      ['Dornmaß', t.dornmass ? massText(t.dornmass) + ' mm' : ''],
+      ['Entfernung', t.entfernung ? massText(t.entfernung) + ' mm' : ''],
+      ['Vierkant', t.vierkant ? massText(t.vierkant) + ' mm' : ''],
+      ['Profilbreite', massText(t.profilbreite)],
+      ['Türbreite', t.tuerbreite ? massText(t.tuerbreite) + ' mm' : ''],
+      ['Türhöhe', t.tuerhoehe ? massText(t.tuerhoehe) + ' mm' : ''],
+      ['Türanschlag', t.tuerAnschlag],
+      ['Stulpmaß', t.stulpmass],
+      ['Stulpform', t.schlossStulpform],
+      ['Stulpbreite', t.schlossStulpbreite ? massText(t.schlossStulpbreite) + ' mm' : ''],
+      ['Stulplänge', t.schlossStulplaenge ? massText(t.schlossStulplaenge) + ' mm' : ''],
+      ['Fallenart', t.schlossFallenart],
+      ['Riegelausschluss', t.schlossRiegelausschluss ? massText(t.schlossRiegelausschluss) + ' mm' : ''],
+      ['Verriegelungspunkte', t.schlossVerriegelungspunkte],
+      ['Norm / Zulassung Schloss', t.schlossNorm],
+      ['Bohrbild', t.bohrbild],
+      ['Türmaterial', t.tuermaterial],
+      ['Besonderheit zur Tür', t.systemNotiz, true],
+      ['Maß-Bemerkung', t.masseBemerkung, true],
+      ['Bestand Fabrikat', t.bestandFabrikat],
+      ['Bestand Zylinderart', t.bestandZylinderart],
+      ['Bestand Länge', [massText(t.bestandLaengeAussen), massText(t.bestandLaengeInnen)].filter(Boolean).join('/') ||
+                        t.bestandLaenge],
+      ['Bestand Schlüsselanzahl', t.bestandAnzahlSchluessel],
+      ['Bestand Bemerkung', t.bestandBemerkung, true],
+      ['Funkabdeckung', t.elFunkabdeckung],
+      ['Stromversorgung', t.elStromversorgung],
+      ['Vernetzung', t.elVernetzung],
+      ['Türüberwachung', t.elTuerueberwachung ? 'ja' : ''],
+      ['Kabel / Leerrohr', t.elKabeluebergang],
+      ['Türöffner im Bestand', t.elTueroeffnerBestand ? 'ja' : ''],
+      ['Leitungsweg', t.elLeitungsweg, true],
+      ['Elektronik-Bemerkung', t.elBemerkung, true],
+      /* Fehlende Pflichtangaben stehen im Datenblatt, damit beim Nach-
+       * arbeiten im Büro nicht erst gesucht werden muss. */
+      ['Pflichtangaben offen', (function () {
+          var f2 = M.pflichtfelder ? M.pflichtfelder(projekt, t) : [];
+          return f2.length ? f2.map(function (x2) { return x2.label; }).join(', ') : '';
+        })(), true]
+    ].filter(function (f) { return txt(f[1]) && txt(f[1]) !== '–' || f[0] === 'System'; });
+
+    var spaltenAnzahl = 3;
+    var spaltenBreite = b / spaltenAnzahl;
+    var status = K.statusById(t.status);
+    /* Der Titel darf zwei Zeilen haben; der Kopf wächst mit (8 oder 12,6 mm) */
+    var titelBasis = (t.nummer ? t.nummer + '  ·  ' : '') + (t.bezeichnung || 'ohne Bezeichnung');
+    function titelVon(fortsetzung) { return titelBasis + (fortsetzung ? '   (Fortsetzung)' : ''); }
+    function kopfHoeheVon(fortsetzung) {
+      return 3.4 + doc.blockHoehe(titelVon(fortsetzung), b - 70, { size: 10.5, bold: true, maxLines: 2 });
+    }
+    var kopfHoehe = kopfHoeheVon(false);
+
+    /* Rasterzeilen bilden und ihre Höhe am längsten Wert ausrichten, damit
+       lange Werte (z. B. mehrere Zutrittsarten) vollständig lesbar bleiben. */
+    var rasterZeilen = [];
+    var puffer = [];
+    function pufferAbschliessen() {
+      if (!puffer.length) return;
+      var maxH = 0;
+      puffer.forEach(function (f) {
+        var h = doc.blockHoehe(txt(f[1]), spaltenBreite - 4, { size: 8, maxLines: 4 });
+        if (h > maxH) maxH = h;
+      });
+      rasterZeilen.push({ felder: puffer.slice(), voll: false, hoehe: Math.max(3.4, maxH) + 4.6 });
+      puffer = [];
+    }
+    felder.forEach(function (f) {
+      /* Lange Werte (mehrere Zutrittsarten, Komponentenlisten, Bemerkungen)
+         bekommen eine eigene Zeile über die volle Breite, statt zu kürzen. */
+      var braucht = doc.blockHoehe(txt(f[1]), spaltenBreite - 4, { size: 8 });
+      var passtInSpalte = braucht <= doc.blockHoehe('X', spaltenBreite - 4, { size: 8 }) * 2 + 0.01;
+      if (f[2] && !passtInSpalte) {
+        pufferAbschliessen();
+        rasterZeilen.push({
+          felder: [f], voll: true,
+          hoehe: doc.blockHoehe(txt(f[1]), b - 4, { size: 8, maxLines: 6 }) + 4.6
+        });
+        return;
+      }
+      puffer.push(f);
+      if (puffer.length === spaltenAnzahl) pufferAbschliessen();
+    });
+    pufferAbschliessen();
+
+    var feldHoeheGesamt = rasterZeilen.reduce(function (a, r) { return a + r.hoehe; }, 0);
+    var notizHoehe = 0;
+    if (t.notiz) notizHoehe += doc.blockHoehe(t.notiz, b - 26, { size: 8 }) + 2;
+    if (t.nacharbeit) notizHoehe += doc.blockHoehe(t.nacharbeitText || 'Nacharbeit erforderlich', b - 26, { size: 8 }) + 2;
+    /* Fotos: erst die lesbaren (JPEG) ermitteln, dann in Reihen mit
+       Platzprüfung je Reihe zeichnen. Nicht lesbare Bilder (PNG, defekte
+       Daten) verbrauchen keinen Platz und werden benannt, statt still zu
+       fehlen. */
+    var fotoEintraege = fotos.map(function (foto, i) {
+      return { foto: foto || {}, id: doc.bildRegistrieren(foto && foto.dataUrl), nr: i + 1 };
+    });
+    var lesbar = fotoEintraege.filter(function (e) { return e.id; });
+    var unlesbar = fotoEintraege.filter(function (e) { return !e.id; });
+    var fotoBreite = 42, fotoAbstand = 3, fotoMaxHoehe = 30;
+    var proReihe = Math.max(1, Math.min(6, Math.floor((b - 4 + fotoAbstand) / (fotoBreite + fotoAbstand))));
+    var fotoReihen = Math.ceil(lesbar.length / proReihe);
+    var fotoHoehe = fotoReihen * (fotoMaxHoehe + 4) + (unlesbar.length ? 4 : 0);
+    var gesamt = kopfHoehe + feldHoeheGesamt + notizHoehe + fotoHoehe + 8;
+
+    /* Passt das Datenblatt komplett auf eine Seite, wird es nicht zerrissen.
+       Andernfalls beginnt es auf einer frischen Seite und wird sauber
+       umbrochen - kein Feld darf verloren gehen. Ein Vorspann (die
+       Bereichszeile) wird mitgeprüft und danach gezeichnet. */
+    var vorspannHoehe = vorspann ? vorspann.hoehe : 0;
+    if (gesamt + vorspannHoehe <= doc.inhaltsHoehe()) doc.platzPruefen(vorspannHoehe + gesamt);
+    else doc.platzPruefen(vorspannHoehe + kopfHoehe + rasterZeilen.slice(0, 3)
+      .reduce(function (a, r) { return a + r.hoehe; }, 0));
+    if (vorspann) vorspann.zeichnen();
+
+    function kopfZeichnen(fortsetzung) {
+      var startY = doc.y, kh = kopfHoeheVon(fortsetzung);
+      doc.rechteck(x, startY, b, kh, { fill: '#eef2f7', stroke: FARBE.linie, width: 0.3 });
+      doc.rechteck(x, startY, 1.6, kh, { fill: t.nacharbeit ? FARBE.fehler : status.farbe });
+      doc.textBlock(titelVon(fortsetzung), x + 4, startY + 2, b - 70, { size: 10.5, bold: true, maxLines: 2 });
+      doc.text(status.label + (t.nacharbeit ? '  ·  NACHARBEIT' : ''), x + b - 3, startY + 2.4,
+               { size: 7.5, align: 'right', bold: true, color: t.nacharbeit ? FARBE.fehler : status.farbe });
+      doc.y = startY + kh + 1.5;
+    }
+
+    kopfZeichnen(false);
+
+    /* Felder in drei Spalten, mit Seitenumbruch statt Abschneiden */
+    rasterZeilen.forEach(function (rz) {
+      if (doc.y + rz.hoehe > doc.hoehe - doc.rand.unten) {
+        doc.neueSeite();
+        kopfZeichnen(true);
+      }
+      var fy = doc.y;
+      if (rz.voll) {
+        var fv = rz.felder[0];
+        doc.text(fv[0], x + 2, fy, { size: 7, color: FARBE.hellgrau });
+        doc.textBlock(txt(fv[1]), x + 2, fy + 3.1, b - 4, { size: 8, maxLines: 6 });
+      } else {
+        rz.felder.forEach(function (f, sp) {
+          var fx = x + sp * spaltenBreite + 2;
+          doc.text(f[0], fx, fy, { size: 7, color: FARBE.hellgrau });
+          doc.textBlock(txt(f[1]), fx, fy + 3.1, spaltenBreite - 4, { size: 8, maxLines: 4 });
+          if (sp > 0) {
+            doc.linie(x + sp * spaltenBreite, fy - 0.5, x + sp * spaltenBreite, fy + rz.hoehe - 1.2,
+                      { color: FARBE.linieHell, width: 0.15 });
+          }
+        });
+      }
+      doc.y = fy + rz.hoehe;
+    });
+    doc.y += 1;
+
+    /* Notiz / Nacharbeit als Fließtext: Ein langer Text läuft auf die
+       nächste Seite weiter, dort steht der Kopf des Datenblatts als
+       Fortsetzung. Kein Text darf unter der Fußzeile verschwinden. */
+    function notizBlock(label, text, farbe, fett) {
+      var labelOpt = { size: 7, bold: !!fett, color: farbe };
+      doc.platzPruefen(8);
+      doc.text(label, x + 2, doc.y, labelOpt);
+      doc.textFliessend(text, x + 24, b - 26, {
+        size: 8, color: fett ? farbe : FARBE.text,
+        beiUmbruch: function () { kopfZeichnen(true); doc.text(label, x + 2, doc.y, labelOpt); }
+      });
+      doc.y += 1.5;
+    }
+    if (t.notiz) notizBlock('Bemerkung', t.notiz, FARBE.hellgrau, false);
+    if (t.nacharbeit) notizBlock('Nacharbeit', t.nacharbeitText || 'Nacharbeit erforderlich', FARBE.fehler, true);
+
+    /* Fotos in Reihen; jede Reihe prüft ihren Platz */
+    for (var reihe = 0; reihe < fotoReihen; reihe++) {
+      doc.platzPruefen(fotoMaxHoehe + 4);
+      var fx2 = x + 2, fy2 = doc.y;
+      lesbar.slice(reihe * proReihe, (reihe + 1) * proReihe).forEach(function (e) {
+        /* Kleine Bilder nicht hochziehen: 150 Pixel je Zoll als Obergrenze */
+        var info = doc.bildInfo(e.id);
+        var maxB = Math.min(fotoBreite, Math.max(8, info.breite / 150 * 25.4));
+        var gez = doc.bild(e.id, fx2, fy2, maxB, fotoMaxHoehe);
+        if (!gez) return;
+        doc.rechteck(fx2, fy2, gez.breite, gez.hoehe, { stroke: FARBE.linie, width: 0.2 });
+        var platz = Math.max(gez.breite, 14);
+        if (e.foto.beschriftung) {
+          doc.text(doc.kuerzen(e.foto.beschriftung, platz - 1, 7, false), fx2, fy2 + gez.hoehe + 0.6,
+                   { size: 7, color: FARBE.hellgrau });
+        }
+        fx2 += platz + fotoAbstand;
+      });
+      doc.y += fotoMaxHoehe + 4;
+    }
+    if (unlesbar.length) {
+      doc.platzPruefen(4);
+      var namen = unlesbar.map(function (e) { return e.nr + (e.foto.beschriftung ? ' (' + e.foto.beschriftung + ')' : ''); }).join(', ');
+      doc.text(doc.kuerzen((unlesbar.length === 1 ? 'Foto ' + namen + ' ist' : 'Fotos ' + namen + ' sind') +
+               ' nicht als JPEG lesbar und fehlen hier.', b - 4, 7, false), x + 2, doc.y, { size: 7, color: FARBE.warn });
+      doc.y += 4;
+    }
+
+    doc.linie(x, doc.y, x + b, doc.y, { color: FARBE.linie, width: 0.3 });
+    doc.y += 4;
+  }
+
+  function zusammenfassung(doc, projekt, einstellungen) {
+    var s = M.statistik(projekt);
+    var x = doc.rand.links, b = doc.inhaltsBreite();
+    /* Kennzahlen, Projektbemerkung und Unterschriften möglichst zusammen
+       auf eine Seite; sonst stünden die Unterschriften allein auf einer. */
+    var bemerkungHoehe = projekt.bemerkung ? 8 + doc.blockHoehe(projekt.bemerkung, b, { size: 8 }) : 0;
+    doc.platzPruefen(Math.min(25 + bemerkungHoehe + 26, doc.inhaltsHoehe()));
+    doc.y += 3;
+    doc.text('Zusammenfassung', x, doc.y, { size: 10, bold: true, color: FARBE.akzent });
+    doc.y += 6;
+    var werte = [
+      ['Positionen', String(s.tueren)],
+      ['Türen gesamt', String(s.tuerenGesamtAnzahl)],
+      ['Fotos', String(s.fotos)],
+      ['Nacharbeit', String(s.nacharbeit)],
+      ['Schließungen', String(s.schliessungen)],
+      ['Berechtigungen', String(s.berechtigungen)]
+    ];
+    var kw = b / werte.length;
+    werte.forEach(function (w, i) {
+      var kx = x + i * kw;
+      doc.rechteck(kx, doc.y, kw - 2, 12, { fill: FARBE.zebraBg, stroke: FARBE.linieHell });
+      doc.text(w[1], kx + kw / 2 - 1, doc.y + 1.5, { size: 12, bold: true, align: 'center', color: FARBE.akzent });
+      doc.text(w[0], kx + kw / 2 - 1, doc.y + 7.8, { size: 7, align: 'center', color: FARBE.grau });
+    });
+    doc.y += 16;
+
+    if (projekt.bemerkung) {
+      doc.platzPruefen(12);
+      doc.text('Projektbemerkung', x, doc.y, { size: 8, bold: true });
+      doc.y += 4;
+      /* Fließtext über Seitengrenzen; die letzten Zeilen bleiben bei den
+         Unterschriften (26 mm), damit diese nicht allein auf einer Seite stehen. */
+      doc.textFliessend(projekt.bemerkung, x, b, { size: 8, color: FARBE.grau, anhangHoehe: 26,
+        beiUmbruch: function () {
+          doc.text('Projektbemerkung (Fortsetzung)', x, doc.y, { size: 8, bold: true });
+          doc.y += 4;
+        } });
+    }
+
+    doc.platzPruefen(26);
+    doc.y += 8;
+    var sb = (b - 10) / 2;
+    [['Aufgenommen durch (Datum, Unterschrift)', x],
+     ['Kunde / Bestätigung (Datum, Unterschrift)', x + sb + 10]].forEach(function (u) {
+      doc.linie(u[1], doc.y + 10, u[1] + sb, doc.y + 10, { color: FARBE.grau, width: 0.3 });
+      doc.text(u[0], u[1], doc.y + 11, { size: 7, color: FARBE.hellgrau });
+    });
+    doc.y += 18;
+  }
+
+  /* =========================================================================
+   * 2) KREUZSCHLIESSPLAN / ZUTRITTSMATRIX
+   * Türen = Zeilen, Schließungen = Spalten. Bei vielen Spalten wird auf
+   * mehrere Seitenblöcke umbrochen, die Türspalte wiederholt sich dabei.
+   * ====================================================================== */
+  function schliessplan(projekt, einstellungen, optionen) {
+    optionen = optionen || {};
+    var doc = new PDF.Doc({
+      format: optionen.format || 'a4', orientation: 'landscape',
+      titel: 'Kreuzschließplan ' + (projekt.kunde || projekt.name),
+      autor: einstellungen && einstellungen.firma || '',
+      betreff: 'Kreuzschließplan / Zutrittsmatrix',
+      margin: { oben: 12, unten: 14, links: 10, rechts: 10 }
+    });
+    kopfUndFussSetzen(doc, projekt, einstellungen, 'Kreuzschließplan / Zutrittsmatrix');
+    doc.neueSeite();
+    projektKopfBlock(doc, projekt, einstellungen);
+    freigabeVermerk(doc, projekt);
+
+    if (M.spaltenAngleichen) M.spaltenAngleichen(projekt);
+    var schliessungen = projekt.schliessungen.slice().sort(function (a, b2) {
+      return (a.sort - b2.sort) || String(a.kuerzel).localeCompare(String(b2.kuerzel), 'de', { numeric: true });
+    });
+    var gruppen = M.tuerenGruppiert(projekt);
+
+    if (!schliessungen.length || !projekt.tueren.length) {
+      doc.text('Für den Kreuzschließplan werden mindestens eine Tür und eine Schließung benötigt.',
+               doc.rand.links, doc.y, { size: 10, color: FARBE.grau });
+      return doc;
+    }
+
+    var b = doc.inhaltsBreite();
+    var tuerSpalte = Math.min(78, Math.max(52, b * 0.26));
+    var spaltenBreite = optionen.spaltenBreite || 7.2;
+    var verfuegbar = b - tuerSpalte;
+    var proSeite = Math.max(1, Math.floor(verfuegbar / spaltenBreite));
+
+    var bloecke = [];
+    for (var i = 0; i < schliessungen.length; i += proSeite) {
+      bloecke.push(schliessungen.slice(i, i + proSeite));
+    }
+
+    bloecke.forEach(function (block, blockIndex) {
+      if (blockIndex > 0) { doc.neueSeite(); doc.y += 2; }
+      if (bloecke.length > 1) {
+        doc.text('Spaltenblock ' + (blockIndex + 1) + ' von ' + bloecke.length +
+                 '  (Schließungen ' + (blockIndex * proSeite + 1) + '–' +
+                 (blockIndex * proSeite + block.length) + ' von ' + schliessungen.length + ')',
+                 doc.rand.links, doc.y, { size: 7.5, color: FARBE.grau });
+        doc.y += 5;
+      }
+      matrixBlock(doc, projekt, gruppen, block, tuerSpalte, spaltenBreite, einstellungen);
+    });
+
+    legende(doc, projekt, schliessungen);
+    return doc;
+  }
+
+  function matrixBlock(doc, projekt, gruppen, block, tuerSpalte, spaltenBreite, einstellungen) {
+    var x0 = doc.rand.links;
+    var gesamtBreite = tuerSpalte + block.length * spaltenBreite;
+    var zeilenHoehe = 5.4;
+
+    /* Kopfhöhe aus dem längsten Spaltentitel ableiten */
+    var kopfTexte = block.map(function (s) {
+      return (s.kuerzel ? s.kuerzel + ' ' : '') + (s.bezeichnung || '');
+    });
+    var maxTextBreite = 0;
+    kopfTexte.forEach(function (t) {
+      var w = doc.textBreite(t, 7, true);
+      if (w > maxTextBreite) maxTextBreite = w;
+    });
+    var medienZeile = 3.4;   /* eigene Zone am Kopfende für die Stückzahl */
+    var kopfHoehe = Math.min(60, Math.max(24, maxTextBreite + 6 + medienZeile));
+
+    function kopfZeichnen() {
+      doc.platzPruefen(kopfHoehe + 3 * zeilenHoehe);
+      var y = doc.y;
+      doc.rechteck(x0, y, gesamtBreite, kopfHoehe, { fill: FARBE.kopfBg, stroke: FARBE.linie, width: 0.3 });
+      doc.text('Tür / Schließung', x0 + 2, y + kopfHoehe - 5, { size: 7.5, bold: true });
+      block.forEach(function (s, i) {
+        var cx = x0 + tuerSpalte + i * spaltenBreite;
+        doc.linie(cx, y, cx, y + kopfHoehe, { color: FARBE.linie, width: 0.25 });
+        var text = doc.kuerzen(kopfTexte[i] || '–', kopfHoehe - medienZeile - 4, 7, true);
+        doc.textRotiert(text, cx + spaltenBreite / 2 + 2.4, y + kopfHoehe - medienZeile - 2,
+                        { size: 7, bold: true });
+        var anz = M.medienAnzahl(projekt, s);
+        if (anz > 0) {
+          doc.text(String(anz), cx + spaltenBreite / 2, y + kopfHoehe - medienZeile + 0.1,
+                   { size: 6.5, align: 'center', color: FARBE.grau });
+        }
+      });
+      doc.linie(x0 + tuerSpalte, y, x0 + tuerSpalte, y + kopfHoehe, { color: FARBE.linie, width: 0.4 });
+      doc.linie(x0 + tuerSpalte, y + kopfHoehe - medienZeile, x0 + gesamtBreite,
+                y + kopfHoehe - medienZeile, { color: FARBE.linie, width: 0.2 });
+      doc.text('Stk', x0 + tuerSpalte - 2, y + kopfHoehe - medienZeile + 0.1,
+               { size: 6.5, align: 'right', color: FARBE.hellgrau });
+      doc.y = y + kopfHoehe;
+    }
+
+    kopfZeichnen();
+    var zebra = 0;
+
+    gruppen.forEach(function (g, gi) {
+      /* Gruppenzeile */
+      if (doc.platzPruefen(zeilenHoehe * 3)) { kopfZeichnen(); zebra = 0; }
+      var gy = doc.y;
+      doc.rechteck(x0, gy, gesamtBreite, 5, { fill: '#dce6f2', stroke: FARBE.linie, width: 0.25 });
+      doc.text(doc.kuerzen(g.titel, gesamtBreite - 6, 7.6, true), x0 + 2, gy + 0.9,
+               { size: 7.6, bold: true, color: FARBE.akzent });
+      doc.y = gy + 5;
+      zebra = 0;
+
+      g.tueren.forEach(function (t, ti) {
+        /* Die letzte Zeile nimmt die Summenzeile mit, damit diese nicht
+           allein mit wiederholtem Kopf auf einer neuen Seite steht. */
+        var letzte = gi === gruppen.length - 1 && ti === g.tueren.length - 1;
+        if (doc.platzPruefen(letzte ? zeilenHoehe * 2 + 2 : zeilenHoehe)) { kopfZeichnen(); zebra = 0; }
+        var y = doc.y;
+        if (zebra % 2 === 1) doc.rechteck(x0, y, gesamtBreite, zeilenHoehe, { fill: FARBE.zebraBg });
+
+        var label = (t.nummer ? t.nummer + ' ' : '') + (t.bezeichnung || '');
+        if (anzahlVon(t) > 1) label += ' (' + anzahlVon(t) + 'x)';
+        doc.text(doc.kuerzen(label || '–', tuerSpalte - 4, 7, false), x0 + 2, y + 1.1, { size: 7 });
+
+        var raster = [];
+        block.forEach(function (s, i) {
+          var cx = x0 + tuerSpalte + i * spaltenBreite;
+          var wert = M.getBerechtigung(projekt, t.id, s.id);
+          var zeichen = K.berechtigungZeichen(wert);
+          raster.push([cx, y, cx, y + zeilenHoehe]);
+          if (zeichen) {
+            var farbe = wert === 'sperr' ? FARBE.fehler : (wert === 'ja' ? FARBE.akzent : FARBE.warn);
+            doc.text(zeichen, cx + spaltenBreite / 2, y + 0.9,
+                     { size: 8, bold: true, align: 'center', color: farbe });
+          }
+        });
+        raster.push([x0, y + zeilenHoehe, x0 + gesamtBreite, y + zeilenHoehe]);
+        doc.linienGruppe(raster, { color: FARBE.linieHell, width: 0.15 });
+        doc.linie(x0 + tuerSpalte, y, x0 + tuerSpalte, y + zeilenHoehe, { color: FARBE.linie, width: 0.4 });
+        doc.y = y + zeilenHoehe;
+        zebra++;
+      });
+    });
+
+    /* Summenzeile: Anzahl berechtigter Türen je Schließung */
+    if (doc.platzPruefen(zeilenHoehe + 2)) kopfZeichnen();
+    var sy = doc.y;
+    doc.rechteck(x0, sy, gesamtBreite, zeilenHoehe, { fill: FARBE.kopfBg, stroke: FARBE.linie, width: 0.3 });
+    doc.text('Summe berechtigter Türen', x0 + 2, sy + 1.1, { size: 7, bold: true });
+    block.forEach(function (s, i) {
+      var cx = x0 + tuerSpalte + i * spaltenBreite;
+      var summe = 0;
+      projekt.tueren.forEach(function (t) {
+        var w = M.getBerechtigung(projekt, t.id, s.id);
+        if (w !== 'nein' && w !== 'sperr') summe += anzahlVon(t);
+      });
+      doc.linie(cx, sy, cx, sy + zeilenHoehe, { color: FARBE.linie, width: 0.25 });
+      doc.text(String(summe), cx + spaltenBreite / 2, sy + 1.1,
+               { size: 7, align: 'center', bold: true, color: FARBE.akzent });
+    });
+    doc.y = sy + zeilenHoehe + 4;
+  }
+
+  /* Freigabe-Vermerk des Kunden unter dem Projektkopf. Ist der Plan seit
+   * der Freigabe verändert worden, steht das ausdrücklich dabei - sonst
+   * würde ein veralteter Vermerk eine Verbindlichkeit vortäuschen. */
+  function freigabeVermerk(doc, projekt) {
+    var f = projekt && projekt.freigabe;
+    if (!f || !f.am) return;
+    var x = doc.rand.links, b = doc.inhaltsBreite();
+    var geaendert = M.seitFreigabeGeaendert ? M.seitFreigabeGeaendert(projekt) : false;
+    var wer = [f.name, f.funktion].filter(Boolean).join(', ');
+    var text = 'Schließplan vom Kunden verbindlich freigegeben am ' + datumDe(f.am) +
+               (wer ? ' durch ' + wer : '') +
+               (f.art === 'nachtraeglich' ? ' (nachträgliche Freigabe)' : '') + '.';
+    if (geaendert) text += '  Achtung: Der Plan wurde nach der Freigabe geändert - der Vermerk gilt für den freigegebenen Stand.';
+    /* Der Kasten wächst mit dem Text (lange Namen, Warnung nach Änderung) */
+    var hoehe = doc.blockHoehe(text, b - 6, { size: 7.6, bold: true, maxLines: 3 }) + 3.2;
+    doc.platzPruefen(hoehe + 3);
+    doc.rechteck(x, doc.y, b, hoehe, { fill: geaendert ? '#fff3e0' : '#e8f5e9',
+                                       stroke: geaendert ? FARBE.warn : '#81c784', width: 0.3 });
+    doc.textBlock(text, x + 3, doc.y + 1.6, b - 6, { size: 7.6, bold: true,
+                  color: geaendert ? FARBE.warn : '#2e7d32', maxLines: 3 });
+    doc.y += hoehe + 3;
+  }
+
+  /* „2× Transponder, 1× Smartphone“ - was hinter einer Spalte an Medien
+   * steht, nach Art zusammengefasst. */
+  function medienArtenText(projekt, s) {
+    var leute = M.spaltenMitglieder(projekt, s);
+    var nachTyp = {}, reihenfolge = [];
+    function zaehlen(liste) {
+      liste.forEach(function (m) {
+        var typ = m.typ || '';
+        if (!(typ in nachTyp)) { nachTyp[typ] = 0; reihenfolge.push(typ); }
+        nachTyp[typ] += m.anzahl;
+      });
+    }
+    if (leute.length) {
+      leute.forEach(function (m) {
+        var liste = M.medienBereinigen(m.medien);
+        zaehlen(liste.length ? liste : [{ typ: '', anzahl: 1 }]);
+      });
+    } else {
+      zaehlen(M.medienBereinigen(s.medien));
+    }
+    return reihenfolge.map(function (typ) {
+      return nachTyp[typ] + '× ' + (typ || 'Art offen');
+    }).join(', ');
+  }
+
+  function mitgliederText(projekt, s) {
+    var leute = M.spaltenMitglieder(projekt, s);
+    var namen = leute.map(function (m) {
+      var n = M.mitarbeiterMedienAnzahl(m);
+      return (m.name || '(ohne Namen)') + (m.funktion ? (' (' + m.funktion + ')') : '') +
+             (n > 1 ? (' ' + n + '×') : '');
+    }).join(', ');
+    if (s.art === 'gruppe') {
+      var g = M.gruppeVon(projekt, s.gruppeId);
+      return 'Gruppe ' + (g ? g.name : '–') + (namen ? ': ' + namen : ' – keine Mitglieder hinterlegt');
+    }
+    if (s.art === 'mitarbeiter') return namen || '– Mitarbeiter nicht mehr vorhanden –';
+    return namen || (s.bemerkung ? s.bemerkung : '–');
+  }
+
+  function legende(doc, projekt, schliessungen) {
+    var x = doc.rand.links, b = doc.inhaltsBreite();
+    doc.platzPruefen(30);
+    doc.y += 3;
+    doc.text('Legende Berechtigungen', x, doc.y, { size: 9, bold: true, color: FARBE.akzent });
+    doc.y += 5;
+    var lx = x;
+    K.BERECHTIGUNG.forEach(function (bt) {
+      if (!bt.zeichen) return;
+      doc.text(bt.zeichen, lx, doc.y, { size: 8, bold: true, color: FARBE.akzent });
+      doc.text('= ' + bt.label, lx + 4, doc.y, { size: 7.5, color: FARBE.grau });
+      lx += 5 + doc.textBreite('= ' + bt.label, 7.5, false) + 8;
+    });
+    doc.y += 7;
+
+    doc.text('Spalten im Detail', x, doc.y, { size: 9, bold: true, color: FARBE.akzent });
+    doc.y += 5;
+    /* Hinter jeder Spalte stehen die Mitarbeiter namentlich mit ihrer
+     * Medienzahl: Daraus ergibt sich die Stückzahl, und bei der Ausgabe
+     * der Schlüssel ist ablesbar, wer welches Medium erhält. */
+    var spalten = [
+      { titel: 'Kürzel', breite: b * 0.07, key: 'kuerzel', bold: true },
+      { titel: 'Bezeichnung', breite: b * 0.17, key: 'bezeichnung' },
+      { titel: 'Art', breite: b * 0.11, render: function (s) { return M.spaltenArtText(s); } },
+      { titel: 'Träger / Mitglieder', breite: b * 0.37, maxLines: 20, render: function (s) {
+          return mitgliederText(projekt, s); } },
+      { titel: 'Medien', breite: b * 0.06, align: 'center', render: function (s) {
+          return String(M.medienAnzahl(projekt, s)); } },
+      { titel: 'Art der Medien', breite: b * 0.22, size: 7, maxLines: 4, render: function (s) {
+          return medienArtenText(projekt, s) || '–'; } }
+    ];
+    tabelle(doc, spalten, schliessungen.slice(), { size: 7.4 });
+
+    /* Gruppen mit ihren Mitgliedern - damit der Leser weiß, wer hinter
+     * einer Gruppenspalte steht, auch wenn er nur das PDF hat. */
+    var gruppen = (projekt.gruppen || []).slice();
+    if (gruppen.length) {
+      doc.y += 4;
+      doc.platzPruefen(20);
+      doc.text('Gruppen und Mitglieder', x, doc.y, { size: 9, bold: true, color: FARBE.akzent });
+      doc.y += 5;
+      var gSpalten = [
+        { titel: 'Gruppe', breite: b * 0.20, key: 'name', bold: true },
+        { titel: 'Mitglieder', breite: b * 0.62, maxLines: 20, render: function (g) {
+            var leute = M.gruppenMitglieder(projekt, g.id);
+            if (!leute.length) return '– keine Mitglieder hinterlegt –';
+            return leute.map(function (m) {
+              return (m.name || '(ohne Namen)') + (m.funktion ? (' (' + m.funktion + ')') : '');
+            }).join(', '); } },
+        { titel: 'Personen', breite: b * 0.08, align: 'center', render: function (g) {
+            return String(M.gruppenMitglieder(projekt, g.id).length); } },
+        { titel: 'Medien', breite: b * 0.10, align: 'center', render: function (g) {
+            return String(M.gruppenMitglieder(projekt, g.id).reduce(function (sum, m) {
+              return sum + M.mitarbeiterMedienAnzahl(m); }, 0)); } }
+      ];
+      tabelle(doc, gSpalten, gruppen, { size: 7.4 });
+    }
+
+    var doppelt = M.doppelteMitarbeiter ? M.doppelteMitarbeiter(projekt) : [];
+    if (doppelt.length) {
+      doc.y += 3;
+      doc.platzPruefen(10);
+      doc.textFliessend('Hinweis: ' + doppelt.map(function (d) {
+        return d.mitarbeiter.name + ' (' + d.spalten.map(function (s) { return s.kuerzel || s.bezeichnung; }).join(', ') + ')';
+      }).join('; ') + ' stehen einzeln und über eine Gruppe im Plan. In der Materialliste werden ihre Medien nur einmal gezählt.',
+        x, b, { size: 7, color: FARBE.grau });
+      doc.y += 3;
+    }
+  }
+
+  /* =========================================================================
+   * 2b) EUROPLAN - der Plan in der Schreibweise der Hersteller
+   * Zylinder als Zeilen mit Zyl.Nr., Stk., ESL und Type; Schlüssel als
+   * Spalten mit drei Kopfzeilen (Funktion, Menge, Schl.Nr) und den Zeichen
+   * X, I, Z, M, O. Layout wie das EVVA-Bestellformular.
+   * ====================================================================== */
+  function europlan(projekt, einstellungen, optionen) {
+    optionen = optionen || {};
+    var E = global.Europlan;
+    var doc = new PDF.Doc({
+      format: optionen.format || 'a4', orientation: 'landscape',
+      titel: 'Europlan ' + (projekt.kunde || projekt.name),
+      autor: einstellungen && einstellungen.firma || '',
+      betreff: 'Europlan / Bestellplan der Schließanlage',
+      margin: { oben: 12, unten: 14, links: 10, rechts: 10 }
+    });
+    kopfUndFussSetzen(doc, projekt, einstellungen, 'Europlan / Bestellplan');
+    doc.neueSeite();
+    projektKopfBlock(doc, projekt, einstellungen);
+    freigabeVermerk(doc, projekt);
+    if (!E) { doc.text('Der Europlan steht in dieser Fassung nicht zur Verfügung.', doc.rand.links, doc.y, { size: 10, color: FARBE.grau }); return doc; }
+    var plan = optionen.art === 'kreuz' ? E.kreuzplan(projekt) : E.europlan(projekt);
+    if (!projekt.tueren.length) {
+      doc.text('Für den Europlan wird mindestens eine Tür benötigt.', doc.rand.links, doc.y, { size: 10, color: FARBE.grau });
+      return doc;
+    }
+    var systemName = projekt.systemMechanik ? ((K.systemLabel && K.systemLabel(projekt.systemMechanik)) || projekt.systemMechanik) : '';
+    var kopfText = ['Anlage: ' + (projekt.anlagenNr || '–'), 'System: ' + (systemName || '–'), 'Oberfläche: ' + (projekt.oberflaeche || '–'),
+                    'Datum: ' + (projekt.aufmassDatum ? datumDe(projekt.aufmassDatum) : '–'), 'Objekt: ' + (projekt.objekt || '–')].join('    ');
+    var b = doc.inhaltsBreite();
+    /* Ein langes Objekt bricht in eine zweite Zeile um, statt über den Rand zu laufen */
+    doc.y += doc.textBlock(kopfText, doc.rand.links, doc.y, b, { size: 7.5, color: FARBE.grau, maxLines: 2 }) + 1.7;
+
+    var linke = [
+      { t: 'ZP', w: 7, f: function (z, i) { return String(i + 1); }, align: 'right' },
+      { t: 'Tür.Nr.', w: 16, f: function (z) { return z.tuer.nummer || ''; }, bold: true },
+      { t: 'Raumbezeichnung', w: 40, f: function (z) { return z.tuer.bezeichnung || ''; } },
+      { t: 'Stk.', w: 8, f: function (z) { return String(z.stk); }, align: 'center' },
+      { t: 'ESL', w: 8, f: function (z) { return z.esl === null || z.esl === undefined ? '' : String(z.esl); }, align: 'center' },
+      { t: 'Type (Produktcode)', w: 30, f: function (z) { return z.produktcode || ''; } },
+      { t: 'Zyl.Nr.', w: 14, f: function (z) { return z.zylNr || ''; }, bold: true, align: 'center' }
+    ];
+    var linksBreite = linke.reduce(function (s, l) { return s + l.w; }, 0);
+    var spaltenBreite = optionen.spaltenBreite || 7.2;
+    var proSeite = Math.max(1, Math.floor((b - linksBreite) / spaltenBreite));
+    var bloecke = [];
+    for (var i = 0; i < plan.spalten.length; i += proSeite) bloecke.push(plan.spalten.slice(i, i + proSeite));
+    if (!bloecke.length) bloecke.push([]);
+    var zeilenHoehe = 5.4;
+    /* Schl.Nr: Passt die breiteste Nummer nicht in die Spalte, stehen alle
+       Nummern senkrecht wie die Funktion, in einer Zone nach der breitesten
+       Nummer (höchstens 20 mm, etwa 13 Zeichen; längere werden gekürzt).
+       Kurze Nummern bleiben waagerecht. */
+    var schlBreite = 0;
+    plan.spalten.forEach(function (s) { var w = doc.textBreite(String(s.schlNr || ''), 7, true); if (w > schlBreite) schlBreite = w; });
+    var schlSenkrecht = schlBreite > spaltenBreite - 0.8;
+    var mengeZone = 3.6;
+    var schlZone = schlSenkrecht ? Math.min(20, schlBreite + 2.4) : 3.6;
+    var unterZeilen = mengeZone + schlZone;    /* Menge + Schl.Nr */
+
+    bloecke.forEach(function (block, blockIndex) {
+      if (blockIndex > 0) { doc.neueSeite(); doc.y += 2; }
+      if (bloecke.length > 1) {
+        doc.text('Spaltenblock ' + (blockIndex + 1) + ' von ' + bloecke.length, doc.rand.links, doc.y, { size: 7.5, color: FARBE.grau });
+        doc.y += 5;
+      }
+      var x0 = doc.rand.links, gesamt = linksBreite + block.length * spaltenBreite;
+      var kopfTexte = block.map(function (s) { return s.funktion || s.schlNr || '–'; });
+      var maxText = 0;
+      kopfTexte.forEach(function (tx) { var w = doc.textBreite(tx, 7, true); if (w > maxText) maxText = w; });
+      var kopfHoehe = Math.min(52.8, Math.max(16.8, maxText + 6)) + unterZeilen;
+
+      function kopfZeichnen() {
+        doc.platzPruefen(kopfHoehe + 3 * zeilenHoehe);
+        var y = doc.y;
+        doc.rechteck(x0, y, gesamt, kopfHoehe, { fill: FARBE.kopfBg, stroke: FARBE.linie, width: 0.3 });
+        var lx = x0;
+        linke.forEach(function (l) {
+          doc.text(l.t, lx + 1.5, y + kopfHoehe - unterZeilen - 5.2, { size: 7, bold: true });
+          lx += l.w;
+          doc.linie(lx, y + kopfHoehe - unterZeilen - 6.5, lx, y + kopfHoehe, { color: FARBE.linie, width: 0.25 });
+        });
+        doc.text('Funktion', x0 + linksBreite - 1.5, y + kopfHoehe - unterZeilen - 10.5, { size: 7, color: FARBE.grau, align: 'right' });
+        doc.text('Menge', x0 + linksBreite - 1.5, y + kopfHoehe - unterZeilen + 0.3, { size: 7, color: FARBE.grau, align: 'right' });
+        doc.text('Schl.Nr', x0 + linksBreite - 1.5, y + kopfHoehe - 3.5, { size: 7, color: FARBE.grau, align: 'right' });
+        block.forEach(function (s, i) {
+          var cx = x0 + linksBreite + i * spaltenBreite;
+          doc.linie(cx, y, cx, y + kopfHoehe, { color: FARBE.linie, width: 0.25 });
+          var text = doc.kuerzen(kopfTexte[i], kopfHoehe - unterZeilen - 3, 7, true);
+          doc.textRotiert(text, cx + spaltenBreite / 2 + 2.4, y + kopfHoehe - unterZeilen - 1.5, { size: 7, bold: true });
+          if (s.menge > 0) doc.text(String(s.menge), cx + spaltenBreite / 2, y + kopfHoehe - unterZeilen + 0.3, { size: 6.5, align: 'center', color: FARBE.grau });
+          var schlNr = String(s.schlNr || '');
+          if (schlSenkrecht) {
+            doc.textRotiert(doc.kuerzen(schlNr, schlZone - 2, 7, true), cx + spaltenBreite / 2 + 1, y + kopfHoehe - 1.2, { size: 7, bold: true });
+          } else {
+            doc.text(schlNr, cx + spaltenBreite / 2, y + kopfHoehe - 3.4, { size: 7, align: 'center', bold: true });
+          }
+        });
+        doc.linie(x0 + linksBreite, y, x0 + linksBreite, y + kopfHoehe, { color: FARBE.linie, width: 0.4 });
+        doc.linie(x0 + linksBreite, y + kopfHoehe - unterZeilen, x0 + gesamt, y + kopfHoehe - unterZeilen, { color: FARBE.linie, width: 0.2 });
+        doc.linie(x0 + linksBreite, y + kopfHoehe - schlZone, x0 + gesamt, y + kopfHoehe - schlZone, { color: FARBE.linie, width: 0.2 });
+        doc.y = y + kopfHoehe;
+      }
+      kopfZeichnen();
+      var bereich = null, zebra = 0;
+      plan.zeilen.forEach(function (z, index) {
+        if (z.bereich !== bereich) {
+          bereich = z.bereich;
+          if (doc.platzPruefen(zeilenHoehe * 3)) { kopfZeichnen(); }
+          var gy = doc.y;
+          doc.rechteck(x0, gy, gesamt, 5, { fill: '#dce6f2', stroke: FARBE.linie, width: 0.25 });
+          doc.text(doc.kuerzen(bereich, gesamt - 6, 7.6, true), x0 + 2, gy + 0.9, { size: 7.6, bold: true, color: FARBE.akzent });
+          doc.y = gy + 5; zebra = 0;
+        }
+        if (doc.platzPruefen(zeilenHoehe)) { kopfZeichnen(); zebra = 0; }
+        var y = doc.y;
+        if (zebra % 2 === 1) doc.rechteck(x0, y, gesamt, zeilenHoehe, { fill: FARBE.zebraBg });
+        var lx = x0;
+        linke.forEach(function (l) {
+          var text = doc.kuerzen(l.f(z, index), l.w - 2.5, 7, !!l.bold);
+          var tx = l.align === 'center' ? lx + l.w / 2 : (l.align === 'right' ? lx + l.w - 1.2 : lx + 1.2);
+          doc.text(text, tx, y + 1.2, { size: 7, bold: !!l.bold, align: l.align || 'left', color: z.mitlaeufer && l.t !== 'Zyl.Nr.' ? FARBE.grau : FARBE.text });
+          lx += l.w;
+        });
+        var raster = [];
+        block.forEach(function (s, i) {
+          var cx = x0 + linksBreite + i * spaltenBreite;
+          raster.push([cx, y, cx, y + zeilenHoehe]);
+          var zeichen = z.zellen[s.id] || '';
+          if (zeichen) {
+            var farbe = zeichen === 'O' ? FARBE.warn : (zeichen === 'X' ? FARBE.akzent : '#2e7d32');
+            doc.text(zeichen, cx + spaltenBreite / 2, y + 0.9, { size: 8, bold: true, align: 'center', color: farbe });
+          }
+        });
+        raster.push([x0, y + zeilenHoehe, x0 + gesamt, y + zeilenHoehe]);
+        doc.linienGruppe(raster, { color: FARBE.linieHell, width: 0.15 });
+        doc.linie(x0 + linksBreite, y, x0 + linksBreite, y + zeilenHoehe, { color: FARBE.linie, width: 0.4 });
+        doc.y = y + zeilenHoehe;
+        zebra++;
+      });
+      doc.y += 3;
+    });
+
+    /* Legende. Die Gesamthöhe wird vorab bestimmt, damit sie als Ganzes auf
+       die Seite kommt und nicht in die Fußzeile läuft. Reicht eine Seite
+       nicht (sehr viele Hinweise), fließen ESL-Text und Hinweise weiter. */
+    var legendeTexte = [['X', 'Schlüssel der Spalte sperrt den Zylinder'], ['I', 'Eigenschlüssel der Tür gehört zur Gruppe der Spalte'],
+      ['Z', 'Zentralzylinder: alle Eigenschlüssel der Gruppe sperren'], ['M', 'Mitschließung: die Gruppe sperrt diesen Zylinder mit eigenem Schlüssel mit'],
+      ['O', 'vorgeplant (Reserve): vorbereitet, sperrt noch nicht']];
+    var eslText = 'ESL = Stückzahl der Eigenschlüssel je Zylinder (leer: kein Eigenschlüssel, 0: vorgeplant). Zyl.Nr. = Türnummer der Haupttür; gleichschließende Türen tragen dieselbe Zyl.Nr. ' +
+      'Menge = Stück je Schlüsselspalte; bei einer Gruppe die Schlüssel der Mitglieder ohne eigene Tür.';
+    var hinweisText = plan.hinweise.length ? 'Hinweise: ' + plan.hinweise.join(' ') : '';
+    var legendeHoehe = 2 + 5 + legendeTexte.length * 4 + doc.blockHoehe(eslText, b, { size: 7 }) + 3 +
+                       (hinweisText ? doc.blockHoehe(hinweisText, b, { size: 7 }) + 3 : 0);
+    doc.platzPruefen(Math.min(legendeHoehe, doc.inhaltsHoehe()));
+    doc.y += 2;
+    doc.text('Legende', doc.rand.links, doc.y, { size: 9, bold: true, color: FARBE.akzent });
+    doc.y += 5;
+    legendeTexte.forEach(function (l) {
+      doc.text(l[0], doc.rand.links, doc.y, { size: 8, bold: true, color: FARBE.akzent });
+      doc.text(l[1], doc.rand.links + 5, doc.y, { size: 7.5, color: FARBE.grau });
+      doc.y += 4;
+    });
+    doc.textFliessend(eslText, doc.rand.links, b, { size: 7, color: FARBE.grau });
+    doc.y += 3;
+    if (hinweisText) {
+      doc.textFliessend(hinweisText, doc.rand.links, b, { size: 7, color: FARBE.warn });
+      doc.y += 3;
+    }
+    return doc;
+  }
+
+  /* =========================================================================
+   * 3) MATERIALLISTE / STÜCKLISTE
+   * ====================================================================== */
+  function materialliste(projekt, einstellungen, optionen) {
+    optionen = optionen || {};
+    /* Die Türzuordnung ist standardmäßig aus: Die Bestellliste bleibt damit
+     * schmal und die Maßspalten gut lesbar. Im Export zuschaltbar. */
+    var mitTueren = optionen.mitTueren === true;
+    var doc = new PDF.Doc({
+      format: 'a4', orientation: 'landscape',
+      titel: 'Materialliste ' + (projekt.kunde || projekt.name),
+      autor: einstellungen && einstellungen.firma || '',
+      betreff: 'Materialliste / Bestellgrundlage',
+      margin: { oben: 12, unten: 14, links: 12, rechts: 12 }
+    });
+    kopfUndFussSetzen(doc, projekt, einstellungen, 'Materialliste / Bestellgrundlage');
+    doc.neueSeite();
+    projektKopfBlock(doc, projekt, einstellungen);
+
+    var liste = M.materialliste(projekt, einstellungen && einstellungen.eigeneSysteme);
+    var b = doc.inhaltsBreite();
+
+    if (!liste.systeme.length || !liste.gesamtStueck) {
+      doc.text('Keine Positionen vorhanden.', doc.rand.links, doc.y, { size: 10, color: FARBE.grau });
+      return doc;
+    }
+
+    /* =======================================================================
+     * Spaltensatz je Bauteilart
+     * =====================================================================
+     * Ein Zylinder wird über seine Längen bestellt, ein Beschlag über
+     * Türstärke, Dornmaß, Entfernung und Nuss, ein Einsteckschloss über
+     * Dornmaß, Entfernung, Stulp und Falle. Eine gemeinsame Spalte "Maß"
+     * müsste alles in einen Text pressen - deshalb bekommt jede Art ihren
+     * eigenen Spaltensatz. Artikelnummer und Preis bleiben leer: Sie werden
+     * beim Lieferanten eingetragen, das Werkzeug erfindet sie nicht.
+     * ------------------------------------------------------------------- */
+    var pos = 0;
+    function f(x, name) { return massText((x.felder || {})[name]); }
+
+    /* Breiten als Gewichte: der Satz stimmt unabhängig davon, welche
+     * zusätzlichen Spalten gerade mitlaufen. */
+    function spaltenBauen(spec) {
+      var summe = spec.reduce(function (sum, c) { return sum + c.w; }, 0);
+      return spec.map(function (c) {
+        var k = {};
+        Object.keys(c).forEach(function (n) { if (n !== 'w') k[n] = c[n]; });
+        k.breite = b * c.w / summe;
+        return k;
+      });
+    }
+    var spaltePos = { titel: 'Pos.', w: 4, align: 'center',
+      render: function () { pos++; return String(pos); } };
+    var spalteMenge = { titel: 'Menge', w: 7, align: 'right', bold: true,
+      render: function (x) { return String(x.menge) + ' Stk'; } };
+    /* Bewusst leer: handschriftlich oder beim Lieferanten auszufüllen */
+    var spalteArtNr = { titel: 'Art.-Nr.', w: 12, render: function () { return ''; } };
+    var spaltePreis = { titel: 'Preis', w: 8, align: 'right', render: function () { return ''; } };
+    var spalteTueren = { titel: 'Türen', w: 15, size: 7, color: FARBE.grau, maxLines: 12,
+      render: function (x) { return (x.tueren || []).join(', '); } };
+
+    function satzFuer(art) {
+      var mitte;
+      if (art === 'Zylinder') {
+        mitte = [
+          { titel: 'Bezeichnung', w: 22, key: 'bezeichnung', bold: true, maxLines: 8 },
+          { titel: 'Ausführung', w: 18, key: 'ausfuehrung', maxLines: 10 },
+          { titel: 'außen', w: 6, align: 'right', render: function (x) { return f(x, 'laengeAussen'); } },
+          { titel: 'innen', w: 6, align: 'right', render: function (x) { return f(x, 'laengeInnen'); } },
+          { titel: 'gesamt', w: 6.5, align: 'right', render: function (x) { return f(x, 'gesamtlaenge'); } },
+          { titel: 'Knaufseite', w: 10, size: 7, render: function (x) { return f(x, 'knaufseite'); } }
+        ];
+      } else if (art === 'Beschlag') {
+        mitte = [
+          { titel: 'Bezeichnung', w: 18, key: 'bezeichnung', bold: true, maxLines: 8 },
+          { titel: 'Ausführung', w: 14, key: 'ausfuehrung', maxLines: 10 },
+          { titel: 'Bestückung', w: 12, size: 7, maxLines: 10, render: function (x) { return f(x, 'bestueckung'); } },
+          { titel: 'TS', w: 4.5, align: 'right', render: function (x) { return f(x, 'tuerblattstaerke'); } },
+          { titel: 'DM', w: 4.5, align: 'right', render: function (x) { return f(x, 'dornmass'); } },
+          { titel: 'E', w: 4.5, align: 'right', render: function (x) { return f(x, 'entfernung'); } },
+          { titel: 'Nuss', w: 5, align: 'right', render: function (x) { return f(x, 'vierkant'); } },
+          { titel: 'DIN', w: 8, size: 7, render: function (x) { return f(x, 'din'); } }
+        ];
+      } else if (art === 'Schloss') {
+        mitte = [
+          { titel: 'Bezeichnung', w: 16, key: 'bezeichnung', bold: true, maxLines: 8 },
+          { titel: 'Funktion', w: 16, key: 'ausfuehrung', maxLines: 10 },
+          { titel: 'DM', w: 4.5, align: 'right', render: function (x) { return f(x, 'dornmass'); } },
+          { titel: 'E', w: 4.5, align: 'right', render: function (x) { return f(x, 'entfernung'); } },
+          { titel: 'DIN', w: 7.5, size: 7, render: function (x) { return f(x, 'din'); } },
+          { titel: 'Stulp', w: 11, size: 7, render: function (x) { return f(x, 'stulp'); } },
+          { titel: 'Falle', w: 8.5, size: 7, render: function (x) { return f(x, 'fallenart'); } },
+          { titel: 'Detail', w: 10, size: 7, render: function (x) {
+              return [f(x, 'riegelausschluss') ? ('Riegel ' + f(x, 'riegelausschluss') + ' mm') : '',
+                      f(x, 'verriegelungspunkte') ? (f(x, 'verriegelungspunkte') + ' Pkt.') : '',
+                      f(x, 'norm')].filter(Boolean).join(' · '); } }
+        ];
+      } else {
+        mitte = [
+          { titel: 'Bezeichnung', w: 30, key: 'bezeichnung', bold: true, maxLines: 8 },
+          { titel: 'Ausführung', w: 22, key: 'ausfuehrung', maxLines: 10 },
+          { titel: 'Hinweis', w: 16, size: 7, color: FARBE.grau, key: 'hinweis', maxLines: 8 }
+        ];
+      }
+      var spec = [spaltePos].concat(mitte, [spalteMenge, spalteArtNr, spaltePreis]);
+      if (mitTueren) spec = spec.concat([spalteTueren]);
+      return spaltenBauen(spec);
+    }
+
+    /* Einheitenzeile unter dem Tabellenkopf, damit "DM 65" eindeutig ist */
+    var EINHEIT_HINWEIS = {
+      Zylinder: 'Längen in mm, ab Mitte Schraubloch (außen/innen).',
+      Beschlag: 'TS = Türblattstärke, DM = Dornmaß, E = Entfernung, Nuss = Vierkant – alle Maße in mm.',
+      Schloss: 'DM = Dornmaß, E = Entfernung, Stulp = Stulpform/-breite/-länge – alle Maße in mm.'
+    };
+
+    liste.gliederung.forEach(function (abschnitt, index) {
+      if (index > 0) doc.y += 4;
+      /* Abschnitt, Systemzeile, Bauteilart, Tabellenkopf und erste Zeile zusammen */
+      doc.platzPruefen(46);
+
+      /* Abschnittsüberschrift */
+      doc.rechteck(doc.rand.links, doc.y, b, 9, { fill: FARBE.akzent });
+      doc.text(abschnitt.titel, doc.rand.links + 3, doc.y + 2, { size: 10, bold: true, color: '#ffffff' });
+      doc.text(abschnitt.summe + ' Stück', doc.rand.links + b - 3, doc.y + 2.4,
+               { size: 9, bold: true, align: 'right', color: '#ffffff' });
+      doc.y += 9;
+      doc.text(abschnitt.hinweis, doc.rand.links + 1, doc.y + 1, { size: 7, color: FARBE.hellgrau });
+      doc.y += 5.5;
+
+      abschnitt.gruppen.forEach(function (g, gi) {
+        if (gi > 0) doc.y += 3;
+        /* System bzw. Hersteller: danach wird bestellt. Die Zeile wird als
+           Vorspann der ersten Tabelle gezeichnet und bleibt so bei ihr. */
+        function systemZeile() {
+          doc.rechteck(doc.rand.links, doc.y, b, 6.6, { fill: '#dce6f2', stroke: FARBE.linie, width: 0.25 });
+          doc.text(doc.kuerzen(g.label, b - 30, 8.4, true), doc.rand.links + 2, doc.y + 1.4, { size: 8.4, bold: true, color: FARBE.akzent });
+          doc.text(g.summe + ' Stück', doc.rand.links + b - 2, doc.y + 1.6,
+                   { size: 7.4, align: 'right', color: FARBE.grau });
+          doc.y += 6.6 + 2;
+        }
+        var arten = g.arten || [];
+        if (!arten.length) { doc.platzPruefen(22); systemZeile(); return; }
+
+        arten.forEach(function (art, ai) {
+          if (ai > 0) doc.y += 3;
+          var hinweis = EINHEIT_HINWEIS[art.art] || '';
+          var vorspann = { hoehe: (ai === 0 ? 8.6 : 0) + 4 + (hinweis ? 3.4 : 0), zeichnen: function () {
+            if (ai === 0) systemZeile();
+            doc.text(art.art + '  ·  ' + art.summe + ' Stück', doc.rand.links + 1, doc.y,
+                     { size: 8, bold: true, color: FARBE.text });
+            doc.y += 4;
+            if (hinweis) {
+              doc.text(hinweis, doc.rand.links + 1, doc.y, { size: 7, color: FARBE.hellgrau });
+              doc.y += 3.4;
+            }
+          } };
+          tabelle(doc, satzFuer(art.art), art.positionen.slice(), { size: 7.8, vorspann: vorspann });
+        });
+      });
+    });
+
+    /* --- Zwischensummen je Gewerk --- */
+    doc.y += 3;
+    doc.platzPruefen(18);
+    [['Summe Schließanlage', liste.summeSchliessanlage],
+     ['Summe Türtechnik', liste.summeTuertechnik]].forEach(function (z) {
+      if (!z[1]) return;
+      doc.rechteck(doc.rand.links, doc.y, b, 6.5, { fill: FARBE.zebraBg, stroke: FARBE.linieHell });
+      doc.text(z[0], doc.rand.links + 2, doc.y + 1.4, { size: 8, bold: true, color: FARBE.grau });
+      doc.text(String(z[1]) + ' Stück', doc.rand.links + b - 2, doc.y + 1.4,
+               { size: 8, bold: true, align: 'right', color: FARBE.grau });
+      doc.y += 6.5;
+    });
+
+    /* --- Gesamtsumme --- */
+    doc.y += 2;
+    doc.platzPruefen(10);
+    doc.rechteck(doc.rand.links, doc.y, b, 7, { fill: FARBE.kopfBg, stroke: FARBE.linie, width: 0.3 });
+    doc.text('Gesamtsumme Bauteile', doc.rand.links + 2, doc.y + 1.6, { size: 8.5, bold: true });
+    doc.text(String(liste.gesamtStueck) + ' Stück', doc.rand.links + b - 2, doc.y + 1.6,
+             { size: 8.5, bold: true, align: 'right', color: FARBE.akzent });
+    doc.y += 12;
+
+    /* --- Identmedien --- */
+    if (liste.medien.length) {
+      doc.platzPruefen(24);
+      doc.text('Identmedien / Schlüssel aus dem Schließplan', doc.rand.links, doc.y,
+               { size: 10, bold: true, color: FARBE.akzent });
+      doc.y += 6;
+      /* Je Mitarbeiter genau eine Zeile - auch wenn er einzeln und über
+       * seine Gruppe im Plan steht. Dazu die Schließungen ohne benannte
+       * Träger (etwa Generalhauptschlüssel im Tresor). */
+      var medienSpalten = spaltenBauen([
+        { titel: 'Mitarbeiter / Schließung', w: 20, bold: true, render: function (m) {
+            return txt(m.name) + (m.art === 'schliessung' ? '\n(ohne benannten Träger)' : ''); } },
+        { titel: 'Funktion', w: 11, size: 7, key: 'funktion' },
+        { titel: 'Gruppen', w: 13, size: 7, maxLines: 4, render: function (m) {
+            return (m.gruppen || []).join(', '); } },
+        { titel: 'Spalten im Plan', w: 14, size: 7, maxLines: 4, render: function (m) {
+            return (m.spalten || []).join(', '); } },
+        { titel: 'Art des Mediums', w: 18, size: 7, maxLines: 4, render: function (m) {
+            return (m.medien || []).map(function (x) {
+              return x.anzahl + '× ' + (x.typ || '– offen –'); }).join('\n'); } },
+        { titel: 'Anzahl', w: 7, align: 'right', bold: true,
+          render: function (m) { return String(m.menge) + ' Stk'; } },
+        { titel: 'Art.-Nr.', w: 10, render: function () { return ''; } },
+        { titel: 'Preis', w: 7, align: 'right', render: function () { return ''; } }
+      ]);
+      tabelle(doc, medienSpalten, liste.medien.slice(), { size: 8 });
+      doc.y += 2;
+      /* Summen je Medienart - so bestellt man: n Transponder, m Schlüssel */
+      (liste.medienNachTyp || []).forEach(function (z) {
+        doc.platzPruefen(7);
+        doc.rechteck(doc.rand.links, doc.y, b, 6, { fill: FARBE.zebraBg, stroke: FARBE.linieHell });
+        doc.text((z.typ || 'Art des Mediums offen'), doc.rand.links + 2, doc.y + 1.3,
+                 { size: 7.8, bold: true, color: z.typ ? FARBE.grau : FARBE.warn });
+        doc.text(String(z.anzahl) + ' Stück', doc.rand.links + b - 2, doc.y + 1.3,
+                 { size: 7.8, bold: true, align: 'right', color: FARBE.grau });
+        doc.y += 6;
+      });
+      doc.platzPruefen(10);
+      doc.rechteck(doc.rand.links, doc.y, b, 7, { fill: FARBE.kopfBg, stroke: FARBE.linie, width: 0.3 });
+      doc.text('Summe Identmedien', doc.rand.links + 2, doc.y + 1.6, { size: 8.5, bold: true });
+      doc.text(String(liste.gesamtMedien) + ' Stück', doc.rand.links + b - 2, doc.y + 1.6,
+               { size: 8.5, bold: true, align: 'right', color: FARBE.akzent });
+      doc.y += 12;
+    }
+
+    /* --- Angaben zur Anlage, die für die Bestellung gebraucht werden --- */
+    /* Hier steht ausschließlich, was nicht schon im Kopfblock dieses
+     * Dokuments steht. Kunde, Objekt, Adresse, Ansprechpartner, Anlagen-Nr.
+     * und die Systeme sind dort bereits aufgeführt - sie noch einmal zu
+     * wiederholen würde die Bestellung nur unübersichtlich machen. */
+    var vollstaendig = M.unvollstaendigeTueren ? M.unvollstaendigeTueren(projekt).length : 0;
+    var zeilenAnzahl = 0;
+    liste.gliederung.forEach(function (ab) {
+      ab.gruppen.forEach(function (g) { zeilenAnzahl += g.positionen.length; });
+    });
+    var anlage = [
+      ['Kommission / Bestellzeichen', projekt.kommission || '–'],
+      ['Lieferadresse', projekt.lieferAdresse ? String(projekt.lieferAdresse) : 'wie Objektadresse im Kopf'],
+      ['Türpositionen im Aufmaß', String(projekt.tueren.length) +
+        (vollstaendig ? ('  ·  ' + vollstaendig + ' unvollständig') : '  ·  alle vollständig')],
+      ['Positionen in dieser Liste', String(zeilenAnzahl)],
+      ['Schließungen im Plan', String(projekt.schliessungen.length)],
+      ['Identmedien gesamt', String(liste.gesamtMedien) + ' Stück']
+    ];
+    /* Kein Wert wird gekürzt: Die Lieferadresse bleibt mehrzeilig, die
+       Rasterzeile wächst mit ihrem höchsten Wert. */
+    var sp = b / 3;
+    var rasterHoehen = [];
+    for (var rz = 0; rz < Math.ceil(anlage.length / 3); rz++) {
+      var maxH = 0;
+      anlage.slice(rz * 3, rz * 3 + 3).forEach(function (feld) {
+        var h = doc.blockHoehe(txt(feld[1]), sp - 4, { size: 8.5, bold: true });
+        if (h > maxH) maxH = h;
+      });
+      rasterHoehen.push(maxH + 5.4);
+    }
+    var rasterGesamt = rasterHoehen.reduce(function (a, h) { return a + h; }, 0);
+    doc.platzPruefen(Math.min(6 + rasterGesamt + 4, doc.inhaltsHoehe()));
+    doc.text('Bestellangaben und Umfang', doc.rand.links, doc.y,
+             { size: 10, bold: true, color: FARBE.akzent });
+    doc.y += 6;
+    var versatz = 0;
+    anlage.forEach(function (feld, i) {
+      var spalte = i % 3, zeile = Math.floor(i / 3);
+      if (spalte === 0 && zeile > 0) versatz += rasterHoehen[zeile - 1];
+      var fx = doc.rand.links + spalte * sp, fy = doc.y + versatz;
+      doc.text(feld[0], fx, fy, { size: 7, color: FARBE.hellgrau });
+      doc.textBlock(txt(feld[1]), fx, fy + 3.2, sp - 4, { size: 8.5, bold: true });
+    });
+    doc.y += rasterGesamt + 4;
+
+    doc.platzPruefen(20);
+    var schluss = 'Hinweis: Die Mengen ergeben sich rechnerisch aus dem Aufmaß. ' +
+      'Zylinderlängen, Beschläge und Panikfunktionen sind vor Bestellung gegen die ' +
+      'tatsächlichen Türmaße und die geltenden Brandschutz- bzw. Fluchtweganforderungen zu prüfen. ' +
+      'Die Spalten Art.-Nr. und Preis sind absichtlich leer – sie werden beim Lieferanten ergänzt.';
+    if (vollstaendig) {
+      schluss += ' Achtung: Bei ' + vollstaendig + ' Türposition(en) fehlen noch Pflichtangaben; ' +
+        'die betroffenen Zeilen sind in den Maßspalten leer. Einzelheiten im Prüfprotokoll.';
+    }
+    doc.textFliessend(schluss, doc.rand.links, b, { size: 7.5, color: FARBE.hellgrau });
+
+    return doc;
+  }
+
+  /* =========================================================================
+   * 4) PRÜFPROTOKOLL (Plausibilitätsprüfung als PDF)
+   * ====================================================================== */
+  function pruefprotokoll(projekt, einstellungen) {
+    var doc = new PDF.Doc({
+      format: 'a4', orientation: 'portrait',
+      titel: 'Prüfprotokoll ' + (projekt.kunde || projekt.name),
+      margin: { oben: 12, unten: 14, links: 14, rechts: 14 }
+    });
+    kopfUndFussSetzen(doc, projekt, einstellungen, 'Prüfprotokoll Aufmaß');
+    doc.neueSeite();
+    projektKopfBlock(doc, projekt, einstellungen);
+
+    var probleme = M.pruefeProjekt(projekt);
+    var b = doc.inhaltsBreite();
+    if (!probleme.length) {
+      doc.text('Keine Auffälligkeiten. Das Aufmaß ist vollständig.', doc.rand.links, doc.y,
+               { size: 10, bold: true, color: '#1f7a3d' });
+      return doc;
+    }
+    var reihenfolge = { warn: 0, info: 1 };
+    probleme.sort(function (a, b2) { return (reihenfolge[a.schwere] || 9) - (reihenfolge[b2.schwere] || 9); });
+    var spalten = [
+      { titel: 'Art', breite: b * 0.14, bold: true, render: function (p) {
+          return p.schwere === 'warn' ? 'Prüfen' : 'Hinweis'; },
+        color: FARBE.warn },
+      { titel: 'Feststellung', breite: b * 0.86, key: 'text', maxLines: 6 }
+    ];
+    tabelle(doc, spalten, probleme.slice(), { size: 8.5 });
+    return doc;
+  }
+
+  global.Reports = {
+    tuerliste: tuerliste,
+    europlan: europlan,
+    schliessplan: schliessplan,
+    materialliste: materialliste,
+    pruefprotokoll: pruefprotokoll,
+    dateiName: dateiName,
+    _intern: { tabelle: tabelle, datumDe: datumDe, FARBE: FARBE }
+  };
+  if (typeof module !== 'undefined' && module.exports) { module.exports = global.Reports; }
+})(typeof window !== 'undefined' ? window : globalThis);

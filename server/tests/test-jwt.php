@@ -128,9 +128,43 @@ foreach (array('', 'abc', 'a.b', 'a.b.c.d', '....', str_repeat('x', 5000)) as $m
     pruefe(is_array($e) && $e['ok'] === false, 'unsinnige Eingabe ' . json_encode(substr($mies, 0, 8)) . ' endet geordnet');
 }
 
-/* 14. Ohne Domänenzwang muss ein gmail-Konto durchkommen */
+/* 14. Ohne Domäne ist die Anmeldung gesperrt - nicht offen */
 $e = Aufmass_JWT::pruefen(ausweis($paar, array('hd' => null, 'email' => 'privat@gmail.com')), $CLIENT, '');
-pruefe($e['ok'] === true, 'ohne Domänenzwang wird ein privates Konto angenommen', $e['ok'] ? '' : $e['grund']);
+pruefe($e['ok'] === false && strpos($e['grund'], 'gesperrt') !== false, 'ohne festgelegte Domäne wird kein Ausweis angenommen', json_encode($e));
+$e = Aufmass_JWT::pruefen(ausweis($paar), $CLIENT, '');
+pruefe($e['ok'] === false, 'auch ein Konto der Organisation nicht - erst die Einrichtung macht die Anmeldung auf', json_encode($e));
+$e = Aufmass_JWT::pruefen(ausweis($paar), '', $DOMAENE);
+pruefe($e['ok'] === false, 'ohne Client-ID ebenso wenig', json_encode($e));
+
+/* 14b. Alter und Zeitfenster */
+$e = Aufmass_JWT::pruefen(ausweis($paar, array('iat' => time() - 1200)), $CLIENT, $DOMAENE);
+pruefe($e['ok'] === false && strpos($e['grund'], 'zu alt') !== false, 'ein 20 Minuten alter Ausweis wird abgelehnt - auch wenn er noch nicht abgelaufen ist', json_encode($e));
+$e = Aufmass_JWT::pruefen(ausweis($paar, array('iat' => time() - 500)), $CLIENT, $DOMAENE);
+pruefe($e['ok'] === true, 'ein wenige Minuten alter Ausweis geht durch', $e['ok'] ? '' : $e['grund']);
+$e = Aufmass_JWT::pruefen(ausweis($paar, array('iat' => null)), $CLIENT, $DOMAENE);
+pruefe($e['ok'] === false, 'ohne Ausstellungszeit wird abgelehnt', json_encode($e));
+$e = Aufmass_JWT::pruefen(ausweis($paar, array('iat' => time() + 600)), $CLIENT, $DOMAENE);
+pruefe($e['ok'] === false, 'ein Ausweis aus der Zukunft wird abgelehnt', json_encode($e));
+$e = Aufmass_JWT::pruefen(ausweis($paar, array('nbf' => time() + 600)), $CLIENT, $DOMAENE);
+pruefe($e['ok'] === false, 'ein noch nicht gültiger Ausweis (nbf) wird abgelehnt', json_encode($e));
+$e = Aufmass_JWT::pruefen(ausweis($paar, array('exp' => 'bald')), $CLIENT, $DOMAENE);
+pruefe($e['ok'] === false, 'ein unlesbares Ablaufdatum wird abgelehnt', json_encode($e));
+
+/* 14c. azp, hd und Adresse */
+$e = Aufmass_JWT::pruefen(ausweis($paar, array('azp' => 'andere-app.apps.googleusercontent.com')), $CLIENT, $DOMAENE);
+pruefe($e['ok'] === false, 'ein fremdes azp wird abgelehnt', json_encode($e));
+$e = Aufmass_JWT::pruefen(ausweis($paar, array('azp' => $CLIENT)), $CLIENT, $DOMAENE);
+pruefe($e['ok'] === true, 'das eigene azp geht durch', $e['ok'] ? '' : $e['grund']);
+$e = Aufmass_JWT::pruefen(ausweis($paar, array('hd' => array('provision-infra.de'))), $CLIENT, $DOMAENE);
+pruefe($e['ok'] === false, 'hd als Liste wird abgelehnt', json_encode($e));
+$e = Aufmass_JWT::pruefen(ausweis($paar, array('email' => 'weber@provision-infra.de weber@fremd.de')), $CLIENT, $DOMAENE);
+pruefe($e['ok'] === false, 'zwei Adressen in einem Feld werden abgelehnt', json_encode($e));
+$e = Aufmass_JWT::pruefen(ausweis($paar, array('sub' => 'kein sub!')), $CLIENT, $DOMAENE);
+pruefe($e['ok'] === false, 'eine unbrauchbare Benutzerkennung wird abgelehnt', json_encode($e));
+$e = Aufmass_JWT::pruefen(ausweis($paar, array('sub' => 12345)), $CLIENT, $DOMAENE);
+pruefe($e['ok'] === true && $e['daten']['sub'] === '12345', 'die Benutzerkennung wird als Text geführt', json_encode($e));
+$e = Aufmass_JWT::pruefen(str_repeat('a', 9000), $CLIENT, $DOMAENE);
+pruefe($e['ok'] === false, 'ein überlanger Ausweis wird abgewiesen, ohne ihn zu entziffern');
 
 /* 15. Groß-/Kleinschreibung der Domäne darf nicht stören */
 $e = Aufmass_JWT::pruefen(ausweis($paar, array('hd' => 'Provision-Infra.DE', 'email' => 'Weber@Provision-Infra.DE')), $CLIENT, $DOMAENE);

@@ -1,5 +1,5 @@
 /* =============================================================================
- * views-plan.js — Kreuzschließplan, Export und Einstellungen
+ * views-plan.js — Kreuzschließplan, Kundenfreigabe, Export und Einstellungen
  * ========================================================================== */
 (function (global) {
   'use strict';
@@ -10,31 +10,47 @@
   /* Reihenfolge beim Antippen einer Matrixzelle */
   var ZELL_FOLGE = ['nein', 'ja', 'zeit', 'temp', 'sperr'];
 
+  /* Adresse der Kundenseite aus den Einstellungen: nur eine vollständige
+     https-Adresse auf eine .html-Seite wird für Freigabe-Links verwendet. */
+  function freigabeSeiteGueltig(wert) { return /^https:\/\/[^\s"'<>]+\.html$/i.test(String(wert || '').trim()); }
+
   /* =========================================================================
    * Kreuzschließplan / Zutrittsmatrix
    * ====================================================================== */
   function ansichtPlan(behaelter, neuZeichnen) {
     var p = Zustand.projekt;
+    M.spaltenAngleichen(p);
+    var VPers = global.ViewsPersonen;
     var seite = el('div', { class: 'seite breit' });
     behaelter.appendChild(seite);
 
-    seite.appendChild(el('div', { class: 'zeile-verteilt', style: { marginBottom: '12px' } }, [
+    var VEuro = global.ViewsEuroplan;
+    var euro = !!(VEuro && VEuro.darstellung() === 'euro');
+    seite.appendChild(el('div', { class: 'zeile-verteilt', style: { marginBottom: '8px' } }, [
       el('div', { class: 'fuellen' }, [
-        el('h1', { text: 'Kreuzschließplan / Zutrittsmatrix' }),
-        el('p', { class: 'hinweis', text: 'Zeilen sind die aufgemessenen Türen, Spalten die Schließungen bzw. Personen und Gruppen. Zelle antippen schaltet die Berechtigung weiter.' })
+        el('h1', { text: euro ? 'Europlan / Bestellplan' : 'Kreuzschließplan / Zutrittsmatrix' }),
+        euro ? null : el('p', { class: 'hinweis', text: 'Zeilen sind die aufgemessenen Türen, Spalten die Gruppen, Mitarbeiter und Schließungen. ' +
+          'Zelle antippen schaltet die Berechtigung weiter. Spaltenkopf zwei Sekunden gedrückt halten und ziehen verschiebt die Spalte samt Kreuzen.' })
       ]),
+      VEuro ? VEuro.schalter(neuZeichnen) : null
+    ]));
+    if (euro) { VEuro.zeichnen(seite, p, neuZeichnen); return; }
+
+    seite.appendChild(el('div', { class: 'werkzeugleiste', style: { marginBottom: '12px' } }, [
       el('button', { class: 'haupt', text: 'Blanko-Plan erzeugen',
         onclick: function () { blankoDialog(neuZeichnen); } }),
-      el('button', { text: '+ Schließung',
+      el('button', { text: '+ Spalte',
         onclick: function () { schliessungBearbeiten(null, neuZeichnen); } }),
       el('button', { text: 'Verwalten',
         onclick: function () { schliessungenVerwalten(neuZeichnen); } }),
       el('button', { text: '→ Kundenfreigabe',
-        title: 'Matrix zur Bearbeitung an den Kunden senden',
+        title: 'Plan zur Bearbeitung oder zur verbindlichen Freigabe an den Kunden senden',
         onclick: function () { freigabeDialog(neuZeichnen); } }),
       el('button', { text: '← Rückmeldung',
         title: 'Rückmeldung des Kunden einlesen',
-        onclick: function () { antwortDialog(neuZeichnen); } })
+        onclick: function () { antwortDialog(neuZeichnen); } }),
+      VEuro ? el('button', { text: 'Excel (EVVA-Formular)', title: 'Kreuzschließplan als EVVA-Bestellformular (.xlsx): jeder Schlüssel eine Spalte',
+        onclick: function () { VEuro.excelExport('kreuz'); } }) : null
     ]));
 
     /* Wartet zu diesem Aufmaß eine Kundenrückmeldung vom Server? */
@@ -43,36 +59,54 @@
       if (hinweis) seite.appendChild(hinweis);
     }
 
+    /* Verbindliche Freigabe des Kunden - und ob seitdem etwas geändert wurde */
+    if (p.freigabe && p.freigabe.am) {
+      var geaendert = M.seitFreigabeGeaendert(p);
+      var wer = [p.freigabe.name, p.freigabe.funktion].filter(Boolean).join(', ');
+      seite.appendChild(el('div', { class: 'meldung ' + (geaendert ? 'warn' : 'ok') + ' freigabe-vermerk' },
+        el('div', { class: 'zeile-verteilt', style: { width: '100%', gap: '10px' } }, [
+          el('div', { class: 'fuellen' }, [
+            el('b', { text: 'Vom Kunden verbindlich freigegeben am ' + datumZeit(p.freigabe.am) + (wer ? ' durch ' + wer : '') + '.' }),
+            el('div', { style: { marginTop: '3px', fontSize: '13px' }, text: geaendert
+              ? 'Seit der Freigabe wurde der Plan geändert. Gegenüber dem Kunden gilt der freigegebene Stand – bei Bedarf erneut zur Freigabe vorlegen.'
+              : 'Der Kunde kann über seinen Link nichts mehr ändern. Hier bleibt der Plan weiterhin änderbar.' })
+          ]),
+          geaendert ? el('button', { class: 'klein', text: 'Erneut zur Freigabe vorlegen',
+            onclick: function () { freigabeDialog(neuZeichnen); } }) : null
+        ])));
+    }
+
     if (!p.tueren.length) {
       seite.appendChild(el('div', { class: 'leer' }, [
         el('h3', { text: 'Noch keine Türen erfasst' }),
         el('p', { text: 'Der Schließplan baut auf dem Aufmaß auf. Erfassen Sie zuerst die Türen.' })
       ]));
+      seite.appendChild(VPers.listenKarte(neuZeichnen));
       return;
     }
     if (!p.schliessungen.length) {
       seite.appendChild(el('div', { class: 'leer' }, [
-        el('h3', { text: 'Noch keine Schließungen angelegt' }),
-        el('p', { text: 'Aus Ihrer Gliederung lässt sich ein vollständiger Plan als Arbeitsgrundlage erzeugen: Generalhauptschlüssel, Hauptschlüssel je Gebäude und Gruppenschlüssel je Bereich – mit bereits gesetzten Berechtigungen.' }),
+        el('h3', { text: 'Noch keine Spalten im Plan' }),
+        el('p', { text: 'Der Blanko-Plan legt einen Generalhauptschlüssel an, der an allen Türen berechtigt ist, und auf Wunsch je Gruppe ' +
+                        'und je Mitarbeiter eine leere Spalte. Alle weiteren Gruppen und Schließungen benennen Sie selbst.' }),
         el('div', { class: 'knopfleiste', style: { justifyContent: 'center' } }, [
-          el('button', { class: 'haupt', text: 'Blanko-Plan aus der Struktur erzeugen',
+          el('button', { class: 'haupt', text: 'Blanko-Plan erzeugen',
             onclick: function () { blankoDialog(neuZeichnen); } }),
-          el('button', { text: '+ Einzelne Schließung anlegen',
+          el('button', { text: '+ Spalte anlegen',
             onclick: function () { schliessungBearbeiten(null, neuZeichnen); } })
         ])
       ]));
+      seite.appendChild(VPers.listenKarte(neuZeichnen));
       return;
     }
 
-    var schliessungen = p.schliessungen.slice().sort(function (a, b) {
-      return (a.sort - b.sort) || String(a.kuerzel).localeCompare(String(b.kuerzel), 'de', { numeric: true });
-    });
+    var schliessungen = M.spaltenSortiert(p);
 
     /* Entfernen ist ein eigener Modus: Auf dem Tablett soll niemand beim
      * Setzen von Berechtigungen versehentlich eine Zeile löschen. */
     var entfernenAn = { wert: false };
     var werkzeuge = el('div', { class: 'werkzeuge', style: { marginBottom: '12px' } }, [
-      A.schalterFeld(entfernenAn, 'wert', 'Türen und Schließungen entfernen', function () {
+      A.schalterFeld(entfernenAn, 'wert', 'Türen und Spalten entfernen', function () {
         neuZeichnen();
       }),
       el('span', { class: 'zart', text: entfernenAn.wert
@@ -102,16 +136,17 @@
     }
 
     function schliessungEntfernen(sch) {
-      A.bestaetigen('Schließung entfernen?',
-        'Die Schließung „' + (sch.kuerzel || sch.bezeichnung) + '“ und alle zugehörigen ' +
-        'Berechtigungen werden gelöscht. Das lässt sich über den Zurück-Knopf rückgängig machen.')
+      A.bestaetigen('Spalte entfernen?',
+        'Die Spalte „' + (sch.kuerzel || sch.bezeichnung) + '“ und alle zugehörigen ' +
+        'Berechtigungen werden gelöscht. Gruppe oder Mitarbeiter dahinter bleiben erhalten. ' +
+        'Das lässt sich über den Zurück-Knopf rückgängig machen.')
         .then(function (ja) {
           if (!ja) return;
-          A.schrittMerken('Schließung ' + (sch.kuerzel || sch.bezeichnung) + ' entfernt');
+          A.schrittMerken('Spalte ' + (sch.kuerzel || sch.bezeichnung) + ' entfernt');
           p.schliessungen = p.schliessungen.filter(function (x) { return x.id !== sch.id; });
           M.matrixAufraeumen(p);
           A.alsGeaendertMarkieren(); A.speichern(); neuZeichnen();
-          A.toast('Schließung entfernt.');
+          A.toast('Spalte entfernt.');
         });
     }
 
@@ -124,17 +159,169 @@
       return t > max ? t : max;
     }, 0);
     tabelle.style.setProperty('--kopfhoehe',
-      Math.min(210, Math.max(70, laengsterTitel * 7.6 + 30)) + 'px');
+      Math.min(220, Math.max(84, laengsterTitel * 7.6 + 44)) + 'px');
 
-    var kopfZeile = el('tr', {}, [el('th', { class: 'ecke', text: 'Tür / Schließung' })]);
+    /* --- Spalten verschieben: Kopf zwei Sekunden halten, dann ziehen -----
+     * Während des Haltens füllt sich der Kopf von unten - man sieht, dass
+     * er gleich gegriffen wird. Beim Greifen hebt sich die ganze Spalte ab
+     * und folgt dem Finger; die Nachbarn rücken weich zur Seite. Die
+     * Tabelle selbst bleibt dabei unverändert: Erst beim Loslassen wird sie
+     * umgebaut und die Reihenfolge festgeschrieben.
+     *
+     * Warum nicht schon beim Ziehen umbauen: Wird der gegriffene Kopf im
+     * Dokument versetzt, verliert er die Zeigererfassung des Browsers. Das
+     * Loslassen käme dann nie an - die Spalte bliebe „gegriffen“, und die
+     * Matrix ließe sich nicht mehr bedienen. */
+    var reihenfolge = schliessungen.slice();
+    var ziehen = null;
+    var HALTEN_MS = 2000;
+    var LANDEN_MS = 190;
+
+    function spalteVerschieben(von, nach) {
+      if (von === nach || nach < 0 || nach >= reihenfolge.length) return;
+      var s = reihenfolge.splice(von, 1)[0];
+      reihenfolge.splice(nach, 0, s);
+      Array.prototype.forEach.call(tabelle.querySelectorAll('tr'), function (tr) {
+        if (tr.classList.contains('gruppenzeile')) return;
+        var zelle = tr.children[von + 1];
+        if (!zelle) return;
+        tr.removeChild(zelle);
+        tr.insertBefore(zelle, tr.children[nach + 1] || null);
+      });
+    }
+
+    /* Alle Zellen einer Spalte: Kopf, Türzeilen und Summenzeile */
+    function spaltenZellen(i) {
+      var aus = [];
+      Array.prototype.forEach.call(tabelle.querySelectorAll('tr'), function (tr) {
+        if (tr.classList.contains('gruppenzeile')) return;
+        var z = tr.children[i + 1];
+        if (z) aus.push(z);
+      });
+      return aus;
+    }
+    function bewegen(zellen, wert, weich) {
+      zellen.forEach(function (z) {
+        z.style.transition = weich ? 'transform .18s ease' : 'none';
+        z.style.transform = wert;
+      });
+    }
+    function zuruecksetzen(zellen) {
+      zellen.forEach(function (z) { z.classList.remove('greifen'); z.style.transition = ''; z.style.transform = ''; });
+    }
+
+    function langDruckVerschieben(th, s) {
+      var zeitgeber = null, startX = 0, startY = 0, zeigerId = null, lauf = null, bewegt = false;
+      function haltenAbbrechen() {
+        if (zeitgeber) { clearTimeout(zeitgeber); zeitgeber = null; }
+        th.classList.remove('drueckt');
+      }
+      function klickUnterdruecken() {
+        th.klickUnterdruecken = true;
+        setTimeout(function () { th.klickUnterdruecken = false; }, 400);
+      }
+      th.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+      th.addEventListener('pointerdown', function (e) {
+        if (entfernenAn.wert || e.button > 0 || ziehen) return;
+        startX = e.clientX; startY = e.clientY; zeigerId = e.pointerId; bewegt = false;
+        haltenAbbrechen();
+        /* Die Erfassung schon jetzt: So kommt das Loslassen auch dann an,
+           wenn der Finger den Kopf verlässt - vor wie nach dem Greifen. */
+        try { th.setPointerCapture(zeigerId); } catch (f) {}
+        th.classList.add('drueckt');
+        zeitgeber = setTimeout(function () {
+          zeitgeber = null;
+          th.classList.remove('drueckt');
+          greifen();
+        }, HALTEN_MS);
+      });
+      function greifen() {
+        var von = reihenfolge.indexOf(s);
+        var koepfe = kopfZeile.querySelectorAll('th.spaltenkopf');
+        var mitten = [], andere = [];
+        for (var i = 0; i < koepfe.length; i++) {
+          var r = koepfe[i].getBoundingClientRect();
+          mitten.push(r.left + r.width / 2);
+          andere.push(i === von ? null : spaltenZellen(i));
+        }
+        var breite = koepfe[von] ? koepfe[von].getBoundingClientRect().width : 48;
+        lauf = { von: von, nach: von, mitten: mitten, breite: breite, zellen: spaltenZellen(von), andere: andere };
+        ziehen = { s: s, th: th };
+        tabelle.classList.add('verschieben');
+        lauf.zellen.forEach(function (z) { z.classList.add('greifen'); });
+        bewegen(lauf.zellen, 'translateX(0) scale(1.06)', true);
+        if (navigator.vibrate) { try { navigator.vibrate(30); } catch (f2) {} }
+      }
+      th.addEventListener('pointermove', function (e) {
+        if (zeigerId === null || e.pointerId !== zeigerId) return;
+        if (!lauf) {
+          /* Noch beim Halten: Wer sich bewegt, will rollen - kein Griff, und
+             beim Loslassen auch kein Antippen (sonst ginge der Dialog auf). */
+          if (zeitgeber && (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10)) { haltenAbbrechen(); bewegt = true; }
+          return;
+        }
+        var dx = e.clientX - startX;
+        bewegen(lauf.zellen, 'translateX(' + dx + 'px) scale(1.06)', false);
+        /* Wessen Mitte die gegriffene Spalte überquert hat, weicht aus */
+        var mitte = lauf.mitten[lauf.von] + dx, nach = lauf.von;
+        for (var j = 0; j < lauf.mitten.length; j++) {
+          if (j === lauf.von) continue;
+          var ausweichen = '';
+          if (j < lauf.von && mitte < lauf.mitten[j]) { ausweichen = 'translateX(' + lauf.breite + 'px)'; nach--; }
+          else if (j > lauf.von && mitte > lauf.mitten[j]) { ausweichen = 'translateX(-' + lauf.breite + 'px)'; nach++; }
+          bewegen(lauf.andere[j], ausweichen, true);
+        }
+        lauf.nach = nach;
+      });
+      function loslassen(e) {
+        if (zeigerId === null) return;
+        if (e && e.pointerId !== undefined && e.pointerId !== zeigerId) return;
+        haltenAbbrechen();
+        var id = zeigerId; zeigerId = null;
+        try { th.releasePointerCapture(id); } catch (f) {}
+        if (bewegt) { klickUnterdruecken(); bewegt = false; }
+        if (!lauf) return;   /* nur gehalten oder getippt, nicht gegriffen */
+        var l = lauf; lauf = null;
+        /* Ein Griff ist kein Antippen: der Dialog soll nicht aufgehen */
+        klickUnterdruecken();
+        /* Weich in die Ziellücke gleiten, dann die Tabelle wirklich umbauen */
+        bewegen(l.zellen, 'translateX(' + (l.mitten[l.nach] - l.mitten[l.von]) + 'px) scale(1)', true);
+        setTimeout(function () {
+          zuruecksetzen(l.zellen);
+          l.andere.forEach(function (zs) { if (zs) zuruecksetzen(zs); });
+          tabelle.classList.remove('verschieben');
+          if (l.nach !== l.von) spalteVerschieben(l.von, l.nach);
+          ziehen = null;
+          var geaendert = reihenfolge.some(function (x, i) { return x.sort !== i; });
+          if (geaendert) {
+            A.schrittMerken('Spalte ' + (s.kuerzel || s.bezeichnung) + ' verschoben');
+            reihenfolge.forEach(function (x, i) { x.sort = i; });
+            A.alsGeaendertMarkieren(); A.speichern();
+            A.toast('Spalte verschoben.', 'ok');
+          }
+        }, LANDEN_MS);
+      }
+      th.addEventListener('pointerup', loslassen);
+      th.addEventListener('pointercancel', loslassen);
+      /* Geht die Erfassung aus anderem Grund verloren (Neuaufbau der
+         Tabelle, Fensterwechsel), wird ebenfalls sauber beendet. */
+      th.addEventListener('lostpointercapture', loslassen);
+    }
+    /* Während des Ziehens darf der Finger die Matrix nicht rollen */
+    tabelle.addEventListener('touchmove', function (e) { if (ziehen) e.preventDefault(); }, { passive: false });
+
+    var kopfZeile = el('tr', {}, [el('th', { class: 'ecke', text: 'Tür / Spalte' })]);
     schliessungen.forEach(function (s) {
       var titel = (s.kuerzel ? s.kuerzel + ' ' : '') + (s.bezeichnung || '');
-      var traeger = K.traegerText(s);
-      kopfZeile.appendChild(el('th', {
-        class: 'spaltenkopf' + (entfernenAn.wert ? ' entfernbar' : ''),
-        title: entfernenAn.wert ? ('Schließung „' + titel + '“ entfernen')
-                                : (titel + (traeger ? ' – ' + traeger : '')),
+      var traeger = M.traegerText(p, s);
+      var artKurz = s.art === 'gruppe' ? 'Gruppe' : (s.art === 'mitarbeiter' ? 'Mitarb.' : '');
+      var th = el('th', {
+        class: 'spaltenkopf art-' + (s.art || 'schliessung') + (entfernenAn.wert ? ' entfernbar' : ''),
+        'data-id': s.id,
+        title: entfernenAn.wert ? ('Spalte „' + titel + '“ entfernen')
+                                : (titel + (traeger ? ' – ' + traeger : '') + ' · lange drücken zum Verschieben'),
         onclick: function () {
+          if (th.klickUnterdruecken) { th.klickUnterdruecken = false; return; }
           if (entfernenAn.wert) schliessungEntfernen(s);
           else schliessungBearbeiten(s, neuZeichnen);
         },
@@ -143,8 +330,11 @@
         el('span', { class: 'dreh', text: titel || '–' }),
         entfernenAn.wert
           ? el('span', { class: 'entfernen-zeichen', text: '✕' })
-          : el('span', { class: 'medien', text: M.medienAnzahl(s) + '×' })
-      ]));
+          : el('span', { class: 'medien', text: M.medienAnzahl(p, s) + '×' }),
+        (!entfernenAn.wert && artKurz) ? el('span', { class: 'art', text: artKurz }) : null
+      ]);
+      langDruckVerschieben(th, s);
+      kopfZeile.appendChild(th);
     });
     tabelle.appendChild(el('thead', {}, kopfZeile));
 
@@ -152,7 +342,7 @@
     var gruppen = M.tuerenGruppiert(p);
     gruppen.forEach(function (g) {
       koerper.appendChild(el('tr', { class: 'gruppenzeile' }, [
-        el('td', { colspan: schliessungen.length + 1, text: g.titel })
+        el('td', { colspan: schliessungen.length + 1 }, el('span', { class: 'gruppen-titel', text: g.titel }))
       ]));
       g.tueren.forEach(function (t) {
         var zeile = el('tr');
@@ -166,23 +356,31 @@
             : null,
           el('span', { class: 'nr', text: t.nummer || '—' }),
           el('span', { class: 'bez', text: t.bezeichnung || '' }),
-          (parseInt(t.anzahl, 10) || 1) > 1 ? el('span', { class: 'zart', text: '  (' + t.anzahl + '×)' }) : null
+          (parseInt(t.anzahl, 10) || 1) > 1 ? el('span', { class: 'zart', text: '  (' + t.anzahl + '×)' }) : null,
+          M.istMitlaeufer(p, t) ? el('span', { class: 'zart gleich', title: 'gleichschließend mit Tür ' + (M.basisTuer(p, t).nummer || ''), text: '  = ' + M.zylinderNummer(p, t) }) : null
         ]));
         schliessungen.forEach(function (s) {
           var wert = M.getBerechtigung(p, t.id, s.id);
           var zelle = el('td', {
             class: 'zelle' + (wert !== 'nein' ? ' gesetzt-' + wert : ''),
             text: K.berechtigungZeichen(wert),
-            title: t.nummer + ' / ' + (s.kuerzel || s.bezeichnung),
+            'data-tuer': t.id, 'data-spalte': s.id,
+            title: t.nummer + ' / ' + (s.kuerzel || s.bezeichnung) + (M.istMitlaeufer(p, t) ? ' · gleichschließend mit ' + (M.basisTuer(p, t).nummer || '') : ''),
             onclick: function () {
-              if (entfernenAn.wert) return;   /* im Entfernen-Modus nicht schalten */
+              if (entfernenAn.wert || ziehen) return;   /* im Entfernen-Modus nicht schalten */
               A.schrittMerken('Berechtigung: ' + (t.nummer || t.bezeichnung) +
                               ' / ' + (s.kuerzel || s.bezeichnung));
               var jetzt = M.getBerechtigung(p, t.id, s.id);
               var naechst = ZELL_FOLGE[(ZELL_FOLGE.indexOf(jetzt) + 1) % ZELL_FOLGE.length];
-              M.setBerechtigung(p, t.id, s.id, naechst);
+              M.berechtigungSetzenVerbund(p, t.id, s.id, naechst);
               zelle.textContent = K.berechtigungZeichen(naechst);
               zelle.className = 'zelle' + (naechst !== 'nein' ? ' gesetzt-' + naechst : '');
+              /* Gleichschließende Türen zeigen sofort dasselbe Kreuz */
+              M.schliessungsTueren(p, t).forEach(function (x) {
+                if (x.id === t.id) return;
+                var andere = tabelle.querySelector('td.zelle[data-tuer="' + x.id + '"][data-spalte="' + s.id + '"]');
+                if (andere) { andere.textContent = K.berechtigungZeichen(naechst); andere.className = 'zelle' + (naechst !== 'nein' ? ' gesetzt-' + naechst : ''); }
+              });
               A.alsGeaendertMarkieren();
               summenAktualisieren();
             }
@@ -209,50 +407,54 @@
         var summe = 0;
         p.tueren.forEach(function (t) {
           var w = M.getBerechtigung(p, t.id, e.schliessung.id);
-          if (w !== 'nein' && w !== 'sperr') summe += (parseInt(t.anzahl, 10) || 1);
+          if (M.istBerechtigt(w)) summe += (parseInt(t.anzahl, 10) || 1);
         });
         e.knoten.textContent = String(summe);
       });
     }
     summenAktualisieren();
 
-    seite.appendChild(el('div', { class: 'matrix-rahmen' }, tabelle));
+    A.tastenNavigation(tabelle, 'td.zelle');
+    seite.appendChild(A.scrollHinweis(el('div', { class: 'matrix-rahmen' }, tabelle)));
 
     var legende = el('div', { class: 'matrix-legende' });
     K.BERECHTIGUNG.forEach(function (b) {
       if (!b.zeichen) return;
       legende.appendChild(el('span', {}, [el('b', { text: b.zeichen }), b.label]));
     });
-    legende.appendChild(el('span', { text: 'Spaltenkopf antippen: Schließung bearbeiten' }));
+    legende.appendChild(el('span', { text: 'Spaltenkopf antippen: Spalte bearbeiten · lange drücken und ziehen: verschieben' }));
     seite.appendChild(legende);
 
     /* Schnellaktionen */
     seite.appendChild(el('div', { class: 'knopfleiste', style: { marginTop: '14px' } }, [
-      el('button', { class: 'klein', text: 'Alle Türen für eine Schließung freigeben',
+      el('button', { class: 'klein', text: 'Alle Türen für eine Spalte freigeben',
         onclick: function () { sammelAktion(schliessungen, 'ja', neuZeichnen); } }),
-      el('button', { class: 'klein', text: 'Eine Schließung komplett leeren',
+      el('button', { class: 'klein', text: 'Eine Spalte komplett leeren',
         onclick: function () { sammelAktion(schliessungen, 'nein', neuZeichnen); } })
     ]));
+
+    /* Die Listen, aus denen die Spalten entstehen */
+    seite.appendChild(VPers.listenKarte(neuZeichnen));
   }
 
-  function sammelAktion(schliessungen, wert, neuZeichnen) {
+  function sammelAktion(schliessungen, wert, neuZeichnen) {   /* Mitläufer folgen über gleichschliessungAngleichen beim Neuzeichnen */
     var p = Zustand.projekt;
     var auswahl = el('select');
     schliessungen.forEach(function (s) {
       auswahl.appendChild(el('option', { value: s.id, text: (s.kuerzel || '') + ' ' + (s.bezeichnung || '') }));
     });
     A.dialogOeffnen({
-      titel: wert === 'ja' ? 'Alle Türen freigeben' : 'Schließung leeren', klein: true,
+      titel: wert === 'ja' ? 'Alle Türen freigeben' : 'Spalte leeren', klein: true,
       inhalt: el('div', { class: 'feld' }, [
-        el('label', { text: 'Schließung' }), auswahl,
+        el('label', { text: 'Spalte' }), auswahl,
         el('p', { class: 'hinweis', style: { marginTop: '10px' }, text: wert === 'ja'
-          ? 'Die gewählte Schließung erhält an allen ' + p.tueren.length + ' Türen die Berechtigung „X“.'
-          : 'Alle Berechtigungen dieser Schließung werden entfernt.' })
+          ? 'Die gewählte Spalte erhält an allen ' + p.tueren.length + ' Türen die Berechtigung „X“.'
+          : 'Alle Berechtigungen dieser Spalte werden entfernt.' })
       ]),
       knoepfe: [
         { fuellen: true }, { text: 'Abbrechen' },
         { text: 'Ausführen', klasse: 'haupt', aktion: function () {
-          A.schrittMerken(wert === 'ja' ? 'Alle Türen freigegeben' : 'Schließung geleert');
+          A.schrittMerken(wert === 'ja' ? 'Alle Türen freigegeben' : 'Spalte geleert');
           p.tueren.forEach(function (t) { M.setBerechtigung(p, t.id, auswahl.value, wert); });
           A.alsGeaendertMarkieren(); neuZeichnen();
           A.toast('Berechtigungen aktualisiert.', 'ok');
@@ -265,14 +467,17 @@
    * Kunden-Freigabe der Matrix
    * ======================================================================
    * Der Kunde erhält einen Link und trägt in den freigegebenen Feldern seine
-   * Berechtigungen ein. Zwei Wege:
+   * Berechtigungen ein. Je Link wird festgelegt, was er außerdem darf:
+   * Mitarbeiter pflegen, Gruppen pflegen, neue Spalten aufnehmen. Zwei Wege:
    *  - Mit gemeinsamer Ablage (angemeldet, online): Die Freigabe liegt auf
-   *    dem Server, der Kunde bekommt einen kurzen Link und klickt am Ende
-   *    auf „Übertragen“. Die Rückmeldung wartet dann im Werkzeug auf die
-   *    Prüfung (siehe abgleich-ui.js).
+   *    dem Server, der Kunde bekommt einen kurzen Link. Er sendet eine
+   *    Rückmeldung oder gibt den Plan verbindlich frei. Beides wartet dann
+   *    im Werkzeug auf die Prüfung (siehe abgleich-ui.js). Ein fertiger
+   *    Plan lässt sich außerdem zur nachträglichen Freigabe vorlegen.
    *  - Ohne Server (Einzeldatei, ohne Netz): Die Plandaten stehen im Anker
    *    der Adresse, die Rückmeldung kommt als Rückschlüssel zurück und wird
-   *    unten im antwortDialog eingelesen.
+   *    unten im antwortDialog eingelesen. Eine verbindliche Freigabe gibt
+   *    es nur über den Server.
    * -------------------------------------------------------------------- */
   /* Steht die gemeinsame Ablage bereit? Dann entsteht ein Kurzlink über
      den Server; sonst der lange Link mit den Daten im Anker. */
@@ -306,12 +511,23 @@
     }
   }
 
+  /* Lesbare Zusammenfassung dessen, was ein Link dem Kunden erlaubt */
+  function rechteText(r) {
+    if (!r) return '';
+    var teile = [];
+    if (r.m) teile.push('Mitarbeiter');
+    if (r.g) teile.push('Gruppen');
+    if (r.s) teile.push('neue Spalten');
+    return teile.length ? 'Kunde darf: ' + teile.join(', ') : 'nur Berechtigungen';
+  }
+
   function freigabeDialog(neuZeichnen) {
     var p = Zustand.projekt;
     var eins = Zustand.einstellungen || {};
     var gewaehlt = {};
     p.schliessungen.forEach(function (s) { gewaehlt[s.id] = false; });
-    var einstellungenFreigabe = { nurLeereFelder: false, hinweis: '', frist: '' };
+    var einstellungenFreigabe = { nurLeereFelder: false, vorgabenSchuetzen: true, hinweis: '', frist: '',
+                                  mitarbeiter: true, gruppen: true, spalten: false };
     var online = abgleichBereit();
 
     var auswahlBereich = el('div', { class: 'chips', style: { marginBottom: '10px' } });
@@ -327,23 +543,28 @@
       A.leeren(vorschau);
       var spalten = anzahlGewaehlt();
       var felder = spalten * p.tueren.length;
+      var rechte = rechteText({ m: einstellungenFreigabe.mitarbeiter, g: einstellungenFreigabe.gruppen, s: einstellungenFreigabe.spalten });
       if (!spalten) {
         vorschau.className = 'meldung warn';
-        vorschau.appendChild(el('div', { text: 'Bitte mindestens eine Schließung freigeben.' }));
+        vorschau.appendChild(el('div', {}, [
+          el('b', { text: 'Keine Spalte zur Bearbeitung freigegeben.' }),
+          el('div', { style: { marginTop: '4px', fontSize: '13px' },
+            text: 'Der Kunde sieht den Plan dann nur. ' + rechte + '.' })
+        ]));
         return;
       }
       vorschau.className = 'meldung info';
       vorschau.appendChild(el('div', {}, [
-        el('b', { text: spalten + (spalten === 1 ? ' Schließung' : ' Schließungen') +
+        el('b', { text: spalten + (spalten === 1 ? ' Spalte' : ' Spalten') +
                         ' mit ' + felder + ' Feldern werden freigegeben.' }),
         el('div', { style: { marginTop: '4px', fontSize: '13px' },
-          text: 'Alle übrigen Felder sieht der Kunde, kann sie aber nicht ändern.' })
+          text: 'Alle übrigen Felder sieht der Kunde, kann sie aber nicht ändern. ' + rechte + '.' })
       ]));
     }
 
     function auswahlZeichnen() {
       A.leeren(auswahlBereich);
-      p.schliessungen.slice().sort(function (a, b) { return a.sort - b.sort; }).forEach(function (s) {
+      M.spaltenSortiert(p).forEach(function (s) {
         var titel = (s.kuerzel ? s.kuerzel + ' ' : '') + (s.bezeichnung || '');
         var chip = el('button', {
           type: 'button', class: 'chip',
@@ -360,65 +581,132 @@
     auswahlZeichnen();
     vorschauAktualisieren();
 
-    /* Adresse der Freigabeseite neben der Anwendung */
-    var seite = location.href.replace(/[^\/]*(\?.*)?(#.*)?$/, '') + 'freigabe.html';
+    /* Adresse der Freigabeseite neben der Anwendung. Läuft das Werkzeug als
+       lokale Datei, hat der Kunde diese Datei nicht - dann führt der Link auf
+       die in den Einstellungen hinterlegte Kundenseite im Internet. */
+    var eigeneSeite = location.href.replace(/[^\/]*(\?.*)?(#.*)?$/, '') + 'freigabe.html';
+    var hinterlegteSeite = String(eins.freigabeSeite || '').trim();
+    var seiteHinterlegt = location.protocol === 'file:' && freigabeSeiteGueltig(hinterlegteSeite);
+    var seite = seiteHinterlegt ? hinterlegteSeite : eigeneSeite;
 
-    function freigabeDaten() {
-      var ids = Object.keys(gewaehlt).filter(function (k) { return gewaehlt[k]; });
+    function freigabeDaten(nurVorlegen) {
+      var ids = nurVorlegen ? [] : Object.keys(gewaehlt).filter(function (k) { return gewaehlt[k]; });
       return global.Freigabe.erstellen(p, {
         freigegebeneSchliessungen: ids,
         nurLeereFelder: einstellungenFreigabe.nurLeereFelder,
+        vorgabenSchuetzen: einstellungenFreigabe.vorgabenSchuetzen,
         hinweis: einstellungenFreigabe.hinweis,
         frist: einstellungenFreigabe.frist,
-        firma: eins.firma || ''
+        firma: eins.firma || '',
+        mail: eins.firmaEmail || '',
+        rechte: nurVorlegen ? { m: 0, g: 0, s: 0 }
+                            : { m: einstellungenFreigabe.mitarbeiter ? 1 : 0,
+                                g: einstellungenFreigabe.gruppen ? 1 : 0,
+                                s: einstellungenFreigabe.spalten ? 1 : 0 },
+        medienArten: M.identmedienAuswahl(p, eins.eigeneSysteme || [])
       });
     }
 
     function linkErzeugen() {
-      var daten = freigabeDaten();
-      if (abgleichBereit()) { kurzlinkErzeugen(daten); return; }
+      var daten = freigabeDaten(false);
+      /* Das Projekt merkt sich, was freigegeben war und wie die Listen im Link
+         standen: Ohne Server gilt beim Einlesen genau diese Freigabe; mit
+         Server kennt die Übernahme so den Linkstand (nur Geändertes zählt),
+         und ein per Datei gesicherter Rückschlüssel lässt sich einlesen. */
+      global.Freigabe.freigabeMerken(p, daten);
+      A.alsGeaendertMarkieren();
+      if (abgleichBereit()) { kurzlinkErzeugen(daten, false); return; }
       langenLinkZeigen(daten);
+      lokaleListeZeigen();
+    }
+
+    /* --- Ohne Server: die bisherigen Links dieses Aufmaßes ----------------- */
+    function lokaleListeZeigen() {
+      A.leeren(listeBereich);
+      var liste = (p.freigabenLokal || []).slice().reverse().slice(0, 20);
+      if (!liste.length) return;
+      listeBereich.appendChild(el('hr', { class: 'trenner' }));
+      listeBereich.appendChild(el('h3', { text: 'Bisherige Freigabe-Links (ohne Server)', style: { marginTop: '0' } }));
+      listeBereich.appendChild(el('p', { class: 'hinweis', text: 'Ein zurückgezogener Link gilt beim Einlesen nicht mehr: Rückmeldungen dazu werden abgelehnt. ' +
+        'Der Kunde selbst erfährt davon nichts - bitte Bescheid geben.' }));
+      var behaelter = el('div', { class: 'freigabe-liste' });
+      liste.forEach(function (f) {
+        var frei = String(f.maske || '').split('').filter(function (c) { return c === '1'; }).length;
+        var zeile = el('div', { class: 'freigabe-eintrag' + (f.zurueckgezogen ? ' status-zurueckgezogen' : ' status-offen') });
+        zeile.appendChild(el('div', { class: 'stand', text:
+          'Erstellt am ' + datumZeit(f.erstellt) + '  ·  ' + frei + (frei === 1 ? ' freigegebenes Feld' : ' freigegebene Felder') +
+          '  ·  ' + rechteText(f.rechte) + (f.zurueckgezogen ? '  ·  Zurückgezogen am ' + datumZeit(f.zurueckgezogen) : '') }));
+        if (!f.zurueckgezogen) {
+          zeile.appendChild(el('div', { class: 'knopfleiste' }, el('button', { class: 'klein gefahr', text: 'Zurückziehen', onclick: function () {
+            A.bestaetigen('Freigabe-Link zurückziehen?',
+              'Rückmeldungen zu diesem Link werden danach nicht mehr eingelesen. Trägt der Kunde gerade ein, geht seine Arbeit verloren - bitte Bescheid geben.',
+              'Zurückziehen').then(function (ja) {
+              if (!ja) return;
+              f.zurueckgezogen = new Date().toISOString();
+              A.alsGeaendertMarkieren(); A.speichern();
+              A.toast('Freigabe-Link zurückgezogen.', 'ok');
+              lokaleListeZeigen();
+            });
+          } })));
+        }
+        behaelter.appendChild(zeile);
+      });
+      listeBereich.appendChild(behaelter);
+    }
+
+    function mailText(f, vorlegen) {
+      var betreff = (vorlegen ? 'Freigabe des Schließplans ' : 'Zutrittsberechtigungen ') + (p.objekt || p.kunde || '');
+      var text = vorlegen
+        ? 'Guten Tag,\n\nbitte prüfen Sie den Schließplan unter folgendem Link und geben Sie ihn verbindlich frei. '
+          + 'Mit der Freigabe ist die Abstimmung abgeschlossen – Änderungen sind danach nur noch gegen Mehraufwand möglich.\n\n'
+        : 'Guten Tag,\n\nbitte tragen Sie unter folgendem Link ein, wer welche Türen öffnen darf. '
+          + 'Am Ende auf „Rückmeldung senden“ klicken – oder, wenn alles passt, auf „Rückmeldung senden und Plan freigeben“.\n\n';
+      text += f.kurzlink + '\n\n'
+        + (!vorlegen && einstellungenFreigabe.frist && /^\d{4}-\d{2}-\d{2}$/.test(einstellungenFreigabe.frist)
+            ? 'Rückmeldung bitte bis ' + datumKurz(einstellungenFreigabe.frist) + '. ' : '')
+        + (f.gueltigBis ? 'Der Link gilt bis ' + datumKurz(f.gueltigBis) + '.\n\n' : '')
+        + 'Mit freundlichen Grüßen\n' + (eins.firma || '');
+      return { betreff: betreff, text: text };
     }
 
     /* --- Kurzlink: die Freigabe liegt auf dem Server ----------------- */
-    function kurzlinkErzeugen(daten) {
+    function kurzlinkErzeugen(daten, vorlegen) {
       A.leeren(ergebnisBereich);
       ergebnisBereich.appendChild(el('hr', { class: 'trenner' }));
       ergebnisBereich.appendChild(el('p', { class: 'zart', text: 'Freigabe wird auf dem Server abgelegt …' }));
 
-      global.Abgleich.freigabeErstellen(p.id, daten, seite).then(function (f) {
+      global.Abgleich.freigabeErstellen(p.id, daten, seite, { vorlegen: vorlegen }).then(function (f) {
         A.leeren(ergebnisBereich);
         ergebnisBereich.appendChild(el('hr', { class: 'trenner' }));
-        ergebnisBereich.appendChild(el('h3', { text: 'Freigabe-Link für den Kunden', style: { marginTop: '0' } }));
+        ergebnisBereich.appendChild(el('h3', { text: vorlegen ? 'Link zur verbindlichen Freigabe' : 'Freigabe-Link für den Kunden', style: { marginTop: '0' } }));
         var feld = el('input', { type: 'text', class: 'kurzlink-feld', readonly: true, value: f.kurzlink,
           'aria-label': 'Freigabe-Link' });
         ergebnisBereich.appendChild(feld);
-        var betreff = 'Zutrittsberechtigungen ' + (p.objekt || p.kunde || '');
-        var text = 'Guten Tag,\n\nbitte tragen Sie unter folgendem Link ein, wer welche Türen öffnen darf. '
-          + 'Am Ende auf „Übertragen“ klicken - mehr ist nicht nötig.\n\n' + f.kurzlink + '\n\n'
-          + (f.gueltigBis ? 'Der Link gilt bis ' + datumKurz(f.gueltigBis) + '.\n\n' : '')
-          + 'Mit freundlichen Grüßen\n' + (eins.firma || '');
+        var mail = mailText(f, vorlegen);
         ergebnisBereich.appendChild(el('div', { class: 'knopfleiste', style: { marginTop: '10px' } }, [
           el('button', { class: 'haupt', text: 'Link kopieren', onclick: function (e) {
             inZwischenablage(feld, f.kurzlink, e.target);
           } }),
           el('button', { text: 'Per E-Mail senden', onclick: function () {
-            location.href = 'mailto:?subject=' + encodeURIComponent(betreff) + '&body=' + encodeURIComponent(text);
+            location.href = 'mailto:?subject=' + encodeURIComponent(mail.betreff) + '&body=' + encodeURIComponent(mail.text);
           } })
         ]));
         ergebnisBereich.appendChild(el('p', { class: 'hinweis', text:
           (f.gueltigBis ? 'Gültig bis ' + datumKurz(f.gueltigBis) + '. ' : 'Gültig, bis er zurückgezogen wird. ')
-          + 'Der Kunde trägt ein und klickt auf „Übertragen“. Seine Rückmeldung erscheint dann hier im Werkzeug '
-          + '(in der Kopfzeile und im Schließplan) und wird erst übernommen, wenn eine zuständige Person sie geprüft hat. '
-          + 'Ersteller und Zuständige werden per E-Mail benachrichtigt.' }));
+          + (vorlegen
+            ? 'Der Kunde sieht den fertigen Plan und klickt auf „Plan verbindlich freigeben“. Die Freigabe erscheint dann hier im Werkzeug '
+              + 'und wird mit „Übernehmen“ im Aufmaß vermerkt. Danach kann der Kunde über den Link nichts mehr ändern.'
+            : 'Der Kunde trägt ein und klickt auf „Rückmeldung senden“ – oder auf „Rückmeldung senden und Plan freigeben“, wenn alles passt. '
+              + 'Seine Rückmeldung erscheint dann hier im Werkzeug (in der Kopfzeile und im Schließplan) und wird erst übernommen, '
+              + 'wenn eine zuständige Person sie geprüft hat. Ersteller und Zuständige werden per E-Mail benachrichtigt.') }));
         listeLaden();
       }).catch(function (f) {
         A.leeren(ergebnisBereich);
         ergebnisBereich.appendChild(el('hr', { class: 'trenner' }));
         var text;
         if (f && f.status === 404) {
-          text = 'Dieses Aufmaß liegt noch nicht auf dem Server. Der Abgleich sendet es gleich - '
-               + 'bitte in ein paar Sekunden erneut auf „Freigabe-Link erzeugen“ tippen.';
+          text = 'Dieses Aufmaß liegt noch nicht auf dem Server. Der Abgleich sendet es gleich – '
+               + 'bitte in ein paar Sekunden erneut tippen.';
           global.Abgleich.jetzt();
         } else if (f && f.status === 403) {
           text = f.message;
@@ -428,7 +716,7 @@
           text = 'Keine Verbindung zum Server. Ohne Verbindung gibt es nur den langen Link mit den Daten im Anker.';
         }
         ergebnisBereich.appendChild(el('div', { class: 'meldung fehler' }, el('div', { text: text })));
-        if (!(f && f.status)) {
+        if (!(f && f.status) && !vorlegen) {
           ergebnisBereich.appendChild(el('div', { class: 'knopfleiste', style: { marginTop: '10px' } }, [
             el('button', { text: 'Langen Link stattdessen erzeugen', onclick: function () { langenLinkZeigen(daten); } })
           ]));
@@ -437,11 +725,18 @@
     }
 
     /* --- Bisherige Freigaben dieses Aufmaßes -------------------------- */
+    function freigabeWer(f) {
+      return f.freigabe ? [f.freigabe.name, f.freigabe.funktion].filter(Boolean).join(', ') : '';
+    }
     function statusText(f) {
       switch (f.status) {
         case 'offen': return 'Offen – noch keine Rückmeldung';
-        case 'beantwortet': return 'Rückmeldung von ' + (f.antwortName || 'dem Kunden') + ' am ' + datumZeit(f.antwortAm) + ' wartet auf Prüfung';
+        case 'beantwortet':
+          return (f.freigabe ? 'Rückmeldung mit verbindlicher Freigabe' : 'Rückmeldung') + ' von ' + (f.antwortName || 'dem Kunden')
+               + ' am ' + datumZeit(f.antwortAm) + ' wartet auf Prüfung';
         case 'uebernommen': return 'Übernommen am ' + datumZeit(f.uebernommenAm) + (f.uebernommenVon ? ' von ' + f.uebernommenVon : '');
+        case 'vorgelegt': return 'Zur verbindlichen Freigabe vorgelegt am ' + datumZeit(f.vorgelegtAm) + ' – wartet auf den Kunden';
+        case 'freigegeben': return 'Verbindlich freigegeben am ' + datumZeit(f.freigabe && f.freigabe.am) + (freigabeWer(f) ? ' durch ' + freigabeWer(f) : '') + ' – für den Kunden gesperrt';
         case 'verworfen': return 'Rückmeldung geprüft und verworfen';
         case 'zurueckgezogen': return 'Zurückgezogen';
         case 'abgelaufen': return 'Abgelaufen';
@@ -449,21 +744,35 @@
       }
     }
 
+    var nachgefragt = false;
     function listeLaden() {
-      if (!abgleichBereit()) { A.leeren(listeBereich); return; }
+      if (!abgleichBereit()) { lokaleListeZeigen(); return; }
       global.Abgleich.freigabenListe(p.id).then(function (liste) {
         A.leeren(listeBereich);
         if (!liste.length) return;
+        /* Eine Rückmeldung, die der Abgleich noch nicht geholt hat: einmal nachfragen,
+           damit „Rückmeldung prüfen“ nicht erst nach dem nächsten Abgleich erscheint */
+        var fehltNoch = liste.some(function (f) {
+          return f.status === 'beantwortet' && !(global.Abgleich.antwortenFuer(p.id) || []).some(function (a) { return a.code === f.code; });
+        });
+        if (fehltNoch && !nachgefragt && global.Abgleich.jetzt) {
+          nachgefragt = true;
+          Promise.resolve(global.Abgleich.jetzt()).then(function () { setTimeout(listeLaden, 400); }, function () {});
+        }
         listeBereich.appendChild(el('hr', { class: 'trenner' }));
         listeBereich.appendChild(el('h3', { text: 'Bisherige Freigabe-Links', style: { marginTop: '0' } }));
         var behaelter = el('div', { class: 'freigabe-liste' });
         liste.forEach(function (f) {
-          var zeile = el('div', { class: 'freigabe-eintrag' + (f.status === 'beantwortet' ? ' wartet' : '') });
-          zeile.appendChild(el('div', { class: 'code', text: f.kurzlink.replace(/^https?:\/\//, '') }));
+          var zeile = el('div', { class: 'freigabe-eintrag status-' + f.status + (f.status === 'beantwortet' ? ' wartet' : '') });
+          /* Nicht-Zuständige sehen den Stand, aber nicht den Link: Der Code ist der
+             Ausweis des Kunden, mit ihm ließe sich als Kunde senden. */
+          var nurStatus = !!f.nurStatus || !f.kurzlink;
+          zeile.appendChild(el('div', { class: 'code' + (nurStatus ? ' zart' : ''), text: nurStatus ? 'Link nur für Zuständige sichtbar' : f.kurzlink.replace(/^https?:\/\//, '') }));
           zeile.appendChild(el('div', { class: 'stand', text:
-            'Erstellt am ' + datumZeit(f.erstelltAm) + (f.erstelltVon ? ' von ' + f.erstelltVon : '') + '  ·  ' + statusText(f) }));
+            'Erstellt am ' + datumZeit(f.erstelltAm) + (f.erstelltVon ? ' von ' + f.erstelltVon : '') + '  ·  ' + statusText(f)
+            + (f.rechte && f.status !== 'vorgelegt' && f.status !== 'freigegeben' ? '  ·  ' + rechteText(f.rechte) : '') }));
           var knoepfe = el('div', { class: 'knopfleiste' });
-          var tot = f.status === 'zurueckgezogen' || f.status === 'abgelaufen';
+          var tot = f.status === 'zurueckgezogen' || f.status === 'abgelaufen' || nurStatus;
           if (!tot) {
             knoepfe.appendChild(el('button', { class: 'klein', text: 'Kopieren', onclick: function (e) {
               var feld = el('input', { type: 'text', value: f.kurzlink, style: { position: 'absolute', left: '-9999px' } });
@@ -480,10 +789,28 @@
               } }));
             }
           }
+          /* Den fertigen Plan über diesen Link zur verbindlichen Freigabe
+             vorlegen - der Kunde sieht dann den aktuellen Stand, ohne etwas
+             ändern zu können, und gibt frei. */
+          if (!tot && f.status !== 'beantwortet') {
+            knoepfe.appendChild(el('button', { class: 'klein', text: f.status === 'vorgelegt' ? 'Erneut vorlegen (aktueller Stand)' : 'Zur Freigabe vorlegen',
+              title: 'Der Kunde sieht den aktuellen Plan und kann ihn verbindlich freigeben',
+              onclick: function (e) {
+                e.target.disabled = true;
+                global.Abgleich.freigabeVorlegen(f.code, freigabeDaten(true)).then(function () {
+                  A.toast('Der aktuelle Plan liegt dem Kunden jetzt zur Freigabe vor.', 'ok');
+                  listeLaden();
+                }).catch(function (fehler) {
+                  e.target.disabled = false;
+                  A.toast(fehler.message || 'Das ging gerade nicht.', 'fehler');
+                });
+              } }));
+          }
           if (!tot) {
             knoepfe.appendChild(el('button', { class: 'klein gefahr', text: 'Zurückziehen', onclick: function () {
               A.bestaetigen('Freigabe-Link zurückziehen?',
-                'Der Link funktioniert danach nicht mehr. Eine bereits übertragene Rückmeldung bleibt zur Prüfung erhalten.',
+                'Der Link funktioniert danach nicht mehr. Eine bereits übertragene Rückmeldung bleibt zur Prüfung erhalten. ' +
+                'Trägt der Kunde gerade ein, kann er nicht mehr senden - er kann seine Eingaben dann nur noch als Datei sichern.',
                 'Zurückziehen').then(function (ja) {
                 if (!ja) return;
                 global.Abgleich.freigabeZurueckziehen(f.code).then(function () {
@@ -506,6 +833,7 @@
       var basis = seite;
       var link = basis + '#plan=' + anker;
       var lokal = location.protocol === 'file:';
+      var dateiBasis = 'Freigabe_' + (p.objekt || p.kunde || 'Matrix').replace(/[^\wäöüÄÖÜß \-]/g, '').trim().replace(/\s+/g, '-');
 
       A.leeren(ergebnisBereich);
       var feld = el('textarea', { class: 'schluessel-feld', readonly: true,
@@ -516,24 +844,33 @@
       ergebnisBereich.appendChild(el('hr', { class: 'trenner' }));
       ergebnisBereich.appendChild(el('h3', { text: 'Freigabe-Link', style: { marginTop: '0' } }));
 
-      if (lokal) {
+      if (lokal && !seiteHinterlegt) {
         ergebnisBereich.appendChild(el('div', { class: 'meldung warn' }, el('div', {}, [
           el('b', { text: 'Diese Anwendung läuft als lokale Datei. ' }),
-          'Der Link funktioniert nur, wenn der Kunde dieselbe Datei auf seinem Gerät hat. ' +
-          'Für den Versand an Kunden die Anwendung über eine Web-Adresse aufrufen.'
+          'Der Link zeigt auf eine Datei, die der Kunde nicht hat. ' + (hinterlegteSeite
+            ? 'Die unter Einstellungen → Kundenfreigabe hinterlegte Adresse „' + hinterlegteSeite + '“ wird nicht verwendet: Sie muss mit https:// beginnen und auf .html enden.'
+            : 'Hinterlegen Sie unter Einstellungen → Kundenfreigabe die Adresse der Kundenseite im Internet (…/aufmasstool/freigabe.html); dann führt der Link dorthin.')
+          + ' Oder rufen Sie das Werkzeug über seine Web-Adresse auf.'
         ])));
+      } else if (lokal) {
+        ergebnisBereich.appendChild(el('p', { class: 'zart', text: 'Der Link führt auf die hinterlegte Kundenseite ' + hinterlegteSeite + '.' }));
       }
       ergebnisBereich.appendChild(el('p', { class: 'hinweis',
         text: 'Diesen Link vollständig in eine E-Mail einfügen. Die Plandaten stehen hinter dem ' +
-              'Rautezeichen und werden dabei an keinen Server übertragen. Länge: ' +
+              'Rautezeichen und werden dabei an keinen Server übertragen. Eine verbindliche Freigabe ist ' +
+              'nur über die gemeinsame Ablage möglich. Länge: ' +
               link.length.toLocaleString('de-DE') + ' Zeichen.' }));
-      if (link.length > 20000) {
-        ergebnisBereich.appendChild(el('div', { class: 'meldung warn' }, el('div', {}, [
-          el('b', { text: 'Der Link ist sehr lang. ' }),
-          'Manche E-Mail-Programme brechen lange Links um. Geben Sie im Zweifel weniger ' +
-          'Schließungen frei oder senden Sie die Datei unten.'
-        ])));
-      }
+      /* Jeder lange Link ist für Mailprogramme lang: Outlook bricht Klartext
+         bei 76 Zeichen um, Gmail verlinkt ab einigen tausend Zeichen nicht
+         mehr. Darum steht der sichere Weg immer dabei - nicht erst ab 20.000. */
+      ergebnisBereich.appendChild(el('div', { class: 'meldung ' + (link.length > 20000 ? 'warn' : 'info') }, el('div', {}, [
+        el('b', { text: link.length > 20000 ? 'Der Link ist sehr lang. ' : 'Lange Links und E-Mail: ' }),
+        'E-Mail-Programme brechen lange Links oft um oder machen sie nicht mehr anklickbar; der Kunde sieht dann „Der Link konnte nicht gelesen werden“. ' +
+        'Sicher ist die Datei „Freigabe….html“ unten als Anhang: Der Kunde öffnet sie mit einem Doppelklick, und die Freigabeseite erscheint. ' +
+        'Sperrt ein Mailprogramm HTML-Anhänge, hilft die .txt-Datei: Ihr Inhalt wird vollständig in die Adresszeile des Browsers eingefügt. ' +
+        (link.length > 20000 ? 'Oder weniger Spalten freigeben. ' : '') +
+        (global.Abgleich && global.Abgleich.zustand().eingerichtet ? 'Noch einfacher ist der Kurzlink über die gemeinsame Ablage (anmelden und online gehen).' : '')
+      ])));
       ergebnisBereich.appendChild(feld);
       ergebnisBereich.appendChild(el('div', { class: 'knopfleiste', style: { marginTop: '10px' } }, [
         el('button', { class: 'haupt', text: 'Link kopieren', onclick: function (e) {
@@ -547,10 +884,36 @@
             catch (err) { e.target.textContent = 'Bitte von Hand markieren'; }
           }
         } }),
-        el('button', { text: 'Als Datei speichern', onclick: function () {
-          var name = 'Freigabe_' + (p.objekt || p.kunde || 'Matrix')
-            .replace(/[^\wäöüÄÖÜß \-]/g, '').trim().replace(/\s+/g, '-') + '.txt';
-          Store.dateiHerunterladen(link, name, 'text/plain').catch(function (f) {
+        el('button', { text: 'E-Mail-Vorlage öffnen', onclick: function () {
+          /* Kurze Links passen in den Text; lange sprengen Mailprogramme -
+             dann verweist die Mail auf die Datei, die der Absender anhängt. */
+          var kurz = link.length <= 6000;
+          var betreff = 'Zutrittsberechtigungen ' + (p.objekt || p.kunde || '');
+          var text = 'Guten Tag,\n\nbitte tragen Sie unter folgendem Link ein, wer welche Türen öffnen darf' +
+            (daten.frist && /^\d{4}-\d{2}-\d{2}$/.test(daten.frist) ? ' - gern bis zum ' + datumKurz(daten.frist) : '') +
+            '. Am Ende auf „Rückmeldung erzeugen“ klicken und die Rückmeldung als Datei oder Text an uns zurücksenden.\n\n' +
+            (kurz ? link : 'Der Link ist als Datei „' + dateiBasis + '.html“ angehängt - bitte mit einem Doppelklick öffnen. ' +
+              'Lässt Ihr Mailprogramm die Datei nicht zu, fügen Sie den Inhalt der Datei „' + dateiBasis + '.txt“ vollständig in die Adresszeile Ihres Browsers ein.') +
+            '\n\nMit freundlichen Grüßen\n' + (eins.firma || '');
+          location.href = 'mailto:?subject=' + encodeURIComponent(betreff) + '&body=' + encodeURIComponent(text);
+          if (!kurz) A.toast('Bitte die gespeicherte Datei „' + dateiBasis + '.html“ an die E-Mail anhängen.', 'ok');
+        } }),
+        el('button', { text: 'Als Datei speichern (öffnet die Freigabe per Doppelklick)', onclick: function () {
+          /* Eine kleine Seite, die auf die Freigabe weiterleitet: Der Anhang
+             überlebt jedes Mailprogramm, der Link darin bleibt ganz. */
+          var h = function (s) { return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); };
+          var seiteText = '<!DOCTYPE html>\n<html lang="de">\n<head>\n<meta charset="utf-8">\n<title>Freigabe ' + h(p.objekt || p.kunde || '') + '</title>\n' +
+            '<meta http-equiv="refresh" content="0; url=' + h(link) + '">\n' +
+            '<style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:32px;max-width:640px;margin:auto;color:#1b2a4a}a{color:#1e5bb8}</style>\n</head>\n<body>\n' +
+            '<h1>Schließplan abstimmen</h1>\n<p>Die Freigabeseite öffnet sich gleich von selbst.</p>\n' +
+            '<p>Falls nicht: <a href="' + h(link) + '">Freigabe öffnen</a></p>\n' +
+            '<p style="color:#5a6a85;font-size:14px">' + h(eins.firma || '') + '</p>\n</body>\n</html>\n';
+          Store.dateiHerunterladen(seiteText, dateiBasis + '.html', 'text/html').catch(function (f) {
+            A.toast(f.message, 'fehler');
+          });
+        } }),
+        el('button', { text: 'Nur den Link als Text (.txt)', onclick: function () {
+          Store.dateiHerunterladen(link, dateiBasis + '.txt', 'text/plain').catch(function (f) {
             A.toast(f.message, 'fehler');
           });
         } })
@@ -561,8 +924,8 @@
       el('p', { class: 'hinweis', style: { marginTop: '0' },
         text: online
           ? 'Der Kunde öffnet den kurzen Link im Browser, trägt in den freigegebenen Feldern seine ' +
-            'Berechtigungen ein und klickt auf „Übertragen“. Seine Rückmeldung erscheint dann hier im ' +
-            'Werkzeug und wird erst nach Ihrer Prüfung übernommen.'
+            'Berechtigungen ein und sendet seine Rückmeldung – auf Wunsch gleich mit verbindlicher Freigabe. ' +
+            'Beides erscheint hier im Werkzeug und wird erst nach Ihrer Prüfung übernommen.'
           : 'Der Kunde öffnet den Link im Browser und trägt in den freigegebenen Feldern ' +
             'seine Berechtigungen ein. Seine Rückmeldung lesen Sie anschließend hier wieder ein.' }),
       /* Nur wenn es die gemeinsame Ablage überhaupt gibt und sie gerade
@@ -570,11 +933,8 @@
          da wäre der Hinweis nur verwirrend. */
       (global.Abgleich && global.Abgleich.zustand().eingerichtet && !online) ? el('div', { class: 'meldung warn' }, el('div', { text:
         'Ohne Verbindung zur gemeinsamen Ablage entsteht nur der lange Link mit den Daten im Anker. ' +
-        'Für den kurzen Link bitte anmelden und online gehen.' })) : null,
-      el('h3', { text: 'Welche Schließungen darf der Kunde bearbeiten?' }),
-      el('p', { class: 'zart', style: { marginTop: '-6px' },
-        text: 'Für jede freigegebene Schließung kann der Kunde außerdem eintragen, wer ein ' +
-              'Medium erhält - Name, Funktion und Anzahl. Diese Listen kommen mit der Rückmeldung zurück.' }),
+        'Für den kurzen Link und die verbindliche Freigabe bitte anmelden und online gehen.' })) : null,
+      el('h3', { text: 'Welche Spalten darf der Kunde bearbeiten?' }),
       auswahlBereich,
       el('div', { class: 'knopfleiste', style: { marginBottom: '12px' } }, [
         el('button', { class: 'klein', text: 'Alle auswählen', onclick: function () {
@@ -590,28 +950,154 @@
         'Nur noch leere Felder freigeben', function () { vorschauAktualisieren(); }),
       el('p', { class: 'zart', style: { marginLeft: '64px', marginTop: '-6px' },
         text: 'Bereits gesetzte Berechtigungen kann der Kunde dann nicht mehr ändern.' }),
+      A.schalterFeld(einstellungenFreigabe, 'vorgabenSchuetzen',
+        'Gesperrte (–) und befristete (T) Vorgaben nicht freigeben', function () { vorschauAktualisieren(); }),
+      el('p', { class: 'zart', style: { marginLeft: '64px', marginTop: '-6px' },
+        text: 'Ihre ausdrücklichen Vorgaben bleiben für den Kunden gesperrt - ein Tipp machte sonst aus „–“ ein „X“. Vorgeplante Reserven (O) bleiben bearbeitbar.' }),
+      el('h3', { text: 'Was darf der Kunde außerdem?' }),
+      el('p', { class: 'zart', style: { marginTop: '-6px' },
+        text: 'Das legen Sie je Link fest. Was der Kunde ändert, kommt mit der Rückmeldung zurück und wird erst nach Ihrer Prüfung übernommen.' }),
+      A.schalterFeld(einstellungenFreigabe, 'mitarbeiter', 'Mitarbeiter pflegen (Namen, Gruppenzuordnung, Medien)', function () { vorschauAktualisieren(); }),
+      A.schalterFeld(einstellungenFreigabe, 'gruppen', 'Gruppen anlegen und umbenennen', function () { vorschauAktualisieren(); }),
+      A.schalterFeld(einstellungenFreigabe, 'spalten', 'Neue Spalten für Gruppen oder Mitarbeiter aufnehmen', function () { vorschauAktualisieren(); }),
+      el('p', { class: 'zart', style: { marginLeft: '64px', marginTop: '-6px' },
+        text: 'Neue Spalten des Kunden sind für ihn vollständig bearbeitbar. Welche vorhandenen Spalten er bearbeiten darf, bestimmen Sie oben.' }),
       el('div', { class: 'raster', style: { marginTop: '12px' } }, [
         A.textFeld(einstellungenFreigabe, 'hinweis', 'Hinweis für den Kunden',
-          { platzhalter: 'z. B. Bitte nur die Reinigungszeiten eintragen' }),
-        A.textFeld(einstellungenFreigabe, 'frist', 'Rückmeldung erbeten bis',
-          { platzhalter: 'z. B. 30.09.2026' })
+          { platzhalter: 'z. B. Bitte nur die Reinigungszeiten eintragen', fluechtig: true }),
+        A.textFeld(einstellungenFreigabe, 'frist', 'Rückmeldung erbeten bis', { typ: 'date', fluechtig: true })
       ]),
       vorschau,
       el('div', { class: 'knopfleiste' }, [
         el('button', { class: 'haupt', text: 'Freigabe-Link erzeugen', onclick: function () {
-          if (!anzahlGewaehlt()) { A.toast('Bitte mindestens eine Schließung freigeben.', 'fehler'); return; }
+          if (!anzahlGewaehlt() && !einstellungenFreigabe.mitarbeiter && !einstellungenFreigabe.gruppen && !einstellungenFreigabe.spalten) {
+            A.toast('Bitte mindestens eine Spalte freigeben oder ein Recht einräumen.', 'fehler'); return;
+          }
           linkErzeugen();
-        } })
+        } }),
+        online ? el('button', { text: 'Plan zur verbindlichen Freigabe vorlegen',
+          title: 'Der Kunde sieht den fertigen Plan ohne Bearbeitung und gibt ihn verbindlich frei',
+          onclick: function () { kurzlinkErzeugen(freigabeDaten(true), true); } }) : null
       ]),
       ergebnisBereich,
       listeBereich
     ]);
 
     A.dialogOeffnen({
-      titel: 'Matrix zur Freigabe an den Kunden senden', inhalt: inhalt,
+      titel: 'Plan an den Kunden senden', inhalt: inhalt,
       knoepfe: [{ fuellen: true }, { text: 'Schließen' }]
     });
     listeLaden();
+  }
+
+  /* --- Bericht über eine Rückmeldung: was sich ändern würde bzw. geändert hat --- */
+  function wertText(w) {
+    var zeichen = K && K.berechtigungZeichen ? K.berechtigungZeichen(w) : '';
+    var namen = { nein: 'keine Berechtigung', ja: 'berechtigt', zeit: 'zeitlich begrenzt', temp: 'befristet', sperr: 'gesperrt', plan: 'vorgeplant (Reserve)' };
+    return (zeichen ? zeichen + '  ' : '') + (namen[w] || w || '–');
+  }
+  function berichtZeichnen(ziel, b) {
+    A.leeren(ziel);
+    var zellen = b.aenderungen.filter(function (x) { return x.tuer !== undefined && !x.spalte && !x.uebersprungen; });
+    var ausgelassen = b.aenderungen.filter(function (x) { return x.uebersprungen; });
+    var leute = b.aenderungen.filter(function (x) { return x.mitarbeiter; });
+    var gruppen = b.aenderungen.filter(function (x) { return x.gruppe; });
+    var spalten = b.aenderungen.filter(function (x) { return x.spalte; });
+    var freigabe = b.aenderungen.filter(function (x) { return x.freigabe; })[0];
+    var hinweise = b.aenderungen.filter(function (x) { return x.hinweis; });
+    var ueb = (b.uebersprungen || 0) + (b.listenUebersprungen || 0);
+    if (b.bereitsUebernommen) {
+      ziel.appendChild(el('div', { class: 'meldung warn' }, el('div', {}, [
+        el('b', { text: 'Diese Rückmeldung wurde bereits am ' + datumZeit(b.bereitsUebernommen) + ' übernommen.' }),
+        el('div', { style: { marginTop: '3px', fontSize: '13px' }, text: 'Ein zweites Einlesen legt nichts doppelt an. Unten steht, was sich jetzt noch ändern würde.' })
+      ])));
+    }
+    hinweise.forEach(function (x) {
+      ziel.appendChild(el('div', { class: 'meldung warn' }, el('div', { text: x.text })));
+    });
+    if (!zellen.length && !leute.length && !gruppen.length && !spalten.length && !freigabe) {
+      ziel.appendChild(el('div', { class: 'meldung ' + (hinweise.length || b.bereitsUebernommen ? 'info' : 'warn') }, el('div', { text:
+        'Diese Rückmeldung enthält keine Änderungen gegenüber dem aktuellen Stand des Aufmaßes'
+        + (ueb ? ' – ' + ueb + (ueb === 1 ? ' Angabe betrifft' : ' Angaben betreffen') + ' Türen, Spalten oder Rechte, die es nicht (mehr) gibt (siehe unten).' : '.') })));
+      if (!ausgelassen.length) return;
+    }
+    if (freigabe) {
+      ziel.appendChild(el('div', { class: 'meldung ok' }, el('div', {}, [
+        el('b', { text: 'Verbindliche Freigabe durch ' + [freigabe.name, freigabe.funktion].filter(Boolean).join(', ') }),
+        el('div', { style: { marginTop: '3px', fontSize: '13px' }, text: freigabe.art === 'nachtraeglich'
+          ? 'Der Kunde hat den vorgelegten Plan freigegeben. Mit „Übernehmen“ wird die Freigabe im Aufmaß vermerkt; der Link ist für den Kunden danach gesperrt.'
+          : 'Der Kunde hat seine Rückmeldung mit einer verbindlichen Freigabe gesendet. Mit „Übernehmen“ gelten die Änderungen unten als freigegebener Stand; der Link ist für den Kunden danach gesperrt.' })
+      ])));
+    }
+    if (zellen.length) {
+      ziel.appendChild(el('h3', { text: zellen.length + (zellen.length === 1 ? ' Berechtigung' : ' Berechtigungen') }));
+      var tabelle = el('table');
+      tabelle.appendChild(el('thead', {}, el('tr', {}, [
+        el('th', { text: 'Tür' }), el('th', { text: 'Spalte' }), el('th', { text: 'Bisher' }), el('th', { text: 'Neu' })
+      ])));
+      var koerper = el('tbody');
+      zellen.forEach(function (x) {
+        koerper.appendChild(el('tr', {}, [
+          el('td', { text: (x.tuer || '–') + (x.mit && x.mit.length ? ' (gleichschließend: ' + x.mit.join(', ') + ')' : '') }), el('td', { text: x.schliessung || '–' }),
+          el('td', { text: wertText(x.vorher) }), el('td', { class: 'neu', text: wertText(x.nachher) })
+        ]));
+      });
+      tabelle.appendChild(koerper);
+      ziel.appendChild(el('div', { class: 'tabelle-rahmen' }, tabelle));
+    }
+    function artText(x) {
+      if (x.art === 'neu') return 'neu';
+      if (x.art === 'entfernt') return 'entfernt';
+      if (x.art === 'behalten') return 'bleibt' + (x.grund ? ' (' + x.grund + ' - lässt sich nicht über eine Rückmeldung entfernen)' : '');
+      return 'geändert' + (x.felder && x.felder.length ? ' (' + x.felder.join(', ') + ')' : '');
+    }
+    if (gruppen.length) {
+      ziel.appendChild(el('h3', { text: gruppen.length + (gruppen.length === 1 ? ' Gruppe' : ' Gruppen') }));
+      gruppen.forEach(function (x) {
+        ziel.appendChild(el('div', { class: 'liste' }, [
+          el('b', { text: x.name || '–' }),
+          el('span', { class: 'zart', text: '  ' + artText(x) + (x.vorher ? ' (vorher „' + x.vorher + '“)' : '') }),
+          x.dublette ? el('div', { class: 'namen', style: { color: 'var(--rot)' }, text: 'Achtung: Eine Gruppe mit diesem Namen gibt es schon - nach dem Übernehmen zweimal vorhanden.' }) : null
+        ]));
+      });
+    }
+    if (leute.length) {
+      ziel.appendChild(el('h3', { text: leute.length + ' Mitarbeiter' }));
+      leute.forEach(function (x) {
+        ziel.appendChild(el('div', { class: 'liste' }, [
+          el('b', { text: x.name || '–' }),
+          el('span', { class: 'zart', text: '  ' + artText(x) }),
+          (x.art !== 'entfernt' && x.art !== 'behalten') ? el('div', { class: 'namen', text:
+            'Gruppen: ' + ((x.gruppen || []).join(', ') || '–') + '  ·  Medien: ' + (x.medien || '1× (Art offen)') }) : null,
+          x.dublette ? el('div', { class: 'namen', style: { color: 'var(--rot)' }, text: 'Achtung: Einen Mitarbeiter mit diesem Namen gibt es schon - nach dem Übernehmen zweimal vorhanden.' }) : null
+        ]));
+      });
+    }
+    if (spalten.length) {
+      ziel.appendChild(el('h3', { text: spalten.length + (spalten.length === 1 ? ' neue Spalte' : ' neue Spalten') }));
+      spalten.forEach(function (x) {
+        ziel.appendChild(el('div', { class: 'liste' }, [
+          el('b', { text: (x.art === 'gruppe' ? 'Gruppe ' : 'Mitarbeiter ') + (x.name || '–') }),
+          el('span', { class: 'zart', text: '  ' + x.zellen + (x.zellen === 1 ? ' Berechtigung' : ' Berechtigungen')
+            + (x.vorhanden ? ' (Spalte gab es schon – Berechtigungen werden ergänzt)' : '') })
+        ]));
+      });
+    }
+    if (ausgelassen.length) {
+      ziel.appendChild(el('h3', { text: ausgelassen.length + (ausgelassen.length === 1 ? ' Angabe wird nicht übernommen' : ' Angaben werden nicht übernommen') }));
+      var tab2 = el('table');
+      tab2.appendChild(el('thead', {}, el('tr', {}, [el('th', { text: 'Tür' }), el('th', { text: 'Spalte' }), el('th', { text: 'Gewünscht' }), el('th', { text: 'Grund' })])));
+      var k2 = el('tbody');
+      ausgelassen.forEach(function (x) {
+        k2.appendChild(el('tr', {}, [el('td', { text: x.tuer || '–' }), el('td', { text: x.schliessung || '–' }), el('td', { text: wertText(x.nachher) }), el('td', { text: x.grund || '' })]));
+      });
+      tab2.appendChild(k2);
+      ziel.appendChild(el('div', { class: 'tabelle-rahmen' }, tab2));
+    }
+    if (ueb > ausgelassen.length) {
+      ziel.appendChild(el('p', { class: 'hinweis', text:
+        (ueb - ausgelassen.length) + ' Listen-Einträge betreffen Rechte oder Einträge, die es nicht (mehr) gibt – sie werden übersprungen.' }));
+    }
   }
 
   /* --- Rückmeldung des Kunden einlesen ------------------------------------ */
@@ -623,7 +1109,7 @@
     var bericht = el('div');
 
     var dateiEingabe = el('input', {
-      type: 'file', accept: '.txt,text/plain',
+      type: 'file', accept: '.txt,text/plain', class: 'versteckt',
       onchange: function (e) {
         var datei = e.target.files && e.target.files[0];
         if (!datei) return;
@@ -647,26 +1133,43 @@
         return;
       }
       var fremd = gelesen.pid !== p.id;
-      var anzahl = (gelesen.a ? gelesen.a.split(',').filter(Boolean).length : 0);
-      var listen = (gelesen.p && typeof gelesen.p === 'object') ? Object.keys(gelesen.p).length : 0;
-      var ueberschrift = anzahl + (anzahl === 1 ? ' Änderung' : ' Änderungen') + ' im Plan';
-      if (listen) ueberschrift += ', ' + listen + (listen === 1 ? ' Inhaberliste' : ' Inhaberlisten');
+      var ueberschrift = global.Freigabe.antwortKurz(gelesen) + ' in der Rückmeldung';
       bericht.appendChild(el('div', { class: 'meldung ' + (fremd ? 'warn' : 'ok') }, el('div', {}, [
-        el('b', { text: ueberschrift + ' in der Rückmeldung' }),
+        el('b', { text: ueberschrift }),
         el('div', { style: { marginTop: '4px', fontSize: '13px' },
           text: fremd ? 'Achtung: Die Rückmeldung gehört zu einem anderen Projekt. Ein Übernehmen '
                       + 'ist nicht möglich.'
                       : 'Matrixgröße zum Zeitpunkt der Freigabe: ' + (gelesen.anzahl || '–') })
       ])));
+      if (fremd) { gelesen = null; return; }
+      /* Vorschau: auf einer Kopie des Aufmaßes probeweise übernehmen und
+         zeigen, was sich ändern würde - vorher wurde blind übernommen. */
+      var probe = JSON.parse(JSON.stringify(p));
+      try {
+        var vorschau = global.Freigabe.antwortUebernehmen(probe, gelesen, {});
+        var kasten = el('div', { class: 'antwort-bericht' });
+        berichtZeichnen(kasten, vorschau);
+        bericht.appendChild(kasten);
+      } catch (fehler2) {
+        gelesen = null;
+        bericht.appendChild(el('div', { class: 'meldung fehler' }, el('div', { text: fehler2.message })));
+      }
     }
     feld.addEventListener('input', pruefen);
+    var geoeffnet = null;
+    function knopfStand() {
+      var knopf = geoeffnet && geoeffnet.kasten ? geoeffnet.kasten.querySelector('.fuss button.haupt') : null;
+      if (knopf) knopf.disabled = !gelesen;
+    }
+    feld.addEventListener('input', knopfStand);
+    dateiEingabe.addEventListener('change', function () { setTimeout(knopfStand, 150); });
 
-    A.dialogOeffnen({
+    geoeffnet = A.dialogOeffnen({
       titel: 'Rückmeldung des Kunden einlesen',
       inhalt: el('div', {}, [
         el('p', { class: 'hinweis', style: { marginTop: '0' },
           text: 'Die Rückmeldung kam als Datei oder als Text in einer E-Mail. Beides wird hier eingelesen. ' +
-                'Übernommen werden ausschließlich Felder, die Sie zuvor freigegeben haben.' }),
+                'Übernommen wird ausschließlich, was Sie für diesen Link freigegeben haben.' }),
         el('div', { class: 'knopfleiste', style: { marginBottom: '12px' } }, [
           el('button', { text: 'Datei auswählen', onclick: function () { dateiEingabe.click(); } }),
           dateiEingabe
@@ -680,40 +1183,47 @@
           if (!gelesen) { A.toast('Bitte zuerst eine gültige Rückmeldung einfügen.', 'fehler'); return false; }
           var ergebnis;
           A.schrittMerken('Kundenrückmeldung übernommen');
-          try { ergebnis = global.Freigabe.antwortUebernehmen(p, gelesen); }
+          /* Maßstab ist die beim Erzeugen des Links abgelegte Freigabe. Ist
+             keine bekannt, wird die Rückmeldung abgelehnt - ungeprüft kommt
+             nichts ins Aufmaß. */
+          try { ergebnis = global.Freigabe.antwortUebernehmen(p, gelesen, {}); }
           catch (fehler) { A.toast(fehler.message, 'fehler'); return false; }
           A.alsGeaendertMarkieren(); A.speichern();
-          var text = ergebnis.uebernommen + ' Berechtigung(en) übernommen';
-          if (ergebnis.personenListen) {
-            text += ', ' + ergebnis.personenListen + ' Inhaberliste(n) aktualisiert';
-          }
-          if (ergebnis.uebersprungen || ergebnis.personenUebersprungen) {
-            text += ', ' + ((ergebnis.uebersprungen || 0) + (ergebnis.personenUebersprungen || 0)) + ' übersprungen';
-          }
-          A.toast(text + '.', 'ok');
+          A.toast('Rückmeldung übernommen.', 'ok');
           schliessen(); neuZeichnen();
+          /* Der Bericht bleibt zum Nachlesen offen - eine Meldung verschwände nach Sekunden */
+          var zusammenfassung = el('div', { class: 'antwort-bericht' });
+          berichtZeichnen(zusammenfassung, ergebnis);
+          A.dialogOeffnen({ titel: 'Rückmeldung übernommen', klein: true,
+            inhalt: el('div', {}, [el('p', { class: 'hinweis', style: { marginTop: '0' }, text: global.Freigabe.berichtText(ergebnis) + '.' }), zusammenfassung]),
+            knoepfe: [{ fuellen: true }, { text: 'Schließen', klasse: 'haupt' }] });
           return false;
         } }
       ]
     });
+    knopfStand();
   }
 
-  /* --- Blanko-Plan aus der Gebäudestruktur -------------------------------- */
+  /* --- Blanko-Plan ------------------------------------------------------ */
   function blankoDialog(neuZeichnen) {
     var p = Zustand.projekt;
-    var optionen = { ghs: true, proGebaeude: true, proBereich: true, proTuer: false,
-                     vorhandeneErsetzen: p.schliessungen.length === 0 };
+    var hatGhs = p.schliessungen.some(function (s) { return s.typ === 'ghs'; });
+    var optionen = { ghs: !hatGhs, proGruppe: (p.gruppen || []).length > 0, proMitarbeiter: false,
+                     vorhandeneErsetzen: false };
     var vorschau = el('div', { class: 'meldung info', style: { marginTop: '4px' } });
 
+    function grundlage() {
+      return optionen.vorhandeneErsetzen ? Object.assign({}, p, { schliessungen: [] }) : p;
+    }
     function vorschauAktualisieren() {
       A.leeren(vorschau);
-      var anzahl = M.blankoVorschau(p, optionen);
+      var anzahl = M.blankoVorschau(grundlage(), optionen);
       vorschau.appendChild(el('div', {}, [
-        el('b', { text: anzahl + (anzahl === 1 ? ' Schließung' : ' Schließungen') + ' werden angelegt' }),
+        el('b', { text: anzahl + (anzahl === 1 ? ' Spalte wird' : ' Spalten werden') + ' angelegt' }),
         el('div', { style: { marginTop: '4px', fontSize: '13px' },
-          text: optionen.vorhandeneErsetzen
-            ? 'Die vorhandenen ' + p.schliessungen.length + ' Schließungen werden dabei ersetzt.'
-            : 'Die vorhandenen Schließungen bleiben erhalten, die neuen kommen hinzu.' })
+          text: optionen.vorhandeneErsetzen && p.schliessungen.length
+            ? 'Die vorhandenen ' + p.schliessungen.length + ' Spalten und ihre Berechtigungen werden dabei entfernt.'
+            : 'Vorhandene Spalten bleiben erhalten, die neuen kommen hinzu.' })
       ]));
     }
 
@@ -726,14 +1236,15 @@
 
     var inhalt = el('div', {}, [
       el('p', { class: 'hinweis', style: { marginTop: '0' },
-        text: 'Erzeugt aus Standorten, Gebäuden und Bereichen einen vollständigen Plan als Arbeitsgrundlage. Die Berechtigungen werden gleich mitgesetzt und lassen sich danach frei anpassen.' }),
-      schalter('ghs', 'Generalhauptschlüssel', 'Eine Schließung, die überall berechtigt ist.'),
-      schalter('proGebaeude', 'Hauptschlüssel je Gebäude', 'Berechtigt für alle Türen des jeweiligen Gebäudes.'),
-      schalter('proBereich', 'Gruppenschlüssel je Bereich / Etage', 'Berechtigt für alle Türen des Bereichs.'),
-      schalter('proTuer', 'Einzelschließung je Tür', 'Für jede Tür eine eigene Schließung – bei großen Objekten viele Spalten.'),
+        text: 'Als Grundlage wird ein Generalhauptschlüssel angelegt, der an allen Türen berechtigt ist. Dazu auf Wunsch je Gruppe ' +
+              'und je Mitarbeiter eine noch leere Spalte – die Berechtigungen tippen Sie danach an. Alle weiteren Schließungen ' +
+              'und Gruppen benennen Sie selbst.' }),
+      schalter('ghs', 'Generalhauptschlüssel (GHS)', hatGhs ? 'Es gibt schon einen GHS im Plan.' : 'Eine Schließung, die an allen Türen berechtigt ist – mit zwei Medien.'),
+      schalter('proGruppe', 'Spalte je Gruppe (' + (p.gruppen || []).length + ')', 'Alle Mitglieder einer Gruppe sind über ihre Spalte berechtigt.'),
+      schalter('proMitarbeiter', 'Spalte je Mitarbeiter (' + (p.mitarbeiter || []).length + ')', 'Nur sinnvoll für Mitarbeiter mit eigenen Berechtigungen – sonst viele Spalten.'),
       el('hr', { class: 'trenner' }),
-      schalter('vorhandeneErsetzen', 'Vorhandene Schließungen ersetzen',
-        'Ohne diesen Schalter werden die neuen Schließungen ergänzt.'),
+      schalter('vorhandeneErsetzen', 'Vorhandene Spalten vorher entfernen',
+        'Ohne diesen Schalter werden die neuen Spalten ergänzt.'),
       vorschau
     ]);
     vorschauAktualisieren();
@@ -744,20 +1255,21 @@
         { fuellen: true },
         { text: 'Abbrechen' },
         { text: 'Plan erzeugen', klasse: 'haupt', aktion: function (schliessen) {
-          var anzahl = M.blankoVorschau(p, optionen);
-          if (!anzahl) { A.toast('Mit dieser Auswahl entsteht keine Schließung.', 'fehler'); return false; }
+          var anzahl = M.blankoVorschau(grundlage(), optionen);
+          if (!anzahl) { A.toast('Mit dieser Auswahl entsteht keine Spalte.', 'fehler'); return false; }
           function ausfuehren() {
             A.schrittMerken('Blanko-Plan erzeugt');
+            if (optionen.vorhandeneErsetzen) { p.schliessungen = []; p.matrix = {}; }
             var ergebnis = M.blankoSchliessplan(p, optionen);
             A.alsGeaendertMarkieren(); A.speichern();
-            A.toast(ergebnis.angelegt + ' Schließungen und ' + ergebnis.berechtigungen +
+            A.toast(ergebnis.angelegt + (ergebnis.angelegt === 1 ? ' Spalte' : ' Spalten') + ' und ' + ergebnis.berechtigungen +
                     ' Berechtigungen angelegt.', 'ok');
             schliessen(); neuZeichnen();
           }
           if (optionen.vorhandeneErsetzen && p.schliessungen.length) {
-            A.bestaetigen('Vorhandene Schließungen ersetzen?',
-              'Die bestehenden ' + p.schliessungen.length + ' Schließungen und alle gesetzten ' +
-              'Berechtigungen werden gelöscht und durch den neuen Plan ersetzt.',
+            A.bestaetigen('Vorhandene Spalten entfernen?',
+              'Die bestehenden ' + p.schliessungen.length + ' Spalten und alle gesetzten ' +
+              'Berechtigungen werden gelöscht und durch den neuen Plan ersetzt. Mitarbeiter und Gruppen bleiben erhalten.',
               'Ersetzen').then(function (ja) { if (ja) ausfuehren(); });
           } else { ausfuehren(); }
           return false;
@@ -767,221 +1279,153 @@
   }
 
   /* =========================================================================
-   * Personen einer Schließung
+   * Spalte anlegen / bearbeiten
    * ======================================================================
-   * Eine Schließung wird entweder von namentlich benannten Einzelpersonen
-   * oder von einer Gruppe getragen. Die Liste ist in beiden Fällen dieselbe;
-   * bei einer Gruppe heißen die Einträge Mitglieder.
-   *
-   * Aus der Summe der Personen ergibt sich die Anzahl der Medien - außer
-   * die Zahl wurde ausdrücklich selbst eingetragen.
+   * Eine Spalte ist eine Gruppe, ein einzelner Mitarbeiter oder eine
+   * Schließung mit Rang im Plan. Bei Gruppe und Mitarbeiter verweist die
+   * Spalte auf die Liste unter der Matrix; Name und Mitglieder werden dort
+   * gepflegt. Bei einer Schließung stehen die Träger (Mitarbeiter) oder -
+   * ohne benannte Träger - Art und Anzahl der Medien direkt an der Spalte.
    */
-  function personenListeBauen(s, beiAenderung) {
-    var behaelter = el('div');
-
-    function zeichnen() {
-      A.leeren(behaelter);
-      var liste = el('div', { class: 'person-liste' });
-      (s.personen || []).forEach(function (person, index) {
-        liste.appendChild(el('div', { class: 'person-zeile' }, [
-          A.textFeld(person, 'name', (index + 1) + '. Name',
-            { platzhalter: 'z. B. Herr Özdemir', beiAenderung: melden }),
-          A.textFeld(person, 'funktion', 'Funktion / Abteilung',
-            { platzhalter: 'z. B. Hausmeister' }),
-          A.zahlFeld(person, 'anzahlMedien', 'Medien',
-            { min: 1, max: 99, vorgabe: 1, beiAenderung: melden }),
-          el('button', {
-            class: 'klein gefahr nur-symbol entfernen', text: '✕',
-            title: 'Person entfernen',
-            onclick: function () {
-              A.schrittMerken('Person entfernt: ' + (person.name || 'ohne Namen'));
-              s.personen.splice(index, 1);
-              melden(); zeichnen();
-            }
-          })
-        ]));
-      });
-      if (!(s.personen || []).length) {
-        liste.appendChild(el('p', { class: 'zart',
-          text: s.traegerArt === 'gruppe'
-            ? 'Noch keine Mitglieder hinterlegt.'
-            : 'Noch keine Person benannt.' }));
-      }
-      behaelter.appendChild(liste);
-      behaelter.appendChild(el('div', { class: 'knopfleiste', style: { marginTop: '10px' } },
-        el('button', { text: s.traegerArt === 'gruppe' ? '+ Mitglied' : '+ Person',
-          onclick: function () {
-            A.schrittMerken('Person hinzugefügt');
-            if (!Array.isArray(s.personen)) s.personen = [];
-            s.personen.push(M.neuePerson());
-            melden(); zeichnen();
-            /* Gleich in das neue Namensfeld springen */
-            setTimeout(function () {
-              var felder = behaelter.querySelectorAll('.person-zeile input');
-              var letzte = felder[(s.personen.length - 1) * 3];
-              if (letzte) letzte.focus();
-            }, 30);
-          } })));
-    }
-
-    function melden() {
-      A.alsGeaendertMarkieren();
-      if (beiAenderung) beiAenderung();
-    }
-
-    zeichnen();
-    return behaelter;
+  function naechsteSort(p) {
+    return (p.schliessungen || []).reduce(function (max, s) { return Math.max(max, (s.sort || 0) + 1); }, 0);
   }
 
-  /* --- Schließung anlegen / bearbeiten ------------------------------------ */
   function schliessungBearbeiten(vorhandene, neuZeichnen) {
     var p = Zustand.projekt;
+    var VPers = global.ViewsPersonen;
     var istNeu = !vorhandene;
-    var s = istNeu ? M.neueSchliessung({ sort: p.schliessungen.length })
+    var s = istNeu ? M.neueSchliessung({ sort: naechsteSort(p) })
                    : JSON.parse(JSON.stringify(vorhandene));
-    if (!Array.isArray(s.personen)) s.personen = [];
+    s.medien = M.medienBereinigen(s.medien);
+    var wahl = { art: s.art || 'schliessung', gruppeId: '', mitarbeiterId: '', neuerName: '' };
 
     var inhalt = el('div');
-    var traegerBereich = el('div');
+    var formular = el('div');
     var medienBereich = el('div');
 
-    inhalt.appendChild(el('div', { class: 'raster' }, [
-      A.textFeld(s, 'kuerzel', 'Kürzel', { platzhalter: 'z. B. GHS, HS-A, VW' }),
-      A.textFeld(s, 'bezeichnung', 'Bezeichnung', { platzhalter: 'z. B. Generalhauptschlüssel' }),
-      A.auswahlFeld(s, 'typ', 'Rang im Plan', K.SCHLIESSUNG_TYPEN, { leerText: '– ohne Angabe –' })
-    ]));
-
-    inhalt.appendChild(el('hr', { class: 'trenner' }));
-    inhalt.appendChild(el('h3', { text: 'Wer bekommt dieses Medium?', style: { marginTop: '0' } }));
-    inhalt.appendChild(el('div', { class: 'raster' }, [
-      A.auswahlFeld(s, 'traegerArt', 'Träger', K.TRAEGER_ART,
-        { leerText: '– noch offen –', beiAenderung: function () { traegerZeichnen(); } })
-    ]));
-    inhalt.appendChild(traegerBereich);
-    inhalt.appendChild(medienBereich);
-    inhalt.appendChild(el('div', { class: 'raster', style: { marginTop: '14px' } }, [
-      A.bereichFeld(s, 'bemerkung', 'Bemerkung', { zeilen: 2 })
-    ]));
-
-    function traegerZeichnen() {
-      A.leeren(traegerBereich);
-      var art = K.TRAEGER_ART.filter(function (a) { return a.id === s.traegerArt; })[0];
-      if (art) {
-        traegerBereich.appendChild(el('p', { class: 'hinweis', style: { marginTop: '8px' },
-          text: art.hinweis }));
-      }
-
-      if (s.traegerArt === 'gruppe') {
-        traegerBereich.appendChild(el('div', { class: 'raster', style: { marginTop: '10px' } }, [
-          A.textFeld(s, 'gruppenName', 'Gruppenname',
-            { platzhalter: 'z. B. Reinigung, IT, Hausmeisterei',
-              beiAenderung: function () { gruppenKnopfAktualisieren(); } })
-        ]));
-        /* Auf den Gruppennamen tippen öffnet die Mitgliederliste */
-        var knopf = el('button', { class: 'gruppen-knopf', style: { marginTop: '10px' },
-          onclick: function () { mitgliederDialog(); } });
-        traegerBereich.appendChild(knopf);
-        gruppenKnopfAktualisieren();
-
-        function gruppenKnopfAktualisieren() {
-          var benannt = (s.personen || []).filter(function (x) { return x && String(x.name || '').trim(); });
-          A.leeren(knopf);
-          knopf.appendChild(el('span', { class: 'name',
-            text: s.gruppenName ? ('Gruppe „' + s.gruppenName + '“') : 'Gruppe (noch ohne Namen)' }));
-          knopf.appendChild(el('span', { class: 'zahl', text: benannt.length
-            ? (benannt.length + (benannt.length === 1 ? ' Mitglied' : ' Mitglieder')) 
-            : 'Mitglieder hinterlegen' }));
-          knopf.appendChild(el('span', { class: 'oeffnen-pfeil', text: '›' }));
-        }
-      } else if (s.traegerArt === 'einzel') {
-        traegerBereich.appendChild(el('h3', { text: 'Personen' }));
-        traegerBereich.appendChild(personenListeBauen(s, function () { medienZeichnen(); }));
-      }
-      medienZeichnen();
-    }
-
-    /* Mitgliederliste einer Gruppe in einem eigenen Dialog: vor Ort ist das
-     * ein eigener Arbeitsschritt und soll den Rest nicht verdecken. */
-    function mitgliederDialog() {
-      var innen = el('div');
-      innen.appendChild(el('p', { class: 'hinweis', style: { marginTop: '0' },
-        text: 'Die Mitglieder dieser Gruppe. Die Anzahl der Medien ergibt sich aus der Summe – ' +
-              'je Person lässt sich eine eigene Anzahl eintragen.' }));
-      innen.appendChild(personenListeBauen(s, function () { medienZeichnen(); }));
-      A.dialogOeffnen({
-        titel: s.gruppenName ? ('Mitglieder: ' + s.gruppenName) : 'Mitglieder der Gruppe',
-        inhalt: innen,
-        knoepfe: [{ fuellen: true }, { text: 'Fertig', klasse: 'haupt' }],
-        beimSchliessen: function () { traegerZeichnen(); }
+    if (istNeu) {
+      var artChips = el('div', { class: 'chips' });
+      K.SPALTEN_ART.forEach(function (a) {
+        var chip = el('button', { type: 'button', class: 'chip', 'aria-pressed': wahl.art === a.id ? 'true' : 'false', text: a.label,
+          onclick: function () {
+            wahl.art = a.id;
+            Array.prototype.forEach.call(artChips.children, function (c) { c.setAttribute('aria-pressed', 'false'); });
+            chip.setAttribute('aria-pressed', 'true');
+            formularZeichnen();
+          } });
+        artChips.appendChild(chip);
       });
+      inhalt.appendChild(el('div', { class: 'feld voll', 'data-feld': 'art' }, [el('label', { text: 'Was soll die Spalte sein?' }), artChips]));
+    }
+    inhalt.appendChild(formular);
+
+    function artHinweis(id) {
+      var a = K.SPALTEN_ART.filter(function (x) { return x.id === id; })[0];
+      return a ? a.hinweis : '';
     }
 
-    /* Anzahl der Medien: errechnet oder selbst eingetragen. Beides ist
-     * zulässig, aber es muss sichtbar sein, welches gerade gilt. */
     function medienZeichnen() {
       A.leeren(medienBereich);
-      var benannt = (s.personen || []).filter(function (x) { return x && String(x.name || '').trim(); });
-      var errechnet = benannt.reduce(function (sum, x) {
-        var n = parseInt(x.anzahlMedien, 10);
-        return sum + ((!n || n < 1) ? 1 : n);
-      }, 0);
-      var automatisch = !s.medienVonHand && benannt.length > 0;
-
+      var leute = M.spaltenMitglieder(p, s);
       medienBereich.appendChild(el('hr', { class: 'trenner' }));
-      /* Ohne die Art des Mediums lässt sich nicht bestellen: 40 Stück
-       * wovon? Die Auswahl ergibt sich aus den Systemen des Projekts. */
-      var medienArten = M.identmedienAuswahl(p,
-        (Zustand.einstellungen && Zustand.einstellungen.eigeneSysteme) || []);
-      medienBereich.appendChild(el('div', { class: 'raster' }, [
-        medienArten.length
-          ? A.auswahlFeld(s, 'medienTyp', 'Art des Mediums', medienArten,
-              { leerText: '– noch offen –' })
-          : A.textFeld(s, 'medienTyp', 'Art des Mediums',
-              { platzhalter: 'z. B. Schlüssel, Transponder, Karte' })
-      ]));
-      if (automatisch) {
-        s.anzahlMedien = errechnet;
-        medienBereich.appendChild(el('div', { class: 'feld' }, [
-          el('label', { html: 'Anzahl Schlüssel / Medien <span class="einheit">(automatisch aus der Personenliste)</span>' }),
-          el('input', { type: 'text', value: String(errechnet), readonly: true })
-        ]));
-        medienBereich.appendChild(el('div', { class: 'knopfleiste', style: { marginTop: '8px' } },
-          el('button', { class: 'klein', text: 'Anzahl von Hand eintragen', onclick: function () {
-            A.schrittMerken('Medienanzahl von Hand');
-            s.medienVonHand = true; A.alsGeaendertMarkieren(); medienZeichnen();
-          } })));
+      if (leute.length) {
+        medienBereich.appendChild(el('p', { class: 'hinweis', text:
+          M.medienAnzahl(p, s) + (M.medienAnzahl(p, s) === 1 ? ' Medium' : ' Medien') + ' – aus den Angaben der Mitarbeiter (' +
+          leute.map(function (m) { return m.name; }).join(', ') + '). Art und Anzahl stehen beim jeweiligen Mitarbeiter.' }));
       } else {
-        medienBereich.appendChild(el('div', { class: 'raster' }, [
-          A.zahlFeld(s, 'anzahlMedien', 'Anzahl Schlüssel / Medien',
-            { min: 0, max: 999, vorgabe: 1,
-              beiAenderung: function () { s.medienVonHand = true; } })
-        ]));
-        if (benannt.length) {
-          medienBereich.appendChild(el('div', { class: 'knopfleiste', style: { marginTop: '8px' } },
-            el('button', { class: 'klein', text: 'Wieder automatisch (' + errechnet + ')',
-              title: 'Anzahl aus der Personenliste errechnen',
-              onclick: function () {
-                A.schrittMerken('Medienanzahl wieder automatisch');
-                s.medienVonHand = false; A.alsGeaendertMarkieren(); medienZeichnen();
-              } })));
-        }
+        medienBereich.appendChild(VPers.medienFeld(s, 'Medien ohne benannten Träger <span class="einheit">(z. B. zwei Generalhauptschlüssel im Tresor)</span>',
+          { leerText: 'Noch keine Medien eingetragen – oder oben Mitarbeiter als Träger wählen.' }));
       }
     }
 
-    traegerZeichnen();
+    function formularZeichnen() {
+      A.leeren(formular);
+      if (wahl.art === 'gruppe') {
+        if (istNeu) {
+          var frei = (p.gruppen || []).filter(function (g) {
+            return !p.schliessungen.some(function (s2) { return s2.art === 'gruppe' && s2.gruppeId === g.id; });
+          });
+          formular.appendChild(el('p', { class: 'hinweis', text: artHinweis('gruppe') }));
+          formular.appendChild(el('div', { class: 'raster' }, [
+            A.auswahlFeld(wahl, 'gruppeId', 'Vorhandene Gruppe', frei.map(function (g) { return { id: g.id, label: g.name }; }),
+              { leerText: frei.length ? '– Gruppe wählen –' : '– alle Gruppen haben schon eine Spalte –' }),
+            A.textFeld(wahl, 'neuerName', 'oder neue Gruppe anlegen', { platzhalter: 'Name der neuen Gruppe', autocapitalize: 'words' })
+          ]));
+          formular.appendChild(el('div', { class: 'raster', style: { marginTop: '12px' } }, [
+            A.textFeld(s, 'kuerzel', 'Kürzel', { platzhalter: 'leer = aus dem Namen' })
+          ]));
+        } else {
+          var g = M.gruppeVon(p, s.gruppeId);
+          formular.appendChild(el('p', { class: 'hinweis', text: 'Spalte der Gruppe „' + (g ? g.name : s.bezeichnung) + '“ – ' +
+            M.traegerText(p, s) + '. Name und Mitglieder werden in der Gruppe gepflegt.' }));
+          if (g) {
+            formular.appendChild(el('div', { class: 'knopfleiste' }, el('button', { text: 'Gruppe bearbeiten', onclick: function () {
+              dialog.schliessen(); VPers.gruppeBearbeiten(g, neuZeichnen);
+            } })));
+          }
+          formular.appendChild(el('div', { class: 'raster', style: { marginTop: '12px' } }, [
+            A.textFeld(s, 'kuerzel', 'Kürzel', { platzhalter: 'z. B. VW, EDV' }),
+            A.bereichFeld(s, 'bemerkung', 'Bemerkung', { zeilen: 2 })
+          ]));
+        }
+      } else if (wahl.art === 'mitarbeiter') {
+        if (istNeu) {
+          var freieLeute = (p.mitarbeiter || []).filter(function (m) {
+            return !p.schliessungen.some(function (s2) { return s2.art === 'mitarbeiter' && s2.mitarbeiterId === m.id; });
+          });
+          formular.appendChild(el('p', { class: 'hinweis', text: artHinweis('mitarbeiter') }));
+          formular.appendChild(el('div', { class: 'raster' }, [
+            A.auswahlFeld(wahl, 'mitarbeiterId', 'Vorhandener Mitarbeiter', freieLeute.map(function (m) { return { id: m.id, label: m.name }; }),
+              { leerText: freieLeute.length ? '– Mitarbeiter wählen –' : '– alle Mitarbeiter haben schon eine Spalte –' }),
+            A.textFeld(wahl, 'neuerName', 'oder neuen Mitarbeiter anlegen', { platzhalter: 'Vorname Nachname', autocapitalize: 'words' })
+          ]));
+          formular.appendChild(el('div', { class: 'raster', style: { marginTop: '12px' } }, [
+            A.textFeld(s, 'kuerzel', 'Kürzel', { platzhalter: 'leer = aus dem Namen' })
+          ]));
+        } else {
+          var m = M.mitarbeiterVon(p, s.mitarbeiterId);
+          formular.appendChild(el('p', { class: 'hinweis', text: 'Spalte des Mitarbeiters „' + (m ? m.name : s.bezeichnung) + '“. ' +
+            'Name, Gruppen und Medien werden beim Mitarbeiter gepflegt.' }));
+          if (m) {
+            formular.appendChild(el('div', { class: 'knopfleiste' }, el('button', { text: 'Mitarbeiter bearbeiten', onclick: function () {
+              dialog.schliessen(); VPers.mitarbeiterBearbeiten(m, neuZeichnen);
+            } })));
+          }
+          formular.appendChild(el('div', { class: 'raster', style: { marginTop: '12px' } }, [
+            A.textFeld(s, 'kuerzel', 'Kürzel', { platzhalter: 'z. B. HM' }),
+            A.bereichFeld(s, 'bemerkung', 'Bemerkung', { zeilen: 2 })
+          ]));
+        }
+      } else {
+        formular.appendChild(el('div', { class: 'raster' }, [
+          A.textFeld(s, 'kuerzel', 'Kürzel', { platzhalter: 'z. B. GHS, HS-A' }),
+          A.textFeld(s, 'bezeichnung', 'Bezeichnung', { platzhalter: 'z. B. Generalhauptschlüssel' }),
+          A.auswahlFeld(s, 'typ', 'Rang im Plan', K.SCHLIESSUNG_TYPEN, { leerText: '– ohne Angabe –' })
+        ]));
+        formular.appendChild(el('hr', { class: 'trenner' }));
+        formular.appendChild(VPers.traegerChips(s, medienZeichnen, neuZeichnen));
+        formular.appendChild(medienBereich);
+        medienZeichnen();
+        formular.appendChild(el('div', { class: 'raster', style: { marginTop: '14px' } }, [
+          A.bereichFeld(s, 'bemerkung', 'Bemerkung', { zeilen: 2 })
+        ]));
+      }
+    }
+    formularZeichnen();
 
     var knoepfe = [];
     if (!istNeu) {
       knoepfe.push({ text: 'Löschen', klasse: 'gefahr', aktion: function (schliessen) {
-        A.bestaetigen('Schließung löschen?',
-          'Die Schließung „' + (s.kuerzel || s.bezeichnung) +
-          '“ und alle zugehörigen Berechtigungen werden entfernt.').then(function (ja) {
+        A.bestaetigen('Spalte löschen?',
+          'Die Spalte „' + (s.kuerzel || s.bezeichnung) +
+          '“ und alle zugehörigen Berechtigungen werden entfernt. Gruppe oder Mitarbeiter dahinter bleiben erhalten.').then(function (ja) {
           if (!ja) return;
-          A.schrittMerken('Schließung ' + (s.kuerzel || s.bezeichnung) + ' gelöscht');
+          A.schrittMerken('Spalte ' + (s.kuerzel || s.bezeichnung) + ' gelöscht');
           p.schliessungen = p.schliessungen.filter(function (x) { return x.id !== s.id; });
           M.matrixAufraeumen(p);
           A.alsGeaendertMarkieren(); neuZeichnen();
-          A.toast('Schließung gelöscht.');
+          A.toast('Spalte gelöscht.');
           schliessen();
         });
         return false;
@@ -990,33 +1434,51 @@
     knoepfe.push({ fuellen: true });
     knoepfe.push({ text: 'Abbrechen' });
     knoepfe.push({ text: istNeu ? 'Anlegen' : 'Übernehmen', klasse: 'haupt', aktion: function (schliessen) {
-      if (!s.kuerzel && !s.bezeichnung) { A.toast('Bitte Kürzel oder Bezeichnung angeben.', 'fehler'); return false; }
-      if (s.traegerArt === 'gruppe' && !String(s.gruppenName || '').trim()) {
-        A.toast('Bitte einen Gruppennamen angeben.', 'fehler'); return false;
+      if (istNeu && (wahl.art === 'gruppe' || wahl.art === 'mitarbeiter')) {
+        var neuerName = String(wahl.neuerName || '').trim();
+        var id = wahl.art === 'gruppe' ? wahl.gruppeId : wahl.mitarbeiterId;
+        if (!id && !neuerName) { A.toast('Bitte auswählen oder einen Namen eintragen.', 'fehler'); return false; }
+        if (neuerName) {
+          if (wahl.art === 'gruppe') { id = VPers.gruppeAnlegen(neuerName).id; }
+          else {
+            var daMa = (p.mitarbeiter || []).filter(function (x) { return String(x.name).trim().toLowerCase() === neuerName.toLowerCase(); })[0];
+            if (daMa) id = daMa.id;
+            else { A.schrittMerken('Mitarbeiter ' + neuerName + ' angelegt'); var neu = M.neuerMitarbeiter({ name: neuerName }); p.mitarbeiter.push(neu); id = neu.id; }
+          }
+        }
+        if (p.schliessungen.some(function (s2) { return s2.art === wahl.art && (wahl.art === 'gruppe' ? s2.gruppeId === id : s2.mitarbeiterId === id); })) {
+          A.toast('Dafür gibt es schon eine Spalte im Plan.', 'fehler'); return false;
+        }
+        A.schrittMerken('Spalte angelegt');
+        var sp = M.spalteFuer(p, wahl.art, id);
+        if (String(s.kuerzel || '').trim()) sp.kuerzel = String(s.kuerzel).trim();
+        M.spaltenAngleichen(p);
+        A.alsGeaendertMarkieren(); A.speichern(); neuZeichnen();
+        A.toast('Spalte angelegt.', 'ok');
+        schliessen();
+        return false;
       }
-      A.schrittMerken(istNeu ? ('Schließung ' + (s.kuerzel || s.bezeichnung) + ' angelegt')
-                             : ('Schließung ' + (s.kuerzel || s.bezeichnung) + ' geändert'));
-      /* Namenlose Einträge werden nicht mitgeschleppt */
-      s.personen = (s.personen || []).filter(function (x) { return x && String(x.name || '').trim(); })
-        .map(function (x) {
-          var n = parseInt(x.anzahlMedien, 10);
-          x.anzahlMedien = (!n || n < 1) ? 1 : n;
-          return x;
-        });
-      M.medienAngleichen(s);
+      if (wahl.art === 'schliessung' && !s.kuerzel && !s.bezeichnung) {
+        A.toast('Bitte Kürzel oder Bezeichnung angeben.', 'fehler'); return false;
+      }
+      A.schrittMerken(istNeu ? ('Spalte ' + (s.kuerzel || s.bezeichnung) + ' angelegt')
+                             : ('Spalte ' + (s.kuerzel || s.bezeichnung) + ' geändert'));
+      s.medien = M.medienBereinigen(s.medien);
+      if (s.art !== 'schliessung') { s.typ = ''; s.traeger = []; }
       if (istNeu) p.schliessungen.push(s);
       else {
         var i = p.schliessungen.findIndex(function (x) { return x.id === s.id; });
-        if (i >= 0) p.schliessungen[i] = s;
+        if (i >= 0) p.schliessungen[i] = s; else p.schliessungen.push(s);
       }
+      M.spaltenAngleichen(p);
       A.alsGeaendertMarkieren(); A.speichern(); neuZeichnen();
-      A.toast('Schließung gespeichert.', 'ok');
+      A.toast('Spalte gespeichert.', 'ok');
       schliessen();
       return false;
     } });
 
-    A.dialogOeffnen({
-      titel: istNeu ? 'Neue Schließung' : 'Schließung bearbeiten',
+    var dialog = A.dialogOeffnen({
+      titel: istNeu ? 'Neue Spalte im Plan' : 'Spalte bearbeiten',
       klein: false, inhalt: inhalt, knoepfe: knoepfe
     });
   }
@@ -1026,31 +1488,35 @@
     var inhalt = el('div');
     function zeichnen() {
       A.leeren(inhalt);
-      var sortiert = p.schliessungen.slice().sort(function (a, b) { return a.sort - b.sort; });
-      if (!sortiert.length) { inhalt.appendChild(el('p', { class: 'zart', text: 'Keine Schließungen vorhanden.' })); return; }
-      var tab = el('table');
+      var sortiert = M.spaltenSortiert(p);
+      if (!sortiert.length) { inhalt.appendChild(el('p', { class: 'zart', text: 'Keine Spalten vorhanden.' })); return; }
+      inhalt.appendChild(el('p', { class: 'hinweis', style: { marginTop: '0' },
+        text: 'Die Reihenfolge lässt sich auch direkt im Plan ändern: Spaltenkopf zwei Sekunden halten und ziehen.' }));
+      var tab = el('table', { class: 'spalten-tabelle' });
       tab.appendChild(el('thead', {}, el('tr', {}, [
         el('th', { text: 'Kürzel' }), el('th', { text: 'Bezeichnung' }),
-        el('th', { text: 'Rang im Plan' }), el('th', { text: 'Träger' }),
+        el('th', { text: 'Art' }), el('th', { text: 'Träger / Mitglieder' }),
         el('th', { class: 'zahl', text: 'Medien' }), el('th', { text: 'Reihenfolge' })
       ])));
       var tb = el('tbody');
       sortiert.forEach(function (s, index) {
-        var typ = K.SCHLIESSUNG_TYPEN.filter(function (x) { return x.id === s.typ; })[0];
+        var oeffnen = function () { schliessungBearbeiten(s, neuZeichnen); };
         tb.appendChild(el('tr', { class: 'anklickbar' }, [
-          el('td', { onclick: function () { schliessungBearbeiten(s, neuZeichnen); }, text: s.kuerzel || '—' }),
-          el('td', { onclick: function () { schliessungBearbeiten(s, neuZeichnen); }, text: s.bezeichnung || '' }),
-          el('td', { text: typ ? typ.label : (s.typ || '') }),
-          el('td', { onclick: function () { schliessungBearbeiten(s, neuZeichnen); },
-                     text: K.traegerText(s) || '– noch offen –' }),
-          el('td', { class: 'zahl', text: String(M.medienAnzahl(s)) }),
-          el('td', {}, el('div', { class: 'knopfleiste' }, [
-            el('button', { class: 'klein nur-symbol', text: '↑', disabled: index === 0, onclick: function () {
-              A.schrittMerken('Reihenfolge der Schließungen geändert');
+          el('td', { onclick: oeffnen, text: s.kuerzel || '—' }),
+          el('td', { onclick: oeffnen, text: s.bezeichnung || '' }),
+          el('td', { onclick: oeffnen, text: M.spaltenArtText(s) }),
+          el('td', { onclick: oeffnen, text: M.traegerText(p, s) || (M.medienBereinigen(s.medien).length ? 'ohne benannten Träger' : '– noch offen –') }),
+          el('td', { class: 'zahl', text: String(M.medienAnzahl(p, s)) }),
+          el('td', {}, el('div', { class: 'knopfleiste reihenfolge' }, [
+            el('button', { class: 'klein nur-symbol', text: '↑', disabled: index === 0, 'aria-label': 'nach links', onclick: function () {
+              A.schrittMerken('Reihenfolge der Spalten geändert');
+              sortiert.forEach(function (x, i) { x.sort = i; });
               sortiert[index].sort = index - 1; sortiert[index - 1].sort = index;
               A.alsGeaendertMarkieren(); zeichnen(); neuZeichnen();
             } }),
-            el('button', { class: 'klein nur-symbol', text: '↓', disabled: index === sortiert.length - 1, onclick: function () {
+            el('button', { class: 'klein nur-symbol', text: '↓', disabled: index === sortiert.length - 1, 'aria-label': 'nach rechts', onclick: function () {
+              A.schrittMerken('Reihenfolge der Spalten geändert');
+              sortiert.forEach(function (x, i) { x.sort = i; });
               sortiert[index].sort = index + 1; sortiert[index + 1].sort = index;
               A.alsGeaendertMarkieren(); zeichnen(); neuZeichnen();
             } })
@@ -1062,9 +1528,9 @@
     }
     zeichnen();
     A.dialogOeffnen({
-      titel: 'Schließungen verwalten', inhalt: inhalt,
+      titel: 'Spalten verwalten', inhalt: inhalt,
       knoepfe: [
-        { text: '+ Neue Schließung', aktion: function (schliessen) {
+        { text: '+ Neue Spalte', aktion: function (schliessen) {
           schliessen(); setTimeout(function () { schliessungBearbeiten(null, neuZeichnen); }, 100); return false;
         } },
         { fuellen: true }, { text: 'Schließen' }
@@ -1097,7 +1563,7 @@
       var warnungen = probleme.filter(function (x) { return x.schwere === 'warn'; });
       seite.appendChild(el('div', { class: 'meldung ' + (warnungen.length ? 'warn' : 'info') }, [
         el('div', {}, [
-          el('b', { text: probleme.length + ' Hinweis(e) zur Vollständigkeit' }),
+          el('b', { text: probleme.length + (probleme.length === 1 ? ' Hinweis' : ' Hinweise') + ' zur Vollständigkeit' }),
           el('div', { style: { marginTop: '6px', fontSize: '13px' } },
             probleme.slice(0, 6).map(function (x) { return el('div', { text: '• ' + x.text }); })),
           probleme.length > 6 ? el('div', { class: 'zart', style: { marginTop: '4px' },
@@ -1132,6 +1598,9 @@
         exportKarte('Kreuzschließplan',
           'Zutrittsmatrix Türen × Schließungen im Querformat, inklusive Legende und Schließungsübersicht.',
           function () { pdfErzeugen(function () { return Reports.schliessplan(p, eins); }, 'Kreuzschliessplan'); }),
+        Reports.europlan ? exportKarte('Europlan',
+          'Der Plan in der Schreibweise der Hersteller: Zylinder mit Zyl.Nr., ESL und Type, Schlüssel als Spalten mit X, I, Z, M und O.',
+          function () { pdfErzeugen(function () { return Reports.europlan(p, eins); }, 'Europlan'); }) : null,
         exportKarte('Materialliste',
           'Bestellgrundlage, gegliedert nach Gewerk und Hersteller. Jede Bauteilart mit ' +
           'ihren eigenen Maßspalten; Artikelnummer und Preis bleiben zum Ausfüllen frei.',
@@ -1143,6 +1612,20 @@
           function () { pdfErzeugen(function () { return Reports.pruefprotokoll(p, eins); }, 'Pruefprotokoll'); })
       ])
     ]));
+
+    /* --- EVVA-Bestellformular (Excel) --- */
+    if (global.ViewsEuroplan && global.XLSX) {
+      seite.appendChild(el('div', { class: 'karte' }, [
+        el('h2', { text: 'EVVA-Bestellformular (Excel)' }),
+        el('p', { class: 'hinweis', text: 'Der Schließplan im Layout des EVVA-Formulars: Kopf mit Besteller, Besitzer, Anlage und System, ' +
+          'Zeilen 1 bis 3 mit Funktion, Menge und Schlüsselnummer, ab Zeile 5 die Zylinder mit Tür.Nr., Raum, Stk., ESL, Type und Zyl.Nr. ' +
+          'Die Datei lässt sich in Excel öffnen und direkt an den Fachhändler oder zu EVVA geben.' }),
+        el('div', { class: 'knopfleiste' }, [
+          el('button', { class: 'haupt', text: 'Europlan (X, I, Z, M)', onclick: function () { global.ViewsEuroplan.excelExport('euro'); } }),
+          el('button', { text: 'Kreuzschließplan (jeder Schlüssel eine Spalte)', onclick: function () { global.ViewsEuroplan.excelExport('kreuz'); } })
+        ])
+      ]));
+    }
 
     /* --- Datenaustausch --- */
     seite.appendChild(el('div', { class: 'karte' }, [
@@ -1198,18 +1681,23 @@
       el('h3', { text: titel, style: { marginTop: '0' } }),
       el('p', { class: 'hinweis', text: beschreibung }),
       zusatz || null,
-      el('button', { class: 'haupt', text: 'PDF erzeugen', style: { marginTop: '8px' }, onclick: aktion })
+      el('button', { class: 'haupt', text: 'PDF erzeugen', onclick: aktion })   /* steht per Gestaltung am unteren Kartenrand */
     ]);
   }
 
   function pdfErzeugen(bauen, suffix) {
+    /* Der Stand beim Klick zählt - nicht erst der nach der Wartezeit:
+       Wird das Aufmaß in der Zwischenzeit geschlossen, gäbe es sonst kein
+       Projekt mehr für den Dateinamen. */
+    var projekt = Zustand.projekt;
+    if (!projekt) { A.toast('Kein Aufmaß geöffnet.', 'fehler'); return; }
     A.toast('PDF wird erzeugt …');
     /* Kurz warten, damit die Meldung erscheint, bevor der Aufbau blockiert */
     setTimeout(function () {
       var doc, name;
       try {
         doc = bauen();
-        name = Reports.dateiName(Zustand.projekt, suffix);
+        name = Reports.dateiName(projekt, suffix);
       } catch (fehler) {
         console.error(fehler);
         A.toast('PDF-Erzeugung fehlgeschlagen: ' + fehler.message, 'fehler');
@@ -1236,8 +1724,8 @@
     seite.appendChild(el('p', { class: 'hinweis', text: 'Diese Angaben gelten geräteweit für alle Projekte.' }));
 
     function merken() {
-      Store.einstellungenSpeichern(e);
-      A.statusAnzeigen('gesichert');
+      Store.einstellungenSpeichern(e).then(function () { A.statusAnzeigen('gesichert'); })
+        .catch(function (f) { A.toast((f && f.message) || 'Die Einstellungen ließen sich nicht ablegen.', 'fehler'); });
     }
     function textE(schluessel, beschriftung, platzhalter) {
       var eingabe = el('input', {
@@ -1296,6 +1784,31 @@
         el('button', { text: 'Logo hochladen', onclick: function () { logoEingabe.click(); } }), logoEingabe
       ]),
       logoVorschau
+    ]));
+
+    /* --- Kundenfreigabe ----------------------------------------------- */
+    seite.appendChild(el('div', { class: 'karte' }, [
+      el('h2', { text: 'Kundenfreigabe' }),
+      el('p', { class: 'hinweis', text: 'Freigabe-Links führen auf die Kundenseite (freigabe.html). Läuft das Werkzeug als lokale Datei, ' +
+        'trägt man hier die Adresse der Kundenseite im Internet ein - sonst zeigte der lange Link auf eine Datei, die der Kunde nicht hat. ' +
+        'Über die Web-Adresse des Werkzeugs ist die Angabe nicht nötig. Die E-Mail-Adresse aus dem Firmenkopf steht dem Kunden für die Rückmeldung zur Verfügung.' }),
+      el('div', { class: 'raster' }, [
+        (function () {
+          var feldKnoten = textE('freigabeSeite', 'Adresse der Kundenseite', 'https://www.provision-infra.de/aufmasstool/freigabe.html');
+          var stand = el('p', { class: 'hinweis', id: 'freigabe-seite-stand', style: { marginTop: '6px' } });
+          function standZeigen() {
+            var w = String(e.freigabeSeite || '').trim();
+            var gueltig = freigabeSeiteGueltig(w);
+            stand.textContent = !w ? 'Nicht hinterlegt - als lokale Datei zeigt der lange Link dann auf die Datei neben dem Werkzeug.'
+              : gueltig ? 'Wird für lange Freigabe-Links verwendet, wenn das Werkzeug als lokale Datei läuft.'
+              : 'Wird nicht verwendet: Die Adresse muss mit https:// beginnen und auf .html enden (die Seite freigabe.html).';
+            stand.style.color = (w && !gueltig) ? 'var(--rot)' : '';
+          }
+          feldKnoten.querySelector('input').addEventListener('input', standZeigen);
+          standZeigen();
+          return el('div', { style: { gridColumn: '1 / -1' } }, [feldKnoten, stand]);
+        })()
+      ])
     ]));
 
     /* --- Erscheinungsbild --------------------------------------------- */
@@ -1378,6 +1891,23 @@
     function pdZeichnen(pruefErgebnis) {
       A.leeren(pdBereich);
       A.leeren(pdDiagnose);
+      /* Tür einsprechen: läuft über den Server, hier nur der Stand */
+      var Ab2 = global.Abgleich && global.Abgleich.zustand ? global.Abgleich.zustand() : null;
+      if (Ab2 && Ab2.eingerichtet) {
+        pdBereich.appendChild(el('h2', { text: 'Tür einsprechen' }));
+        if (Ab2.diktat) {
+          pdBereich.appendChild(el('div', { class: 'meldung ok', style: { marginTop: '4px' } }, el('div', {}, [
+            el('b', { text: 'Über den Server eingerichtet. ' }),
+            'Im Türformular gibt es den Knopf „Einsprechen“: Aufnahme, Erkennung bei OpenAI, Vorschlag, Übernahme nach Bestätigung. ' +
+            'Der OpenAI-Schlüssel liegt in WordPress und verlässt den Server nicht; die Aufnahme wird nicht gespeichert.' +
+            (global.Diktat && !global.Diktat.kannAufnehmen() ? ' Dieser Browser kann allerdings nicht aufnehmen.' : '')
+          ])));
+        } else {
+          pdBereich.appendChild(el('p', { class: 'hinweis',
+            text: 'Nicht eingerichtet. Mit einem OpenAI-Schlüssel in WordPress (Einstellungen → Aufmaß-Abgleich → Tür einsprechen) ' +
+                  'lassen sich die Angaben zu einer Tür einsprechen; der Knopf erscheint dann im Türformular.' }));
+        }
+      }
       pdBereich.appendChild(el('h2', { text: 'Pipedrive' }));
       pdBereich.appendChild(el('p', { class: 'hinweis',
         text: 'Mit einer Verbindung zu Pipedrive lässt sich ein Aufmaß direkt aus einem Deal anlegen. ' +
@@ -1399,7 +1929,7 @@
         if (e.pipedriveToken) {
           pdBereich.appendChild(el('div', { class: 'meldung warn' }, el('div', {}, [
             el('b', { text: 'Auf diesem Gerät liegt noch ein Schlüssel. ' }),
-            'Er wird nicht mehr gebraucht - der Server hat Vorrang. ',
+            'Er wird nicht mehr gebraucht – der Server hat Vorrang. ',
             el('button', { class: 'klein', style: { marginLeft: '8px' }, text: 'Vom Gerät entfernen',
               onclick: function () {
                 e.pipedriveToken = ''; e.pipedriveHost = '';
@@ -1434,6 +1964,13 @@
           textE('pipedriveHost', 'Pipedrive-Adresse',
                 'z. B. meinefirma.pipedrive.com – leer lassen für die Standardadresse')
         ]));
+        /* Eine Adresse, die nicht zu Pipedrive gehört, würde die Seite gar
+           nicht ansprechen dürfen - das steht hier, statt später rätselhaft
+           zu scheitern. */
+        if (!global.Pipedrive.hostGueltig(e.pipedriveHost)) {
+          pdBereich.appendChild(el('div', { class: 'meldung warn', style: { marginTop: '4px' } },
+            el('div', { text: 'Die Pipedrive-Adresse „' + String(e.pipedriveHost).trim() + '“ ist keine Adresse unter pipedrive.com und wird nicht verwendet; es gilt die Standardadresse ' + global.Pipedrive.STANDARD_HOST + '.' })));
+        }
 
         pdBereich.appendChild(el('div', { class: 'meldung warn', style: { marginTop: '4px' } },
           el('div', {}, [
@@ -1444,7 +1981,7 @@
             'die Sie selbst kontrollieren, und ziehen Sie ihn in Pipedrive zurück, wenn ein Gerät ' +
             'abhandenkommt. Sie finden ihn unter: Einstellungen → Persönliche Einstellungen → API. ' +
             'In der gemeinsamen Fassung lässt sich der Schlüssel stattdessen einmal in WordPress ' +
-            'hinterlegen - dann braucht kein Gerät einen.'
+            'hinterlegen – dann braucht kein Gerät einen.'
           ])));
       }
 
@@ -1597,15 +2134,18 @@
       el('p', { class: 'hinweis', text: 'Ergänzen Sie hier Bauformen, die in den mitgelieferten Listen fehlen. Ausführungen wie Freidreh oder Anti-Panik werden getrennt gewählt und müssen nicht in die Bauform geschrieben werden.' }),
       listenPflege('eigeneZylinderarten', 'Zylinder-Bauformen', e, merken),
       listenPflege('eigeneBeschlagarten', 'Beschlag-Bauformen', e, merken),
-      listenPflege('eigeneSchlossarten', 'Schloss-Bauformen', e, merken),
-      listenPflege('eigeneZutrittsarten', 'Bauliche Anforderungen', e, merken)
+      listenPflege('eigeneSchlossarten', 'Schloss-Bauformen', e, merken)
     ]));
+
+    /* --- Zugang für Programme und Claude Code (nur angemeldet) --- */
+    var schluesselKarte = global.AbgleichUI && global.AbgleichUI.schluesselKarte ? global.AbgleichUI.schluesselKarte() : null;
+    if (schluesselKarte) seite.appendChild(schluesselKarte);
 
     /* --- Über --- */
     var Ab = global.Abgleich ? global.Abgleich.zustand() : null;
     var Akt = global.Aktualisierung;
     var ablage = Akt && Akt.eingerichtet()
-      ? 'eingerichtet - das Werkzeug startet auch ohne Netz'
+      ? 'eingerichtet – das Werkzeug startet auch ohne Netz'
       : (location.protocol.indexOf('http') === 0 ? 'noch nicht eingerichtet' : 'nicht nötig (lokale Datei)');
     var pruefKnopf = Akt ? el('button', { class: 'klein', text: 'Auf neue Fassung prüfen', onclick: function (ev) {
       ev.target.disabled = true;
@@ -1639,7 +2179,7 @@
             'Firmenkopf, Logo und eigene Katalogeinträge werden entfernt. Projekte bleiben erhalten.',
             'Zurücksetzen').then(function (ja) {
             if (!ja) return;
-            Zustand.einstellungen = Object.assign({}, Store.EINSTELLUNGEN_STANDARD);
+            Zustand.einstellungen = Store.einstellungenStandard();
             Store.einstellungenSpeichern(Zustand.einstellungen).then(function () {
               A.toast('Einstellungen zurückgesetzt.'); neuZeichnen();
             });
@@ -1690,6 +2230,7 @@
   global.ViewsPlan = {
     freigabeDialog: freigabeDialog,
     antwortDialog: antwortDialog,
+    berichtZeichnen: berichtZeichnen,
     ansichtPlan: ansichtPlan,
     ansichtExport: ansichtExport,
     ansichtEinstellungen: ansichtEinstellungen,

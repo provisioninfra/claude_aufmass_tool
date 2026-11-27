@@ -75,6 +75,7 @@ class Aufmass_Projekte {
         if (!$z) { return null; }
         $daten = json_decode($z['daten'], true);
         if (!is_array($daten)) { $daten = array(); }
+        $daten = self::objekte_wahren($daten);
         $namen = self::namen_sammeln();
         return array(
             'id' => $z['id'],
@@ -106,7 +107,7 @@ class Aufmass_Projekte {
         }
         /* Fotos gehören nicht in die Projektdaten - sie haben einen eigenen
            Weg. Hier wird das durchgesetzt, nicht nur erwartet. */
-        $daten = self::fotos_entladen($daten);
+        $daten = self::objekte_wahren(self::fotos_entladen($daten));
         $json = wp_json_encode($daten);
         if ($json === false) {
             return new WP_Error('daten_unlesbar', 'Die Projektdaten ließen sich nicht verarbeiten.', array('status' => 400));
@@ -123,7 +124,7 @@ class Aufmass_Projekte {
 
         /* --- Neu --- */
         if (!$vorhanden) {
-            $wpdb->insert($tab, array(
+            $eingefuegt = $wpdb->insert($tab, array(
                 'id' => $id,
                 'kunde' => self::kurz(isset($daten['kunde']) ? $daten['kunde'] : '', 255),
                 'objekt' => self::kurz(isset($daten['objekt']) ? $daten['objekt'] : '', 255),
@@ -136,6 +137,20 @@ class Aufmass_Projekte {
                 'geaendert_von' => $benutzer['id'],
                 'geloescht' => 0
             ));
+            if ($eingefuegt === false) {
+                /* Zwischen dem Lesen oben und dem Einfügen hier hat ein zweites
+                   Gerät dasselbe Aufmaß angelegt (gleiche Kennung): Dann ist das
+                   ein Konflikt wie beim Versionsabgleich - mit dem Serverstand,
+                   damit das Gerät zusammenführt statt seinen Stand für gesendet
+                   zu halten. Alles andere ist ein Datenbankfehler. */
+                $server = self::laden($id);
+                if ($server && !is_wp_error($server)) {
+                    return new WP_Error('konflikt',
+                        'Dieses Aufmaß wurde zwischenzeitlich von einer anderen Stelle angelegt.',
+                        array('status' => 409, 'server' => $server));
+                }
+                return new WP_Error('db_fehler', 'Das Aufmaß ließ sich nicht ablegen (Datenbankfehler).', array('status' => 500));
+            }
             /* Wer anlegt, ist zuständig. */
             self::zustaendig_hinzufuegen($id, $benutzer['id']);
             return self::laden($id);
@@ -154,7 +169,13 @@ class Aufmass_Projekte {
                 array('status' => 409, 'server' => $server));
         }
 
-        $wpdb->update($tab, array(
+        /* Die Version steht mit in der WHERE-Bedingung: Zwischen dem Lesen
+           oben und dem Schreiben hier kann ein zweites Gerät mit derselben
+           Basis gespeichert haben. Ohne diese Bedingung überschriebe der
+           Zweite den Ersten stillschweigend - ein verlorener Stand, den
+           niemand bemerkt. So trifft die Änderung nur die erwartete Version;
+           sonst gibt es den Konflikt wie oben, samt Serverstand. */
+        $betroffen = $wpdb->update($tab, array(
             'kunde' => self::kurz(isset($daten['kunde']) ? $daten['kunde'] : '', 255),
             'objekt' => self::kurz(isset($daten['objekt']) ? $daten['objekt'] : '', 255),
             'anlagen_nr' => self::kurz(isset($daten['anlagenNr']) ? $daten['anlagenNr'] : '', 100),
@@ -165,7 +186,12 @@ class Aufmass_Projekte {
             /* Ein erneutes Speichern holt ein gelöschtes Aufmaß zurück. */
             'geloescht' => 0,
             'geloescht_am' => null
-        ), array('id' => $id));
+        ), array('id' => $id, 'version' => (int) $vorhanden['version']));
+        if (!$betroffen) {
+            return new WP_Error('konflikt',
+                'Dieses Aufmaß wurde im selben Augenblick von einer anderen Stelle geändert.',
+                array('status' => 409, 'server' => self::laden($id)));
+        }
 
         return self::laden($id);
     }
@@ -182,11 +208,11 @@ class Aufmass_Projekte {
         if (is_wp_error($darf)) { return $darf; }
 
         $jetzt = Aufmass_Datenbank::jetzt();
-        $wpdb->update($tab, array(
-            'geloescht' => 1, 'geloescht_am' => $jetzt,
-            'geaendert_am' => $jetzt, 'geaendert_von' => $benutzer['id'],
-            'version' => $wpdb->get_var($wpdb->prepare("SELECT version FROM $tab WHERE id = %s", $id)) + 1
-        ), array('id' => $id));
+        /* Die Version zählt die Datenbank selbst hoch - in einem Schritt,
+           ohne Lücke zwischen Lesen und Schreiben. */
+        $wpdb->query($wpdb->prepare(
+            "UPDATE $tab SET geloescht = 1, geloescht_am = %s, geaendert_am = %s, geaendert_von = %s, version = version + 1 WHERE id = %s",
+            $jetzt, $jetzt, $benutzer['id'], $id));
         return array('ok' => true);
     }
 
@@ -337,6 +363,24 @@ class Aufmass_Projekte {
     /* ---------------------------------------------------------------- */
 
     /** Entfernt die Bilddaten, behält aber jeden Fotoeintrag. */
+    /**
+     * PHP kennt beim Lesen von JSON keinen Unterschied zwischen einem leeren
+     * Objekt {} und einer leeren Liste []. Die Matrix des Schließplans ist ein
+     * Objekt ("tuerId|schliessungId" => Wert); käme sie als [] zurück, trüge
+     * das Werkzeug neue Kreuze in eine Liste ein und verlöre sie beim nächsten
+     * Speichern. Deshalb werden die Objektfelder hier als Objekte gewahrt.
+     */
+    public static function objekte_wahren($daten) {
+        if (!is_array($daten)) { return $daten; }
+        if (!isset($daten['matrix']) || !is_array($daten['matrix']) || empty($daten['matrix'])) {
+            $daten['matrix'] = (isset($daten['matrix']) && is_object($daten['matrix'])) ? $daten['matrix'] : new stdClass();
+        }
+        foreach (array('freigabe', 'pipedrive') as $feld) {
+            if (isset($daten[$feld]) && is_array($daten[$feld]) && empty($daten[$feld])) { $daten[$feld] = null; }
+        }
+        return $daten;
+    }
+
     public static function fotos_entladen($daten) {
         if (empty($daten['tueren']) || !is_array($daten['tueren'])) { return $daten; }
         foreach ($daten['tueren'] as $i => $tuer) {

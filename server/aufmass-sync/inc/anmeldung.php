@@ -23,6 +23,10 @@ class Aufmass_Anmeldung {
 
     private static $benutzer = null;
     private static $geprueft = false;
+    /** Die Zeile des Zugangsschlüssels, wenn die Anfrage darüber kam. */
+    private static $schluessel = null;
+    /** Ein mitgeschickter, aber ungültiger Schlüssel - der Fehler dazu. */
+    private static $schluessel_fehler = null;
     /** Nur für Prüfläufe ohne Browser: dort gibt es keine Kopfzeilen. */
     public static $cookie_schreiben = true;
 
@@ -34,10 +38,17 @@ class Aufmass_Anmeldung {
 
     public static function anmelden($token) {
         $client = trim((string) get_option('aufmass_client_id', ''));
-        $domaene = trim((string) get_option('aufmass_domaene', ''));
+        $domaene = strtolower(trim((string) get_option('aufmass_domaene', '')));
         if ($client === '') {
             return new WP_Error('nicht_eingerichtet',
                 'Der Abgleich ist noch nicht eingerichtet: Es fehlt die Google-Client-ID.',
+                array('status' => 503));
+        }
+        /* Ohne Organisationsdomäne ist die Anmeldung gesperrt - nicht
+           offen für jedes Google-Konto. */
+        if ($domaene === '') {
+            return new WP_Error('nicht_eingerichtet',
+                'Der Abgleich ist noch nicht eingerichtet: Es fehlt die Organisationsdomäne. Ohne sie ist die Anmeldung gesperrt.',
                 array('status' => 503));
         }
         /* Jede Prüfung kostet eine RSA-Unterschrift. Wer mit erfundenen
@@ -50,6 +61,17 @@ class Aufmass_Anmeldung {
             return new WP_Error('anmeldung_abgelehnt', $ergebnis['grund'], array('status' => 401));
         }
         $a = $ergebnis['daten'];
+        /* Jeder Ausweis gilt genau einmal: Wer ihn unterwegs mitliest,
+           kann damit keine zweite Sitzung eröffnen. Gemerkt wird nur ein
+           Abdruck, und nur so lange, wie der Ausweis überhaupt gelten
+           könnte. */
+        $abdruck = 'aufmass_ausweis_' . substr(hash('sha256', (string) $token), 0, 40);
+        if (get_transient($abdruck)) {
+            Aufmass_Drossel::zaehlen('anmelden', self::DROSSEL_FEHLVERSUCHE, 600);
+            return new WP_Error('anmeldung_abgelehnt',
+                'Dieser Ausweis wurde bereits verwendet. Bitte erneut anmelden.', array('status' => 401));
+        }
+        set_transient($abdruck, 1, max(60, (int) $a['exp'] - time() + Aufmass_JWT::UHRSPANNE));
 
         global $wpdb;
         $tab = Aufmass_Datenbank::tabelle('benutzer');
@@ -59,33 +81,53 @@ class Aufmass_Anmeldung {
         if ($vorhanden) {
             if ((int) $vorhanden['aktiv'] !== 1) {
                 return new WP_Error('gesperrt',
-                    'Dieser Zugang wurde gesperrt. Bitte in der Verwaltung melden.',
+                    'Dieser Zugang ist gesperrt oder noch nicht freigegeben. Bitte in der Verwaltung melden.',
                     array('status' => 403));
             }
             /* Das Profilbild von Google wird nicht abgelegt: Das Werkzeug
                zeigt es nirgends, also wird es auch nicht gespeichert. */
             $wpdb->update($tab, array(
-                'email' => $a['email'],
-                'name' => isset($a['name']) ? $a['name'] : $vorhanden['name'],
+                'email' => mb_substr((string) $a['email'], 0, 190),
+                'name' => isset($a['name']) ? mb_substr((string) $a['name'], 0, 190) : $vorhanden['name'],
                 'bild' => '',
                 'letzte_anmeldung' => $jetzt
             ), array('id' => $a['sub']));
             $rolle = $vorhanden['rolle'];
         } else {
             /* Die erste Anmeldung bekommt die Verwaltung - sonst könnte
-               niemand die weiteren Zugänge freischalten. */
+               niemand die weiteren Zugänge freischalten. Alle weiteren
+               Konten der Organisation sind sofort dabei - oder, wenn die
+               Einstellung „erst freigeben“ gesetzt ist, erst nach einem
+               Klick der Verwaltung. */
             $erster = (int) $wpdb->get_var("SELECT COUNT(*) FROM $tab") === 0;
             $rolle = $erster ? 'verwaltung' : 'mitarbeit';
-            $wpdb->insert($tab, array(
+            $freigeben = self::neue_erst_freigeben();
+            $aktiv = ($erster || !$freigeben) ? 1 : 0;
+            $angelegt = $wpdb->insert($tab, array(
                 'id' => $a['sub'],
                 'email' => $a['email'],
-                'name' => isset($a['name']) ? $a['name'] : $a['email'],
+                'name' => isset($a['name']) ? mb_substr((string) $a['name'], 0, 190) : $a['email'],
                 'bild' => '',
                 'rolle' => $rolle,
-                'aktiv' => 1,
+                'aktiv' => $aktiv,
                 'erste_anmeldung' => $jetzt,
                 'letzte_anmeldung' => $jetzt
             ));
+            /* Scheitert das Anlegen (etwa: dieselbe Adresse hängt noch an
+               einem alten Google-Konto), darf keine Sitzung entstehen -
+               sie zeigte auf einen Benutzer, den es nicht gibt, und jede
+               Anfrage liefe in 401. */
+            if ($angelegt === false) {
+                return new WP_Error('datenbank',
+                    'Der Zugang ließ sich nicht anlegen. Ist die E-Mail-Adresse schon einem anderen Zugang zugeordnet? '
+                    . 'Dann den alten Zugang in der Verwaltung löschen.',
+                    array('status' => 500));
+            }
+            if (!$aktiv) {
+                return new WP_Error('freigabe_noetig',
+                    'Ihr Zugang wurde angelegt und muss von der Verwaltung erst freigegeben werden. Bitte dort melden.',
+                    array('status' => 403));
+            }
         }
 
         $sitzung = self::sitzung_anlegen($a['sub']);
@@ -99,6 +141,12 @@ class Aufmass_Anmeldung {
             ),
             'sitzung' => $sitzung
         );
+    }
+
+    /** Müssen neue Konten der Organisation erst von der Verwaltung freigegeben werden? */
+    public static function neue_erst_freigeben() {
+        $w = get_option('aufmass_neue_freigeben', '0');
+        return $w === '1' || $w === 1 || $w === true;
     }
 
     /* ---------------------------------------------------------------- */
@@ -155,6 +203,8 @@ class Aufmass_Anmeldung {
     /** Alle Sitzungen eines Benutzers beenden (z. B. Gerät verloren). */
     public static function alle_beenden($benutzer_id) {
         global $wpdb;
+        /* Eine Sperre gilt auch für Programme: ihre Schlüssel verfallen mit. */
+        if (class_exists('Aufmass_Schluessel')) { Aufmass_Schluessel::alle_widerrufen($benutzer_id); }
         return (int) $wpdb->delete(Aufmass_Datenbank::tabelle('sitzungen'),
             array('benutzer_id' => $benutzer_id));
     }
@@ -173,6 +223,19 @@ class Aufmass_Anmeldung {
         if (self::$geprueft) { return self::$benutzer; }
         self::$geprueft = true;
         self::$benutzer = null;
+        self::$schluessel = null;
+        self::$schluessel_fehler = null;
+
+        /* Ein Zugangsschlüssel (Programme, Claude Code) geht vor dem Cookie:
+           Wer ihn mitschickt, will damit ausgewiesen werden. */
+        $token = class_exists('Aufmass_Schluessel') ? Aufmass_Schluessel::aus_anfrage() : '';
+        if ($token !== '') {
+            $e = Aufmass_Schluessel::pruefen($token);
+            if (is_wp_error($e)) { self::$schluessel_fehler = $e; return null; }
+            self::$schluessel = $e['schluessel'];
+            self::$benutzer = $e['benutzer'];
+            return self::$benutzer;
+        }
 
         $wert = self::cookie_lesen();
         if (!$wert) { return null; }
@@ -188,7 +251,9 @@ class Aufmass_Anmeldung {
         /* Zeitunabhängiger Vergleich: Sonst ließe sich der Abdruck
            zeichenweise erraten. */
         if (!hash_equals((string) $sitzung['pruefwert'], hash('sha256', $teile[1]))) { return null; }
-        if (strtotime($sitzung['gueltig_bis']) < time()) { return null; }
+        /* Geschrieben wird in UTC (gmdate) - also auch so lesen, unabhängig
+           davon, welche Zeitzone ein Theme oder Plugin eingestellt hat. */
+        if (strtotime($sitzung['gueltig_bis'] . ' UTC') < time()) { return null; }
 
         $benutzer = $wpdb->get_row($wpdb->prepare("SELECT * FROM $bt WHERE id = %s",
             $sitzung['benutzer_id']), ARRAY_A);
@@ -196,7 +261,7 @@ class Aufmass_Anmeldung {
 
         /* Gültigkeit mitlaufen lassen, aber nicht bei jedem Aufruf
            schreiben - der Abgleich fragt im Minutentakt. */
-        if (strtotime($sitzung['gesehen_am']) < time() - 3600) {
+        if (strtotime($sitzung['gesehen_am'] . ' UTC') < time() - 3600) {
             $wpdb->update($st, array(
                 'gesehen_am' => Aufmass_Datenbank::jetzt(),
                 'gueltig_bis' => gmdate('Y-m-d H:i:s.000000', time() + self::DAUER_TAGE * 86400)
@@ -215,6 +280,10 @@ class Aufmass_Anmeldung {
     public static function verlangt() {
         $b = self::aktueller_benutzer();
         if (!$b) {
+            /* Ein falscher Schlüssel bekommt seine eigene Antwort (401 mit
+               Grund, oder 429 bei Hämmern) - nicht die Aufforderung, sich
+               mit Google anzumelden. */
+            if (self::$schluessel_fehler) { return self::$schluessel_fehler; }
             return new WP_Error('nicht_angemeldet',
                 'Bitte mit dem Google-Konto der Organisation anmelden.',
                 array('status' => 401));
@@ -225,6 +294,34 @@ class Aufmass_Anmeldung {
     public static function ist_verwaltung() {
         $b = self::aktueller_benutzer();
         return $b && $b['rolle'] === 'verwaltung';
+    }
+
+    /** Kam diese Anfrage über einen Zugangsschlüssel statt über das Cookie? */
+    public static function ueber_schluessel() {
+        self::aktueller_benutzer();
+        return self::$schluessel !== null;
+    }
+
+    /** Darf diese Anfrage ändern? Ein Cookie darf alles, was die Person darf;
+     *  ein Schlüssel nur, wenn er „schreiben“ trägt. */
+    public static function schreiben_erlaubt() {
+        self::aktueller_benutzer();
+        if (self::$schluessel === null) { return true; }
+        return (string) self::$schluessel['rechte'] === 'schreiben';
+    }
+
+    /** Der benutzte Schlüssel, beschrieben - oder null. */
+    public static function schluessel_beschreibung() {
+        self::aktueller_benutzer();
+        return self::$schluessel === null ? null : Aufmass_Schluessel::beschreiben(self::$schluessel);
+    }
+
+    /** Nur für Prüfläufe: die Zwischenspeicher dieser Anfrage vergessen. */
+    public static function zuruecksetzen() {
+        self::$geprueft = false;
+        self::$benutzer = null;
+        self::$schluessel = null;
+        self::$schluessel_fehler = null;
     }
 
     /* ---------------------------------------------------------------- */

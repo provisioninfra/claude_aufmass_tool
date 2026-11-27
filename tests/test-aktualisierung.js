@@ -7,7 +7,7 @@
  * in der die Fassung zwischen den Durchläufen hochgesetzt wird. */
 const path = require('path'), fs = require('fs'), os = require('os');
 const { spawn } = require('child_process');
-const { starte, ersteProjektOeffnen } = require('./browser.js');
+const { starte, ersteProjektOeffnen, istUmgebungsGeraeusch } = require('./browser.js');
 const { baueTestprojekt, einstellungen } = require('./fixture.js');
 
 const W = path.join(__dirname, '..');
@@ -53,7 +53,7 @@ async function fassungAbwarten(seite, erwartet, ms) {
     const ctx = await browser.newContext({ viewport: { width: 1180, height: 860 } });
     const seite = await ctx.newPage();
     const konsole = [];
-    seite.on('pageerror', e => konsole.push('PAGEERROR: ' + e.message));
+    seite.on('pageerror', e => { if (!istUmgebungsGeraeusch(e.message, e.stack)) konsole.push('PAGEERROR: ' + e.message); });
     /* Der Prüf-Webserver hat keine Schnittstelle: 404 für /wp-json/ ist hier der Normalfall. */
     seite.on('console', m => {
       if (m.type() !== 'error') return;

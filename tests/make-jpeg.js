@@ -16,6 +16,7 @@ const { starte } = require('./browser.js');
     return c.toDataURL('image/jpeg', 0.8);
   });
   await browser.close();
+  require('fs').mkdirSync(__dirname + '/out', { recursive: true });
   require('fs').writeFileSync(__dirname + '/out/foto.txt', dataUrl);
   console.log('JPEG erzeugt, Länge:', dataUrl.length, 'Präfix:', dataUrl.slice(0,30));
 })();

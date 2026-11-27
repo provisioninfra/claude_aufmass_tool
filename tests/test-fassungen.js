@@ -263,7 +263,7 @@ const CSP = require('../tools/csp.js');
 });
 const einzelCsp = path.join(WURZEL, 'dist', 'aufmass-tool.html');
 if (fs.existsSync(einzelCsp)) {
-  pruefe(!/Content-Security-Policy/.test(fs.readFileSync(einzelCsp, 'utf8')),
+  pruefe(!/<meta[^>]+Content-Security-Policy/i.test(fs.readFileSync(einzelCsp, 'utf8')),
     'dist/aufmass-tool.html: die Einzeldatei trägt keine CSP (alles ist eingebettet, Doppelklick ohne Website)');
 }
 

@@ -28,6 +28,11 @@
   function oeffnen() {
     return new Promise(function (resolve) {
       if (db) return resolve(db);
+      /* Einmal Rückfall, immer Rückfall - und zwar sofort: Sonst öffnete jeder
+         weitere Aufruf die Datenbank erneut, und gelänge das nun, käme nie
+         eine Antwort (siehe onsuccess). Beim Start laufen zwei Aufrufe
+         parallel; der zweite hing dann für immer. */
+      if (nutztFallback) return resolve(null);
       if (!global.indexedDB) { nutztFallback = true; return resolve(null); }
       var anfrage;
       try { anfrage = global.indexedDB.open(DB_NAME, DB_VERSION); }
@@ -45,11 +50,28 @@
           d.createObjectStore(STORE_ABGLEICH, { keyPath: 'id' });
         }
       };
-      anfrage.onsuccess = function (e) { db = e.target.result; resolve(db); };
+      anfrage.onsuccess = function (e) {
+        /* Kam die Antwort erst nach dem Rückfall, bleibt es beim Rückfall:
+           Sonst lägen die inzwischen gespeicherten Projekte im einfachen
+           Speicher und verschwänden aus der Liste, sobald die Datenbank
+           doch noch antwortet. Die Entscheidung wird nie nachträglich
+           gekippt. */
+        if (nutztFallback) { try { e.target.result.close(); } catch (e2) {} return resolve(null); }
+        db = e.target.result;
+        /* Schließt der Browser die Verbindung (Hintergrund, Speicherdruck) oder
+           will ein anderer Tab eine neuere Fassung, wird beim nächsten Zugriff
+           neu geöffnet, statt dauerhaft „connection is closing“ zu werfen. */
+        db.onclose = function () { db = null; };
+        db.onversionchange = function () { try { db.close(); } catch (e3) {} db = null; };
+        resolve(db);
+      };
       anfrage.onerror = function () {
         /* Bei privatem Modus in Safari kann IndexedDB blockiert sein. */
         nutztFallback = true; resolve(null);
       };
+      /* Ein zweiter Tab mit alter Fassung hält die Datenbank fest: dann
+         ebenfalls der einfache Speicher, statt endlos zu warten. */
+      anfrage.onblocked = function () { if (!db) { nutztFallback = true; resolve(null); } };
       /* Safari im privaten Modus blockiert gelegentlich ohne Event */
       setTimeout(function () { if (!db && !nutztFallback) { nutztFallback = true; resolve(null); } }, 3000);
     });
@@ -200,11 +222,14 @@
     firmaZusatz: '',
     firmaTelefon: '',
     firmaEmail: '',
+    /* Adresse der im Internet erreichbaren Kundenseite (freigabe.html). Nur
+       nötig, wenn das Werkzeug als lokale Datei läuft: Der lange Freigabe-Link
+       führt dann dorthin statt auf eine Datei, die der Kunde nicht hat. */
+    freigabeSeite: '',
     logoDataUrl: '',
     standardBearbeiter: '',
     eigeneSysteme: [],
     eigeneZylinderarten: [],
-    eigeneZutrittsarten: [],
     eigeneBeschlagarten: [],
     eigeneSchlossarten: [],
     /* Pipedrive: Der Schlüssel verbleibt auf diesem Gerät und wird weder
@@ -236,18 +261,25 @@
         return e ? e.wert : {};
       });
     }).then(function (gespeichert) {
+      /* Die Listen der Vorlage werden kopiert, nie geteilt: Sonst schriebe
+         „Eintrag hinzufügen“ in die Vorlage selbst, und „Zurücksetzen“
+         brächte die Einträge nicht mehr weg. */
+      var vorlage = einstellungenStandard();
       var out = {};
-      Object.keys(EINSTELLUNGEN_STANDARD).forEach(function (k) {
-        out[k] = (gespeichert && gespeichert[k] !== undefined) ? gespeichert[k] : EINSTELLUNGEN_STANDARD[k];
+      Object.keys(vorlage).forEach(function (k) {
+        out[k] = (gespeichert && gespeichert[k] !== undefined) ? gespeichert[k] : vorlage[k];
       });
       return out;
-    }).catch(function () { return Object.assign({}, EINSTELLUNGEN_STANDARD); });
+    }).catch(function () { return einstellungenStandard(); });
   }
+
+  function einstellungenStandard() { return JSON.parse(JSON.stringify(EINSTELLUNGEN_STANDARD)); }
 
   function einstellungenSpeichern(werte) {
     return oeffnen().then(function (d) {
       if (!d) {
-        global.localStorage.setItem(LS_PRAEFIX + 'einstellungen', JSON.stringify(werte));
+        try { global.localStorage.setItem(LS_PRAEFIX + 'einstellungen', JSON.stringify(werte)); }
+        catch (e) { return Promise.reject(new Error('Die Einstellungen ließen sich nicht ablegen (Speicher voll oder gesperrt).')); }
         return werte;
       }
       return alsPromise(tx(STORE_META, 'readwrite').put({ schluessel: 'einstellungen', wert: werte }))
@@ -282,10 +314,22 @@
   }
 
   /* Liest eine exportierte Datei und gibt ein migriertes Projekt zurück. */
+  /* Größte Datei, die der Import überhaupt liest (Fotos eingerechnet). */
+  var IMPORT_MAX = 64 * 1024 * 1024;
+
   function importParsen(text) {
     var daten;
     try { daten = JSON.parse(text); }
     catch (e) { throw new Error('Die Datei ist keine gültige JSON-Datei.'); }
+
+    /* „Alle Projekte sichern“ schreibt mehrere Projekte in eine Datei -
+       die muss sich auch wieder einlesen lassen, gerade im Ernstfall. */
+    if (daten && daten.typ === 'schliessanlagen-aufmass-sicherung' && Array.isArray(daten.projekte)) {
+      var projekte = daten.projekte.filter(function (x) { return x && Array.isArray(x.tueren); })
+        .map(function (x) { return global.Model.migriere(x); });
+      if (!projekte.length) throw new Error('Die Sicherung enthält kein Aufmaß-Projekt.');
+      return { projekt: projekte[0], projekte: projekte, sicherung: true, einstellungen: null };
+    }
 
     var projekt = null;
     if (daten && daten.typ === 'schliessanlagen-aufmass' && daten.projekt) projekt = daten.projekt;
@@ -293,7 +337,7 @@
     else throw new Error('Die Datei enthält kein Aufmaß-Projekt.');
 
     var migriert = global.Model.migriere(projekt);
-    return { projekt: migriert, einstellungen: daten.einstellungen || null };
+    return { projekt: migriert, projekte: [migriert], sicherung: false, einstellungen: daten.einstellungen || null };
   }
 
   /* Vergibt neue IDs, damit ein Import ein bestehendes Projekt nicht überschreibt. */
@@ -444,6 +488,7 @@
   }
 
   global.Store = {
+    IMPORT_MAX: IMPORT_MAX,
     oeffnen: oeffnen,
     alleProjekte: alleProjekte,
     projektLaden: projektLaden,
@@ -456,6 +501,7 @@
     einstellungenLaden: einstellungenLaden,
     einstellungenSpeichern: einstellungenSpeichern,
     EINSTELLUNGEN_STANDARD: EINSTELLUNGEN_STANDARD,
+    einstellungenStandard: einstellungenStandard,
     exportDaten: exportDaten,
     exportDateiname: exportDateiname,
     importParsen: importParsen,

@@ -20,6 +20,13 @@ class Aufmass_JWT {
     const AUSSTELLER = array('https://accounts.google.com', 'accounts.google.com');
     /** Toleranz für ungenaue Uhren, in Sekunden. */
     const UHRSPANNE = 120;
+    /** Ein Ausweis wird hier nur kurz nach seiner Ausstellung angenommen:
+     *  Der Browser schickt ihn sofort nach dem Klick. Ein älterer Ausweis
+     *  ist ein kopierter - auch wenn Google ihn noch eine Stunde gelten
+     *  ließe. In Sekunden. */
+    const HOECHSTALTER = 600;
+    /** Länger ist kein Google-Ausweis - alles darüber wird gar nicht erst entziffert. */
+    const LAENGE_MAX = 8192;
 
     /** Für Tests: Schlüssel von Hand setzen, statt sie bei Google zu holen. */
     public static $schluessel_vorrat = null;
@@ -96,7 +103,17 @@ class Aufmass_JWT {
             if (is_array($zwischen) && !empty($zwischen['keys'])) { return $zwischen; }
         }
 
-        $antwort = wp_remote_get(self::SCHLUESSEL_URL, array('timeout' => 10));
+        /* Auf Vorrat höchstens einmal je Minute bei Google nachfragen: Wer
+           mit erfundenen Schlüsselkennungen hämmert, soll damit keine
+           Abrufe auslösen können. */
+        if ($erzwingen) {
+            if (get_transient('aufmass_google_schluessel_neu')) {
+                $alt = get_transient('aufmass_google_schluessel');
+                return is_array($alt) ? $alt : null;
+            }
+            set_transient('aufmass_google_schluessel_neu', 1, 60);
+        }
+        $antwort = wp_remote_get(self::SCHLUESSEL_URL, array('timeout' => 10, 'sslverify' => true));
         if (is_wp_error($antwort) || (int) wp_remote_retrieve_response_code($antwort) !== 200) {
             /* Lieber der alte Schlüsselstand als gar keine Anmeldung */
             $alt = get_option('aufmass_google_schluessel_sicherung');
@@ -127,11 +144,19 @@ class Aufmass_JWT {
      *
      * @param string $token    Der Ausweis aus dem Browser.
      * @param string $client   Die erwartete Client-ID (aud).
-     * @param string $domaene  Die erwartete Organisation (hd), leer = egal.
+     * @param string $domaene  Die erwartete Organisation (hd). Ohne Domäne
+     *                         wird kein Ausweis angenommen - die Anmeldung
+     *                         ist dann gesperrt, nicht offen.
      * @return array  ['ok'=>true,'daten'=>[...]] oder ['ok'=>false,'grund'=>'...']
      */
     public static function pruefen($token, $client, $domaene) {
-        $teile = explode('.', (string) $token);
+        $token = (string) $token;
+        $client = trim((string) $client);
+        $domaene = strtolower(trim((string) $domaene));
+        if ($client === '') { return self::nein('Es ist keine Google-Client-ID festgelegt.'); }
+        if ($domaene === '') { return self::nein('Es ist keine Organisationsdomäne festgelegt. Die Anmeldung ist gesperrt.'); }
+        if ($token === '' || strlen($token) > self::LAENGE_MAX) { return self::nein('Der Ausweis ist unvollständig.'); }
+        $teile = explode('.', $token);
         if (count($teile) !== 3) { return self::nein('Der Ausweis ist unvollständig.'); }
 
         $kopf = json_decode((string) self::b64_entschluesseln($teile[0]), true);
@@ -178,11 +203,25 @@ class Aufmass_JWT {
         if (!$audPasst) {
             return self::nein('Der Ausweis wurde für eine andere Anwendung ausgestellt.');
         }
-        if (empty($inhalt['exp']) || $jetzt > ((int) $inhalt['exp'] + self::UHRSPANNE)) {
+        /* azp (authorized party) nennt Google nur bei manchen Ausweisen -
+           wenn, dann muss es unsere Anwendung sein. */
+        if (isset($inhalt['azp']) && (!is_string($inhalt['azp']) || !hash_equals($client, $inhalt['azp']))) {
+            return self::nein('Der Ausweis wurde für eine andere Anwendung ausgestellt.');
+        }
+        if (empty($inhalt['exp']) || !is_numeric($inhalt['exp']) || $jetzt > ((int) $inhalt['exp'] + self::UHRSPANNE)) {
             return self::nein('Der Ausweis ist abgelaufen. Bitte erneut anmelden.');
         }
-        if (isset($inhalt['iat']) && ((int) $inhalt['iat'] - self::UHRSPANNE) > $jetzt) {
+        if (!isset($inhalt['iat']) || !is_numeric($inhalt['iat'])) {
+            return self::nein('Dem Ausweis fehlt die Ausstellungszeit.');
+        }
+        if (((int) $inhalt['iat'] - self::UHRSPANNE) > $jetzt) {
             return self::nein('Der Ausweis liegt in der Zukunft. Bitte die Uhr des Geräts prüfen.');
+        }
+        if ($jetzt - (int) $inhalt['iat'] > self::HOECHSTALTER + self::UHRSPANNE) {
+            return self::nein('Der Ausweis ist zu alt. Bitte erneut anmelden.');
+        }
+        if (isset($inhalt['nbf']) && is_numeric($inhalt['nbf']) && ((int) $inhalt['nbf'] - self::UHRSPANNE) > $jetzt) {
+            return self::nein('Der Ausweis gilt noch nicht. Bitte die Uhr des Geräts prüfen.');
         }
         if (empty($inhalt['sub'])) { return self::nein('Dem Ausweis fehlt die Benutzerkennung.'); }
         if (empty($inhalt['email'])) { return self::nein('Dem Ausweis fehlt die Adresse.'); }
@@ -194,18 +233,24 @@ class Aufmass_JWT {
 
         /* Die eigentliche Zugangsregel: nur die eigene Organisation. Der
            Wert hd steht ausschließlich bei Google-Workspace-Konten - ein
-           privates gmail.com-Konto hat ihn nicht und fällt damit heraus. */
-        if ($domaene !== '') {
-            $hd = isset($inhalt['hd']) ? strtolower((string) $inhalt['hd']) : '';
-            if ($hd !== strtolower($domaene)) {
-                return self::nein('Dieses Konto gehört nicht zu ' . $domaene . '.');
-            }
-            /* Doppelt gesichert: auch die Adresse muss auf die Domäne enden.
-               hd allein genügt uns nicht. */
-            $adresse = strtolower((string) $inhalt['email']);
-            if (substr($adresse, -(strlen($domaene) + 1)) !== '@' . strtolower($domaene)) {
-                return self::nein('Die Adresse gehört nicht zu ' . $domaene . '.');
-            }
+           privates gmail.com-Konto hat ihn nicht und fällt damit heraus.
+           Google setzt hd nur, wenn das Konto wirklich zu dieser Workspace-
+           Organisation gehört; ein Konto kann ihn sich nicht selbst geben. */
+        $hd = isset($inhalt['hd']) && is_string($inhalt['hd']) ? strtolower(trim($inhalt['hd'])) : '';
+        if ($hd === '' || $hd !== $domaene) {
+            return self::nein('Dieses Konto gehört nicht zu ' . $domaene . '.');
+        }
+        /* Doppelt gesichert: auch die Adresse muss auf die Domäne enden -
+           genau eine Adresse, ohne Leerraum, hd allein genügt uns nicht. */
+        $adresse = strtolower(trim((string) $inhalt['email']));
+        if (!preg_match('/^[^@\s]+@[^@\s]+$/', $adresse)
+            || substr($adresse, -(strlen($domaene) + 1)) !== '@' . $domaene) {
+            return self::nein('Die Adresse gehört nicht zu ' . $domaene . '.');
+        }
+        $inhalt['email'] = $adresse;
+        $inhalt['sub'] = (string) $inhalt['sub'];
+        if (!preg_match('/^[A-Za-z0-9_-]{1,64}$/', $inhalt['sub'])) {
+            return self::nein('Die Benutzerkennung des Ausweises ist unbrauchbar.');
         }
 
         return array('ok' => true, 'daten' => $inhalt);
@@ -217,6 +262,10 @@ class Aufmass_JWT {
             if (isset($k['kid']) && hash_equals((string) $k['kid'], (string) $kid)
                 && isset($k['n'], $k['e'])) {
                 if (isset($k['kty']) && $k['kty'] !== 'RSA') { continue; }
+                /* Ein Schlüssel, der laut Google nicht zum Unterschreiben
+                   oder für ein anderes Verfahren bestimmt ist, zählt nicht. */
+                if (isset($k['use']) && $k['use'] !== 'sig') { continue; }
+                if (isset($k['alg']) && $k['alg'] !== 'RS256') { continue; }
                 return $k;
             }
         }

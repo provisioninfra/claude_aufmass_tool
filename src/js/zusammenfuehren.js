@@ -31,12 +31,21 @@
     schliessungen: { name: 'Schließung', bezeichnung: function (s) { return s.kuerzel || s.bezeichnung || 'ohne Kürzel'; },
                      unterlisten: ['personen'] },
     standorte: { name: 'Gliederung', bezeichnung: function (k) { return k.name || 'ohne Namen'; },
-                 unterlisten: [] }
+                 unterlisten: [] },
+    freigabenLokal: { name: 'Freigabe', bezeichnung: function (f) { return f.erstellt || 'Freigabe'; },
+                      unterlisten: [] },
+    freigabeAntworten: { name: 'Rückmeldung', bezeichnung: function (f) { return f.am || 'Rückmeldung'; },
+                         unterlisten: [] },
+    mitarbeiter: { name: 'Mitarbeiter', bezeichnung: function (m) { return m.name || 'ohne Namen'; },
+                   unterlisten: [] },
+    gruppen: { name: 'Gruppe', bezeichnung: function (g) { return g.name || 'ohne Namen'; },
+               unterlisten: [] }
   };
 
   /* Verständliche Namen für die Angaben, über die gestritten werden kann. */
   var FELDNAMEN = {
     nummer: 'Tür-Nr.', bezeichnung: 'Bezeichnung / Raum', kategorie: 'Türkategorie',
+    gleichschliessendMit: 'Gleichschließend mit', produktcode: 'Type / Produktcode', oberflaeche: 'Oberfläche', eigenschluesselVorgeplant: 'Eigenschlüssel vorgeplant',
     strukturId: 'Standort / Bereich', etage: 'Etage', anzahl: 'Anzahl baugleicher Türen',
     status: 'Status', notiz: 'Bemerkung', nacharbeit: 'Nacharbeit', nacharbeitText: 'Nacharbeit',
     masseAussen: 'Zylinderlänge außen', masseInnen: 'Zylinderlänge innen',
@@ -70,8 +79,8 @@
     anlagenart: 'Art der Anlage', systemMechanik: 'Mechanisches System',
     systemElektronik: 'Elektronisches System', systemDetail: 'Detail zur Anlage',
     bemerkung: 'Bemerkung', kommission: 'Kommission', lieferAdresse: 'Lieferadresse',
-    kuerzel: 'Kürzel', traegerArt: 'Trägerart', gruppenName: 'Gruppenname',
-    medienTyp: 'Art des Mediums', anzahlMedien: 'Anzahl Medien',
+    kuerzel: 'Kürzel', art: 'Art der Spalte', traeger: 'Träger', medien: 'Medien',
+    gruppen: 'Gruppen', gruppeId: 'Gruppe', mitarbeiterId: 'Mitarbeiter', freigabe: 'Freigabe des Kunden',
     name: 'Name', funktion: 'Funktion / Abteilung', typ: 'Rang im Plan',
     sort: 'Reihenfolge', parentId: 'übergeordnet', ebene: 'Ebene',
     beschriftung: 'Bildunterschrift'
@@ -247,6 +256,8 @@
       feld: '__geloescht',
       feldName: meins ? 'auf der anderen Seite gelöscht' : 'hier gelöscht',
       geloescht: true,
+      meinsGeloescht: !meins,
+      serverGeloescht: !server,
       meins: meins ? kennung.text + ' (geändert)' : '(gelöscht)',
       server: server ? kennung.text + ' (geändert)' : '(gelöscht)'
     };
@@ -274,6 +285,17 @@
       }
       if (k === 'matrix') {
         ergebnis[k] = matrix(b[k], m[k], s[k], konflikte, bericht, ergebnis);
+        return;
+      }
+      /* Zuordnungen der Kundenkennungen: beide Seiten vereinigen - ein Streit
+         darüber wäre keinem zu erklären, und jede Zuordnung ist für sich richtig. */
+      if (k === 'kundenKennungen') {
+        var vereinigt = {};
+        [s[k], m[k]].forEach(function (q) {
+          if (!q || typeof q !== 'object' || Array.isArray(q)) { return; }
+          Object.keys(q).forEach(function (kk) { if (schluesselErlaubt(kk) && typeof q[kk] === 'string') { vereinigt[kk] = q[kk]; } });
+        });
+        ergebnis[k] = vereinigt;
         return;
       }
       var e = dreiWege(b[k], m[k], s[k]);
@@ -325,10 +347,43 @@
   function anwenden(ergebnis, konflikte, wahl) {
     var aus = kopie(ergebnis);
     (konflikte || []).forEach(function (k) {
-      if ((wahl || {})[k.id] !== 'server') { return; }   /* meine Fassung steht schon */
+      var seite = (wahl || {})[k.id] === 'server' ? 'server' : 'meins';
+      if (k.geloescht) {
+        /* Gelöscht gegen geändert: Das Ergebnis führt den Eintrag vorerst
+           weiter. Entscheidet sich der Benutzer für die Seite, die ihn
+           gelöscht hat, fliegt er jetzt heraus - samt seinen Kreuzen. */
+        if ((seite === 'server' && k.serverGeloescht) || (seite === 'meins' && k.meinsGeloescht)) { entfernen(aus, k.id); }
+        return;
+      }
+      if (seite !== 'server') { return; }   /* meine Fassung steht schon */
       setzen(aus, k, k.server);
     });
     return aus;
+  }
+
+  /* Einen Listeneintrag nach seinem Konfliktpfad entfernen:
+     projekt/<liste>/<id>[/<unterliste>/<id>]:__geloescht */
+  function entfernen(projekt, konfliktId) {
+    var teile = String(konfliktId).split(':')[0].split('/');
+    var stelle = projekt, i = 1;
+    while (i + 1 < teile.length) {
+      var listenName = teile[i], id = teile[i + 1];
+      if (!Array.isArray(stelle[listenName])) { return; }
+      if (i + 2 >= teile.length) {
+        stelle[listenName] = stelle[listenName].filter(function (x) { return !(x && x.id === id); });
+        if (stelle === projekt && (listenName === 'tueren' || listenName === 'schliessungen') && projekt.matrix) {
+          Object.keys(projekt.matrix).forEach(function (key) {
+            var p = key.split('|');
+            if (p[0] === id || p[1] === id) { delete projekt.matrix[key]; }
+          });
+        }
+        return;
+      }
+      var ziel = null;
+      stelle[listenName].forEach(function (x) { if (x && x.id === id) { ziel = x; } });
+      if (!ziel) { return; }
+      stelle = ziel; i += 2;
+    }
   }
 
   function setzen(projekt, konflikt, wert) {

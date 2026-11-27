@@ -1,0 +1,2460 @@
+{
+ "Z-Anlage_Euro": {
+  "kopf": {
+   "besteller": "Firma MusterMax\nMax Mustermann\n3100 St.Pölten",
+   "besitzer": "Wohnhaus\nEVVA GmbH\n1120 Wien\nWienerbergstraße 59-65",
+   "anlage": "171MU",
+   "sdo": "4KS\nNI\n1.2.2017\nHauptbahnhof"
+  },
+  "spalten": [
+   {
+    "funktion": "Technik",
+    "menge": null,
+    "schlNr": "THS"
+   },
+   {
+    "funktion": "",
+    "menge": null,
+    "schlNr": "Z"
+   }
+  ],
+  "zeilen": [
+   {
+    "raum": "Haustür",
+    "stk": null,
+    "esl": null,
+    "type": "",
+    "zylNr": "Z",
+    "zellen": [
+     "X",
+     "Z"
+    ]
+   },
+   {
+    "raum": "Wohnung 1",
+    "stk": 1,
+    "esl": 3,
+    "type": "",
+    "zylNr": "1",
+    "zellen": [
+     "",
+     "I"
+    ]
+   },
+   {
+    "raum": "Wohnung 2",
+    "stk": 1,
+    "esl": 3,
+    "type": "",
+    "zylNr": "2",
+    "zellen": [
+     "",
+     "I"
+    ]
+   },
+   {
+    "raum": "Wohnung 3",
+    "stk": 1,
+    "esl": 3,
+    "type": "",
+    "zylNr": "3",
+    "zellen": [
+     "",
+     "I"
+    ]
+   },
+   {
+    "raum": "Wohnung 4",
+    "stk": 1,
+    "esl": 3,
+    "type": "",
+    "zylNr": "4",
+    "zellen": [
+     "",
+     "I"
+    ]
+   },
+   {
+    "raum": "Wohnung 5",
+    "stk": 1,
+    "esl": 3,
+    "type": "",
+    "zylNr": "5",
+    "zellen": [
+     "",
+     "I"
+    ]
+   },
+   {
+    "raum": "Wohnung 6",
+    "stk": 1,
+    "esl": 3,
+    "type": "",
+    "zylNr": "6",
+    "zellen": [
+     "",
+     "I"
+    ]
+   },
+   {
+    "raum": "Wohnung 7",
+    "stk": 1,
+    "esl": 3,
+    "type": "",
+    "zylNr": "7",
+    "zellen": [
+     "",
+     "I"
+    ]
+   },
+   {
+    "raum": "Wohnung 8",
+    "stk": 1,
+    "esl": 3,
+    "type": "",
+    "zylNr": "8",
+    "zellen": [
+     "",
+     "I"
+    ]
+   },
+   {
+    "raum": "Wohnung 9",
+    "stk": 1,
+    "esl": 3,
+    "type": "",
+    "zylNr": "9",
+    "zellen": [
+     "",
+     "I"
+    ]
+   },
+   {
+    "raum": "Wohnung 10",
+    "stk": 1,
+    "esl": 3,
+    "type": "",
+    "zylNr": "10",
+    "zellen": [
+     "",
+     "I"
+    ]
+   },
+   {
+    "raum": "Wohnung 11",
+    "stk": 1,
+    "esl": 3,
+    "type": "",
+    "zylNr": "11",
+    "zellen": [
+     "",
+     "I"
+    ]
+   },
+   {
+    "raum": "Wohnung 12",
+    "stk": 1,
+    "esl": 3,
+    "type": "",
+    "zylNr": "12",
+    "zellen": [
+     "",
+     "I"
+    ]
+   },
+   {
+    "raum": "Wohnung 13",
+    "stk": 1,
+    "esl": 3,
+    "type": "",
+    "zylNr": "13",
+    "zellen": [
+     "",
+     "I"
+    ]
+   },
+   {
+    "raum": "Wohnung 14",
+    "stk": 1,
+    "esl": 3,
+    "type": "",
+    "zylNr": "14",
+    "zellen": [
+     "",
+     "I"
+    ]
+   },
+   {
+    "raum": "Keller 1",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "1",
+    "zellen": [
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 2",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "2",
+    "zellen": [
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 3",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "3",
+    "zellen": [
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 4",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "4",
+    "zellen": [
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 5",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "5",
+    "zellen": [
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 6",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "6",
+    "zellen": [
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 7",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "7",
+    "zellen": [
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 8",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "8",
+    "zellen": [
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 9",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "9",
+    "zellen": [
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 10",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "10",
+    "zellen": [
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 11",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "11",
+    "zellen": [
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 12",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "12",
+    "zellen": [
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 13",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "13",
+    "zellen": [
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 14",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "14",
+    "zellen": [
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "ELT",
+    "stk": 1,
+    "esl": 0,
+    "type": "",
+    "zylNr": "T",
+    "zellen": [
+     "X",
+     ""
+    ]
+   },
+   {
+    "raum": "Müll",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "Z",
+    "zellen": [
+     "X",
+     "Z"
+    ]
+   },
+   {
+    "raum": "Fahrräder",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "Z",
+    "zellen": [
+     "X",
+     "Z"
+    ]
+   }
+  ]
+ },
+ "HS-Anlage_oldschool": {
+  "kopf": {
+   "besteller": "Firma MusterMax\nMax Mustermann\n3100 St.Pölten",
+   "besitzer": "Wohnhaus\nEVVA GmbH\n1120 Wien\nWienerbergstraße 59-65",
+   "anlage": "171MU",
+   "sdo": "4KS\nNI\n1.2.2017\nHauptbahnhof"
+  },
+  "spalten": [
+   {
+    "funktion": "Hauptschlüssel",
+    "menge": 3,
+    "schlNr": "HS"
+   },
+   {
+    "funktion": "Mieter Whg. 1",
+    "menge": 3,
+    "schlNr": "1"
+   },
+   {
+    "funktion": "Mieter Whg. 2",
+    "menge": 3,
+    "schlNr": "2"
+   },
+   {
+    "funktion": "Mieter Whg. 3",
+    "menge": 3,
+    "schlNr": "3"
+   },
+   {
+    "funktion": "Mieter Whg. 4",
+    "menge": 3,
+    "schlNr": "4"
+   },
+   {
+    "funktion": "Mieter Whg. 5",
+    "menge": 3,
+    "schlNr": "5"
+   },
+   {
+    "funktion": "Mieter Whg. 6",
+    "menge": 3,
+    "schlNr": "6"
+   },
+   {
+    "funktion": "Mieter Whg. 7",
+    "menge": 3,
+    "schlNr": "7"
+   },
+   {
+    "funktion": "Mieter Whg. 8",
+    "menge": 3,
+    "schlNr": "8"
+   },
+   {
+    "funktion": "Mieter Whg. 9",
+    "menge": 3,
+    "schlNr": "9"
+   },
+   {
+    "funktion": "Mieter Whg. 10",
+    "menge": 3,
+    "schlNr": "10"
+   },
+   {
+    "funktion": "Mieter Whg. 11",
+    "menge": 3,
+    "schlNr": "11"
+   },
+   {
+    "funktion": "Mieter Whg. 12",
+    "menge": 3,
+    "schlNr": "12"
+   },
+   {
+    "funktion": "Mieter Whg. 13",
+    "menge": 3,
+    "schlNr": "13"
+   },
+   {
+    "funktion": "Mieter Whg. 14",
+    "menge": 3,
+    "schlNr": "14"
+   }
+  ],
+  "zeilen": [
+   {
+    "raum": "Haustür",
+    "stk": 1,
+    "esl": null,
+    "type": "51/41 SY-MO",
+    "zylNr": "Z",
+    "zellen": [
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X"
+    ]
+   },
+   {
+    "raum": "Wohnung 1",
+    "stk": 1,
+    "esl": null,
+    "type": "27/36 BSZ",
+    "zylNr": "1",
+    "zellen": [
+     "X",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Wohnung 2",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "2",
+    "zellen": [
+     "X",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Wohnung 3",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "3",
+    "zellen": [
+     "X",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Wohnung 4",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "4",
+    "zellen": [
+     "X",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Wohnung 5",
+    "stk": 1,
+    "esl": null,
+    "type": "36/K41KKN",
+    "zylNr": "5",
+    "zellen": [
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Wohnung 6",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "6",
+    "zellen": [
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Wohnung 7",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "7",
+    "zellen": [
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Wohnung 8",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "8",
+    "zellen": [
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Wohnung 9",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "9",
+    "zellen": [
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Wohnung 10",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "10",
+    "zellen": [
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Wohnung 11",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "11",
+    "zellen": [
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Wohnung 12",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "12",
+    "zellen": [
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Wohnung 13",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "13",
+    "zellen": [
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     ""
+    ]
+   },
+   {
+    "raum": "Wohnung 14",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "14",
+    "zellen": [
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X"
+    ]
+   },
+   {
+    "raum": "Keller 1",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "1",
+    "zellen": [
+     "X",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 2",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "2",
+    "zellen": [
+     "X",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 3",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "3",
+    "zellen": [
+     "X",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 4",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "4",
+    "zellen": [
+     "X",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 5",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "5",
+    "zellen": [
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 6",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "6",
+    "zellen": [
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 7",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "7",
+    "zellen": [
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 8",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "8",
+    "zellen": [
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 9",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "9",
+    "zellen": [
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 10",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "10",
+    "zellen": [
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 11",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "11",
+    "zellen": [
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 12",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "12",
+    "zellen": [
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 13",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "13",
+    "zellen": [
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 14",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "14",
+    "zellen": [
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X"
+    ]
+   },
+   {
+    "raum": "ELT",
+    "stk": 1,
+    "esl": 2,
+    "type": "",
+    "zylNr": "T",
+    "zellen": [
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Müll",
+    "stk": 1,
+    "esl": null,
+    "type": "10/31",
+    "zylNr": "Z",
+    "zellen": [
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X"
+    ]
+   },
+   {
+    "raum": "Fahrräder",
+    "stk": 1,
+    "esl": null,
+    "type": "HZ32",
+    "zylNr": "Z",
+    "zellen": [
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X"
+    ]
+   }
+  ]
+ },
+ "Z-Anlage_oldschool": {
+  "kopf": {
+   "besteller": "Firma MusterMax\nMax Mustermann\n3100 St.Pölten",
+   "besitzer": "Wohnhaus\nEVVA GmbH\n1120 Wien\nWienerbergstraße 59-65",
+   "anlage": "171MU",
+   "sdo": "4KS\nNI\n1.2.2017\nHauptbahnhof"
+  },
+  "spalten": [
+   {
+    "funktion": "Technik",
+    "menge": 3,
+    "schlNr": "THS"
+   },
+   {
+    "funktion": "Mieter Whg. 1",
+    "menge": 3,
+    "schlNr": "1"
+   },
+   {
+    "funktion": "Mieter Whg. 2",
+    "menge": 3,
+    "schlNr": "2"
+   },
+   {
+    "funktion": "Mieter Whg. 3",
+    "menge": 3,
+    "schlNr": "3"
+   },
+   {
+    "funktion": "Mieter Whg. 4",
+    "menge": 3,
+    "schlNr": "4"
+   },
+   {
+    "funktion": "Mieter Whg. 5",
+    "menge": 3,
+    "schlNr": "5"
+   },
+   {
+    "funktion": "Mieter Whg. 6",
+    "menge": 3,
+    "schlNr": "6"
+   },
+   {
+    "funktion": "Mieter Whg. 7",
+    "menge": 3,
+    "schlNr": "7"
+   },
+   {
+    "funktion": "Mieter Whg. 8",
+    "menge": 3,
+    "schlNr": "8"
+   },
+   {
+    "funktion": "Mieter Whg. 9",
+    "menge": 3,
+    "schlNr": "9"
+   },
+   {
+    "funktion": "Mieter Whg. 10",
+    "menge": 3,
+    "schlNr": "10"
+   },
+   {
+    "funktion": "Mieter Whg. 11",
+    "menge": 3,
+    "schlNr": "11"
+   },
+   {
+    "funktion": "Mieter Whg. 12",
+    "menge": 3,
+    "schlNr": "12"
+   },
+   {
+    "funktion": "Mieter Whg. 13",
+    "menge": 3,
+    "schlNr": "13"
+   },
+   {
+    "funktion": "Mieter Whg. 14",
+    "menge": 3,
+    "schlNr": "14"
+   }
+  ],
+  "zeilen": [
+   {
+    "raum": "Haustür",
+    "stk": 1,
+    "esl": null,
+    "type": "51/41 SY-MO",
+    "zylNr": "Z",
+    "zellen": [
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X"
+    ]
+   },
+   {
+    "raum": "Wohnung 1",
+    "stk": 1,
+    "esl": null,
+    "type": "27/36 BSZ",
+    "zylNr": "1",
+    "zellen": [
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Wohnung 2",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "2",
+    "zellen": [
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Wohnung 3",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "3",
+    "zellen": [
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Wohnung 4",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "4",
+    "zellen": [
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Wohnung 5",
+    "stk": 1,
+    "esl": null,
+    "type": "36/K41KKN",
+    "zylNr": "5",
+    "zellen": [
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Wohnung 6",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "6",
+    "zellen": [
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Wohnung 7",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "7",
+    "zellen": [
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Wohnung 8",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "8",
+    "zellen": [
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Wohnung 9",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "9",
+    "zellen": [
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Wohnung 10",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "10",
+    "zellen": [
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Wohnung 11",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "11",
+    "zellen": [
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Wohnung 12",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "12",
+    "zellen": [
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Wohnung 13",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "13",
+    "zellen": [
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     ""
+    ]
+   },
+   {
+    "raum": "Wohnung 14",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "14",
+    "zellen": [
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X"
+    ]
+   },
+   {
+    "raum": "Keller 1",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "1",
+    "zellen": [
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 2",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "2",
+    "zellen": [
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 3",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "3",
+    "zellen": [
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 4",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "4",
+    "zellen": [
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 5",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "5",
+    "zellen": [
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 6",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "6",
+    "zellen": [
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 7",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "7",
+    "zellen": [
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 8",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "8",
+    "zellen": [
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 9",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "9",
+    "zellen": [
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 10",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "10",
+    "zellen": [
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 11",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "11",
+    "zellen": [
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 12",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "12",
+    "zellen": [
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 13",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "13",
+    "zellen": [
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 14",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "14",
+    "zellen": [
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "X"
+    ]
+   },
+   {
+    "raum": "ELT",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "T",
+    "zellen": [
+     "X",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   },
+   {
+    "raum": "Müll",
+    "stk": 1,
+    "esl": null,
+    "type": "10/31",
+    "zylNr": "Z",
+    "zellen": [
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X"
+    ]
+   },
+   {
+    "raum": "Fahrräder",
+    "stk": 1,
+    "esl": null,
+    "type": "HZ32",
+    "zylNr": "Z",
+    "zellen": [
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X",
+     "X"
+    ]
+   }
+  ]
+ },
+ "HS-Anlage_Euro": {
+  "kopf": {
+   "besteller": "Firma MusterMax\nMax Mustermann\n3100 St.Pölten",
+   "besitzer": "Wohnhaus\nEVVA GmbH\n1120 Wien\nWienerbergstraße 59-65",
+   "anlage": "171MU",
+   "sdo": "4KS\nNI\n1.2.2017\nHauptbahnhof"
+  },
+  "spalten": [
+   {
+    "funktion": "Hauptschlüssel",
+    "menge": null,
+    "schlNr": "HS"
+   },
+   {
+    "funktion": "",
+    "menge": null,
+    "schlNr": "Z"
+   }
+  ],
+  "zeilen": [
+   {
+    "raum": "Haustür",
+    "stk": null,
+    "esl": null,
+    "type": "",
+    "zylNr": "Z",
+    "zellen": [
+     "X",
+     "Z"
+    ]
+   },
+   {
+    "raum": "Wohnung 1",
+    "stk": 1,
+    "esl": 3,
+    "type": "",
+    "zylNr": "1",
+    "zellen": [
+     "X",
+     "I"
+    ]
+   },
+   {
+    "raum": "Wohnung 2",
+    "stk": 1,
+    "esl": 3,
+    "type": "",
+    "zylNr": "2",
+    "zellen": [
+     "X",
+     "I"
+    ]
+   },
+   {
+    "raum": "Wohnung 3",
+    "stk": 1,
+    "esl": 3,
+    "type": "",
+    "zylNr": "3",
+    "zellen": [
+     "X",
+     "I"
+    ]
+   },
+   {
+    "raum": "Wohnung 4",
+    "stk": 1,
+    "esl": 3,
+    "type": "",
+    "zylNr": "4",
+    "zellen": [
+     "X",
+     "I"
+    ]
+   },
+   {
+    "raum": "Wohnung 5",
+    "stk": 1,
+    "esl": 3,
+    "type": "",
+    "zylNr": "5",
+    "zellen": [
+     "X",
+     "I"
+    ]
+   },
+   {
+    "raum": "Wohnung 6",
+    "stk": 1,
+    "esl": 3,
+    "type": "",
+    "zylNr": "6",
+    "zellen": [
+     "X",
+     "I"
+    ]
+   },
+   {
+    "raum": "Wohnung 7",
+    "stk": 1,
+    "esl": 3,
+    "type": "",
+    "zylNr": "7",
+    "zellen": [
+     "X",
+     "I"
+    ]
+   },
+   {
+    "raum": "Wohnung 8",
+    "stk": 1,
+    "esl": 3,
+    "type": "",
+    "zylNr": "8",
+    "zellen": [
+     "X",
+     "I"
+    ]
+   },
+   {
+    "raum": "Wohnung 9",
+    "stk": 1,
+    "esl": 3,
+    "type": "",
+    "zylNr": "9",
+    "zellen": [
+     "X",
+     "I"
+    ]
+   },
+   {
+    "raum": "Wohnung 10",
+    "stk": 1,
+    "esl": 3,
+    "type": "",
+    "zylNr": "10",
+    "zellen": [
+     "X",
+     "I"
+    ]
+   },
+   {
+    "raum": "Wohnung 11",
+    "stk": 1,
+    "esl": 3,
+    "type": "",
+    "zylNr": "11",
+    "zellen": [
+     "X",
+     "I"
+    ]
+   },
+   {
+    "raum": "Wohnung 12",
+    "stk": 1,
+    "esl": 3,
+    "type": "",
+    "zylNr": "12",
+    "zellen": [
+     "X",
+     "I"
+    ]
+   },
+   {
+    "raum": "Wohnung 13",
+    "stk": 1,
+    "esl": 3,
+    "type": "",
+    "zylNr": "13",
+    "zellen": [
+     "X",
+     "I"
+    ]
+   },
+   {
+    "raum": "Wohnung 14",
+    "stk": 1,
+    "esl": 3,
+    "type": "",
+    "zylNr": "14",
+    "zellen": [
+     "X",
+     "I"
+    ]
+   },
+   {
+    "raum": "Keller 1",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "1",
+    "zellen": [
+     "X",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 2",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "2",
+    "zellen": [
+     "X",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 3",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "3",
+    "zellen": [
+     "X",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 4",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "4",
+    "zellen": [
+     "X",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 5",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "5",
+    "zellen": [
+     "X",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 6",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "6",
+    "zellen": [
+     "X",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 7",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "7",
+    "zellen": [
+     "X",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 8",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "8",
+    "zellen": [
+     "X",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 9",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "9",
+    "zellen": [
+     "X",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 10",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "10",
+    "zellen": [
+     "X",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 11",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "11",
+    "zellen": [
+     "X",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 12",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "12",
+    "zellen": [
+     "X",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 13",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "13",
+    "zellen": [
+     "X",
+     ""
+    ]
+   },
+   {
+    "raum": "Keller 14",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "14",
+    "zellen": [
+     "X",
+     ""
+    ]
+   },
+   {
+    "raum": "ELT",
+    "stk": 1,
+    "esl": 2,
+    "type": "",
+    "zylNr": "T",
+    "zellen": [
+     "X",
+     ""
+    ]
+   },
+   {
+    "raum": "Müll",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "Z",
+    "zellen": [
+     "X",
+     "Z"
+    ]
+   },
+   {
+    "raum": "Fahrräder",
+    "stk": 1,
+    "esl": null,
+    "type": "",
+    "zylNr": "Z",
+    "zellen": [
+     "X",
+     "Z"
+    ]
+   }
+  ]
+ }
+}

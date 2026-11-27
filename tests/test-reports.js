@@ -31,6 +31,12 @@ ausgaben.forEach(([name, fn]) => {
     const bytes = doc.build();
     fs.writeFileSync(out + '/' + name, Buffer.from(bytes));
     console.log(`  ${name.padEnd(26)} ${String(doc.seitenAnzahl()).padStart(2)} Seiten  ${String(Math.round(bytes.length/1024)).padStart(4)} KB  ${Date.now()-t0} ms`);
+    /* Metadaten jeder Ausgabe: Erstellungszeit und ein Titel mit Umlaut als
+       UTF-16BE (M7, N11); die kompakte Liste ist immer quer (N8) */
+    const s = Buffer.from(bytes).toString('latin1');
+    if (!/\/CreationDate \(D:\d{14}/.test(s)) { fehler++; console.log('  FEHLER ' + name + ': kein CreationDate'); }
+    if (/^tuerliste-kompakt/.test(name) && !doc.querformat) { fehler++; console.log('  FEHLER ' + name + ': kompakte Liste nicht quer'); }
+    if (/^tuerliste|^schliessplan|^materialliste/.test(name) && !/^leer/.test(name) && !/\/Title <FEFF/.test(s)) { fehler++; console.log('  FEHLER ' + name + ': Titel nicht als UTF-16BE'); }
   } catch (e) {
     fehler++;
     console.log(`  FEHLER bei ${name}: ${e.message}\n${e.stack.split('\n').slice(1,4).join('\n')}`);
@@ -41,7 +47,7 @@ ausgaben.forEach(([name, fn]) => {
 const gross = baueTestprojekt();
 const M = require('../src/js/model.js');
 for (let i = 0; i < 48; i++) {
-  gross.schliessungen.push(M.neueSchliessung({ kuerzel: 'MP-' + (i+20), bezeichnung: 'Mietpartei Nr. ' + (i+20), typ: 'ez', anzahlMedien: 3, sort: 100+i }));
+  gross.schliessungen.push(M.neueSchliessung({ kuerzel: 'MP-' + (i+20), bezeichnung: 'Mietpartei Nr. ' + (i+20), typ: 'ez', medien: [{ typ: 'Schlüssel', anzahl: 3 }], sort: 100+i }));
 }
 for (let i = 0; i < 60; i++) {
   gross.tueren.push(M.neueTuer({ nummer: 'X-' + i, bezeichnung: 'Zusatztür Nummer ' + i + ' Langer Raumname Verwaltung', systemId: 'evva-4ks', zylinderArt: 'Doppelzylinder', masseAussen:'30', masseInnen:'35', strukturId: gross.standorte[3].id }));

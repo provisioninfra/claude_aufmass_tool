@@ -120,5 +120,84 @@ de.text('Klammern ( ) und Backslash \\ Test', 10, 10);
 const dt = Buffer.from(de.build()).toString('latin1');
 pruefe(/\\\(/.test(dt) && /\\\)/.test(dt) && /\\\\/.test(dt), 'Sonderzeichen im String escaped');
 
+/* --- 9. Transliteration und Zeichenbreiten (N3, N4) --- */
+const tr = s => Buffer.from(enc(s)).toString('latin1');
+pruefe(tr('≥ ≤ ≠ ≈') === '>= <= != ~', 'Vergleichszeichen werden transliteriert', tr('≥ ≤ ≠ ≈'));
+pruefe(tr('Ω ∞ ′ ″') === "Ohm inf ' \"", 'Ohm, Unendlich und Minuten-/Sekundenzeichen werden transliteriert', tr('Ω ∞ ′ ″'));
+const zb = PDF._intern.zeichenBreite;
+pruefe(zb(0xDF, false) === 611 && zb(0xDF, true) === 611, 'ß hat die Helvetica-Breite 611 (nicht die von s)');
+pruefe(zb(0xF8, false) === 611 && zb(0xBD, false) === 834 && zb(0xC6, false) === 1000 && zb(0xE6, false) === 889, 'ø ½ Æ æ mit AFM-Breiten');
+pruefe(zb(0x8A, true) === 667 && zb(0xF0, true) === 611 && zb(0xAA, false) === 370 && zb(0xA6, true) === 280, 'Š fett, ð fett, ª und ¦ mit AFM-Breiten');
+pruefe(Math.abs(d0.textBreite('Straße', 10, false) - (667 + 278 + 333 + 556 + 611 + 556) / 1000 * 10 / PDF.MM_TO_PT) < 1e-9, 'Breite „Straße“ entspricht der AFM-Summe');
+
+/* --- 10. Auslassung (N5) --- */
+const k1 = d0.kuerzen('Generalhauptschlüssel', 12, 7, true);
+pruefe(/\u2026$/.test(k1) && d0.textBreite(k1, 7, true) <= 12.001, 'kuerzen endet auf „…“ und hält die Breite ein', JSON.stringify(k1));
+pruefe(d0.kuerzen('Generalhauptschlüssel', 1, 7, true) === '', 'passt nicht einmal die Ellipse, bleibt die Zelle leer');
+pruefe(d0.kuerzen('kurz', 50, 7, false) === 'kurz', 'ein passender Text bleibt unverändert');
+const a1 = d0.mitAuslassung('Dies ist ein Satz mit mehreren Wörtern', 30, 9, false);
+pruefe(/^Dies ist ein Satz( mit)?…$/.test(a1), 'maxLines kürzt an der Wortgrenze', JSON.stringify(a1));
+{
+  const dm = new PDF.Doc(); dm.neueSeite();
+  let gezeichnet = [];
+  const oT = dm.text; dm.text = function (t) { gezeichnet.push(String(t)); return oT.apply(this, arguments); };
+  dm.textBlock('Wort '.repeat(40), 10, 10, 40, { size: 9, maxLines: 2 });
+  pruefe(gezeichnet.length === 2 && /Wort…$/.test(gezeichnet[1]) && dm.textBreite(gezeichnet[1], 9, false) <= 40.001, 'textBlock mit maxLines endet an einer Wortgrenze mit „…“', JSON.stringify(gezeichnet));
+}
+
+/* --- 11. Harte Trennung an - / . (M9) --- */
+const geteilt = d0.umbrechen('LANG-OHNE-LEERZEICHEN-0001', 20, 7.2, true);
+pruefe(geteilt.every(z => /[-.]$|^0001$/.test(z)) && geteilt.join('') === 'LANG-OHNE-LEERZEICHEN-0001', 'ein langes Wort bricht hinter Bindestrichen um', JSON.stringify(geteilt));
+pruefe(d0.umbrechen('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', 20, 9, false).length > 1, 'ohne Trennzeichen bleibt die zeichenweise Trennung');
+
+/* --- 12. Fließtext mit Seitenumbruch (H3) --- */
+{
+  const df = new PDF.Doc({ margin: { oben: 10, unten: 10, links: 10, rechts: 10 } });
+  df.neueSeite();
+  let umbrueche = 0;
+  const positionen = [];
+  const oT = df.text; df.text = function (t, x, y) { positionen.push({ y: y, seite: this.seiten.length }); return oT.apply(this, arguments); };
+  df.y = 250;
+  const zeilen = df.textFliessend('Zeile '.repeat(400), 10, 100, { size: 9, beiUmbruch: function (d) { umbrueche++; d.y += 5; } });
+  pruefe(zeilen > 20 && umbrueche >= 1 && df.seitenAnzahl() >= 2, 'textFliessend bricht um und ruft beiUmbruch (' + umbrueche + ' mal)');
+  pruefe(positionen.every(p => p.y + 9 / PDF.MM_TO_PT <= df.hoehe - df.rand.unten + 1e-9), 'keine Zeile steht unter dem unteren Rand');
+  pruefe(positionen.filter(p => p.seite === 2)[0].y >= df.rand.oben + 5 - 1e-9, 'nach dem Umbruch beginnt der Text unter dem wiederholten Kopf');
+  /* anhangHoehe hält die letzten Zeilen mit dem folgenden Block zusammen */
+  const da = new PDF.Doc({ margin: { oben: 10, unten: 10, links: 10, rechts: 10 } });
+  da.neueSeite(); da.y = da.hoehe - da.rand.unten - 20;
+  da.textFliessend('Eins Zwei Drei Vier', 10, 20, { size: 9, anhangHoehe: 40 });
+  pruefe(da.seitenAnzahl() === 2 && da.y < 60, 'anhangHoehe: die letzten Zeilen wandern mit dem Anhang auf die nächste Seite');
+}
+
+/* --- 13. JPEG-Sonderfälle (N13) --- */
+const sof = [0x00, 0x11, 0x08, 0x00, 0x64, 0x00, 0xC8, 0x03, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1];
+const fuell = PDF._intern.jpegInfo(new Uint8Array([0xFF, 0xD8, 0xFF, 0xFF, 0xFF, 0xC0].concat(sof, [0xFF, 0xD9])));
+pruefe(fuell && fuell.breite === 200 && fuell.hoehe === 100, 'Füllbytes FF FF vor dem Marker werden übersprungen', JSON.stringify(fuell));
+const adobe = PDF._intern.jpegInfo(new Uint8Array([0xFF, 0xD8, 0xFF, 0xEE, 0x00, 0x0E, 0x41, 0x64, 0x6F, 0x62, 0x65, 0, 100, 0, 0, 0, 0, 2, 0xFF, 0xC0, 0x00, 0x11, 0x08, 0x00, 0x64, 0x00, 0xC8, 0x04, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1, 4, 0x11, 1, 0xFF, 0xD9]));
+pruefe(adobe && adobe.adobe === true && adobe.kanaele === 4, 'APP14-Adobe-Marker wird erkannt', JSON.stringify(adobe));
+const d12 = new PDF.Doc();
+const b12 = Buffer.from([0xFF, 0xD8, 0xFF, 0xC1, 0x00, 0x11, 0x0C, 0x00, 0x64, 0x00, 0xC8, 0x03, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1, 0xFF, 0xD9]).toString('base64');
+pruefe(d12.bildRegistrieren('data:image/jpeg;base64,' + b12) === null, '12-Bit-JPEG wird abgelehnt');
+const b8 = Buffer.from([0xFF, 0xD8, 0xFF, 0xEE, 0x00, 0x0E, 0x41, 0x64, 0x6F, 0x62, 0x65, 0, 100, 0, 0, 0, 0, 2, 0xFF, 0xC0].concat(sof.slice(0, 7), [0x04, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1, 4, 0x11, 1], [0xFF, 0xD9])).toString('base64');
+const idC = d12.bildRegistrieren('data:image/jpeg;base64,' + b8);
+d12.neueSeite(); d12.bild(idC, 10, 10, 20);
+pruefe(idC && d12.bildInfo(idC).breite === 200 && /\/DeviceCMYK \/BitsPerComponent 8 \/Decode \[1 0 1 0 1 0 1 0\]/.test(Buffer.from(d12.build()).toString('latin1')), 'CMYK mit Adobe-Marker bekommt /Decode, bildInfo liefert Pixelmaße');
+
+/* --- 14. Metadaten (M7, N11) --- */
+pruefe(PDF._intern.pdfTextString('abc (x)') === '(abc \\(x\\))', 'reines ASCII bleibt ein Literal-String');
+pruefe(PDF._intern.pdfTextString('„Ä“') === '<FEFF201E00C4201C>', 'Nicht-ASCII wird UTF-16BE mit BOM als Hex-String', PDF._intern.pdfTextString('„Ä“'));
+pruefe(/^D:\d{14}[+-]\d{2}'\d{2}'$/.test(PDF._intern.pdfDatum(new Date())), 'PDF-Datum im Format D:JJJJMMTThhmmss+hh\'mm\'', PDF._intern.pdfDatum(new Date()));
+{
+  const dmeta = new PDF.Doc({ titel: 'Türliste „Test“ – €', autor: 'Müller', fassung: '1.2.3', erstelltAm: new Date(2026, 10, 26, 18, 30, 0) });
+  dmeta.neueSeite();
+  const s = Buffer.from(dmeta.build()).toString('latin1');
+  pruefe(/\/Title <FEFF00540FC/.test(s) === false && /\/Title <FEFF0054/.test(s), 'Titel steht als UTF-16BE-Hex im Info-Dictionary');
+  pruefe(/\/Producer <FEFF/.test(s) && /\/Creator <FEFF/.test(s), 'Producer und Creator (mit ß) als UTF-16BE');
+  const prod = /\/Producer <([0-9A-F]+)>/.exec(s)[1];
+  let text = ''; for (let i = 4; i < prod.length; i += 4) text += String.fromCharCode(parseInt(prod.slice(i, i + 4), 16));
+  pruefe(text === 'Aufmaß-Werkzeug 1.2.3', 'Producer trägt die Fassung', text);
+  pruefe(/\/CreationDate \(D:20261126183000[+-]\d{2}'\d{2}'\)/.test(s) && /\/ModDate \(D:20261126183000/.test(s), 'CreationDate und ModDate mit Erstellungszeit');
+}
+
 console.log(`\nErgebnis PDF: ${ok} ok, ${fehler} Fehler`);
 process.exit(fehler ? 1 : 0);

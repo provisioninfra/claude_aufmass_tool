@@ -5,14 +5,14 @@
  * Die Fassung hier muss mit FASSUNG in js/app.js übereinstimmen (der
  * Prüflauf achtet darauf). Jede neue Fassung bekommt damit eine neue
  * Ablage, und alle Geräte holen beim nächsten Start den neuen Stand. */
-var FASSUNG = '1.1.1';
+var FASSUNG = '1.5.5';
 var CACHE = 'aufmass-tool-' + FASSUNG;
 var DATEIEN = [
   './', './index.html', './freigabe.html', './css/app.css', './manifest.webmanifest',
   './icon.svg', './icon-180.png', './icon-192.png', './icon-512.png',
-  './js/catalog.js', './js/model.js', './js/pdf.js', './js/reports.js',
-  './js/store.js', './js/verlauf.js', './js/freigabe.js', './js/pipedrive.js', './js/app.js', './js/views-projekt.js', './js/views-tueren.js',
-  './js/views-plan.js', './js/main.js',
+  './js/catalog.js', './js/model.js', './js/europlan.js', './js/xlsx.js', './js/pdf.js', './js/reports.js',
+  './js/store.js', './js/verlauf.js', './js/freigabe.js', './js/pipedrive.js', './js/diktat.js', './js/app.js', './js/views-projekt.js', './js/views-tueren.js',
+  './js/views-personen.js', './js/views-europlan.js', './js/views-plan.js', './js/main.js',
   /* Der Abgleich gehört mit in die Ablage: Sonst stünde das Werkzeug
      beim Start ohne Netz ohne diese Dateien da. */
   './js/zusammenfuehren.js', './js/abgleich.js', './js/abgleich-ui.js',
@@ -32,7 +32,12 @@ self.addEventListener('install', function (e) {
         return c.addAll(DATEIEN.map(function (d) { return new Request(d, { cache: 'reload' }); }));
       })
       .then(function () { return self.skipWaiting(); })
-      .catch(function () { /* einzelne Datei nicht erreichbar: Start trotzdem zulassen */ })
+      /* Kein catch: Schlägt die Installation fehl (eine Datei fehlt, das
+         Netz bricht ab), bleibt der alte Worker samt seiner Ablage in
+         Kraft und der Versuch wird beim nächsten Laden wiederholt. Würde
+         der Fehler verschluckt, gälte die Installation als gelungen, die
+         Aktivierung räumte die alte Ablage weg - und zurück bliebe eine
+         leere, mit der das Werkzeug ohne Netz nicht mehr startet. */
   );
 });
 
@@ -45,6 +50,19 @@ self.addEventListener('activate', function (e) {
   );
 });
 
+/* Passt die Antwort zu dem, was die Seite angefordert hat? Entscheidend ist
+ * der eine Fall, der das Werkzeug lahmlegt: Für ein Skript, ein Stylesheet
+ * oder ein Bild kommt eine HTML-Seite (Wartung, Sperre, Anmeldung) mit 200.
+ * Die darf nie in die Ablage. Umgekehrt muss ein Dokument HTML sein. Fehlt
+ * der Inhaltstyp (schlicht eingerichteter Server), gilt die Antwort als echt. */
+function inhaltPasst(antwort, anfrage) {
+  var typ = String(antwort.headers.get('content-type') || '').toLowerCase();
+  var ziel = anfrage.destination || '';
+  var html = typ.indexOf('text/html') === 0;
+  if (ziel === 'document' || ziel === 'iframe' || ziel === 'frame') { return typ === '' || html; }
+  return !html;
+}
+
 /* Zuerst der Zwischenspeicher (die Anwendung ändert sich selten),
  * im Hintergrund wird beim Server nachgefragt, ob es Neueres gibt. */
 self.addEventListener('fetch', function (e) {
@@ -56,19 +74,33 @@ self.addEventListener('fetch', function (e) {
    * für den aktuellen Stand - der Abgleich wäre still wirkungslos.
    * Die Anfragen gehen deshalb unverändert ans Netz. */
   if (url.pathname.indexOf('/wp-json/') !== -1) return;
+  /* Kurzlinks (/f/<code>) leitet der Server auf die Kundenseite um. Liegt das
+     Werkzeug im Wurzelverzeichnis der Website, läge /f/ im Geltungsbereich -
+     und eine bereits gefolgte Umleitung darf der Worker auf eine Navigation
+     nicht antworten (der Browser bricht mit ERR_FAILED ab). Also: Hände weg. */
+  if (/\/f\/[A-Za-z0-9]{6,16}\/?$/.test(url.pathname)) return;
   e.respondWith(
     caches.match(e.request).then(function (treffer) {
       /* no-cache: beim Server rückfragen statt dem Browser-Cache glauben.
          Unverändertes kostet so nur eine kurze Rückfrage, Geändertes
          kommt wirklich an. */
       var netz = fetch(new Request(url.href, { cache: 'no-cache', credentials: 'same-origin' })).then(function (antwort) {
-        if (antwort && antwort.status === 200) {
+        /* Eine Navigation, die der Server umgeleitet hat: Der Browser soll der
+           Umleitung selbst folgen - eine schon gefolgte Antwort ist für
+           Navigationen verboten. */
+        if (e.request.mode === 'navigate' && antwort && antwort.redirected) { return Response.redirect(antwort.url, 302); }
+        /* Nur ablegen, was wirklich die angeforderte Datei ist: Liefert der
+           Hoster für ein Skript eine Wartungs- oder Sperrseite mit 200, dürfte
+           die nie als Skript in der Ablage landen - das Werkzeug startete
+           sonst auch online nicht mehr, bis jemand die Website-Daten löscht. */
+        if (antwort && antwort.status === 200 && antwort.type === 'basic' && inhaltPasst(antwort, e.request)) {
           var kopie = antwort.clone();
           caches.open(CACHE).then(function (c) { c.put(e.request, kopie); });
         }
         return antwort;
       }).catch(function () { return treffer; });
-      return treffer || netz;
+      /* Weder Ablage noch Netz: ein echter Netzfehler statt „undefined“ */
+      return treffer || netz.then(function (a) { return a || Response.error(); });
     })
   );
 });

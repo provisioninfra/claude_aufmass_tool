@@ -18,13 +18,16 @@ function bauen() {
 
   /* Reihenfolge wie in index.html - die Module bauen aufeinander auf */
   const skripte = [
-    'js/catalog.js', 'js/model.js', 'js/pdf.js', 'js/reports.js', 'js/store.js', 'js/verlauf.js', 'js/freigabe.js', 'js/pipedrive.js',
-    'js/app.js', 'js/views-projekt.js', 'js/views-tueren.js', 'js/views-plan.js', 'js/main.js'
+    'js/catalog.js', 'js/model.js', 'js/europlan.js', 'js/xlsx.js', 'js/pdf.js', 'js/reports.js', 'js/store.js', 'js/verlauf.js', 'js/freigabe.js', 'js/pipedrive.js', 'js/diktat.js',
+    'js/app.js', 'js/views-projekt.js', 'js/views-tueren.js', 'js/views-personen.js', 'js/views-europlan.js', 'js/views-plan.js', 'js/main.js'
   ];
 
   /* Stylesheet einbetten */
+  /* Als Funktion ersetzen: Im Quelltext stehen Zeichenfolgen wie „$1“ oder
+     „$A$1“ (Excel-Druckbereich), die String.replace sonst als Muster liest
+     und die Datei still zerstört (Syntaxfehler beim Start). */
   html = html.replace(/<link rel="stylesheet" href="css\/app\.css">/,
-    '<style>\n' + css + '\n</style>');
+    function () { return '<style>\n' + css + '\n</style>'; });
 
   /* Manifest und Service Worker entfallen in der Einzeldatei */
   html = html.replace(/<link rel="manifest"[^>]*>\s*/g, '');
@@ -69,7 +72,7 @@ function bauen() {
   });
   html = html.replace(/<!--\s*Abgleich mit der gemeinsamen Ablage[\s\S]*?-->\s*/, '');
   html = html.replace(/<!--\s*Offline-Ablage und Erkennen[\s\S]*?-->\s*/, '');
-  html = html.replace('</body>', '<script>' + gebuendelt + '</script>\n</body>');
+  html = html.replace('</body>', function () { return '<script>' + gebuendelt + '</script>\n</body>'; });
 
   /* Die Kundenfreigabe braucht eine Web-Adresse; in der Einzeldatei bleibt
      sie bedienbar, der erzeugte Link funktioniert aber nur mit einer solchen.
